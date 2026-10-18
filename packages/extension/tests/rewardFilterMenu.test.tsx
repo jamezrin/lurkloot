@@ -5,7 +5,7 @@ import type React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RewardFilter } from "@lurkloot/shared/models";
+import type { RewardFilter, UnlinkedCampaignMode } from "@lurkloot/shared/models";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { I18nContext } from "../../popup-ui/src/context";
 import {
@@ -155,7 +155,11 @@ describe("RewardFilterFields", () => {
 });
 
 describe("RewardFilterMenu trigger", () => {
-  const trigger = (filter: RewardFilter, farmPinnedOnly: boolean) => {
+  const trigger = (
+    filter: RewardFilter,
+    farmPinnedOnly: boolean,
+    unlinkedCampaigns: UnlinkedCampaignMode = "include",
+  ) => {
     const container = mount(
       <RewardFilterMenu
         platform="twitch"
@@ -164,6 +168,8 @@ describe("RewardFilterMenu trigger", () => {
         farmPinnedOnly={farmPinnedOnly}
         onChange={() => undefined}
         onFarmPinnedOnlyChange={() => undefined}
+        unlinkedCampaigns={unlinkedCampaigns}
+        onUnlinkedCampaignsChange={() => undefined}
       />,
     );
     return container.querySelector<HTMLElement>("[data-reward-filter]")!;
@@ -183,15 +189,30 @@ describe("RewardFilterMenu trigger", () => {
     expect(button.textContent).toBe("rewardKindBadge · rewardFilterNoSub · rewardFilterPinnedOnly");
   });
 
-  it("stays plain when pinned only is off", () => {
+  it("stays plain when pinned only is off and unlinked campaigns are included", () => {
     const button = trigger(defaultRewardFilter("twitch"), false);
     expect(button.textContent).toBe("rewardFilterAll");
     expect(button.hasAttribute("data-narrowed")).toBe(false);
   });
+
+  it("names the unlinked mode between the filter and pinned only, and accents it", () => {
+    expect(trigger(defaultRewardFilter("twitch"), false, "skip").textContent).toBe(
+      "rewardFilterAll · rewardFilterNoUnlinked",
+    );
+    const last = trigger({ kinds: ["badge"], subscriptions: "include" }, true, "last");
+    expect(last.textContent).toBe(
+      "rewardKindBadge · rewardFilterUnlinkedLast · rewardFilterPinnedOnly",
+    );
+    expect(last.hasAttribute("data-narrowed")).toBe(true);
+  });
 });
 
 describe("RewardFilterMenu menu", () => {
-  const openMenu = (platform: "twitch" | "kick", showSubscriptions: boolean) => {
+  const openMenu = (
+    platform: "twitch" | "kick",
+    showSubscriptions: boolean,
+    onUnlinkedCampaignsChange: (value: UnlinkedCampaignMode) => void = () => undefined,
+  ) => {
     const container = mount(
       <div data-scroller="" style={{ overflowY: "auto" }}>
         <RewardFilterMenu
@@ -201,6 +222,8 @@ describe("RewardFilterMenu menu", () => {
           farmPinnedOnly={false}
           onChange={() => undefined}
           onFarmPinnedOnlyChange={() => undefined}
+          unlinkedCampaigns="include"
+          onUnlinkedCampaignsChange={onUnlinkedCampaignsChange}
         />
       </div>,
     );
@@ -210,11 +233,42 @@ describe("RewardFilterMenu menu", () => {
   const pinnedRow = () =>
     document.querySelector<HTMLElement>("[data-queue-pinned-only]")?.parentElement ?? null;
 
-  it("draws no separator when there is nothing above pinned only", () => {
+  const unlinkedSection = () =>
+    document
+      .querySelector<HTMLElement>("[data-unlinked-mode]")
+      ?.closest<HTMLElement>("[role=dialog] > div") ?? null;
+
+  it("draws no separator when there is nothing above the unlinked choice", () => {
     openMenu("kick", false);
-    const row = pinnedRow()!;
-    expect(row.previousElementSibling).toBeNull();
-    expect(row.className).not.toContain("border-t");
+    const section = unlinkedSection()!;
+    expect(section.previousElementSibling).toBeNull();
+    expect(section.className).not.toContain("border-t");
+    // Pinned only always follows the unlinked choice, so it is always separated.
+    expect(pinnedRow()!.className).toContain("border-t");
+  });
+
+  it("separates the unlinked choice from the filter fields", () => {
+    openMenu("twitch", true);
+    expect(unlinkedSection()!.className).toContain("border-t");
+  });
+
+  it("offers include, skip and farm last for unlinked campaigns", () => {
+    const onUnlinkedCampaignsChange = vi.fn();
+    openMenu("kick", false, onUnlinkedCampaignsChange);
+    const options = [...document.querySelectorAll<HTMLElement>("[data-unlinked-option]")];
+    expect(options.map((option) => option.dataset.unlinkedOption)).toEqual([
+      "include",
+      "skip",
+      "last",
+    ]);
+    const group = document.querySelector<HTMLElement>("[data-unlinked-mode]")!;
+    expect(group.getAttribute("role")).toBe("radiogroup");
+    expect(document.getElementById(group.getAttribute("aria-labelledby")!)?.textContent).toBe(
+      "unlinkedCampaignsTitle",
+    );
+    expect(document.body.textContent).toContain("unlinkedModeIncludeHint");
+    act(() => options[2]!.click());
+    expect(onUnlinkedCampaignsChange).toHaveBeenCalledWith("last");
   });
 
   it("separates pinned only from the filter fields", () => {
@@ -247,9 +301,10 @@ describe("RewardFilterMenu menu", () => {
 });
 
 describe("RewardFilterMenu reset", () => {
-  it("clears pinned only along with the filter", () => {
+  it("clears pinned only and the unlinked mode along with the filter", () => {
     const onChange = vi.fn();
     const onFarmPinnedOnlyChange = vi.fn();
+    const onUnlinkedCampaignsChange = vi.fn();
     const container = mount(
       <RewardFilterMenu
         platform="kick"
@@ -258,16 +313,20 @@ describe("RewardFilterMenu reset", () => {
         farmPinnedOnly
         onChange={onChange}
         onFarmPinnedOnlyChange={onFarmPinnedOnlyChange}
+        unlinkedCampaigns="last"
+        onUnlinkedCampaignsChange={onUnlinkedCampaignsChange}
       />,
     );
     act(() => container.querySelector<HTMLElement>("[data-reward-filter]")!.click());
     act(() => document.querySelector<HTMLElement>("[data-reward-filter-reset]")!.click());
     expect(onChange).toHaveBeenCalledWith(defaultRewardFilter("kick"));
     expect(onFarmPinnedOnlyChange).toHaveBeenCalledWith(false);
+    expect(onUnlinkedCampaignsChange).toHaveBeenCalledWith("include");
   });
 
-  it("leaves pinned only alone when it is already off", () => {
+  it("leaves pinned only and the unlinked mode alone when they are already default", () => {
     const onFarmPinnedOnlyChange = vi.fn();
+    const onUnlinkedCampaignsChange = vi.fn();
     const container = mount(
       <RewardFilterMenu
         platform="twitch"
@@ -276,10 +335,13 @@ describe("RewardFilterMenu reset", () => {
         farmPinnedOnly={false}
         onChange={() => undefined}
         onFarmPinnedOnlyChange={onFarmPinnedOnlyChange}
+        unlinkedCampaigns="include"
+        onUnlinkedCampaignsChange={onUnlinkedCampaignsChange}
       />,
     );
     act(() => container.querySelector<HTMLElement>("[data-reward-filter]")!.click());
     act(() => document.querySelector<HTMLElement>("[data-reward-filter-reset]")!.click());
     expect(onFarmPinnedOnlyChange).not.toHaveBeenCalled();
+    expect(onUnlinkedCampaignsChange).not.toHaveBeenCalled();
   });
 });

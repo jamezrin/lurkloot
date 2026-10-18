@@ -762,7 +762,7 @@
     "message": "Všechny odměny v této kampani jsou dokončené."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Farmení kampaní bez propojeného účtu je vypnuté."
+    "message": "Kampaně bez propojeného účtu jsou nastaveny na Přeskočit."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Pro tuto kampaň Twitch je vyžadováno propojení účtu."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Zvolte, které úrovně se zapisují do protokolu Aktivity. Chyby se vždy uchovávají."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farmit kampaně bez propojeného účtu"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Když vypnuto, přeskočí kampaně vyžadující propojení účtu. Požadavky platformy mohou propojení vyžadovat i při zapnutí."
-  },
   "rewardFilterTitle": {
     "message": "Odměny k farmení"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Farmí se jen odměny vyžadující předplatné."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Kampaně bez propojeného účtu"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Kampaně vyžadující propojení herního účtu můžeš farmit, přeskočit nebo farmit naposledy. Požadavky platformy mohou propojení vyžadovat i před uplatněním odměny."
+  },
+  "unlinkedModeInclude": {
+    "message": "Zahrnout"
+  },
+  "unlinkedModeSkip": {
+    "message": "Přeskočit"
+  },
+  "unlinkedModeLast": {
+    "message": "Farmit naposledy"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Farmí se spolu s ostatními. Propoj účet, aby šlo odměny uplatnit."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Nikdy se nefarmí, ani když jsou připnuté."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Farmí se jen tehdy, když nejde farmit žádná propojená kampaň. Připnuté kampaně a oblíbené hry si drží pozici."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "přeskočit nepropojené"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "nepropojené naposled"
+  },
+  "queueGroupUnlinked": {
+    "message": "Bez propojení · farmí se naposledy"
+  },
+  "rankReasonUnlinked": {
+    "message": "Účet není propojen"
+  },
+  "queueFixFarmLast": {
+    "message": "Farmit naposledy"
   },
   "rewardFilterAll": {
     "message": "Všechny odměny"

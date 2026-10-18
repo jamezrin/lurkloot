@@ -31,6 +31,7 @@ import {
   campaignPassesFarmingEligibility,
   hasCampaignEnded,
 } from "@lurkloot/shared/campaignFilters";
+import { isCampaignUnlinked } from "@lurkloot/shared/unlinkedCampaigns";
 import {
   applySubscriptionMarks,
   canClaimReward,
@@ -480,9 +481,9 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   ) {
     return "Campaigns have no time-based rewards";
   }
-  // Placed before the account-linked reason so a user who turned
-  // farmUnlinkedCampaigns off is told about their eligibility setting rather
-  // than about the link state that setting keys off. With the flag on, unlinked
+  // Placed before the account-linked reason so a user who set
+  // unlinkedCampaigns to "skip" is told about their eligibility setting rather
+  // than about the link state that setting keys off. Otherwise unlinked
   // campaigns pass this predicate and the more specific reason below still wins.
   if (
     notExcluded.every(
@@ -492,12 +493,7 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   ) {
     return "All campaigns are skipped by your farming eligibility settings";
   }
-  if (
-    notExcluded.every(
-      (campaign) =>
-        campaign.accountLinked === false || campaign.eligibility === "account_not_linked",
-    )
-  ) {
+  if (notExcluded.every((campaign) => isCampaignUnlinked(campaign))) {
     return "Campaign accounts are not linked";
   }
   if (

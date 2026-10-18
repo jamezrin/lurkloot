@@ -846,7 +846,7 @@ describe("scheduler campaign selection", () => {
   it("fingerprints a campaign with its own platform's settings", () => {
     const kick = campaign("kick-campaign", { platform: "kick" });
     const base = settings();
-    const unlinkedOff = settings({ platform: { kick: { farmUnlinkedCampaigns: false } } });
+    const unlinkedOff = settings({ platform: { kick: { unlinkedCampaigns: "skip" } } });
     const twitchChanged = settings({ platform: { twitch: { farmPinnedOnly: true } } });
 
     expect(campaignSearchFingerprint(kick, unlinkedOff)).not.toBe(
@@ -1698,11 +1698,11 @@ describe("campaign filters gate farming", () => {
 
   const unlinkedKick = () => campaign("unlinked", { platform: "kick", accountLinked: false });
 
-  it("skips an unlinked Kick campaign when farmUnlinkedCampaigns is off", async () => {
+  it("skips an unlinked Kick campaign when unlinked campaigns are skipped", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [unlinkedKick()],
-      settings({ platform: { kick: { farmUnlinkedCampaigns: false } } }),
+      settings({ platform: { kick: { unlinkedCampaigns: "skip" } } }),
       kickAdapter(),
     );
 
@@ -1710,7 +1710,7 @@ describe("campaign filters gate farming", () => {
     expect(decision.reason).toContain("farming eligibility");
   });
 
-  it("still farms an unlinked Kick campaign when farmUnlinkedCampaigns is on", async () => {
+  it("still farms an unlinked Kick campaign when unlinked campaigns are included", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [unlinkedKick()],
@@ -2118,7 +2118,7 @@ describe("scheduler tick", () => {
     const twitch = adapter("twitch", rejected, [channel("creator")]);
     const tickSettings = settings({
       platform: {
-        twitch: { enabled: true, farmUnlinkedCampaigns: false },
+        twitch: { enabled: true, unlinkedCampaigns: "skip" },
         kick: { enabled: false },
       },
     });
@@ -2938,6 +2938,125 @@ describe("scheduler tick", () => {
       channel: { username: "current" },
     });
     expect(result.state.sessions.twitch.reasonCode).not.toBe("higher_priority_reward");
+  });
+
+  describe("unlinked campaigns farmed last", () => {
+    const kickSettings = settings({
+      platform: {
+        twitch: { enabled: false, idleWatchlistChannels: [] },
+        kick: { enabled: true, idleWatchlistChannels: [], unlinkedCampaigns: "last" },
+      },
+    });
+    const kickChannel = (username: string) =>
+      channel(username, { platform: "kick", url: `https://kick.com/${username}` });
+    // The unlinked campaign ends first, so any other setting would farm it first.
+    const unlinked = campaign("unlinked", {
+      platform: "kick",
+      accountLinked: false,
+      endsAt: "2099-01-01T00:00:00.000Z",
+    });
+    const linked = campaign("linked", {
+      platform: "kick",
+      endsAt: "2099-02-01T00:00:00.000Z",
+      rewards: [{ ...reward("locked"), id: "linked-reward" }],
+    });
+    const watchingUnlinked: SchedulerState = {
+      ...baseState,
+      sessions: {
+        ...baseState.sessions,
+        kick: {
+          platform: "kick",
+          status: "watching",
+          channel: kickChannel("unlinked-channel"),
+          campaignId: "unlinked",
+          rewardId: "reward-in_progress",
+          offlineChecks: 0,
+          playbackChecks: 0,
+          watchMode: "tabless",
+        },
+      },
+    };
+
+    it("farms a linked campaign before an unlinked one that ends sooner", async () => {
+      const kick = adapter("kick", [unlinked, linked], [kickChannel("live")]);
+      const decision = await chooseCampaignDecision("kick", [unlinked, linked], kickSettings, kick);
+
+      expect(decision.action).toBe("watch");
+      expect(decision.campaign?.id).toBe("linked");
+    });
+
+    it("farms the unlinked campaign when no linked one has a live channel", async () => {
+      const kick = adapter("kick", [unlinked, linked], []);
+      vi.mocked(kick.listCandidateChannels).mockImplementation(async (target) =>
+        target.id === "unlinked" ? [kickChannel("unlinked-channel")] : [],
+      );
+      const decision = await chooseCampaignDecision("kick", [unlinked, linked], kickSettings, kick);
+
+      expect(decision.action).toBe("watch");
+      expect(decision.campaign?.id).toBe("unlinked");
+    });
+
+    it("switches from an in-progress unlinked reward as soon as a linked one can be farmed", async () => {
+      const kick = adapter("kick", [unlinked, linked], [kickChannel("linked-channel")]);
+
+      const result = await runSchedulerTick(
+        watchingUnlinked,
+        kickSettings,
+        { twitch: adapter("twitch", [], []), kick },
+        { platforms: ["kick"] },
+      );
+
+      expect(result.state.sessions.kick).toMatchObject({
+        status: "watching",
+        campaignId: "linked",
+        channel: { username: "linked-channel" },
+      });
+    });
+
+    it("keeps the unlinked watch for hours while no linked campaign has a live channel", async () => {
+      const kick = adapter("kick", [unlinked, linked], []);
+      vi.mocked(kick.listCandidateChannels).mockImplementation(async (target) =>
+        target.id === "unlinked" ? [kickChannel("unlinked-channel")] : [],
+      );
+
+      let state = watchingUnlinked;
+      // Three hours of one-minute ticks: the linked campaign is looked for on
+      // every tick, and the unlinked watch is never dropped or reopened.
+      for (let tick = 0; tick < 180; tick += 1) {
+        const result = await runSchedulerTick(
+          state,
+          kickSettings,
+          { twitch: adapter("twitch", [], []), kick },
+          { platforms: ["kick"] },
+        );
+        state = result.state;
+        expect(state.sessions.kick).toMatchObject({
+          status: "watching",
+          campaignId: "unlinked",
+          channel: { username: "unlinked-channel" },
+        });
+      }
+      // The tick re-asserts the same watch each time; it never stops it or
+      // points it anywhere else.
+      expect(
+        vi
+          .mocked(kick.prepareWatchTab)
+          .mock.calls.every(([target]) => target.username === "unlinked-channel"),
+      ).toBe(true);
+      expect(kick.stopWatchTab).not.toHaveBeenCalled();
+    });
+
+    it("keeps a pinned unlinked campaign ahead of linked ones", async () => {
+      const kick = adapter("kick", [unlinked, linked], [kickChannel("live")]);
+      const decision = await chooseCampaignDecision(
+        "kick",
+        [unlinked, linked],
+        { ...kickSettings, campaignPins: ["unlinked"] },
+        kick,
+      );
+
+      expect(decision.campaign?.id).toBe("unlinked");
+    });
   });
 
   it("bypasses current-watch retention when a higher-priority campaign is available", async () => {

@@ -624,7 +624,7 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
-- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `farmUnlinkedCampaigns`.
+- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
 - Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
 `categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
@@ -668,7 +668,7 @@ facade (#583, #591). "Background controller ownership and concurrency" above has
 `rankCampaigns` in `@lurkloot/shared/ranking` is the only campaign order in the
 product. The scheduler picks from it, the keep-watching comparison reads it, and
 the popup's Queue renders it, so the rank on a card is the position the engine
-acts on. Three tiers, in order:
+acts on. Four tiers, in order:
 
 1. `campaignPins` — an ordered, sparse list of campaign ids the user placed by
    hand. Dragging a card, or typing a rank, pins that one campaign; everything
@@ -683,11 +683,22 @@ acts on. Three tiers, in order:
    stay where they were.
 3. `priorityMode` — one live strategy (`ending_soonest` or
    `lowest_availability`), then name, then id.
+4. With a platform's `unlinkedCampaigns` set to `"last"`, its unlinked campaigns
+   (`isCampaignUnlinked`) that tiers 1 and 2 did not place, by the same
+   strategy. The tier is assigned after the pin and favourite checks, so a pin
+   or a starred game keeps its rank whatever the link state. The scheduler
+   walks this order, so an unlinked campaign is farmed only once no linked one
+   above it has a channel, and it gives way, mid-reward, as soon as one does,
+   as any lower-ranked watch does.
 
 Eligibility is always decided before ranking (`evaluateCampaignFarming`), so a
 pin can never rescue a campaign an exclusion, a block or a class filter refused.
 Each platform's `farmPinnedOnly` is an eligibility switch, not a mode: a
-strategy is always in effect. Each platform's `rewardFilter`
+strategy is always in effect. Each platform's `unlinkedCampaigns` is
+`include`, `skip` or `last`; only `skip` is eligibility (`unlinked_campaigns_disabled`,
+which a pin does not lift), and `last` is ranking only. The Queue's Rewards to
+farm menu and Settings edit it with the same `UnlinkedCampaignsField`, and the
+Skipped row's fix sets it to `last`. Each platform's `rewardFilter`
 (`{ kinds, subscriptions }`, edited from the Queue's Rewards to farm menu and
 Settings) is eligibility too. `kinds` is any of `item`, `badge`, `emote`
 (Twitch supports all three, Kick only `item`; `PLATFORM_REWARD_KINDS`), an
@@ -755,7 +766,8 @@ release was display-only — it decided what the popup's Drops list showed and
 never affected farming. The new split puts two settings on opposite sides of the
 engine/extension boundary: `EngineSettings.farmingEligibility`
 (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`; both replaced per
-platform by migration 8), which the scheduler and CLI honour, and `ExtensionSettings.dropsListFilter`
+platform by migration 8, and the unlinked switch by `unlinkedCampaigns` in
+migration 9), which the scheduler and CLI honour, and `ExtensionSettings.dropsListFilter`
 (`showUpcoming`/`showExpired`/`showFinished`/`showExcluded`), a popup-only view
 preference the CLI rejects as extension-only. Farming eligibility and list
 visibility are independent: hiding a campaign from the Drops list never stops it
@@ -794,6 +806,12 @@ chose a mode, the global `farmUnlinkedCampaigns` and `farmPinnedOnly` are copied
 to both platforms, and a current per-platform key always wins over a legacy one.
 Each move reports a deprecation diagnostic.
 
+Migration 9 turns each platform's `farmUnlinkedCampaigns` boolean into
+`unlinkedCampaigns`: `true` becomes `"include"` and `false` `"skip"`, so
+farming is unchanged; the third option, `"last"`, is only ever chosen by the
+user. A current `unlinkedCampaigns` wins, and any other legacy value moves
+across as it is for normalization, or the CLI's validation, to judge.
+
 ## Scheduler Flow
 
 Each scheduler tick runs enabled platforms independently:
@@ -813,7 +831,8 @@ Steps 1–8 decide and name their side effects; the tick's effect executor perfo
 Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in the user's order, then the single live
-strategy, then name and id. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. The per-platform `farmUnlinkedCampaigns`, `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
+strategy, then name and id, and last the unlinked campaigns of a platform set to
+farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only), `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 

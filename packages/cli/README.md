@@ -41,13 +41,16 @@ Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform
 `enabled`, `watchSourcePriority`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`, `rewardFilter`,
-`farmPinnedOnly`, `farmUnlinkedCampaigns`,
+`farmPinnedOnly`, `unlinkedCampaigns`,
 `categories`, `favouriteCategories`, `blockedCategories`.
 
 Campaign order has three layers, and only the last one is automatic:
 `campaignPins` lists campaign ids to farm first, in that order; then campaigns
 whose category is in that platform's `favouriteCategories`, in star order; then
 everything else by `priorityMode` (`ending_soonest` or `lowest_availability`).
+With a platform's `unlinkedCampaigns` set to `"last"`, its unlinked campaigns
+that are neither pinned nor in a favourite category come after all of these,
+in the same `priorityMode` order.
 Each platform's `farmPinnedOnly` narrows what may be farmed to the pinned
 campaigns and is eligibility, not order — a strategy is always in effect. Each
 platform's `rewardFilter` is `{ "kinds": [...], "subscriptions": "..." }`.
@@ -94,8 +97,10 @@ eight live Drops-enabled channels per game. Add games you care about to
 visible on those live channels; offline and unscanned campaigns remain unknown.
 Inventory is still authoritative for started campaigns and reward progress.
 
-Per platform, `farmUnlinkedCampaigns` defaults to `true`: set it to `false` to
-skip campaigns that need an account link. Skipping subscription campaigns is
+Per platform, `unlinkedCampaigns` defaults to `"include"`: `"skip"` never
+farms campaigns that need an account link, and `"last"` farms them only once no
+linked campaign can be farmed. The old `farmUnlinkedCampaigns` boolean still
+loads, with a warning: `true` becomes `"include"` and `false` becomes `"skip"`. Skipping subscription campaigns is
 `rewardFilter.subscriptions: "skip"`. When every discovered campaign is
 filtered out, the run logs a warning saying so.
 

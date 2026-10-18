@@ -121,7 +121,7 @@ function demoSnapshot(): RuntimeSnapshot {
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
         farmPinnedOnly: false,
-        farmUnlinkedCampaigns: true,
+        unlinkedCampaigns: "include",
         categories: [
           { id: "marathon legends", name: "Marathon Legends" },
           { id: "starfall arena", name: "Starfall Arena" },
@@ -142,7 +142,7 @@ function demoSnapshot(): RuntimeSnapshot {
         categoryMode: "all",
         rewardFilter: defaultRewardFilter("kick"),
         farmPinnedOnly: false,
-        farmUnlinkedCampaigns: true,
+        unlinkedCampaigns: "include",
         categories: [{ id: "just chatting", name: "Just Chatting" }],
         favouriteCategories: [],
         // Exercises the denylist alongside Twitch's allowlist: Kick farms every

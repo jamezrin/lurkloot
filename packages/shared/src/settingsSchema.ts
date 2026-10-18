@@ -9,7 +9,7 @@ import { isRecord } from "./records";
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 8;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 9;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -78,6 +78,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 6, migrate: migrateToV6 },
   { to: 7, migrate: migrateToV7 },
   { to: 8, migrate: migrateToV8 },
+  { to: 9, migrate: migrateToV9 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -428,6 +429,29 @@ function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     }
   }
 
+  return raw;
+}
+
+// The per-platform farmUnlinkedCampaigns switch becomes unlinkedCampaigns, a
+// choice with a third option ("last"). true keeps farming them ("include"),
+// false keeps skipping them ("skip"). A current key always wins. Any other
+// legacy value moves across as it is, so normalization (or the CLI's
+// validation) judges it, as renameProperty does.
+function migrateToV9(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  for (const platform of ["twitch", "kick"] as const) {
+    const block = platformBlock(raw, platform);
+    if (!block || !Object.hasOwn(block, "farmUnlinkedCampaigns")) continue;
+    const legacy = block.farmUnlinkedCampaigns;
+    delete block.farmUnlinkedCampaigns;
+    diagnose({
+      code: "moved_property",
+      path: `platform.${platform}.farmUnlinkedCampaigns`,
+      replacement: `platform.${platform}.unlinkedCampaigns`,
+      message: `platform.${platform}.farmUnlinkedCampaigns is now platform.${platform}.unlinkedCampaigns ("include", "skip" or "last")`,
+    });
+    if (Object.hasOwn(block, "unlinkedCampaigns")) continue;
+    block.unlinkedCampaigns = legacy === true ? "include" : legacy === false ? "skip" : legacy;
+  }
   return raw;
 }
 

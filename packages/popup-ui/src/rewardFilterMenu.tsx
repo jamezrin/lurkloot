@@ -11,6 +11,7 @@ import type {
   RewardFilter,
   RewardKind,
   SubscriptionRewardMode,
+  UnlinkedCampaignMode,
 } from "@lurkloot/shared/models";
 import {
   PLATFORM_REWARD_KINDS,
@@ -20,6 +21,10 @@ import {
   isRewardFilterNarrowed,
   normalizeRewardFilter,
 } from "@lurkloot/shared/rewardFilter";
+import {
+  DEFAULT_UNLINKED_CAMPAIGN_MODE,
+  UNLINKED_CAMPAIGN_MODES,
+} from "@lurkloot/shared/unlinkedCampaigns";
 import { useT } from "./context";
 import { FLOATING_POPUP_CLASS } from "./dropdown";
 import { usePortalContainer } from "./portal";
@@ -57,6 +62,23 @@ const MODE_LABEL_KEYS: Partial<Record<SubscriptionRewardMode, string>> = {
   only: "rewardFilterSubOnly",
 };
 
+const UNLINKED_MODE_KEYS: Record<UnlinkedCampaignMode, string> = {
+  include: "unlinkedModeInclude",
+  skip: "unlinkedModeSkip",
+  last: "unlinkedModeLast",
+};
+
+const UNLINKED_MODE_HINT_KEYS: Record<UnlinkedCampaignMode, string> = {
+  include: "unlinkedModeIncludeHint",
+  skip: "unlinkedModeSkipHint",
+  last: "unlinkedModeLastHint",
+};
+
+const UNLINKED_MODE_LABEL_KEYS: Partial<Record<UnlinkedCampaignMode, string>> = {
+  skip: "rewardFilterNoUnlinked",
+  last: "rewardFilterUnlinkedLast",
+};
+
 const SECTION_TITLE_CLASS =
   "text-[10px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
 const HINT_CLASS = "text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400";
@@ -78,6 +100,87 @@ function CheckRow({ children }: { children: React.ReactNode }): React.ReactEleme
       </span>
       {children}
     </>
+  );
+}
+
+/** A row of mutually exclusive options, one of them always chosen. Every
+ * three-way choice in the reward menu and in Settings uses it, so they look
+ * and behave the same. `attribute` names the data attributes tests read:
+ * data-<attribute>-mode on the group, data-<attribute>-option on each option. */
+function SegmentedChoice<T extends string>({
+  labelledBy,
+  describedBy,
+  options,
+  value,
+  optionLabel,
+  attribute,
+  onChange,
+}: {
+  labelledBy: string;
+  describedBy: string;
+  options: readonly T[];
+  value: T;
+  optionLabel(option: T): string;
+  attribute: string;
+  onChange(value: T): void;
+}): React.ReactElement {
+  return (
+    <RadioGroup
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
+      value={value}
+      onValueChange={(next) => {
+        const option = options.find((entry) => entry === next);
+        if (option && option !== value) onChange(option);
+      }}
+      {...{ [`data-${attribute}-mode`]: value }}
+      className="flex gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30"
+    >
+      {options.map((option) => (
+        <Radio.Root
+          key={option}
+          value={option}
+          {...{ [`data-${attribute}-option`]: option }}
+          className="flex-1 cursor-default select-none rounded-md py-1 text-center text-[11px] font-semibold text-zinc-500 outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] not-data-[checked]:hover:text-zinc-800 data-[checked]:bg-[var(--ink)] data-[checked]:text-[var(--ink-contrast)] dark:text-zinc-400 dark:not-data-[checked]:hover:text-zinc-100"
+        >
+          {optionLabel(option)}
+        </Radio.Root>
+      ))}
+    </RadioGroup>
+  );
+}
+
+/** What happens to campaigns whose account is not linked: farmed, skipped, or
+ * farmed after every linked one. Shared by the Queue menu and Settings, like
+ * RewardFilterFields, so both edit the one setting the same way. */
+export function UnlinkedCampaignsField({
+  value,
+  onChange,
+}: {
+  value: UnlinkedCampaignMode;
+  onChange(value: UnlinkedCampaignMode): void;
+}): React.ReactElement {
+  const t = useT();
+  const titleId = useId();
+  const hintId = useId();
+  return (
+    <div className="space-y-1">
+      <div id={titleId} className={SECTION_TITLE_CLASS}>
+        {t("unlinkedCampaignsTitle")}
+      </div>
+      <SegmentedChoice
+        labelledBy={titleId}
+        describedBy={hintId}
+        options={UNLINKED_CAMPAIGN_MODES}
+        value={value}
+        optionLabel={(mode) => t(UNLINKED_MODE_KEYS[mode])}
+        attribute="unlinked"
+        onChange={onChange}
+      />
+      <p id={hintId} className={HINT_CLASS}>
+        {t(UNLINKED_MODE_HINT_KEYS[value])}
+      </p>
+    </div>
   );
 }
 
@@ -181,29 +284,15 @@ export function RewardFilterFields({
           <div id={modesId} className={SECTION_TITLE_CLASS}>
             {t("subscriptionRewardsTitle")}
           </div>
-          <RadioGroup
-            aria-labelledby={modesId}
-            aria-describedby={modesHintId}
+          <SegmentedChoice
+            labelledBy={modesId}
+            describedBy={modesHintId}
+            options={SUBSCRIPTION_REWARD_MODES}
             value={current.subscriptions}
-            onValueChange={(next) => {
-              const mode = SUBSCRIPTION_REWARD_MODES.find((entry) => entry === next);
-              if (mode && mode !== current.subscriptions)
-                onChange({ ...current, subscriptions: mode });
-            }}
-            data-subscription-mode={current.subscriptions}
-            className="flex gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30"
-          >
-            {SUBSCRIPTION_REWARD_MODES.map((mode) => (
-              <Radio.Root
-                key={mode}
-                value={mode}
-                data-subscription-option={mode}
-                className="flex-1 cursor-default select-none rounded-md py-1 text-center text-[11px] font-semibold text-zinc-500 outline-none transition focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] not-data-[checked]:hover:text-zinc-800 data-[checked]:bg-[var(--ink)] data-[checked]:text-[var(--ink-contrast)] dark:text-zinc-400 dark:not-data-[checked]:hover:text-zinc-100"
-              >
-                {t(MODE_KEYS[mode])}
-              </Radio.Root>
-            ))}
-          </RadioGroup>
+            optionLabel={(mode) => t(MODE_KEYS[mode])}
+            attribute="subscription"
+            onChange={(mode) => onChange({ ...current, subscriptions: mode })}
+          />
           <p id={modesHintId} className={HINT_CLASS}>
             {t(MODE_HINT_KEYS[current.subscriptions])}
           </p>
@@ -226,16 +315,20 @@ export function RewardFilterMenu({
   showSubscriptions,
   counts,
   farmPinnedOnly,
+  unlinkedCampaigns,
   onChange,
   onFarmPinnedOnlyChange,
+  onUnlinkedCampaignsChange,
 }: {
   platform: Platform;
   filter: RewardFilter;
   showSubscriptions: boolean;
   counts?: Partial<Record<RewardKind, number>>;
   farmPinnedOnly: boolean;
+  unlinkedCampaigns: UnlinkedCampaignMode;
   onChange(filter: RewardFilter): void;
   onFarmPinnedOnlyChange(value: boolean): void;
+  onUnlinkedCampaignsChange(value: UnlinkedCampaignMode): void;
 }): React.ReactElement {
   const t = useT();
   const [portalRef, container] = usePortalContainer();
@@ -243,11 +336,16 @@ export function RewardFilterMenu({
   const popupRef = useRef<HTMLDivElement>(null);
   useCloseOnOutsideScroll(open, () => setOpen(false), popupRef, container);
   const fields = hasRewardFilterFields(platform, showSubscriptions);
-  // Pinned-only narrows what is farmed as much as the filter does, and the
-  // closed button is the only place the Queue says so.
-  const narrowed = farmPinnedOnly || isRewardFilterNarrowed(filter, platform);
-  const filterLabel = rewardFilterLabel(filter, platform, t);
-  const label = farmPinnedOnly ? `${filterLabel} · ${t("rewardFilterPinnedOnly")}` : filterLabel;
+  // Pinned-only and the unlinked mode change what is farmed as much as the
+  // filter does, and the closed button is the only place the Queue says so.
+  const unlinkedChanged = unlinkedCampaigns !== DEFAULT_UNLINKED_CAMPAIGN_MODE;
+  const narrowed = farmPinnedOnly || unlinkedChanged || isRewardFilterNarrowed(filter, platform);
+  const unlinkedLabelKey = UNLINKED_MODE_LABEL_KEYS[unlinkedCampaigns];
+  const label = [
+    rewardFilterLabel(filter, platform, t),
+    ...(unlinkedLabelKey ? [t(unlinkedLabelKey)] : []),
+    ...(farmPinnedOnly ? [t("rewardFilterPinnedOnly")] : []),
+  ].join(" · ");
   return (
     <Popover.Root modal={false} open={open} onOpenChange={setOpen}>
       <Popover.Trigger
@@ -290,7 +388,13 @@ export function RewardFilterMenu({
                 onChange={onChange}
               />
             ) : null}
-            <div className={cn(fields && "border-t border-zinc-200 pt-1.5 dark:border-zinc-800")}>
+            <div className={cn(fields && "border-t border-zinc-200 pt-2 dark:border-zinc-800")}>
+              <UnlinkedCampaignsField
+                value={unlinkedCampaigns}
+                onChange={onUnlinkedCampaignsChange}
+              />
+            </div>
+            <div className="border-t border-zinc-200 pt-1.5 dark:border-zinc-800">
               <Checkbox.Root
                 checked={farmPinnedOnly}
                 onCheckedChange={(value) => onFarmPinnedOnlyChange(value)}
@@ -307,9 +411,11 @@ export function RewardFilterMenu({
                 <button
                   type="button"
                   data-reward-filter-reset=""
-                  // Reset clears everything the button names, pinned-only too.
+                  // Reset clears everything the button names: the unlinked mode
+                  // and pinned-only too.
                   onClick={() => {
                     onChange(defaultRewardFilter(platform));
+                    if (unlinkedChanged) onUnlinkedCampaignsChange(DEFAULT_UNLINKED_CAMPAIGN_MODE);
                     if (farmPinnedOnly) onFarmPinnedOnlyChange(false);
                   }}
                   className="w-full rounded-md px-1 py-1 text-start text-[11.5px] font-semibold text-zinc-800 underline decoration-zinc-300 underline-offset-2 outline-none hover:bg-[var(--ink-soft)] hover:decoration-current focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-100 dark:decoration-zinc-600"

@@ -151,3 +151,61 @@ describe("rankCampaigns", () => {
     ]);
   });
 });
+
+describe("rankCampaigns with unlinked campaigns farmed last", () => {
+  const unlinkedSoon = campaign("unlinked-soon", {
+    endsAt: new Date(now + hour).toISOString(),
+    gameName: "Rust",
+    accountLinked: false,
+  });
+  const unlinkedLate = campaign("unlinked-late", {
+    endsAt: new Date(now + 300 * hour).toISOString(),
+    gameName: "Delta Force",
+    eligibility: "account_not_linked",
+  });
+  const all = [unlinkedSoon, endingSoon, unlinkedLate, endingLate];
+  const last = (patch: Record<string, unknown> = {}, twitch: Record<string, unknown> = {}) =>
+    settings({ ...patch, platform: { twitch: { unlinkedCampaigns: "last", ...twitch } } });
+
+  it("leaves unlinked campaigns where the strategy puts them when they are included", () => {
+    expect(ids(rankCampaigns(all, settings()))).toEqual([
+      "unlinked-soon",
+      "ending-soon",
+      "ending-late",
+      "unlinked-late",
+    ]);
+  });
+
+  it("ranks every unlinked campaign below every linked one, by the same strategy", () => {
+    const configured = last();
+    expect(ids(rankCampaigns(all, configured))).toEqual([
+      "ending-soon",
+      "ending-late",
+      "unlinked-soon",
+      "unlinked-late",
+    ]);
+    expect(campaignRankTier(unlinkedSoon, configured)).toBe("unlinked");
+    expect(campaignRankTier(endingSoon, configured)).toBe("strategy");
+  });
+
+  it("keeps a pinned or favourite unlinked campaign in its own tier", () => {
+    const configured = last(
+      { campaignPins: ["unlinked-late"] },
+      { favouriteCategories: [{ id: "rust", name: "Rust" }] },
+    );
+    // ending-soon is also a Rust campaign, so it shares the favourite tier.
+    expect(ids(rankCampaigns(all, configured))).toEqual([
+      "unlinked-late",
+      "unlinked-soon",
+      "ending-soon",
+      "ending-late",
+    ]);
+    expect(campaignRankTier(unlinkedLate, configured)).toBe("pinned");
+    expect(campaignRankTier(unlinkedSoon, configured)).toBe("favourite");
+  });
+
+  it("applies only to the platform set to farm last", () => {
+    const kickUnlinked = campaign("kick-unlinked", { platform: "kick", accountLinked: false });
+    expect(campaignRankTier(kickUnlinked, last())).toBe("strategy");
+  });
+});

@@ -74,8 +74,13 @@ const labels: Record<string, string> = {
   watchSourceNoPixel: "NoPixelV",
   watchSourceFortnite: "Fortnite",
   watchSourceIdleWatchlist: "Idle Watchlist",
-  farmUnlinkedTitle: "Farm campaigns without a linked account",
-  farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
+  unlinkedCampaignsTitle: "Campaigns without a linked account",
+  unlinkedCampaignsDescription:
+    "Farm, skip or farm last the campaigns that need you to link your game account.",
+  unlinkedModeInclude: "Include",
+  unlinkedModeSkip: "Skip",
+  unlinkedModeLast: "Farm last",
+  unlinkedModeIncludeHint: "Farmed with the rest. Link the account to claim their rewards.",
   rewardFilterTitle: "Rewards to farm",
   rewardFilterDescription:
     "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting.",

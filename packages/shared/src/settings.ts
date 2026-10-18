@@ -15,6 +15,7 @@ import type {
   TwitchPlatformSettings,
 } from "./models";
 import { defaultRewardFilter, normalizeRewardFilter } from "./rewardFilter";
+import { DEFAULT_UNLINKED_CAMPAIGN_MODE, normalizeUnlinkedCampaignMode } from "./unlinkedCampaigns";
 import {
   DEFAULT_WATCH_SOURCE_PRIORITY,
   normalizePlatformWatchSourcePriority,
@@ -89,7 +90,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       categoryMode: "all",
       rewardFilter: defaultRewardFilter("twitch"),
       farmPinnedOnly: false,
-      farmUnlinkedCampaigns: true,
+      unlinkedCampaigns: DEFAULT_UNLINKED_CAMPAIGN_MODE,
       categories: [],
       favouriteCategories: [],
       blockedCategories: [],
@@ -107,7 +108,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       categoryMode: "all",
       rewardFilter: defaultRewardFilter("kick"),
       farmPinnedOnly: false,
-      farmUnlinkedCampaigns: true,
+      unlinkedCampaigns: DEFAULT_UNLINKED_CAMPAIGN_MODE,
       categories: [],
       favouriteCategories: [],
       blockedCategories: [],
@@ -229,10 +230,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
           platform?.twitch?.farmPinnedOnly,
           DEFAULT_ENGINE_SETTINGS.platform.twitch.farmPinnedOnly,
         ),
-        farmUnlinkedCampaigns: booleanOr(
-          platform?.twitch?.farmUnlinkedCampaigns,
-          DEFAULT_ENGINE_SETTINGS.platform.twitch.farmUnlinkedCampaigns,
-        ),
+        unlinkedCampaigns: normalizeUnlinkedCampaignMode(platform?.twitch?.unlinkedCampaigns),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.twitch?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.twitch?.blockedCategories),
@@ -269,10 +267,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
           platform?.kick?.farmPinnedOnly,
           DEFAULT_ENGINE_SETTINGS.platform.kick.farmPinnedOnly,
         ),
-        farmUnlinkedCampaigns: booleanOr(
-          platform?.kick?.farmUnlinkedCampaigns,
-          DEFAULT_ENGINE_SETTINGS.platform.kick.farmUnlinkedCampaigns,
-        ),
+        unlinkedCampaigns: normalizeUnlinkedCampaignMode(platform?.kick?.unlinkedCampaigns),
         categories: normalizeCategorySelections(platform?.kick?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.kick?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.kick?.blockedCategories),

@@ -62,8 +62,13 @@ const labels: Record<string, string> = {
   watchSourceNoPixel: "NoPixelV",
   watchSourceFortnite: "Fortnite",
   watchSourceIdleWatchlist: "Idle Watchlist",
-  farmUnlinkedTitle: "Farm campaigns without a linked account",
-  farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
+  unlinkedCampaignsTitle: "Campaigns without a linked account",
+  unlinkedCampaignsDescription:
+    "Farm, skip or farm last the campaigns that need you to link your game account.",
+  unlinkedModeInclude: "Include",
+  unlinkedModeSkip: "Skip",
+  unlinkedModeLast: "Farm last",
+  unlinkedModeIncludeHint: "Farmed with the rest. Link the account to claim their rewards.",
   rewardFilterTitle: "Rewards to farm",
   rewardFilterDescription:
     "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting.",
@@ -353,9 +358,10 @@ describe("deadline feasibility setting", () => {
     expect(
       group.querySelector('[role="switch"][aria-label="Farm pinned campaigns only"]'),
     ).not.toBeNull();
-    expect(
-      group.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]'),
-    ).not.toBeNull();
+    const unlinked = group.querySelector<HTMLElement>("[data-unlinked-mode]")!;
+    expect(unlinked.getAttribute("role")).toBe("radiogroup");
+    expect(unlinked.getAttribute("data-unlinked-mode")).toBe("include");
+    expect(group.textContent).toContain("Campaigns without a linked account");
     // Rewards come before the category pointer.
     const order = [...container.querySelectorAll('[id^="settings-group-twitch."]')].map(
       (node) => node.id,
@@ -377,20 +383,19 @@ describe("deadline feasibility setting", () => {
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     );
 
-    act(() =>
-      group
-        .querySelector<HTMLButtonElement>(
-          '[role="switch"][aria-label="Farm campaigns without a linked account"]',
-        )!
-        .click(),
-    );
+    await act(async () => {
+      group.querySelector<HTMLElement>('[data-unlinked-option="last"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { platform: { twitch: { farmUnlinkedCampaigns: false } } },
+      { platform: { twitch: { unlinkedCampaigns: "last" } } },
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     );
 
-    // Kick has one kind and, here, no subscription rewards: just the toggles.
+    // Kick has one kind and, here, no subscription rewards: the unlinked
+    // choice and the pinned-only toggle.
     const kick = container.querySelector<HTMLElement>('[id="settings-group-kick.rewards"]')!;
+    expect(kick.querySelector("[data-unlinked-mode]")).not.toBeNull();
     expect(kick.querySelector("[data-reward-kind]")).toBeNull();
     expect(kick.querySelector("[data-subscription-mode]")).toBeNull();
     expect(kick.textContent).toContain("What Lurkloot farms on Kick.");

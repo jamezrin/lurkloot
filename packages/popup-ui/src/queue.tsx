@@ -8,6 +8,7 @@ import type {
   PriorityMode,
   RewardFilter,
   RewardKind,
+  UnlinkedCampaignMode,
 } from "@lurkloot/shared/models";
 import { defaultRewardFilter, isRewardFilterNarrowed } from "@lurkloot/shared/rewardFilter";
 import { I18nContext, useT } from "./context";
@@ -36,6 +37,7 @@ const TIER_LABEL_KEYS: Record<CampaignRankTier, string> = {
   pinned: "queueGroupPinned",
   favourite: "queueGroupFavourite",
   strategy: "queueGroupStrategy",
+  unlinked: "queueGroupUnlinked",
 };
 
 // Only pins have a hand-made order. Everything below them is ranked by the
@@ -61,6 +63,7 @@ export function QueuePanel({
   strategy,
   pinnedCount,
   farmPinnedOnly,
+  unlinkedCampaigns,
   platform,
   rewardFilter: liveRewardFilter,
   rewardKindCounts,
@@ -69,6 +72,7 @@ export function QueuePanel({
   onStrategyChange,
   onUnpinAll,
   onFarmPinnedOnlyChange,
+  onUnlinkedCampaignsChange,
   onRefreshCampaign,
   onPinChange,
   onToggleExclude,
@@ -84,6 +88,7 @@ export function QueuePanel({
   strategy: PriorityMode;
   pinnedCount: number;
   farmPinnedOnly: boolean;
+  unlinkedCampaigns: UnlinkedCampaignMode;
   // The platform the queue lists; its reward filter is the toolbar's menu.
   platform: Platform;
   rewardFilter: RewardFilter;
@@ -95,6 +100,7 @@ export function QueuePanel({
   onStrategyChange(strategy: PriorityMode): void | Promise<void>;
   onUnpinAll(): void | Promise<void>;
   onFarmPinnedOnlyChange(value: boolean): void | Promise<void>;
+  onUnlinkedCampaignsChange(value: UnlinkedCampaignMode): void | Promise<void>;
   onRefreshCampaign(id: string): void | Promise<void>;
   onPinChange(campaignId: string, position: number | null): void | Promise<void>;
   onToggleExclude(id: string): void | Promise<void>;
@@ -204,6 +210,7 @@ export function QueuePanel({
     onOpenSettings,
     platform,
     onRewardFilterChange,
+    onUnlinkedCampaignsChange,
   });
   latest.current = {
     queued,
@@ -217,6 +224,7 @@ export function QueuePanel({
     onOpenSettings,
     platform,
     onRewardFilterChange,
+    onUnlinkedCampaignsChange,
   };
   const actions = useMemo<RowActions>(
     () => ({
@@ -240,7 +248,7 @@ export function QueuePanel({
       block: (category) => void latest.current.onToggleBlockedCategory?.(category),
       openGames: () => latest.current.onOpenGames(),
       openSettings: () => latest.current.onOpenSettings(),
-      openRewardSettings: () => latest.current.onOpenSettings(`${latest.current.platform}.rewards`),
+      farmUnlinkedLast: () => void latest.current.onUnlinkedCampaignsChange("last"),
       farmAll: () =>
         void latest.current.onRewardFilterChange(defaultRewardFilter(latest.current.platform)),
     }),
@@ -269,7 +277,12 @@ export function QueuePanel({
     { value: "lowest_availability", label: t("lowAvailabilityFirst") },
   ];
 
-  const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
+  const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy", "unlinked"];
+  // The strategy orders the unlinked group too, so when no row sits under
+  // "Then by" its picker moves to the unlinked divider instead of vanishing.
+  const strategyTier: CampaignRankTier = queued.some((campaign) => campaign.rankTier === "strategy")
+    ? "strategy"
+    : "unlinked";
   // The layer of the ranking that placed a queued campaign, in words: the
   // card shows it among its facts so the order never has to be guessed.
   function rankReason(campaign: CampaignView): string {
@@ -281,7 +294,12 @@ export function QueuePanel({
         String(campaign.favouriteIndex + 1),
       ]);
     }
-    return t(strategy === "lowest_availability" ? "rankReasonAvailability" : "rankReasonEnding");
+    const byStrategy = t(
+      strategy === "lowest_availability" ? "rankReasonAvailability" : "rankReasonEnding",
+    );
+    return campaign.rankTier === "unlinked"
+      ? `${t("rankReasonUnlinked")} · ${byStrategy}`
+      : byStrategy;
   }
 
   return (
@@ -301,8 +319,10 @@ export function QueuePanel({
           showSubscriptions={showSubscriptionChoice}
           counts={rewardKindCounts}
           farmPinnedOnly={farmPinnedOnly}
+          unlinkedCampaigns={unlinkedCampaigns}
           onChange={(filter) => void onRewardFilterChange(filter)}
           onFarmPinnedOnlyChange={(value) => void onFarmPinnedOnlyChange(value)}
+          onUnlinkedCampaignsChange={(value) => void onUnlinkedCampaignsChange(value)}
         />
       </div>
 
@@ -362,7 +382,7 @@ export function QueuePanel({
                 <GroupDivider
                   label={t(TIER_LABEL_KEYS[tier])}
                   hint={
-                    tier === "strategy" ? (
+                    tier === strategyTier ? (
                       // The strategy lives where it acts: it ranks exactly
                       // the rows under this divider, so the divider's hint is
                       // the picker and reads "Then by <mode>".
@@ -552,7 +572,7 @@ type RowActions = {
   block(category: CategorySelection): void;
   openGames(): void;
   openSettings(): void;
-  openRewardSettings(): void;
+  farmUnlinkedLast(): void;
   farmAll(): void;
 };
 
@@ -649,7 +669,7 @@ const QueueRow = React.memo(function QueueRow({
                   onToggleExclude: actions.toggleExclude,
                   onOpenGames: actions.openGames,
                   onOpenSettings: actions.openSettings,
-                  onOpenRewardSettings: actions.openRewardSettings,
+                  onFarmUnlinkedLast: actions.farmUnlinkedLast,
                   onFarmAll: actions.farmAll,
                   onPin: () => actions.pinLast(campaign.id),
                 },
@@ -679,7 +699,7 @@ const QueueRow = React.memo(function QueueRow({
             onToggleExclude: actions.toggleExclude,
             onOpenGames: actions.openGames,
             onOpenSettings: actions.openSettings,
-            onOpenRewardSettings: actions.openRewardSettings,
+            onFarmUnlinkedLast: actions.farmUnlinkedLast,
             onFarmAll: actions.farmAll,
             onPin: () => actions.pinLast(campaign.id),
           },
@@ -700,7 +720,7 @@ function skippedFix(
     onToggleExclude(id: string): void | Promise<void>;
     onOpenGames(): void;
     onOpenSettings(): void;
-    onOpenRewardSettings(): void;
+    onFarmUnlinkedLast(): void;
     onFarmAll(): void;
     onPin(): void;
   },
@@ -718,13 +738,9 @@ function skippedFix(
     return { label: t("queueFixFarmAll"), onClick: handlers.onFarmAll };
   if (code === "category_blocked" || code === "category_filtered")
     return { label: t("queueFixGames"), onClick: handlers.onOpenGames };
-  // The unlinked toggle lives with the platform's reward filter.
-  if (code === "unlinked_campaigns_disabled") {
-    return {
-      label: t("queueFixSettings"),
-      onClick: handlers.onOpenRewardSettings,
-    };
-  }
+  // "Farm last" queues it without moving it ahead of the linked campaigns.
+  if (code === "unlinked_campaigns_disabled")
+    return { label: t("queueFixFarmLast"), onClick: handlers.onFarmUnlinkedLast };
   if (code === "insufficient_time")
     return { label: t("queueFixSettings"), onClick: handlers.onOpenSettings };
   return undefined;

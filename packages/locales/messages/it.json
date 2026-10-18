@@ -762,7 +762,7 @@
     "message": "Tutte le ricompense di questa campagna sono complete."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Il farming senza un account collegato è disattivato."
+    "message": "Le campagne senza account collegato sono impostate su Salta."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Questa campagna Twitch richiede di collegare un account."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Scegli quali livelli registrare nel log attività. Gli errori vengono sempre mantenuti."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farma campagne senza account collegato"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Se disattivato, le campagne che richiedono un account collegato vengono saltate. La piattaforma può comunque richiedere il collegamento quando è attivo."
-  },
   "rewardFilterTitle": {
     "message": "Ricompense da farmare"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Vengono farmate solo le ricompense che richiedono un abbonamento."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Campagne senza account collegato"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Includi, salta o farma per ultime le campagne che richiedono il collegamento del tuo account di gioco. I requisiti della piattaforma possono comunque richiedere il collegamento prima di riscattare una ricompensa."
+  },
+  "unlinkedModeInclude": {
+    "message": "Includi"
+  },
+  "unlinkedModeSkip": {
+    "message": "Salta"
+  },
+  "unlinkedModeLast": {
+    "message": "Farma per ultime"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Farmate insieme alle altre. Collega l’account per riscattare le loro ricompense."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Non viene mai farmata, anche se fissata."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Viene farmata solo quando nessuna campagna collegata può esserlo. Le campagne fissate e i giochi preferiti mantengono la loro posizione."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "salta non collegate"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "non collegate per ultime"
+  },
+  "queueGroupUnlinked": {
+    "message": "Non collegate · farmate per ultime"
+  },
+  "rankReasonUnlinked": {
+    "message": "Account non collegato"
+  },
+  "queueFixFarmLast": {
+    "message": "Farma per ultime"
   },
   "rewardFilterAll": {
     "message": "Tutte le ricompense"

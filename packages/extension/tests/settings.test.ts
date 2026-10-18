@@ -576,7 +576,7 @@ describe("per-platform eligibility in the engine contract", () => {
       expect(DEFAULT_ENGINE_SETTINGS.platform[platform]).toMatchObject({
         rewardFilter: defaultRewardFilter(platform),
         farmPinnedOnly: false,
-        farmUnlinkedCampaigns: true,
+        unlinkedCampaigns: "include",
       });
     }
   });
@@ -584,13 +584,14 @@ describe("per-platform eligibility in the engine contract", () => {
   it("normalizes each platform's switches and filter through the engine merge", () => {
     const merged = mergeEngineSettings({
       platform: {
-        kick: { farmUnlinkedCampaigns: false, farmPinnedOnly: "yes", rewardFilter: "skip" },
+        twitch: { unlinkedCampaigns: "first" },
+        kick: { unlinkedCampaigns: "last", farmPinnedOnly: "yes", rewardFilter: "skip" },
       },
     } as never);
-    expect(merged.platform.kick.farmUnlinkedCampaigns).toBe(false);
+    expect(merged.platform.kick.unlinkedCampaigns).toBe("last");
     expect(merged.platform.kick.farmPinnedOnly).toBe(false);
     expect(merged.platform.kick.rewardFilter).toEqual(defaultRewardFilter("kick"));
-    expect(merged.platform.twitch.farmUnlinkedCampaigns).toBe(true);
+    expect(merged.platform.twitch.unlinkedCampaigns).toBe("include");
   });
 
   it("keeps the retired global switches off the engine contract", () => {

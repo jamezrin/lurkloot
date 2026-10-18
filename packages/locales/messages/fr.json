@@ -762,7 +762,7 @@
     "message": "Toutes les récompenses de cette campagne sont terminées."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Le farming des campagnes sans compte lié est désactivé."
+    "message": "Les campagnes sans compte lié sont réglées sur Ignorer."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Cette campagne Twitch nécessite de lier un compte."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Choisissez les niveaux enregistrés dans le journal d’activité. Les erreurs sont toujours conservées."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farmer les campagnes sans compte lié"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Si désactivé, les campagnes nécessitant de lier votre compte sont ignorées. La plateforme peut toujours imposer la liaison lorsque l'option est activée."
-  },
   "rewardFilterTitle": {
     "message": "Récompenses à farmer"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Seules les récompenses qui nécessitent un abonnement sont farmées."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Campagnes sans compte lié"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Choisissez d’inclure, d’ignorer ou de farmer en dernier les campagnes qui nécessitent de lier votre compte de jeu. Les exigences de la plateforme peuvent toujours imposer la liaison avant de réclamer une récompense."
+  },
+  "unlinkedModeInclude": {
+    "message": "Inclure"
+  },
+  "unlinkedModeSkip": {
+    "message": "Ignorer"
+  },
+  "unlinkedModeLast": {
+    "message": "Farmer en dernier"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Farmée avec les autres. Liez le compte pour réclamer leurs récompenses."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Jamais farmée, même épinglée."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Farmée seulement lorsqu’aucune campagne liée ne peut l’être. Les campagnes épinglées et les jeux favoris gardent leur place."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "ignorer non liées"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "non liées en dernier"
+  },
+  "queueGroupUnlinked": {
+    "message": "Non liées · farmées en dernier"
+  },
+  "rankReasonUnlinked": {
+    "message": "Compte non lié"
+  },
+  "queueFixFarmLast": {
+    "message": "Farmer en dernier"
   },
   "rewardFilterAll": {
     "message": "Toutes les récompenses"

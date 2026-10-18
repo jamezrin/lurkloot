@@ -762,7 +762,7 @@
     "message": "Wszystkie nagrody w tej kampanii są ukończone."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Farmienie kampanii bez połączonego konta jest wyłączone."
+    "message": "Farmienie kampanii bez połączonego konta jest ustawione na Pomijaj."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Dla tej kampanii Twitch wymagane jest połączenie konta."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Wybierz, które poziomy są zapisywane w dzienniku Aktywność. Błędy są zawsze zachowywane."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farmuj kampanie bez połączonego konta"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Gdy wyłączone, kampanie wymagające połączenia konta są pomijane. Wymagania platformy nadal mogą wymagać połączenia, gdy to jest włączone."
-  },
   "rewardFilterTitle": {
     "message": "Nagrody do farmienia"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Farmione są tylko nagrody wymagające subskrypcji."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Kampanie bez połączonego konta"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Farmić, pomijać lub farmić na końcu kampanie wymagające połączenia konta gry. Wymagania platformy mogą nadal wymagać połączenia przed odebraniem nagrody."
+  },
+  "unlinkedModeInclude": {
+    "message": "Uwzględnij"
+  },
+  "unlinkedModeSkip": {
+    "message": "Pomijaj"
+  },
+  "unlinkedModeLast": {
+    "message": "Na końcu"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Farmione razem z resztą. Połącz konto, aby odebrać nagrody."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Nigdy nie są farmione, nawet przypięte."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Farmione tylko wtedy, gdy żadna kampania z połączonym kontem nie może być farmiona. Przypięte kampanie i ulubione gry zachowują swoje miejsce."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "pomijaj bez połączenia"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "bez połączenia na końcu"
+  },
+  "queueGroupUnlinked": {
+    "message": "Bez połączenia · farmione na końcu"
+  },
+  "rankReasonUnlinked": {
+    "message": "Konto nie połączone"
+  },
+  "queueFixFarmLast": {
+    "message": "Farmić na końcu"
   },
   "rewardFilterAll": {
     "message": "Wszystkie nagrody"

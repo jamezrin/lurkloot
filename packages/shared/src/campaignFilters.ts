@@ -14,6 +14,7 @@ import {
   isRewardObtained,
   isRewardRelevantNow,
 } from "./rewards";
+import { isCampaignUnlinked } from "./unlinkedCampaigns";
 
 export function isCampaignExpired(campaign: DropCampaign): boolean {
   if (campaign.status === "expired") return true;
@@ -65,17 +66,14 @@ export function campaignFilterCategories(
 }
 
 // What the engine asks: is this campaign's class allowed to be farmed? Reads
-// only the platform's unlinked-campaigns flag; excludedCampaignIds is handled
+// only the platform's unlinked-campaigns mode ("last" still farms); excludedCampaignIds is handled
 // separately in isEligible, so it is not consulted here. Threading exclusions
 // through would imply this filter has an opinion about them.
 export function campaignPassesFarmingEligibility(
   campaign: DropCampaign,
-  platformSettings: Pick<PlatformSettings, "farmUnlinkedCampaigns">,
+  platformSettings: Pick<PlatformSettings, "unlinkedCampaigns">,
 ): boolean {
-  return !(
-    (campaign.accountLinked === false || campaign.eligibility === "account_not_linked")
-    && !platformSettings.farmUnlinkedCampaigns
-  );
+  return !(isCampaignUnlinked(campaign) && platformSettings.unlinkedCampaigns === "skip");
 }
 
 // Whether a single reward is farmable right now: not yet claimed, its earn/claim

@@ -762,7 +762,7 @@
     "message": "此活动的所有奖励均已完成。"
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "已关闭未关联账号时的活动挂机功能。"
+    "message": "未关联账号的活动已设为跳过。"
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "此 Twitch 掉宝活动要求关联账号。"
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "选择运行记录中保存哪些级别；错误记录始终保留。"
   },
-  "farmUnlinkedTitle": {
-    "message": "未关联账号时也挂机"
-  },
-  "farmUnlinkedDescription": {
-    "message": "关闭后，将跳过尚未关联账号的掉宝活动。开启后，仍须遵守平台的账号关联要求。"
-  },
   "rewardFilterTitle": {
     "message": "要挂机的奖励"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "仅挂机需要订阅的奖励。"
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "未关联账号的活动"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "选择挂机、跳过或最后挂机需要关联游戏账号的活动。平台要求仍可能需要先关联账号才能领取奖励。"
+  },
+  "unlinkedModeInclude": {
+    "message": "包含"
+  },
+  "unlinkedModeSkip": {
+    "message": "跳过"
+  },
+  "unlinkedModeLast": {
+    "message": "最后挂机"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "与其他活动一同挂机。关联账号后即可领取奖励。"
+  },
+  "unlinkedModeSkipHint": {
+    "message": "即使置顶也不会挂机。"
+  },
+  "unlinkedModeLastHint": {
+    "message": "仅在没有已关联活动可挂机时才挂机。置顶活动和收藏的游戏保持原有顺序。"
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "跳过未关联"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "未关联靠后"
+  },
+  "queueGroupUnlinked": {
+    "message": "未关联 · 最后挂机"
+  },
+  "rankReasonUnlinked": {
+    "message": "未关联账号"
+  },
+  "queueFixFarmLast": {
+    "message": "最后挂机"
   },
   "rewardFilterAll": {
     "message": "所有奖励"

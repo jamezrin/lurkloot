@@ -26,7 +26,7 @@ flowchart TD
     D -- yes --> N1
     D -- no --> E{"id in<br/>excludedCampaignIds?"}
     E -- yes --> N1
-    E -- no --> F{"class allowed?<br/>unlinked campaign and<br/>farmUnlinkedCampaigns off?"}
+    E -- no --> F{"class allowed?<br/>unlinked campaign and<br/>unlinkedCampaigns = skip?"}
     F -- no --> N1
     F -- yes --> G{"category filtered?<br/>campaignPassesCategoryFilter<br/>(include/exclude)"}
     G -- yes --> N1
@@ -40,9 +40,13 @@ flowchart TD
 ```
 
 Account linking does not block watch progress on either platform.
-`farmUnlinkedCampaigns` controls whether unlinked campaigns are farmed; their
-linking status remains visible so users can connect their game account for delivery.
-`farmUnlinkedCampaigns` and `farmPinnedOnly` are per-platform settings
+`unlinkedCampaigns` controls what happens to unlinked campaigns: `include` farms
+them like any other, `skip` never farms them (pinned or not), and `last` farms
+them but ranks them after every linked campaign unless they are pinned or of a
+favourite game (see `rankCampaigns`). Only `skip` is a gate in this flowchart;
+`last` changes the order, not whether a campaign is farmable. Their linking
+status remains visible so users can connect their game account for delivery.
+`unlinkedCampaigns` and `farmPinnedOnly` are per-platform settings
 (`platform.<p>.…`), as is `rewardFilter`.
 
 The reward filter (`platform.<p>.rewardFilter`) has two halves: `kinds`
@@ -117,7 +121,7 @@ no rank, drag handle, progress or warning.
 | `campaignSection` | which popup list does this campaign belong in? | the popup (`Popup.tsx`, `queue.tsx`, `completed.tsx`) |
 | `rankCampaigns` | in which order are the farmable ones tried? | the scheduler and the Queue |
 | `isRewardFarmableNow` | not claimed, preconditions met, in its window, deadline feasible | `campaignFarmable` |
-| `campaignPassesFarmingEligibility` | is this campaign's class (linked or not, per `farmUnlinkedCampaigns`) allowed at all? | `campaignEligibleClass` |
+| `campaignPassesFarmingEligibility` | is this campaign's class (linked or not, per `unlinkedCampaigns`) allowed at all? | `campaignEligibleClass` |
 
 ## The relationship that matters most
 

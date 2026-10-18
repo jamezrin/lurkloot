@@ -23,7 +23,7 @@ import {
   SettingsLinkRow,
 } from "./settingsControls";
 import { PlatformExcludedChannels } from "./settingsPlatform";
-import { RewardFilterFields } from "./rewardFilterMenu";
+import { RewardFilterFields, UnlinkedCampaignsField } from "./rewardFilterMenu";
 import { PlatformCompatibilitySettings } from "./compatibilitySettings";
 import { WatchSourcePriority, WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
 import { DEFAULT_WATCH_SOURCE_PRIORITY } from "@lurkloot/shared/watchSources";
@@ -660,15 +660,16 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       },
       {
         id: `${platform}.rewards.unlinked`,
-        titleKey: "farmUnlinkedTitle",
-        descriptionKey: "farmUnlinkedDescription",
+        titleKey: "unlinkedCampaignsTitle",
+        descriptionKey: "unlinkedCampaignsDescription",
+        searchKeys: ["unlinkedModeInclude", "unlinkedModeSkip", "unlinkedModeLast"],
         render: () => (
-          <SettingRow
-            title={t("farmUnlinkedTitle")}
-            description={t("farmUnlinkedDescription")}
-            checked={platformSettings.farmUnlinkedCampaigns}
-            onChange={(value) => void platformPatch(platform, { farmUnlinkedCampaigns: value })}
-          />
+          <div className="py-2.5">
+            <UnlinkedCampaignsField
+              value={platformSettings.unlinkedCampaigns}
+              onChange={(next) => void platformPatch(platform, { unlinkedCampaigns: next })}
+            />
+          </div>
         ),
       },
     );

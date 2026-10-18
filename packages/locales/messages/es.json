@@ -762,7 +762,7 @@
     "message": "Todas las recompensas de esta campaña están completadas."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "El farmeo de campañas sin una cuenta vinculada está desactivado."
+    "message": "Las campañas sin cuenta vinculada están configuradas en Omitir."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Esta campaña de Twitch requiere vincular una cuenta."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Elige qué niveles se registran en el registro de actividad. Los errores siempre se conservan."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farmear campañas sin cuenta vinculada"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Si está desactivado, se omiten las campañas que requieren vincular tu cuenta. Los requisitos de la plataforma aún pueden exigir vincularla cuando está activado."
-  },
   "rewardFilterTitle": {
     "message": "Recompensas a farmear"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Solo se farmean las recompensas que requieren suscripción."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Campañas sin cuenta vinculada"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Elige si farmear, omitir o farmear al final las campañas que requieren vincular tu cuenta de juego. Los requisitos de la plataforma pueden seguir exigiendo la vinculación antes de reclamar una recompensa."
+  },
+  "unlinkedModeInclude": {
+    "message": "Incluir"
+  },
+  "unlinkedModeSkip": {
+    "message": "Omitir"
+  },
+  "unlinkedModeLast": {
+    "message": "Farmear al final"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Se farmea junto con el resto. Vincula la cuenta para reclamar sus recompensas."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Nunca se farmea, aunque esté fijada."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Solo se farmea cuando ninguna campaña vinculada puede farmearse. Las campañas fijadas y los juegos favoritos mantienen su lugar."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "omitir sin vincular"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "sin vincular al final"
+  },
+  "queueGroupUnlinked": {
+    "message": "Sin vincular · farmeadas al final"
+  },
+  "rankReasonUnlinked": {
+    "message": "Cuenta no vinculada"
+  },
+  "queueFixFarmLast": {
+    "message": "Farmear al final"
   },
   "rewardFilterAll": {
     "message": "Todas las recompensas"

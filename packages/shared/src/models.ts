@@ -341,6 +341,13 @@ export interface RewardFilter {
 }
 export type RewardFilterMiss = "kind" | "subscription";
 
+// What a platform does with campaigns whose account is not linked:
+// - "include": farm them, ranked like any other campaign;
+// - "skip": never farm them (a pin does not change that);
+// - "last": farm them only after every linked campaign, unless the user pinned
+//   the campaign or starred its game, which keep their own rank.
+export type UnlinkedCampaignMode = "include" | "skip" | "last";
+
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
 // Filter keys that gate farming: the engine's isEligible consults exactly these.
@@ -439,9 +446,9 @@ export interface PlatformSettings {
   // Eligibility switch: farm only this platform's pinned campaigns. Separate
   // from the pin list itself so pinning never doubles as "allowed to farm".
   farmPinnedOnly: boolean;
-  // Off: skip this platform's campaigns with no linked account (real on Kick,
-  // which accrues watch progress before linking).
-  farmUnlinkedCampaigns: boolean;
+  // This platform's campaigns with no linked account (real on Kick, which
+  // accrues watch progress before linking): farmed, skipped or farmed last.
+  unlinkedCampaigns: UnlinkedCampaignMode;
   categories: CategorySelection[];
   // Ordered. Campaigns of these categories rank above the live strategy, below
   // pinned campaigns. Purely a ranking mark: it never makes a campaign farmable

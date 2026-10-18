@@ -668,7 +668,7 @@ describe("Kick static discovery gate", () => {
       "unlinked disabled",
       { accountLinked: false },
       (settings) => {
-        settings.platform.kick.farmUnlinkedCampaigns = false;
+        settings.platform.kick.unlinkedCampaigns = "skip";
       },
     ],
     [

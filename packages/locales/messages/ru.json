@@ -762,7 +762,7 @@
     "message": "Все награды этой кампании получены."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Фарминг без привязанной учётной записи отключён."
+    "message": "Кампании без привязанного аккаунта переведены в режим «Пропускать»."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Для этой кампании Twitch требуется привязка учётной записи."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Выберите уровни для журнала активности. Ошибки всегда сохраняются."
   },
-  "farmUnlinkedTitle": {
-    "message": "Фармить кампании без привязанного аккаунта"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Когда выключено, кампании, требующие привязки аккаунта, пропускаются. Требования платформы могут всё равно требовать привязку, когда настройка включена."
-  },
   "rewardFilterTitle": {
     "message": "Награды для фарма"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Фармятся только награды, для которых нужна подписка."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Кампании без привязанного аккаунта"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Фармить, пропускать или фармить последними кампании, требующие привязки игрового аккаунта. Требования платформы всё равно могут требовать привязку до получения награды."
+  },
+  "unlinkedModeInclude": {
+    "message": "Учитывать"
+  },
+  "unlinkedModeSkip": {
+    "message": "Пропускать"
+  },
+  "unlinkedModeLast": {
+    "message": "В конце"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Фармятся вместе с остальными. Привяжите аккаунт, чтобы получить награды."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Никогда не фармятся, даже закреплённые."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Фармятся, только когда ни одна кампания с привязанным аккаунтом не может фармиться. Закреплённые кампании и любимые игры сохраняют своё место."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "пропускать без привязки"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "без привязки в конце"
+  },
+  "queueGroupUnlinked": {
+    "message": "Без привязки · фармятся последними"
+  },
+  "rankReasonUnlinked": {
+    "message": "Аккаунт не привязан"
+  },
+  "queueFixFarmLast": {
+    "message": "Фармить последними"
   },
   "rewardFilterAll": {
     "message": "Все награды"

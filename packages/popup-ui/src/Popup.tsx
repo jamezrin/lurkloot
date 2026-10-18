@@ -1444,6 +1444,7 @@ export function Popup({
                               strategy={settings.priorityMode}
                               pinnedCount={settings.campaignPins.length}
                               farmPinnedOnly={settings.platform[platform].farmPinnedOnly}
+                              unlinkedCampaigns={settings.platform[platform].unlinkedCampaigns}
                               platform={platform}
                               rewardFilter={settings.platform[platform].rewardFilter}
                               rewardKindCounts={rewardKindCounts}
@@ -1463,6 +1464,12 @@ export function Popup({
                               onFarmPinnedOnlyChange={(farmPinnedOnly) =>
                                 void updateSettings(
                                   { platform: { [platform]: { farmPinnedOnly } } },
+                                  { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                                )
+                              }
+                              onUnlinkedCampaignsChange={(unlinkedCampaigns) =>
+                                void updateSettings(
+                                  { platform: { [platform]: { unlinkedCampaigns } } },
                                   { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                                 )
                               }

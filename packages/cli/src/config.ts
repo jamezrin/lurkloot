@@ -125,8 +125,10 @@ export function defaultConfigJsonc(): string {
         "rewardFilter": ${json(twitch.rewardFilter)},
         // Farm nothing but this platform's pinned campaigns (campaignPins).
         "farmPinnedOnly": ${json(twitch.farmPinnedOnly)},
-        // Set to false to skip campaigns that need an account link.
-        "farmUnlinkedCampaigns": ${json(twitch.farmUnlinkedCampaigns)},
+        // Campaigns that need an account link: "include" farms them like any
+        // other, "skip" never farms them, "last" farms them only once no linked
+        // campaign can be (a pin or a favourite game still keeps its rank).
+        "unlinkedCampaigns": ${json(twitch.unlinkedCampaigns)},
         // Used by "include" for eligibility; also seeds partial Twitch live-
         // channel discovery when the campaign dashboard is unavailable, even
         // in "all" mode. Add game IDs and names you want the CLI to scan.
@@ -165,9 +167,9 @@ export function defaultConfigJsonc(): string {
         "rewardFilter": ${json(kick.rewardFilter)},
         // Farm nothing but this platform's pinned campaigns (campaignPins).
         "farmPinnedOnly": ${json(kick.farmPinnedOnly)},
-        // Set to false to skip campaigns that need an account link (Kick
+        // Like Twitch's unlinkedCampaigns: "include", "skip" or "last" (Kick
         // credits watch time before linking).
-        "farmUnlinkedCampaigns": ${json(kick.farmUnlinkedCampaigns)},
+        "unlinkedCampaigns": ${json(kick.unlinkedCampaigns)},
         // Used by "include". Order has no scheduling effect.
         "categories": ${json(kick.categories)},
         // Campaigns of these categories rank above the strategy, in this order,

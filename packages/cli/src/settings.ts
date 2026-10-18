@@ -24,6 +24,10 @@ import {
   migrateSettings,
   type SettingsMigrationDiagnostic,
 } from "@lurkloot/shared/settingsSchema";
+import {
+  UNLINKED_CAMPAIGN_MODES,
+  normalizeUnlinkedCampaignMode,
+} from "@lurkloot/shared/unlinkedCampaigns";
 import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
 import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type {
@@ -79,7 +83,7 @@ export interface CliSettings {
 // Per-platform eligibility switches. Their values are checked, not just their
 // names: booleanOr would quietly restore the default for `"farmPinnedOnly": "yes"`
 // and farm the wrong set.
-const PLATFORM_ELIGIBILITY_SWITCHES = ["farmPinnedOnly", "farmUnlinkedCampaigns"] as const;
+const PLATFORM_ELIGIBILITY_SWITCHES = ["farmPinnedOnly"] as const;
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
@@ -149,7 +153,7 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "categoryMode",
     "rewardFilter",
     "farmPinnedOnly",
-    "farmUnlinkedCampaigns",
+    "unlinkedCampaigns",
     "categories",
     "favouriteCategories",
     "blockedCategories",
@@ -167,7 +171,7 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "categoryMode",
     "rewardFilter",
     "farmPinnedOnly",
-    "farmUnlinkedCampaigns",
+    "unlinkedCampaigns",
     "categories",
     "favouriteCategories",
     "blockedCategories",
@@ -395,6 +399,20 @@ function parseMigratedCliSettings(
           if (Object.hasOwn(block, "rewardFilter")) {
             offenders.push(...rewardFilterOffenders(name, block.rewardFilter));
           }
+          // Checked for the same reason: an unknown mode would quietly fall
+          // back to "include" and farm campaigns the user meant to skip.
+          if (
+            Object.hasOwn(block, "unlinkedCampaigns")
+            && !UNLINKED_CAMPAIGN_MODES.includes(block.unlinkedCampaigns as never)
+          ) {
+            const path = `platform.${name}.unlinkedCampaigns`;
+            const movedFrom = diagnostics.find(
+              (diagnostic) =>
+                diagnostic.code !== "limit_exceeded" && diagnostic.replacement === path,
+            )?.path;
+            const subject = movedFrom ? `"${movedFrom}" (now "${path}")` : `"${path}"`;
+            offenders.push(`${subject} must be one of: ${UNLINKED_CAMPAIGN_MODES.join(", ")}`);
+          }
         }
       }
     }
@@ -528,7 +546,7 @@ function normalizePlatform(
         categoryMode: normalizeCategoryMode(ps.categoryMode),
         rewardFilter: normalizeRewardFilter(ps.rewardFilter, platform),
         farmPinnedOnly: booleanOr(ps.farmPinnedOnly, defaults.farmPinnedOnly),
-        farmUnlinkedCampaigns: booleanOr(ps.farmUnlinkedCampaigns, defaults.farmUnlinkedCampaigns),
+        unlinkedCampaigns: normalizeUnlinkedCampaignMode(ps.unlinkedCampaigns),
         categories: normalizeCategorySelections(ps.categories),
         favouriteCategories: normalizeCategorySelections(ps.favouriteCategories),
         blockedCategories: normalizeCategorySelections(ps.blockedCategories),

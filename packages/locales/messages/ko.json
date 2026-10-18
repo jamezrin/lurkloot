@@ -762,7 +762,7 @@
     "message": "이 캠페인의 모든 보상이 완료되었습니다."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "연결되지 않은 계정의 캠페인 파밍이 꺼져 있습니다."
+    "message": "연결되지 않은 계정의 캠페인은 건너뛰기로 설정되어 있습니다."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "이 Twitch 캠페인에는 계정 연결이 필요합니다."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "활동 로그에 기록할 수준을 선택하세요. 오류는 항상 보관됩니다."
   },
-  "farmUnlinkedTitle": {
-    "message": "연결되지 않은 계정의 캠페인 파밍"
-  },
-  "farmUnlinkedDescription": {
-    "message": "끄면 계정 연결이 필요한 캠페인은 건너뜁니다. 켜져 있어도 플랫폼 요건으로 연결이 필요할 수 있습니다."
-  },
   "rewardFilterTitle": {
     "message": "파밍할 보상"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "구독이 필요한 보상만 파밍합니다."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "연결되지 않은 계정의 캠페인"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "계정 연결이 필요한 캠페인을 포함, 건너뛰기 또는 마지막에 파밍 중에서 선택합니다. 플랫폼 요건에 따라 보상을 받으려면 여전히 연결이 필요할 수 있습니다."
+  },
+  "unlinkedModeInclude": {
+    "message": "포함"
+  },
+  "unlinkedModeSkip": {
+    "message": "건너뛰기"
+  },
+  "unlinkedModeLast": {
+    "message": "마지막에 파밍"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "나머지와 함께 파밍합니다. 보상을 받으려면 계정을 연결하세요."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "고정되어 있어도 파밍하지 않습니다."
+  },
+  "unlinkedModeLastHint": {
+    "message": "연결된 캠페인을 파밍할 수 없을 때만 파밍합니다. 고정된 캠페인과 즐겨찾는 게임은 순서를 유지합니다."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "미연결 건너뛰기"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "미연결 마지막"
+  },
+  "queueGroupUnlinked": {
+    "message": "미연결 · 마지막에 파밍"
+  },
+  "rankReasonUnlinked": {
+    "message": "계정 미연결"
+  },
+  "queueFixFarmLast": {
+    "message": "마지막에 파밍"
   },
   "rewardFilterAll": {
     "message": "모든 보상"

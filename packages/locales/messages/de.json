@@ -762,7 +762,7 @@
     "message": "Alle Belohnungen dieser Kampagne sind abgeschlossen."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Kampagnen ohne verknüpftes Konto werden nicht gefarmt."
+    "message": "Kampagnen ohne verknüpftes Konto sind auf Auslassen gesetzt."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Für diese Twitch-Kampagne muss ein Konto verknüpft sein."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Wähle, welche Stufen im Aktivitätsprotokoll aufgezeichnet werden. Fehler bleiben immer aktiv."
   },
-  "farmUnlinkedTitle": {
-    "message": "Kampagnen ohne verknüpftes Konto farmen"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Wenn aus, werden Kampagnen übersprungen, die eine Kontoverknüpfung erfordern. Plattformvorgaben können die Verknüpfung auch bei aktivierter Option verlangen."
-  },
   "rewardFilterTitle": {
     "message": "Zu farmende Belohnungen"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Nur Belohnungen, die ein Abo voraussetzen, werden gefarmt."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Kampagnen ohne verknüpftes Konto"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Lege fest, ob Kampagnen, die eine Verknüpfung deines Spielkontos erfordern, einbezogen, ausgelassen oder zuletzt gefarmt werden. Plattformvorgaben können die Verknüpfung trotzdem verlangen, bevor eine Belohnung beansprucht werden kann."
+  },
+  "unlinkedModeInclude": {
+    "message": "Einbeziehen"
+  },
+  "unlinkedModeSkip": {
+    "message": "Auslassen"
+  },
+  "unlinkedModeLast": {
+    "message": "Zuletzt farmen"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Wird zusammen mit den übrigen gefarmt. Verknüpfe das Konto, um ihre Belohnungen zu beanspruchen."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Wird nie gefarmt, auch wenn angeheftet."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Wird nur gefarmt, wenn keine verknüpfte Kampagne gefarmt werden kann. Angeheftete Kampagnen und Lieblingsspiele behalten ihren Platz."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "unverknüpfte auslassen"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "unverknüpft zuletzt"
+  },
+  "queueGroupUnlinked": {
+    "message": "Unverknüpft · zuletzt gefarmt"
+  },
+  "rankReasonUnlinked": {
+    "message": "Konto nicht verknüpft"
+  },
+  "queueFixFarmLast": {
+    "message": "Zuletzt farmen"
   },
   "rewardFilterAll": {
     "message": "Alle Belohnungen"

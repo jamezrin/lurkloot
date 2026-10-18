@@ -6,6 +6,7 @@ import {
   migrateSettings,
   withSchemaVersion,
 } from "@lurkloot/shared/settingsSchema";
+import { mergeSettings } from "@lurkloot/shared/settings";
 
 const defaultSourceSettings = {
   twitch: { watchSourcePriority: ["drops", "nopixel", "fortnite", "idle_watchlist"] },
@@ -541,7 +542,7 @@ describe("schema v5", () => {
   });
 });
 
-describe("schema v8", () => {
+describe("schema v8 and v9", () => {
   const platformOf = (settings: Record<string, unknown>, platform: "twitch" | "kick") =>
     (settings.platform as Record<string, Record<string, unknown>>)[platform];
 
@@ -570,10 +571,12 @@ describe("schema v8", () => {
     );
 
     for (const platform of ["twitch", "kick"] as const) {
+      // v9 then turns the copied switch into the unlinked mode.
       expect(platformOf(migrated.settings, platform)).toMatchObject({
-        farmUnlinkedCampaigns: false,
+        unlinkedCampaigns: "skip",
         farmPinnedOnly: true,
       });
+      expect(platformOf(migrated.settings, platform).farmUnlinkedCampaigns).toBeUndefined();
       expect(platformOf(migrated.settings, platform).rewardFilter).toBeUndefined();
     }
     expect(migrated.settings.farmingEligibility).toBeUndefined();
@@ -687,12 +690,62 @@ describe("schema v8", () => {
     );
 
     expect(platformOf(migrated.settings, "twitch")).toMatchObject({
-      farmUnlinkedCampaigns: true,
+      unlinkedCampaigns: "include",
       farmPinnedOnly: false,
     });
     expect(platformOf(migrated.settings, "kick")).toMatchObject({
-      farmUnlinkedCampaigns: false,
+      unlinkedCampaigns: "skip",
       farmPinnedOnly: true,
     });
+  });
+
+  it("v9 turns the unlinked switch into the unlinked mode", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        {
+          platform: {
+            twitch: { farmUnlinkedCampaigns: true },
+            kick: { farmUnlinkedCampaigns: false },
+          },
+        },
+        8,
+      ),
+    );
+
+    expect(platformOf(migrated.settings, "twitch")).toEqual({ unlinkedCampaigns: "include" });
+    expect(platformOf(migrated.settings, "kick")).toEqual({ unlinkedCampaigns: "skip" });
+    expect(migrated.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "moved_property",
+        path: "platform.twitch.farmUnlinkedCampaigns",
+        replacement: "platform.twitch.unlinkedCampaigns",
+      }),
+      expect.objectContaining({
+        code: "moved_property",
+        path: "platform.kick.farmUnlinkedCampaigns",
+        replacement: "platform.kick.unlinkedCampaigns",
+      }),
+    ]);
+  });
+
+  it("v9 keeps a current unlinked mode and leaves platforms without the switch alone", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        { platform: { twitch: { farmUnlinkedCampaigns: false, unlinkedCampaigns: "last" } } },
+        8,
+      ),
+    );
+
+    expect(platformOf(migrated.settings, "twitch")).toEqual({ unlinkedCampaigns: "last" });
+    expect(platformOf(migrated.settings, "kick")).toBeUndefined();
+  });
+
+  it("v9 moves a wrong-typed switch across for normalization to judge", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion({ platform: { kick: { farmUnlinkedCampaigns: "yes" } } }, 8),
+    );
+
+    expect(platformOf(migrated.settings, "kick")).toEqual({ unlinkedCampaigns: "yes" });
+    expect(mergeSettings(migrated.settings).platform.kick.unlinkedCampaigns).toBe("include");
   });
 });

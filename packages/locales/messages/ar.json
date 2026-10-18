@@ -762,7 +762,7 @@
     "message": "اكتملت جميع مكافآت هذه الحملة."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "جمع الحملات دون حساب مرتبط معطّل."
+    "message": "الحملات دون حساب مرتبط مضبوطة على «تخطي»."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "تتطلب حملة Twitch هذه ربط حساب."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "اختر المستويات المسجلة في سجل النشاط. تبقى الأخطاء دائمًا."
   },
-  "farmUnlinkedTitle": {
-    "message": "فارم الحملات بدون حساب مرتبط"
-  },
-  "farmUnlinkedDescription": {
-    "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط الحساب. قد تظل متطلبات المنصة تفرض الربط عند التشغيل."
-  },
   "rewardFilterTitle": {
     "message": "المكافآت للفارم"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "تُفارَم المكافآت التي تتطلب اشتراكًا فقط."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "حملات دون حساب مرتبط"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "اختر فارم الحملات التي تتطلب ربط حساب اللعبة أو تخطيها أو فارمها أخيرًا. قد تظل متطلبات المنصة تفرض الربط قبل استلام أي مكافأة."
+  },
+  "unlinkedModeInclude": {
+    "message": "تضمين"
+  },
+  "unlinkedModeSkip": {
+    "message": "تخطي"
+  },
+  "unlinkedModeLast": {
+    "message": "فارم أخيرًا"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "تُفارَم مع باقي الحملات. اربط الحساب لاستلام مكافآتها."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "لا تُفارَم أبدًا، حتى لو كانت مثبتة."
+  },
+  "unlinkedModeLastHint": {
+    "message": "تُفارَم فقط عندما لا يمكن فارم أي حملة مرتبطة. تحتفظ الحملات المثبتة والألعاب المفضلة بمكانها."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "تخطي غير المرتبط"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "غير المرتبط أخيرًا"
+  },
+  "queueGroupUnlinked": {
+    "message": "غير مرتبط · يُفارَم أخيرًا"
+  },
+  "rankReasonUnlinked": {
+    "message": "الحساب غير مرتبط"
+  },
+  "queueFixFarmLast": {
+    "message": "فارم أخيرًا"
   },
   "rewardFilterAll": {
     "message": "كل المكافآت"

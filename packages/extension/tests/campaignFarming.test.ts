@@ -73,18 +73,38 @@ describe("evaluateCampaignFarming", () => {
       rewards: [{ ...campaign().rewards[0]!, watchedMinutes: 1, status: "in_progress" }],
     });
     expect(evaluateCampaignFarming(source, settings(), { now: NOW })).toEqual({ farmable: true });
-    const disabled = settings({}, { farmUnlinkedCampaigns: false });
+    const disabled = settings({}, { unlinkedCampaigns: "skip" });
     expect(evaluateCampaignFarming(source, disabled, { now: NOW })).toMatchObject({
       farmable: false,
       code: "unlinked_campaigns_disabled",
     });
   });
 
+  it("farms an unlinked campaign set to farm last, and skips one set to skip even when pinned", () => {
+    const source = campaign({ accountLinked: false });
+    expect(
+      evaluateCampaignFarming(source, settings({}, { unlinkedCampaigns: "last" }), { now: NOW }),
+    ).toEqual({ farmable: true });
+    // Skip means never farm it: a pin ranks, it never makes a campaign eligible.
+    const pinnedSkip = settings({ campaignPins: ["campaign"] }, { unlinkedCampaigns: "skip" });
+    expect(
+      evaluateCampaignFarming(source, pinnedSkip, { now: NOW, includePinnedOnly: true }),
+    ).toMatchObject({ farmable: false, code: "unlinked_campaigns_disabled" });
+  });
+
+  it("lifts a skipped unlinked campaign to farm last, which farms it", () => {
+    const source = campaign({ accountLinked: false });
+    const blockers = campaignFarmingBlockers(source, settings({}, { unlinkedCampaigns: "skip" }), {
+      now: NOW,
+    });
+    expect(blockers.map((blocker) => blocker.code)).toEqual(["unlinked_campaigns_disabled"]);
+  });
+
   it("distinguishes a disabled unlinked class from Twitch's platform requirement", () => {
     const currentSettings = settings();
     currentSettings.platform.kick = {
       ...currentSettings.platform.kick,
-      farmUnlinkedCampaigns: false,
+      unlinkedCampaigns: "skip",
     };
     expect(
       evaluateCampaignFarming(

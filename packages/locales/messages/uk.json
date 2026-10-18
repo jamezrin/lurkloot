@@ -762,7 +762,7 @@
     "message": "Усі нагороди цієї кампанії отримано."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Фарм кампаній без прив’язаного облікового запису вимкнено."
+    "message": "Кампанії без прив’язаного облікового запису переведено на «Пропустити»."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Для цієї кампанії Twitch потрібне прив’язування облікового запису."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Оберіть рівні для журналу активності. Помилки завжди зберігаються."
   },
-  "farmUnlinkedTitle": {
-    "message": "Фармити кампанії без прив’язаного облікового запису"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Коли вимкнено, кампанії, що потребують прив’язки облікового запису, пропускаються. Вимоги платформи все одно можуть вимагати прив’язку, коли це увімкнено."
-  },
   "rewardFilterTitle": {
     "message": "Нагороди для фарму"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Фармляться лише нагороди, для яких потрібна підписка."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Кампанії без прив’язаного облікового запису"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Фармити, пропускати або фармити останніми кампанії, що потребують прив’язки вашого ігрового облікового запису. Вимоги платформи все одно можуть вимагати прив’язку перед отриманням нагороди."
+  },
+  "unlinkedModeInclude": {
+    "message": "Включити"
+  },
+  "unlinkedModeSkip": {
+    "message": "Пропустити"
+  },
+  "unlinkedModeLast": {
+    "message": "В кінці"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Фармляться разом з іншими. Прив’яжіть обліковий запис, щоб отримати нагороди."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Ніколи не фармляться, навіть закріплені."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Фармляться, лише коли жодна кампанія з прив’язаним обліковим записом не може фармитися. Закріплені кампанії та улюблені ігри зберігають своє місце."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "пропустити без прив’язки"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "без прив’язки в кінці"
+  },
+  "queueGroupUnlinked": {
+    "message": "Без прив’язки · фармляться останніми"
+  },
+  "rankReasonUnlinked": {
+    "message": "Обліковий запис не прив’язаний"
+  },
+  "queueFixFarmLast": {
+    "message": "Фармити останніми"
   },
   "rewardFilterAll": {
     "message": "Усі нагороди"

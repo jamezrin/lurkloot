@@ -97,12 +97,12 @@ describe("CLI engine event reporting", () => {
           rewards: [dropReward({ requiredMinutes: 60 })],
         }),
       ],
-      // farmUnlinkedCampaigns off is what makes the eligibility check reject it.
+      // unlinkedCampaigns set to "skip" is what makes the eligibility check reject it.
       toEngineSettings({
         ...DEFAULT_CLI_SETTINGS,
         platform: {
           ...DEFAULT_CLI_SETTINGS.platform,
-          twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, farmUnlinkedCampaigns: false },
+          twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, unlinkedCampaigns: "skip" },
         },
       }),
       {

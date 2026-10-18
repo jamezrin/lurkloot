@@ -1,12 +1,18 @@
 import { favouriteCategoryIndex } from "./categories";
 import type { DropCampaign, EngineSettings } from "./models";
+import { isCampaignUnlinked } from "./unlinkedCampaigns";
 
 // Which layer placed a campaign in the list. The popup labels its group
 // dividers from this, so "why is this campaign here" has one answer shared by
 // the engine and the UI.
-export type CampaignRankTier = "pinned" | "favourite" | "strategy";
+export type CampaignRankTier = "pinned" | "favourite" | "strategy" | "unlinked";
 
-const TIER_ORDER: Record<CampaignRankTier, number> = { pinned: 0, favourite: 1, strategy: 2 };
+const TIER_ORDER: Record<CampaignRankTier, number> = {
+  pinned: 0,
+  favourite: 1,
+  strategy: 2,
+  unlinked: 3,
+};
 
 export function campaignRankTier(
   campaign: DropCampaign,
@@ -14,6 +20,13 @@ export function campaignRankTier(
 ): CampaignRankTier {
   if (pinIndex(campaign, settings) !== -1) return "pinned";
   if (favouriteIndex(campaign, settings) !== -1) return "favourite";
+  // Checked after pins and favourites, so a campaign the user placed by hand
+  // or whose game they starred keeps that rank even when it is unlinked.
+  if (
+    settings.platform[campaign.platform].unlinkedCampaigns === "last"
+    && isCampaignUnlinked(campaign)
+  )
+    return "unlinked";
   return "strategy";
 }
 
@@ -46,10 +59,13 @@ function endScore(campaign: DropCampaign): number {
 // it, the popup renders it, and the keep-watching comparison reads it, so the
 // number on a card is the position the engine actually acts on.
 //
-// Three tiers, in order:
+// Four tiers, in order:
 //  1. pinned campaigns, in pin order — an explicit placement by the user;
 //  2. campaigns of favourite categories, in the order the user set for them;
-//  3. everything else, by the one live strategy.
+//  3. everything else, by the one live strategy;
+//  4. with unlinked campaigns set to "last", the unlinked ones left over,
+//     by the same strategy, so they are farmed only once no linked campaign
+//     above them can be.
 //
 // Ranking never decides whether a campaign may be farmed. Eligibility runs
 // first (see isEligible/evaluateCampaignFarming), so a pin can never rescue a

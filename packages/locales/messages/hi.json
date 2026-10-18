@@ -762,7 +762,7 @@
     "message": "इस कैंपेन के सभी रिवॉर्ड पूरे हो चुके हैं।"
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "लिंक किए खाते के बिना कैंपेन फ़ार्मिंग बंद है।"
+    "message": "बिना लिंक किए खाते वाले कैंपेन छोड़ने पर सेट हैं।"
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "इस Twitch कैंपेन के लिए खाता लिंक करना आवश्यक है।"
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "गतिविधि लॉग में कौन से स्तर रिकॉर्ड हों चुनें। त्रुटियाँ हमेशा रखी जाती हैं।"
   },
-  "farmUnlinkedTitle": {
-    "message": "बिना लिंक किए गए खाते वाले कैंपेन फ़ार्म करें"
-  },
-  "farmUnlinkedDescription": {
-    "message": "बंद होने पर, खाता लिंक करने वाले कैंपेन छोड़ दिए जाते हैं। चालू होने पर भी प्लेटफ़ॉर्म के नियम लिंक करना आवश्यक बना सकते हैं।"
-  },
   "rewardFilterTitle": {
     "message": "फ़ार्म करने वाले रिवॉर्ड"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "केवल वे रिवॉर्ड फ़ार्म किए जाते हैं जिनके लिए सदस्यता चाहिए।"
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "बिना लिंक किए खाते वाले कैंपेन"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "जिन कैंपेन के लिए आपको गेम खाता लिंक करना होता है, उन्हें फ़ार्म करें, छोड़ें या सबसे आख़िर में फ़ार्म करें। पुरस्कार का दावा करने से पहले प्लेटफ़ॉर्म की शर्तों के तहत लिंक करना अब भी ज़रूरी हो सकता है।"
+  },
+  "unlinkedModeInclude": {
+    "message": "शामिल"
+  },
+  "unlinkedModeSkip": {
+    "message": "छोड़ें"
+  },
+  "unlinkedModeLast": {
+    "message": "आख़िर में फ़ार्म"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "बाकी के साथ फ़ार्म किए जाते हैं। उनके रिवॉर्ड पाने के लिए खाता लिंक करें।"
+  },
+  "unlinkedModeSkipHint": {
+    "message": "पिन होने पर भी कभी फ़ार्म नहीं किए जाते।"
+  },
+  "unlinkedModeLastHint": {
+    "message": "केवल तभी फ़ार्म किए जाते हैं जब कोई लिंक्ड कैंपेन फ़ार्म न हो सके। पिन किए गए कैंपेन और पसंदीदा गेम अपनी जगह बनाए रखते हैं।"
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "बिना लिंक छोड़ें"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "बिना लिंक सबसे बाद"
+  },
+  "queueGroupUnlinked": {
+    "message": "बिना लिंक · आख़िर में फ़ार्म"
+  },
+  "rankReasonUnlinked": {
+    "message": "खाता लिंक नहीं है"
+  },
+  "queueFixFarmLast": {
+    "message": "आख़िर में फ़ार्म"
   },
   "rewardFilterAll": {
     "message": "सभी रिवॉर्ड"

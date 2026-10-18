@@ -762,7 +762,7 @@
     "message": "Todas as recompensas desta campanha foram concluídas."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "O farm sem uma conta vinculada está desativado."
+    "message": "Campanhas sem conta vinculada estão definidas como Pular."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Esta campanha da Twitch exige uma conta vinculada."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Escolha quais níveis são registrados no log de atividade. Erros são sempre mantidos."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farmar campanhas sem conta vinculada"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Quando desativado, campanhas que exigem vincular sua conta são ignoradas. A plataforma ainda pode exigir vinculação quando ativado."
-  },
   "rewardFilterTitle": {
     "message": "Recompensas para farmar"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Só as recompensas que exigem assinatura são farmadas."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Campanhas sem conta vinculada"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Farme, pule ou farme por último as campanhas que exigem vincular sua conta de jogo. Os requisitos da plataforma ainda podem exigir a vinculação antes de resgatar uma recompensa."
+  },
+  "unlinkedModeInclude": {
+    "message": "Incluir"
+  },
+  "unlinkedModeSkip": {
+    "message": "Pular"
+  },
+  "unlinkedModeLast": {
+    "message": "Por último"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Farmadas junto com as demais. Vincule a conta para resgatar as recompensas."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Nunca farmadas, mesmo quando fixadas."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Farmadas só quando nenhuma campanha com conta vinculada puder ser farmada. Campanhas fixadas e jogos favoritos mantêm sua posição."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "pular sem vínculo"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "sem vínculo por último"
+  },
+  "queueGroupUnlinked": {
+    "message": "Sem vínculo · farmadas por último"
+  },
+  "rankReasonUnlinked": {
+    "message": "Conta não vinculada"
+  },
+  "queueFixFarmLast": {
+    "message": "Farmar por último"
   },
   "rewardFilterAll": {
     "message": "Todas as recompensas"

@@ -762,7 +762,7 @@
     "message": "All rewards in this campaign are complete."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Farming campaigns without a linked account is disabled."
+    "message": "Campaigns without a linked account are set to Skip."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Account linking is required for this Twitch campaign."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Choose which levels are recorded in the Activity log. Errors are always kept."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farm campaigns without a linked account"
-  },
-  "farmUnlinkedDescription": {
-    "message": "When off, campaigns that need you to link your account are skipped. Platform requirements can still require linking when this is on."
-  },
   "rewardFilterTitle": {
     "message": "Rewards to farm"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Only rewards that need a subscription are farmed."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Campaigns without a linked account"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Farm, skip or farm last the campaigns that need you to link your game account. Platform requirements can still require linking before a reward can be claimed."
+  },
+  "unlinkedModeInclude": {
+    "message": "Include"
+  },
+  "unlinkedModeSkip": {
+    "message": "Skip"
+  },
+  "unlinkedModeLast": {
+    "message": "Farm last"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Farmed with the rest. Link the account to claim their rewards."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Never farmed, even when pinned."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Farmed only when no linked campaign can be. Pinned campaigns and favourite games keep their place."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "skip unlinked"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "unlinked last"
+  },
+  "queueGroupUnlinked": {
+    "message": "Unlinked · farmed last"
+  },
+  "rankReasonUnlinked": {
+    "message": "Account not linked"
+  },
+  "queueFixFarmLast": {
+    "message": "Farm last"
   },
   "rewardFilterAll": {
     "message": "All rewards"

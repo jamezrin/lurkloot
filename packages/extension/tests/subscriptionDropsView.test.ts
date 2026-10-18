@@ -96,6 +96,7 @@ function renderQueueMarkup(campaigns: CampaignView[], refreshing: boolean): stri
         strategy: "ending_soonest" as const,
         pinnedCount: 0,
         farmPinnedOnly: false,
+        unlinkedCampaigns: "include" as const,
         platform: "twitch" as const,
         rewardFilter: defaultRewardFilter("twitch"),
         showSubscriptionChoice: false,
@@ -103,6 +104,7 @@ function renderQueueMarkup(campaigns: CampaignView[], refreshing: boolean): stri
         onStrategyChange: () => {},
         onUnpinAll: () => {},
         onFarmPinnedOnlyChange: () => {},
+        onUnlinkedCampaignsChange: () => {},
         onRefreshCampaign: () => {},
         onPinChange: () => {},
         onToggleExclude: () => {},
@@ -120,7 +122,7 @@ describe("subscription drop popup views", () => {
     ]);
     source.accountLinked = false;
     const currentSettings = mergeSettings(undefined);
-    currentSettings.platform.twitch.farmUnlinkedCampaigns = false;
+    currentSettings.platform.twitch.unlinkedCampaigns = "skip";
 
     const view = campaignViewFromCampaign(source, 0, idleSession, false, {
       skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
@@ -726,6 +728,7 @@ describe("the exclude button on a campaign with nothing to watch", () => {
           strategy: "ending_soonest" as const,
           pinnedCount: 0,
           farmPinnedOnly: false,
+          unlinkedCampaigns: "include" as const,
           platform: "twitch" as const,
           rewardFilter: defaultRewardFilter("twitch"),
           showSubscriptionChoice: false,
@@ -733,6 +736,7 @@ describe("the exclude button on a campaign with nothing to watch", () => {
           onStrategyChange: () => {},
           onUnpinAll: () => {},
           onFarmPinnedOnlyChange: () => {},
+          onUnlinkedCampaignsChange: () => {},
           onRefreshCampaign: () => {},
           onPinChange: () => {},
           onToggleExclude: () => {},

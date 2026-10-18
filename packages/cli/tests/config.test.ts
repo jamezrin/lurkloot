@@ -322,7 +322,7 @@ describe("loadConfig", () => {
       expect(platforms[platform]).toMatchObject({
         rewardFilter: defaults.rewardFilter,
         farmPinnedOnly: defaults.farmPinnedOnly,
-        farmUnlinkedCampaigns: defaults.farmUnlinkedCampaigns,
+        unlinkedCampaigns: defaults.unlinkedCampaigns,
       });
     }
   });

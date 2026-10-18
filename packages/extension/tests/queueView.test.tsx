@@ -107,6 +107,7 @@ function queue(
       strategy={settings.priorityMode}
       pinnedCount={settings.campaignPins.length}
       farmPinnedOnly={settings.platform.twitch.farmPinnedOnly}
+      unlinkedCampaigns={settings.platform.twitch.unlinkedCampaigns}
       platform="twitch"
       rewardFilter={settings.platform.twitch.rewardFilter}
       showSubscriptionChoice
@@ -114,6 +115,7 @@ function queue(
       onStrategyChange={() => undefined}
       onUnpinAll={() => undefined}
       onFarmPinnedOnlyChange={() => undefined}
+      onUnlinkedCampaignsChange={() => undefined}
       onRefreshCampaign={() => undefined}
       onPinChange={() => undefined}
       onToggleExclude={() => undefined}
@@ -385,6 +387,7 @@ describe("queue view", () => {
         strategy={settings.priorityMode}
         pinnedCount={0}
         farmPinnedOnly={false}
+        unlinkedCampaigns="include"
         platform="twitch"
         rewardFilter={filter}
         showSubscriptionChoice={showsSubscriptionChoice(sources, filter)}
@@ -395,6 +398,7 @@ describe("queue view", () => {
         onStrategyChange={() => undefined}
         onUnpinAll={() => undefined}
         onFarmPinnedOnlyChange={() => undefined}
+        onUnlinkedCampaignsChange={() => undefined}
         onRefreshCampaign={() => undefined}
         onPinChange={() => undefined}
         onToggleExclude={() => undefined}
@@ -514,23 +518,23 @@ describe("queue view", () => {
     expect(onFarmPinnedOnlyChange).toHaveBeenCalledWith(true);
   });
 
-  it("opens the platform's reward settings from an unlinked campaign's fix", () => {
+  it("farms a skipped unlinked campaign last from its fix", () => {
     const settings = mergeSettings({
-      platform: { twitch: { farmUnlinkedCampaigns: false } },
+      platform: { twitch: { unlinkedCampaigns: "skip" } },
     } as never);
     const unlinked = campaign("unlinked", { accountLinked: false } as Partial<DropCampaign>);
-    const onOpenSettings = vi.fn();
+    const onUnlinkedCampaignsChange = vi.fn();
     const { container } = queue(views([campaign("drop"), unlinked], settings), settings, {
-      onOpenSettings,
+      onUnlinkedCampaignsChange,
     });
 
     expand(container, "skipped");
     const fix = container.querySelector<HTMLButtonElement>(
       '[data-campaign-id="unlinked"] [data-queue-fix]',
     );
-    expect(fix?.textContent).toBe("queueFixSettings");
+    expect(fix?.textContent).toBe("queueFixFarmLast");
     act(() => fix!.click());
-    expect(onOpenSettings).toHaveBeenCalledWith("twitch.rewards");
+    expect(onUnlinkedCampaignsChange).toHaveBeenCalledWith("last");
   });
 
   it("lists a campaign only an outside action can unblock under Action required, apart from Skipped (#677)", () => {
@@ -610,6 +614,48 @@ describe("queue view", () => {
 
     const strategy = container.querySelector<HTMLButtonElement>("[data-queue-strategy]");
     expect(strategy?.dataset.value).toBe("lowest_availability");
+  });
+
+  it("lists unlinked campaigns in their own group after the strategy when farmed last", () => {
+    const settings = mergeSettings({
+      campaignPins: ["pinned-unlinked"],
+      platform: { twitch: { unlinkedCampaigns: "last" } },
+    } as never);
+    const unlinked = (id: string) =>
+      campaign(id, { accountLinked: false } as Partial<DropCampaign>);
+    const { container } = queue(
+      views([unlinked("unlinked"), campaign("linked"), unlinked("pinned-unlinked")], settings),
+      settings,
+    );
+
+    expect(rows(container, "pinned")).toEqual(["pinned-unlinked"]);
+    expect(rows(container, "strategy")).toEqual(["linked"]);
+    expect(rows(container, "unlinked")).toEqual(["unlinked"]);
+    const unlinkedGroup = container.querySelector('[data-queue-group="unlinked"]')!;
+    expect(unlinkedGroup.textContent).toContain("queueGroupUnlinked");
+    expect(openCard(container, "unlinked").textContent).toContain(
+      "rankReasonUnlinked · rankReasonEnding",
+    );
+    // The picker stays on "Then by", which still has rows.
+    expect(
+      container.querySelector('[data-queue-group="strategy"] [data-queue-strategy]'),
+    ).not.toBeNull();
+    expect(unlinkedGroup.querySelector("[data-queue-strategy]")).toBeNull();
+  });
+
+  it("moves the strategy picker to the unlinked group when no linked campaign is queued", () => {
+    const settings = mergeSettings({
+      platform: { twitch: { unlinkedCampaigns: "last" } },
+    } as never);
+    const { container } = queue(
+      views([campaign("unlinked", { accountLinked: false } as Partial<DropCampaign>)], settings),
+      settings,
+    );
+
+    expect(container.querySelector('[data-queue-group="strategy"]')).toBeNull();
+    expect(
+      container.querySelector('[data-queue-group="unlinked"] [data-queue-strategy]'),
+    ).not.toBeNull();
   });
 });
 

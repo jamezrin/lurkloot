@@ -27,7 +27,7 @@ describe("settings export/import", () => {
         kick: {
           ...DEFAULT_SETTINGS.platform.kick,
           rewardFilter: { kinds: ["item"], subscriptions: "skip" },
-          farmUnlinkedCampaigns: false,
+          unlinkedCampaigns: "last",
         },
       },
       excludedCampaignIds: ["abc123"],

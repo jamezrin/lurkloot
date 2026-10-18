@@ -762,7 +762,7 @@
     "message": "このキャンペーンの報酬はすべて完了しています。"
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "アカウント未連携のキャンペーンのファームは無効です。"
+    "message": "アカウント未連携のキャンペーンは「スキップ」に設定されています。"
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "この Twitch キャンペーンにはアカウント連携が必要です。"
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "アクティビティログに記録するレベルを選びます。エラーは常に保持されます。"
   },
-  "farmUnlinkedTitle": {
-    "message": "アカウント未連携のキャンペーンをファーム"
-  },
-  "farmUnlinkedDescription": {
-    "message": "オフのとき、アカウント連携が必要なキャンペーンはスキップされます。オンでもプラットフォーム要件で連携が必要な場合があります。"
-  },
   "rewardFilterTitle": {
     "message": "ファームする報酬"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "サブスクが必要な報酬だけがファームされます。"
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "アカウント未連携のキャンペーン"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "ゲームアカウントの連携が必要なキャンペーンを、含める・スキップ・最後にファームから選べます。プラットフォームの要件により、報酬の受け取り前に連携が必要な場合もあります。"
+  },
+  "unlinkedModeInclude": {
+    "message": "含める"
+  },
+  "unlinkedModeSkip": {
+    "message": "スキップ"
+  },
+  "unlinkedModeLast": {
+    "message": "最後にファーム"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "他の報酬と一緒にファームされます。報酬を受け取るにはアカウントを連携してください。"
+  },
+  "unlinkedModeSkipHint": {
+    "message": "ピン留めされていても、ファームされることはありません。"
+  },
+  "unlinkedModeLastHint": {
+    "message": "連携済みのキャンペーンをファームできない場合にのみファームされます。ピン留めしたキャンペーンとお気に入りのゲームは順位を保ちます。"
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "未連携をスキップ"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "未連携は最後"
+  },
+  "queueGroupUnlinked": {
+    "message": "未連携 · 最後にファーム"
+  },
+  "rankReasonUnlinked": {
+    "message": "アカウント未連携"
+  },
+  "queueFixFarmLast": {
+    "message": "最後にファーム"
   },
   "rewardFilterAll": {
     "message": "すべての報酬"

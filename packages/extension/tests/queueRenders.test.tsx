@@ -95,6 +95,7 @@ function mount(campaigns: CampaignView[]): {
     onStrategyChange: () => undefined,
     onUnpinAll: () => undefined,
     onFarmPinnedOnlyChange: () => undefined,
+    onUnlinkedCampaignsChange: () => undefined,
     onRefreshCampaign: () => undefined,
     onPinChange: () => undefined,
     onToggleExclude: () => undefined,
@@ -112,6 +113,7 @@ function mount(campaigns: CampaignView[]): {
           strategy="ending_soonest"
           pinnedCount={0}
           farmPinnedOnly={false}
+          unlinkedCampaigns="include"
           platform="twitch"
           rewardFilter={defaultRewardFilter("twitch")}
           showSubscriptionChoice={false}

@@ -80,7 +80,7 @@ describe("settings storage migration", () => {
     // retired that block with the popup's sections, but neither step may turn a
     // hidden class into an unfarmed one: farming stays at its defaults.
     for (const platform of ["twitch", "kick"] as const) {
-      expect(settings.platform[platform].farmUnlinkedCampaigns).toBe(true);
+      expect(settings.platform[platform].unlinkedCampaigns).toBe("include");
       expect(settings.platform[platform].rewardFilter.subscriptions).toBe("include");
     }
     expect(settings).not.toHaveProperty("dropsListFilter");

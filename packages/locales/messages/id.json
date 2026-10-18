@@ -762,7 +762,7 @@
     "message": "Semua hadiah di kampanye ini sudah selesai."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Farming kampanye tanpa akun tertaut dinonaktifkan."
+    "message": "Kampanye tanpa akun tertaut diatur ke Lewati."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Penautan akun diperlukan untuk kampanye Twitch ini."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Pilih level yang dicatat di log Aktivitas. Error selalu disimpan."
   },
-  "farmUnlinkedTitle": {
-    "message": "Farm kampanye tanpa akun tertaut"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Saat mati, kampanye yang perlu penautan akun dilewati. Persyaratan platform tetap bisa mewajibkan penautan meski ini aktif."
-  },
   "rewardFilterTitle": {
     "message": "Hadiah untuk di-farm"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Hanya hadiah yang membutuhkan langganan yang di-farm."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Kampanye tanpa akun tertaut"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Farm, lewati, atau farm terakhir kampanye yang perlu kamu tautkan akun game-nya. Persyaratan platform tetap bisa mewajibkan penautan sebelum hadiah dapat diklaim."
+  },
+  "unlinkedModeInclude": {
+    "message": "Sertakan"
+  },
+  "unlinkedModeSkip": {
+    "message": "Lewati"
+  },
+  "unlinkedModeLast": {
+    "message": "Farm terakhir"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Di-farm bersama yang lain. Tautkan akun untuk mengklaim hadiahnya."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Tidak pernah di-farm, meski disematkan."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Di-farm hanya saat tidak ada kampanye tertaut yang bisa di-farm. Kampanye yang disematkan dan game favorit tetap pada posisinya."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "lewati tak tertaut"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "tak tertaut terakhir"
+  },
+  "queueGroupUnlinked": {
+    "message": "Tanpa tautan · di-farm terakhir"
+  },
+  "rankReasonUnlinked": {
+    "message": "Akun belum ditautkan"
+  },
+  "queueFixFarmLast": {
+    "message": "Farm terakhir"
   },
   "rewardFilterAll": {
     "message": "Semua hadiah"

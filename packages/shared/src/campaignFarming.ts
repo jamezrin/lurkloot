@@ -20,6 +20,7 @@ import {
   isWatchReward,
   rewardFeasibility,
 } from "./rewards";
+import { isCampaignUnlinked } from "./unlinkedCampaigns";
 
 export type CampaignFarmingRejectionCode =
   | "excluded"
@@ -118,10 +119,10 @@ export function evaluateCampaignFarming(
   if (campaignEndsAt !== undefined && campaignEndsAt < now) return rejected("expired");
   if (campaign.status === "completed" || campaign.eligibility === "completed")
     return rejected("completed");
-  const accountUnlinked =
-    campaign.accountLinked === false || campaign.eligibility === "account_not_linked";
   const platformSettings = settings.platform[campaign.platform];
-  if (accountUnlinked && !platformSettings.farmUnlinkedCampaigns) {
+  // Only "skip" refuses an unlinked campaign. "last" keeps it farmable and
+  // leaves its place to the ranking (rankCampaigns).
+  if (isCampaignUnlinked(campaign) && platformSettings.unlinkedCampaigns === "skip") {
     return rejected("unlinked_campaigns_disabled");
   }
   if (isCampaignCategoryBlocked(campaign, platformSettings)) {
@@ -285,7 +286,9 @@ function withBlockerLifted(
         return undefined;
       return withPlatform({ rewardFilter: defaultRewardFilter(campaign.platform) });
     case "unlinked_campaigns_disabled":
-      return withPlatform({ farmUnlinkedCampaigns: true });
+      // "Farm last" is the smallest step that farms it: it queues the campaign
+      // without moving it ahead of the linked ones.
+      return withPlatform({ unlinkedCampaigns: "last" });
     case "category_blocked":
       return withPlatform({ blockedCategories: [] });
     case "category_filtered":

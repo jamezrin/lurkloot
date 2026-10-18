@@ -762,7 +762,7 @@
     "message": "Bu kampanyadaki tüm ödüller tamamlandı."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Bağlı hesap olmadan kampanya farmlama kapalı."
+    "message": "Bağlı hesabı olmayan kampanyalar Atla olarak ayarlandı."
   },
   "campaignRejectionTwitchLinkRequired": {
     "message": "Bu Twitch kampanyası için hesap bağlamak gerekir."
@@ -932,12 +932,6 @@
   "activityLogLevelsDescription": {
     "message": "Hangi işlemlerin geçmişe kaydedileceğini seçin."
   },
-  "farmUnlinkedTitle": {
-    "message": "Bağlı hesabı olmayan kampanyaları farmla"
-  },
-  "farmUnlinkedDescription": {
-    "message": "Kapalıyken, hesap bağlantısı gerektiren kampanyalar atlanır. Açıkken bile platform kuralları bağlantı gerektirebilir."
-  },
   "rewardFilterTitle": {
     "message": "Farmlanacak ödüller"
   },
@@ -985,6 +979,45 @@
   },
   "subscriptionModeOnlyHint": {
     "message": "Yalnızca abonelik gerektiren ödüller farmlanır."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "Hesap bağlantısı olmayan kampanyalar"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "Hesap bağlantısı gerektiren kampanyaları farmla, atla veya en son farmla. Platform kuralları ödül almadan önce yine de bağlantı isteyebilir."
+  },
+  "unlinkedModeInclude": {
+    "message": "Dahil"
+  },
+  "unlinkedModeSkip": {
+    "message": "Atla"
+  },
+  "unlinkedModeLast": {
+    "message": "En son farmla"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "Diğerleriyle birlikte farmlanır. Ödülleri almak için hesabı bağlayın."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "Sabitlenmiş olsa bile hiç farmlanmaz."
+  },
+  "unlinkedModeLastHint": {
+    "message": "Yalnızca bağlı bir kampanya farmlanamadığında farmlanır. Sabitlenmiş kampanyalar ve favori oyunlar yerini korur."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "bağlantısız atla"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "bağlantısız sonda"
+  },
+  "queueGroupUnlinked": {
+    "message": "Bağlantısız · en son farmlanır"
+  },
+  "rankReasonUnlinked": {
+    "message": "Hesap bağlı değil"
+  },
+  "queueFixFarmLast": {
+    "message": "En son farmla"
   },
   "rewardFilterAll": {
     "message": "Tüm ödüller"

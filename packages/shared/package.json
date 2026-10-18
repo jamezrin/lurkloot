@@ -19,6 +19,7 @@
     "./logging": "./src/logging.ts",
     "./rewards": "./src/rewards.ts",
     "./rewardFilter": "./src/rewardFilter.ts",
+    "./unlinkedCampaigns": "./src/unlinkedCampaigns.ts",
     "./events": "./src/events.ts",
     "./criticalHealth": "./src/criticalHealth.ts",
     "./failureReport": "./src/failureReport.ts",
