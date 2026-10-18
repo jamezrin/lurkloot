@@ -674,8 +674,13 @@ acts on. Three tiers, in order:
    hand. Dragging a card, or typing a rank, pins that one campaign; everything
    else keeps the tier it had.
 2. `platform[platform].favouriteCategories` — campaigns of starred games, in the
-   order they were starred. A standing preference that survives campaign churn,
-   so next season's campaign of a starred game is already high.
+   user's order. A new star goes last; the Games view reorders favourites the
+   way the Queue reorders pins, by dragging or typing a number (#847). A
+   standing preference that survives campaign churn, so next season's campaign
+   of a starred game is already high. A blocked favourite keeps its star and its
+   slot in the array but takes no number (`rankedFavouriteCategories`), and
+   reordering moves a favourite into a shown neighbour's slot, so hidden ones
+   stay where they were.
 3. `priorityMode` — one live strategy (`ending_soonest` or
    `lowest_availability`), then name, then id.
 
@@ -807,7 +812,7 @@ Steps 1–8 decide and name their side effects; the tick's effect executor perfo
 
 Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
-pin order, then campaigns of favourite games in star order, then the single live
+pin order, then campaigns of favourite games in the user's order, then the single live
 strategy, then name and id. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. The per-platform `farmUnlinkedCampaigns`, `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).

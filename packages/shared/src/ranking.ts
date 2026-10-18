@@ -48,7 +48,7 @@ function endScore(campaign: DropCampaign): number {
 //
 // Three tiers, in order:
 //  1. pinned campaigns, in pin order — an explicit placement by the user;
-//  2. campaigns of favourite categories, in the order those were starred;
+//  2. campaigns of favourite categories, in the order the user set for them;
 //  3. everything else, by the one live strategy.
 //
 // Ranking never decides whether a campaign may be farmed. Eligibility runs

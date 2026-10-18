@@ -374,6 +374,8 @@ describe("i18n", () => {
       "relativeIn",
       // Two numbers and XP, the common gaming term Kick itself uses everywhere.
       "kickLevelXp",
+      // "Lv", the gaming abbreviation many locales keep as is.
+      "kickLevelShort",
     ]);
 
     // Loanwords that are correct as written in these languages.

@@ -67,6 +67,19 @@ export function isCampaignCategoryBlocked(
   return categoryListIndex(campaign, blocked) !== -1;
 }
 
+// The favourites that rank, in the user's order. A blocked game keeps its star,
+// so unblocking restores it, but holds no place: the number the Games view
+// shows and the one a queued campaign cites both count only these.
+export function rankedFavouriteCategories(
+  platformSettings: Partial<Pick<PlatformSettings, "favouriteCategories" | "blockedCategories">>,
+): CategorySelection[] {
+  const favourites = platformSettings.favouriteCategories ?? [];
+  const blocked = platformSettings.blockedCategories;
+  if (!blocked?.length) return favourites;
+  const blockedIds = new Set(blocked.map((category) => category.id.toLowerCase()));
+  return favourites.filter((category) => !blockedIds.has(category.id.toLowerCase()));
+}
+
 // Position of a campaign's category among the user's favourites, or -1. This is
 // the only way a category can affect ranking: the allowlist filters, favourites
 // rank, and a blocked category ranks nowhere because it is never farmed.
@@ -74,8 +87,7 @@ export function favouriteCategoryIndex(
   campaign: DropCampaign,
   platformSettings: Partial<Pick<PlatformSettings, "favouriteCategories" | "blockedCategories">>,
 ): number {
-  const favourites = platformSettings.favouriteCategories;
-  if (!favourites?.length) return -1;
+  if (!platformSettings.favouriteCategories?.length) return -1;
   if (isCampaignCategoryBlocked(campaign, platformSettings)) return -1;
-  return categoryListIndex(campaign, favourites);
+  return categoryListIndex(campaign, rankedFavouriteCategories(platformSettings));
 }

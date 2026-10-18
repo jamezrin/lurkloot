@@ -149,7 +149,7 @@ describe("favouriteCategoryIndex", () => {
   const otherGame: CategorySelection = { id: "21", name: "Other" };
   const rustCampaign = campaign({ categoryId: "13", gameName: "Rust" });
 
-  it("returns the position a category was starred in", () => {
+  it("returns the category's position in the favourites order", () => {
     expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [otherGame, rust] })).toBe(
       1,
     );
@@ -161,6 +161,15 @@ describe("favouriteCategoryIndex", () => {
   it("returns -1 without favourites, or for an unstarred category", () => {
     expect(favouriteCategoryIndex(rustCampaign, {})).toBe(-1);
     expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [otherGame] })).toBe(-1);
+  });
+
+  it("counts only unblocked favourites, so a blocked one takes no number", () => {
+    expect(
+      favouriteCategoryIndex(rustCampaign, {
+        favouriteCategories: [otherGame, rust],
+        blockedCategories: [otherGame],
+      }),
+    ).toBe(0);
   });
 
   it("never ranks a blocked category, even when it is also starred", () => {

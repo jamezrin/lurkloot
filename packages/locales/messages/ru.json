@@ -2057,6 +2057,9 @@
   "kickLevelSummary": {
     "message": "Уровень Kick $1 · $2% до уровня $3"
   },
+  "kickLevelShort": {
+    "message": "Ур. $1"
+  },
   "kickLevelXp": {
     "message": "$1 / $2 XP"
   },

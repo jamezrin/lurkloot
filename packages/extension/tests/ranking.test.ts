@@ -73,7 +73,7 @@ describe("rankCampaigns", () => {
     expect(ids(ranked)).toEqual(["ending-late", "scarce", "ending-soon"]);
   });
 
-  it("keeps favourite games in the order they were starred", () => {
+  it("ranks favourite games in the order the user set", () => {
     const ranked = rankCampaigns(
       [endingSoon, endingLate, scarce],
       settings({

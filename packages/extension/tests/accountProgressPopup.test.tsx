@@ -77,8 +77,8 @@ describe("account progress beside the platform switch", () => {
     expect(badge?.getAttribute("data-tooltip")).toBe(
       "Kick level 56 · 60% to level 57\n7,146 / 11,782 XP\n25-day watch streak",
     );
-    expect(badge?.querySelector("text")?.textContent).toBe("56");
-    expect(view.querySelector("[data-kick-level-ring]")).not.toBeNull();
+    expect(badge?.querySelector("[data-kick-level]")?.textContent).toBe("56");
+    expect(view.querySelector("[data-kick-level-bar]")).not.toBeNull();
     expect(view.querySelector("[data-kick-streak]")?.textContent).toBe("25");
   });
 

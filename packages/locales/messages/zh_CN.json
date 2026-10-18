@@ -2057,6 +2057,9 @@
   "kickLevelSummary": {
     "message": "Kick 等级 $1 · 距离 $3 级 $2%"
   },
+  "kickLevelShort": {
+    "message": "Lv $1"
+  },
   "kickLevelXp": {
     "message": "$1 / $2 XP"
   },
