@@ -27,7 +27,10 @@ vi.mock("wxt/browser", () => ({
     },
     i18n: { getMessage: vi.fn() },
     cookies: { get: vi.fn(async () => ({ value: "token" })) },
-    runtime: { getURL: (path: string) => `moz-extension://test-extension${path}` },
+    runtime: {
+      getURL: (path: string) => `moz-extension://test-extension${path}`,
+      onConnect: { addListener: vi.fn() },
+    },
     permissions: { contains: vi.fn(async () => true) },
     webRequest: { onBeforeSendHeaders: { addListener: vi.fn() } },
   },
@@ -323,5 +326,30 @@ describe("background integrity alarm wiring", () => {
       url: "https://www.twitch.tv",
       name: "auth-token",
     });
+  });
+
+  it("registers the Chrome socket host when the background starts, not when the module is imported", async () => {
+    createBackgroundController.mockImplementation(() => ({ onCommit: vi.fn() }));
+    const { browser } = await import("wxt/browser");
+    const addListener = browser.runtime.onConnect.addListener as ReturnType<typeof vi.fn>;
+    addListener.mockClear();
+    vi.stubGlobal("chrome", { offscreen: {}, runtime: {} });
+    let startBackground: (() => void) | undefined;
+    vi.stubGlobal("defineBackground", (main: () => void) => {
+      startBackground = main;
+      return { main };
+    });
+
+    await import("../entrypoints/background");
+
+    expect(addListener).not.toHaveBeenCalled();
+    // The socket host is installed first. Later listeners touch browser APIs
+    // this mock does not implement, which is the prepare-time failure mode.
+    try {
+      startBackground?.();
+    } catch {
+      // Startup past the host registration is outside this test.
+    }
+    expect(addListener).toHaveBeenCalledOnce();
   });
 });

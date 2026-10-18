@@ -124,8 +124,10 @@ export default defineConfig({
   }),
   zip: {
     sourcesRoot: ".",
-    artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",
-    sourcesTemplate: "{{name}}-{{version}}-sources.zip",
+    // WXT 0.21's {{version}} is manifest.version. Release artifact names follow
+    // package.json, which is {{packageVersion}}.
+    artifactTemplate: "{{name}}-{{packageVersion}}-{{browser}}.zip",
+    sourcesTemplate: "{{name}}-{{packageVersion}}-sources.zip",
     // Generated, gitignored outputs (store screenshots/promo tiles) live here;
     // keep them out of the AMO sources zip.
     excludeSources: ["artifacts/**"],
