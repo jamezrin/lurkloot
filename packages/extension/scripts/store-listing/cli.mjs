@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { parseLocaleArguments } from "./core/listing.mjs";
+import { CAPTURE_MODES, captureStore } from "./capture.mjs";
 import { LISTING, STORE_PATHS } from "./lurkloot.mjs";
 import { validateStoreScreenshotFiles } from "./core/files.mjs";
 import { ChromeWebStoreDashboard } from "./core/dashboard.mjs";
@@ -47,6 +48,12 @@ function defaultCreateDashboard({ page, env, output, listing }) {
 
 const LISTING_PARTS = Object.freeze(["screenshots", "descriptions"]);
 
+export const COMMANDS = Object.freeze(["capture", "validate", "sync"]);
+
+// Options that take no value. The locale parser lets these through so each
+// command can read the ones it owns.
+const FLAGS = Object.freeze(["--validate-only", "--capture"]);
+
 // Takes "--only <part>" out of the arguments before the shared locale parser,
 // which rejects options it does not know.
 export function parseListingParts(args) {
@@ -67,19 +74,21 @@ export function parseListingParts(args) {
   return { parts: only ? [only] : [...LISTING_PARTS], rest };
 }
 
+// A bare invocation, or one that starts with an option, is a sync: that is what
+// this command did before it had stages.
+export function parseCommand(args) {
+  const [first, ...others] = args;
+  if (COMMANDS.includes(first)) return { command: first, rest: others };
+  return { command: "sync", rest: args };
+}
+
 function plural(count, noun) {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
-export async function main(args = process.argv.slice(2), env = process.env, dependencies = {}) {
-  validateExtensionId(env.CWS_EXTENSION_ID);
-  const { parts, rest } = parseListingParts(args);
-  const listing = dependencies.listing ?? LISTING;
-  const locales = parseLocaleArguments(listing, rest, { allowedFlags: ["--validate-only"] });
-  const output = dependencies.output ?? console.log;
-
-  // Everything is read and checked before a browser starts, so a missing image
-  // or an over-long description never leaves a half-edited listing.
+// Everything is read and checked before a browser starts, so a missing image
+// or an over-long description never leaves a half-edited listing.
+async function loadInputs({ parts, locales, listing, dependencies, output }) {
   let filesByLocale;
   let imageCount = 0;
   if (parts.includes("screenshots")) {
@@ -103,9 +112,13 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
       `Validated ${plural(descriptionsByLocale.size, "description")} for ${plural(locales.length, "locale")}.`,
     );
   }
-  if (rest.includes("--validate-only")) return;
-  validatePublisherId(env.CWS_PUBLISHER_ID);
+  return { filesByLocale, descriptionsByLocale, imageCount };
+}
 
+// Opens the signed-in dashboard, runs the work, and leaves the browser the way
+// the outcome calls for.
+async function withDashboard({ env, listing, dependencies, output }, work) {
+  validatePublisherId(env.CWS_PUBLISHER_ID);
   const openBrowser = dependencies.openBrowser ?? startBrowserSession;
   const createDashboard = dependencies.createDashboard ?? defaultCreateDashboard;
   const session = await openBrowser({
@@ -121,6 +134,64 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
     const page = await session.context.newPage();
     dashboard = createDashboard({ page, env, output, listing });
     await dashboard.openAndWaitForAuthentication();
+    const result = await work(dashboard);
+    await (dependencies.finishBrowser ?? finishBrowserSession)(session, { output });
+    return result;
+  } catch (error) {
+    // Any failure keeps the browser: the operator may have signed in already,
+    // including while the step that failed was still waiting, and rebuilding
+    // that session costs another sign-in and 2FA.
+    await (dependencies.abandonBrowser ?? abandonBrowserSession)(session, output, {
+      mutated: Boolean(dashboard?.hasMutated),
+    });
+    throw error;
+  }
+}
+
+async function runCapture({ rest, listing, dependencies }) {
+  const [first, ...others] = rest;
+  const mode = CAPTURE_MODES.includes(first) ? first : "screenshots";
+  const optionArguments = CAPTURE_MODES.includes(first) ? others : rest;
+  const locales = parseLocaleArguments(listing, optionArguments);
+  await (dependencies.capture ?? captureStore)({
+    mode,
+    locales,
+    listing,
+    output: dependencies.output ?? console.log,
+  });
+}
+
+async function runValidateOrSync({ command, rest, env, listing, dependencies }) {
+  const { parts, rest: optionArguments } = parseListingParts(rest);
+  const locales = parseLocaleArguments(listing, optionArguments, { allowedFlags: FLAGS });
+  const output = dependencies.output ?? console.log;
+  const validateOnly = command === "validate" || optionArguments.includes("--validate-only");
+
+  // A capture stage ahead of the sync keeps one command, so the locale list is
+  // forwarded to it once rather than only to the last script in a chain.
+  if (
+    command === "sync"
+    && optionArguments.includes("--capture")
+    && parts.includes("screenshots")
+  ) {
+    await (dependencies.capture ?? captureStore)({
+      mode: "screenshots",
+      locales,
+      listing,
+      output,
+    });
+  }
+
+  const { filesByLocale, descriptionsByLocale, imageCount } = await loadInputs({
+    parts,
+    locales,
+    listing,
+    dependencies,
+    output,
+  });
+  if (validateOnly) return;
+
+  await withDashboard({ env, listing, dependencies, output }, async (dashboard) => {
     await syncStoreListing({
       listing,
       locales,
@@ -143,16 +214,15 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
     output(
       `Synced ${updated.join(" and ")} across ${plural(locales.length, "locale")}. Nothing was submitted for review.`,
     );
-    await (dependencies.finishBrowser ?? finishBrowserSession)(session, { output });
-  } catch (error) {
-    // Any failure keeps the browser: the operator may have signed in already,
-    // including while the step that failed was still waiting, and rebuilding
-    // that session costs another sign-in and 2FA.
-    await (dependencies.abandonBrowser ?? abandonBrowserSession)(session, output, {
-      mutated: Boolean(dashboard?.hasMutated),
-    });
-    throw error;
-  }
+  });
+}
+
+export async function main(args = process.argv.slice(2), env = process.env, dependencies = {}) {
+  const { command, rest } = parseCommand(args);
+  const listing = dependencies.listing ?? LISTING;
+  if (command === "capture") return runCapture({ rest, listing, dependencies });
+  validateExtensionId(env.CWS_EXTENSION_ID);
+  return runValidateOrSync({ command, rest, env, listing, dependencies });
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

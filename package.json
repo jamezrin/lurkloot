@@ -23,7 +23,6 @@
     "cws:listing": "pnpm --filter @lurkloot/extension cws:listing",
     "cws:listing:sync": "pnpm --filter @lurkloot/extension cws:listing:sync",
     "promo:store": "pnpm --filter @lurkloot/extension promo:store",
-    "promo:store:sync": "pnpm --filter @lurkloot/extension promo:store:sync",
     "kick:inspect": "pnpm --filter @lurkloot/extension kick:inspect",
     "privacy:gist": "scripts/update-privacy-gist.sh",
     "release:check": "node scripts/release.mjs check",

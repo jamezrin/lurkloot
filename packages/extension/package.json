@@ -16,11 +16,10 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "kick:inspect": "node scripts/kick-inspect.mjs",
-    "screenshot:store": "pnpm build && node scripts/store-listing/capture.mjs screenshots",
+    "screenshot:store": "pnpm build && node scripts/store-listing/cli.mjs capture screenshots",
     "cws:listing": "node scripts/store-listing/cli.mjs",
-    "cws:listing:sync": "pnpm screenshot:store && pnpm cws:listing",
-    "promo:store": "pnpm build && node scripts/store-listing/capture.mjs promos",
-    "promo:store:sync": "pnpm promo:store"
+    "cws:listing:sync": "pnpm build && node scripts/store-listing/cli.mjs sync --capture",
+    "promo:store": "pnpm build && node scripts/store-listing/cli.mjs capture promos"
   },
   "dependencies": {
     "@dnd-kit/helpers": "^0.5.0",
