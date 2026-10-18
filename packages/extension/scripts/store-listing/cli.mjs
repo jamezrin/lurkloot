@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright";
@@ -52,7 +52,7 @@ function defaultCreateDashboard({ page, env, output, listing }) {
 
 const LISTING_PARTS = Object.freeze(["screenshots", "descriptions"]);
 
-export const COMMANDS = Object.freeze(["capture", "validate", "sync", "verify"]);
+export const COMMANDS = Object.freeze(["capture", "validate", "sync", "verify", "snapshot"]);
 
 // Options that take no value. The locale parser lets these through so each
 // command can read the ones it owns.
@@ -313,6 +313,8 @@ async function readBack({
     );
   }
   output(`Verified ${plural(locales.length, "locale")} against a fresh load of the dashboard.`);
+  const status = await dashboard.listingStatus?.();
+  if (status) output(`Listing status: ${status}.`);
   // Only a sync that was confirmed by a fresh load may be trusted later, so the
   // record is written here and nowhere earlier.
   if (filesByLocale) {
@@ -328,6 +330,27 @@ async function readBack({
     }
     await recordSync({ dir: stateDir, listing, entries });
   }
+}
+
+// Writes sanitized copies of the live dashboard for the locator contract tests.
+// It only reads the page, and each locale is named so a run never captures more
+// of the signed-in session than was asked for.
+async function runSnapshot({ rest, env, listing, dependencies }) {
+  if (!rest.includes("--locales")) {
+    throw new Error("snapshot needs --locales, for example: snapshot --locales en es");
+  }
+  const locales = parseLocaleArguments(listing, rest);
+  const output = dependencies.output ?? console.log;
+  const dir = dependencies.snapshotDir ?? STORE_PATHS.snapshots;
+  await withDashboard({ env, listing, dependencies, output }, async (dashboard) => {
+    await mkdir(dir, { recursive: true });
+    for (const locale of locales) {
+      await dashboard.selectLocale(locale);
+      const html = await dashboard.snapshotHtml();
+      await writeFile(join(dir, `${locale}.html`), html);
+      output(`${locale}: wrote ${join(dir, `${locale}.html`)} (${html.length} characters)`);
+    }
+  });
 }
 
 async function runVerify({ rest, env, listing, dependencies }) {
@@ -355,6 +378,7 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   if (command === "capture") return runCapture({ rest, listing, dependencies });
   validateExtensionId(env.CWS_EXTENSION_ID);
   if (command === "verify") return runVerify({ rest, env, listing, dependencies });
+  if (command === "snapshot") return runSnapshot({ rest, env, listing, dependencies });
   return runValidateOrSync({ command, rest, env, listing, dependencies });
 }
 

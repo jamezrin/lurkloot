@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error The production utility is an executable JavaScript module.
 import { main, parseCommand } from "../scripts/store-listing/cli.mjs";
@@ -131,5 +134,40 @@ describe("store listing command", () => {
     ).rejects.toThrow(/captured from 1\.17\.2/);
 
     expect(calls).not.toContain("open browser");
+  });
+
+  it("will not snapshot without being told which languages", async () => {
+    await expect(main(["snapshot"], env, dependencies([]))).rejects.toThrow(/needs --locales/i);
+  });
+
+  it("writes one sanitized file per requested language", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "lurkloot-snapshots-"));
+    const selected: string[] = [];
+    try {
+      await main(
+        ["snapshot", "--locales", "en", "es"],
+        { ...env, CWS_PUBLISHER_ID: "12345678-1234-1234-1234-123456789abc" },
+        {
+          output: () => {},
+          snapshotDir: dir,
+          openBrowser: async () => ({
+            ownsBrowser: false,
+            browser: { close: async () => {} },
+            context: { newPage: async () => ({ close: async () => {} }) },
+          }),
+          createDashboard: () => ({
+            openAndWaitForAuthentication: async () => {},
+            selectLocale: async (locale: string) => selected.push(locale),
+            snapshotHtml: async () => `<html>${selected.at(-1)}</html>`,
+          }),
+          finishBrowser: async () => {},
+        },
+      );
+
+      expect(readdirSync(dir).sort()).toEqual(["en.html", "es.html"]);
+      expect(readFileSync(join(dir, "es.html"), "utf8")).toBe("<html>es</html>");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

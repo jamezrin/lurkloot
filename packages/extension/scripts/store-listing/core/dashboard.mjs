@@ -1,3 +1,5 @@
+import { sanitizeInPage } from "./snapshot.mjs";
+
 export const SECTIONS = Object.freeze({ localized: "localized", global: "global" });
 
 const LABELS = Object.freeze({
@@ -212,6 +214,24 @@ export class ChromeWebStoreDashboard {
     await this.languageControl().first().waitFor({ state: "visible", timeout: this.timeout });
   }
 
+  // The sanitized structure of the page as it is right now. It only reads, and
+  // it leaves menus alone, so the capture is of a settled page.
+  async snapshotHtml() {
+    // Right after a language switch a menu stays open for a moment, and a
+    // snapshot of that would record a page in a state nobody works in.
+    await this.page.waitForFunction(
+      () => {
+        return (
+          document.querySelector("textarea") !== null
+          && document.querySelector('[role="combobox"][aria-expanded="true"]') === null
+        );
+      },
+      undefined,
+      { timeout: this.timeout },
+    );
+    return this.page.evaluate(sanitizeInPage);
+  }
+
   async thumbnailIds(section = SECTIONS.localized) {
     const sources = await this.screenshotItems(section).evaluateAll((media) =>
       media.map((image) => image.currentSrc || image.getAttribute("src") || ""),
@@ -250,6 +270,31 @@ export class ChromeWebStoreDashboard {
       .waitFor({ state: "visible", timeout: this.timeout });
   }
 
+  // "Draft", "Pending review", "Published" and so on, as the page words it. A
+  // submitted item cannot be edited until its review ends, so the status is
+  // what explains a form that will not take changes.
+  async listingStatus() {
+    const status = this.page.getByText(/^\s*Status:\s*\S/);
+    if ((await status.count()) === 0) return "";
+    return ((await status.first().textContent()) ?? "").replace(/^\s*Status:\s*/, "").trim();
+  }
+
+  // The form is briefly disabled while it loads, so it is only called locked
+  // after it stays disabled for the whole wait.
+  async requireEditableListing() {
+    const field = this.descriptionControl();
+    if ((await field.count()) !== 1) return;
+    const deadline = Date.now() + this.timeout;
+    while (Date.now() < deadline) {
+      if (await field.isEditable()) return;
+      await this.page.waitForTimeout(Math.min(100, Math.max(1, deadline - Date.now())));
+    }
+    const status = await this.listingStatus();
+    throw new Error(
+      `The listing cannot be edited${status ? ` (Status: ${status})` : ""}. A submitted item is locked until its review finishes; nothing was changed.`,
+    );
+  }
+
   async preflight({ locales, screenshots = true, descriptions = false }) {
     const identity = this.page.getByText(this.extensionId, { exact: false });
     await requireUnique(identity, "configured extension identity");
@@ -273,6 +318,7 @@ export class ChromeWebStoreDashboard {
     }
     if (tagName !== "SELECT") await this.page.keyboard.press("Escape");
 
+    await this.requireEditableListing();
     await this.selectLocale(locales[0]);
     if (descriptions) await this.requireDescriptionControl();
     if (screenshots) {

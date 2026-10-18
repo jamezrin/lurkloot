@@ -54,4 +54,5 @@ export const STORE_PATHS = Object.freeze({
   screenshots: `${packageRoot}artifacts/store-screenshots`,
   promos: `${packageRoot}artifacts/store-promo`,
   descriptions: `${packageRoot}store-descriptions`,
+  snapshots: `${packageRoot}tests/fixtures/cws-dashboard`,
 });

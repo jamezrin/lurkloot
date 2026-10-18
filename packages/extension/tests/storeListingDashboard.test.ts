@@ -549,6 +549,33 @@ describe("Chrome Web Store dashboard adapter for new languages", () => {
     expect(dashboard.hasMutated).toBe(true);
   });
 
+  it("names the review status when the listing is locked, before changing anything", async () => {
+    await page.setContent(
+      fixture.replace(
+        "<span>Localized screenshots</span>",
+        "<span>Status: Pending review</span><label>Description<textarea disabled>Body</textarea></label><span>Localized screenshots</span>",
+      ),
+    );
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 300 });
+
+    await expect(
+      dashboard.preflight({ locales: ["ar"], screenshots: false, descriptions: true }),
+    ).rejects.toThrow(/cannot be edited \(Status: Pending review\).*nothing was changed/i);
+    expect(dashboard.hasMutated).toBe(false);
+  });
+
+  it("waits out a form that is only disabled while it loads", async () => {
+    await page.setContent(
+      fixture.replace(
+        "<span>Localized screenshots</span>",
+        '<label>Description<textarea id="body" disabled>Body</textarea></label><span>Localized screenshots</span><script>setTimeout(() => { document.querySelector("#body").disabled = false; }, 150);</script>',
+      ),
+    );
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 2_000 });
+
+    await dashboard.preflight({ locales: ["en"], screenshots: false, descriptions: true });
+  });
+
   it("requires a single description field when descriptions are synced", async () => {
     await page.setContent(fixture);
     const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
