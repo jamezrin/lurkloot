@@ -1,5 +1,46 @@
 [
   {
+    "version": "1.18.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Choose which rewards to farm on each platform from the new Rewards to farm menu in the Queue, also found in Settings under Twitch and Kick. On Twitch, pick in-game items, badges, emotes or any mix, and set subscription rewards to Include, Skip or Only, so you can farm just free badges or only sub emotes. Campaigns outside your choice stay listed under Skipped with the reason, and Farm all resets the filter."
+      },
+      {
+        "kind": "new",
+        "text": "Campaigns without a linked account can now be farmed last. Next to Include and Skip, the new Farm last option watches them only when no linked campaign can be farmed, and switches back as soon as one can. The setting is now per platform and in the Rewards to farm menu."
+      },
+      {
+        "kind": "new",
+        "text": "Favourite games can be reordered like pinned campaigns. Drag a favourite, or click its number and type a new position. Campaigns of your favourites are farmed in that order, including ones that appear later."
+      },
+      {
+        "kind": "new",
+        "text": "The Kick tab now shows your Kick viewer level, with a bar filling toward the next level, and your daily watch streak beside the switch. Hover it for the exact XP."
+      },
+      {
+        "kind": "new",
+        "text": "Lurkloot is now available in Japanese, Indonesian, Polish, Korean, Ukrainian and Czech."
+      },
+      {
+        "kind": "improved",
+        "text": "Turning off \"Farm campaigns that require a subscription\" used to skip whole campaigns. It becomes Skip for subscription rewards, which still farms the free rewards in campaigns that have both. Farm pinned only and farming campaigns without a linked account are now set per platform, keeping your current choice on both."
+      },
+      {
+        "kind": "improved",
+        "text": "Settings headings stay pinned to the top while you scroll, so you always see which section you're in."
+      },
+      {
+        "kind": "improved",
+        "text": "The \"Drops · 1 of 4\" watch source chip is gone from the status strip. The sidebar still marks what's being watched, and each Twitch extension view still shows its place in the watch order."
+      },
+      {
+        "kind": "fixed",
+        "text": "Dropdowns in the popup, such as the Queue's Then by list, now close when you scroll the list behind them, instead of scrolling off the top of the popup."
+      }
+    ]
+  },
+  {
     "version": "1.17.2",
     "changes": [
       {
