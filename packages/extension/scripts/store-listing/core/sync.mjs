@@ -1,3 +1,5 @@
+import { hashFiles, isUnchanged, syncedGroup } from "./syncState.mjs";
+
 async function phase(listing, locale, variant, name, action) {
   try {
     return await action();
@@ -99,6 +101,27 @@ export async function replaceLocaleScreenshots({
   onProgress({ locale, phase: "saved", section });
 }
 
+// True when this language's images are exactly what the last verified sync left
+// there: same local files and the same thumbnails on the dashboard now.
+async function unchangedSinceLastSync({ listing, locale, files, dashboard, previousState, force }) {
+  if (force || !previousState) return false;
+  const entry = previousState.locales[locale];
+  if (!entry) return false;
+  const group = syncedGroup(listing, locale);
+  // The source language's artwork is the shared group, so the localized pass
+  // for it and the shared pass both stand or fall on that one group.
+  await phase(listing, locale, undefined, "locale selection", () => dashboard.selectLocale(locale));
+  const liveIds = await phase(listing, locale, undefined, "thumbnail read", () =>
+    dashboard.thumbnailIds(group),
+  );
+  return isUnchanged({
+    entry,
+    hashes: await hashFiles(files),
+    liveIds,
+    expectedCount: files.length,
+  });
+}
+
 // Either map may be omitted to sync only the other part of each listing.
 export async function syncStoreListing({
   listing,
@@ -106,6 +129,8 @@ export async function syncStoreListing({
   filesByLocale,
   descriptionsByLocale,
   dashboard,
+  previousState,
+  force = false,
   onProgress = () => {},
 }) {
   try {
@@ -129,6 +154,12 @@ export async function syncStoreListing({
     if (filesByLocale) {
       const files = filesByLocale.get(locale);
       if (!files) throw new Error(`No validated screenshot files found for ${locale}`);
+      if (
+        await unchangedSinceLastSync({ listing, locale, files, dashboard, previousState, force })
+      ) {
+        onProgress({ locale, phase: "screenshots-unchanged" });
+        continue;
+      }
       await replaceLocaleScreenshots({ listing, locale, files, dashboard, onProgress });
     }
   }
@@ -137,7 +168,18 @@ export async function syncStoreListing({
   // rewritten when that set was part of this run.
   const sourceLocale = listing.globalScreenshotsFrom;
   const sourceFiles = filesByLocale?.get(sourceLocale);
-  if (locales.includes(sourceLocale) && sourceFiles) {
+  if (
+    locales.includes(sourceLocale)
+    && sourceFiles
+    && !(await unchangedSinceLastSync({
+      listing,
+      locale: sourceLocale,
+      files: sourceFiles,
+      dashboard,
+      previousState,
+      force,
+    }))
+  ) {
     await replaceLocaleScreenshots({
       listing,
       locale: sourceLocale,

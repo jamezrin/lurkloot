@@ -113,7 +113,9 @@ describe("store listing command", () => {
     });
 
     expect(calls).toEqual(["validate files", "check provenance", "load descriptions"]);
-    expect(seen).toEqual([{ allowVersionMismatch: true, allowDirty: true }]);
+    expect(seen).toEqual([
+      { allowVersionMismatch: true, allowDirty: true, noVerify: false, force: false },
+    ]);
   });
 
   it("stops before a browser opens when provenance fails", async () => {

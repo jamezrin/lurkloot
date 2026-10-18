@@ -3,16 +3,23 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
-// @ts-expect-error The production utility is an executable JavaScript module.
-import { ChromeWebStoreDashboard as Dashboard } from "../scripts/store-listing/core/dashboard.mjs";
+import {
+  ChromeWebStoreDashboard as Dashboard,
+  thumbnailId,
+  // @ts-expect-error The production utility is an executable JavaScript module.
+} from "../scripts/store-listing/core/dashboard.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
 import { main as runMain, parseListingParts } from "../scripts/store-listing/cli.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
 import { LISTING } from "../scripts/store-listing/lurkloot.mjs";
 
-// These tests inject their own screenshot files, so they inject provenance too.
+// These tests inject their own screenshot files and fake dashboards, so they
+// inject provenance too and leave the readback to storeListingVerify.test.ts.
 const main = (args: string[], env: Record<string, string>, dependencies: Record<string, unknown>) =>
-  runMain(args, env, { checkProvenance: async () => {}, ...dependencies });
+  runMain(args[0] === "verify" ? args : [...args, "--no-verify"], env, {
+    checkProvenance: async () => {},
+    ...dependencies,
+  });
 
 // The driver is generic; these tests exercise it with the Lurkloot profile.
 type DashboardInstance = any;
@@ -398,6 +405,54 @@ describe("Chrome Web Store dashboard adapter", () => {
 
     expect(await page.locator("#panel li").count()).toBe(4);
     expect(await page.getByRole("button", { name: "Remove image Store icon" }).count()).toBe(1);
+  });
+});
+
+describe("Chrome Web Store dashboard readback", () => {
+  it("names a hosted thumbnail by the path segment before its size suffix", () => {
+    expect(thumbnailId("https://lh3.googleusercontent.com/AbC-123_x=s1280-w1280")).toBe(
+      "AbC-123_x",
+    );
+    expect(thumbnailId("https://lh3.googleusercontent.com/AbC-123_x")).toBe("AbC-123_x");
+    expect(thumbnailId("data:image/png;base64,AAAA#ar-1")).toBe("data:image/png;base64,AAAA#ar-1");
+    expect(thumbnailId("")).toBe("");
+  });
+
+  it("reads one language's description and both screenshot groups without changing anything", async () => {
+    await page.setContent(
+      fixture.replace(
+        "<span>Localized screenshots</span>",
+        "<label>Description<textarea>Body</textarea></label><span>Localized screenshots</span>",
+      ),
+    );
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
+
+    const state = await dashboard.readLocaleState("ar");
+
+    expect(state.language).toBe("Arabic – ar");
+    expect(state.description).toBe("Body");
+    expect(state.localized).toHaveLength(5);
+    expect(state.global).toHaveLength(5);
+    expect(new Set(state.localized).size).toBe(5);
+    expect(dashboard.hasMutated).toBe(false);
+  });
+
+  it("reloads the listing from the server, discarding edits the page only holds locally", async () => {
+    let requests = 0;
+    await page.route("https://dashboard.test/**", (route) => {
+      requests += 1;
+      return route.fulfill({ contentType: "text/html", body: fixture });
+    });
+    await page.goto("https://dashboard.test/listing");
+    await page.evaluate(() => {
+      document.querySelector("h1")!.textContent = "edited locally";
+    });
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
+
+    await dashboard.reload();
+
+    expect(requests).toBe(2);
+    expect(await page.locator("h1").textContent()).toMatch(/Store listing for/);
   });
 });
 

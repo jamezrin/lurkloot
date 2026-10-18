@@ -4,6 +4,8 @@ import { join, resolve } from "node:path";
 import { chromium } from "playwright";
 import { parseLocaleArguments } from "./core/listing.mjs";
 import { CAPTURE_MODES, captureStore } from "./capture.mjs";
+import { describeVerification, verifyStoreListing } from "./core/verify.mjs";
+import { hashFiles, readSyncState, recordSync, syncedGroup } from "./core/syncState.mjs";
 import { checkCaptureProvenance, readCaptureManifest } from "./core/provenance.mjs";
 import { LISTING, STORE_PATHS } from "./lurkloot.mjs";
 import { validateStoreScreenshotFiles } from "./core/files.mjs";
@@ -50,7 +52,7 @@ function defaultCreateDashboard({ page, env, output, listing }) {
 
 const LISTING_PARTS = Object.freeze(["screenshots", "descriptions"]);
 
-export const COMMANDS = Object.freeze(["capture", "validate", "sync"]);
+export const COMMANDS = Object.freeze(["capture", "validate", "sync", "verify"]);
 
 // Options that take no value. The locale parser lets these through so each
 // command can read the ones it owns.
@@ -59,6 +61,8 @@ const FLAGS = Object.freeze([
   "--capture",
   "--allow-version-mismatch",
   "--allow-dirty",
+  "--no-verify",
+  "--force",
 ]);
 
 // Takes "--only <part>" out of the arguments before the shared locale parser,
@@ -168,6 +172,9 @@ async function withDashboard({ env, listing, dependencies, output }, work) {
     dashboard = createDashboard({ page, env, output, listing });
     await dashboard.openAndWaitForAuthentication();
     const result = await work(dashboard);
+    // The operator's own Chrome keeps running, so the tab opened for this run
+    // must not be left behind in it.
+    if (!session.ownsBrowser) await page.close().catch(() => {});
     await (dependencies.finishBrowser ?? finishBrowserSession)(session, { output });
     return result;
   } catch (error) {
@@ -218,6 +225,8 @@ async function runValidateOrSync({ command, rest, env, listing, dependencies }) 
   const flags = {
     allowVersionMismatch: optionArguments.includes("--allow-version-mismatch"),
     allowDirty: optionArguments.includes("--allow-dirty"),
+    noVerify: optionArguments.includes("--no-verify"),
+    force: optionArguments.includes("--force"),
   };
   const { filesByLocale, descriptionsByLocale, imageCount } = await loadInputs({
     parts,
@@ -230,18 +239,24 @@ async function runValidateOrSync({ command, rest, env, listing, dependencies }) 
   if (validateOnly) return;
 
   await withDashboard({ env, listing, dependencies, output }, async (dashboard) => {
+    const stateDir = dependencies.stateDir ?? STORE_PATHS.screenshots;
     await syncStoreListing({
       listing,
       locales,
       filesByLocale,
       descriptionsByLocale,
       dashboard,
+      force: flags.force,
+      previousState: filesByLocale ? await readSyncState(stateDir, listing) : undefined,
       onProgress: ({ locale, variant, phase, section }) => {
         const scope = section === "global" ? "global" : locale;
         if (phase === "uploaded") output(`${scope}: uploaded ${variant}`);
         if (phase === "recovered") output(`${scope}: filled a missing screenshot with ${variant}`);
         if (phase === "saved") output(`${scope}: screenshots saved`);
         if (phase === "description-saved") output(`${scope}: description saved`);
+        if (phase === "screenshots-unchanged") {
+          output(`${scope}: screenshots unchanged since the last verified sync`);
+        }
         if (phase === "description-unchanged") output(`${scope}: description already current`);
       },
     });
@@ -252,7 +267,86 @@ async function runValidateOrSync({ command, rest, env, listing, dependencies }) 
     output(
       `Synced ${updated.join(" and ")} across ${plural(locales.length, "locale")}. Nothing was submitted for review.`,
     );
+    if (flags.noVerify) {
+      output(
+        "Skipped the readback (--no-verify); nothing confirmed the dashboard kept the changes.",
+      );
+      return;
+    }
+    await readBack({
+      parts,
+      locales,
+      listing,
+      descriptionsByLocale,
+      filesByLocale,
+      stateDir,
+      dashboard,
+      output,
+    });
   });
+}
+
+// Reloads the listing and compares it with what was meant to be there, so that
+// "no error" is not mistaken for "correct".
+async function readBack({
+  parts,
+  locales,
+  listing,
+  descriptionsByLocale,
+  filesByLocale,
+  stateDir,
+  dashboard,
+  output,
+}) {
+  const result = await verifyStoreListing({
+    listing,
+    locales,
+    descriptionsByLocale,
+    expectedScreenshots: parts.includes("screenshots") ? listing.screenshots.length : undefined,
+    dashboard,
+    onProgress: ({ locale, problems }) =>
+      output(problems.length === 0 ? `${locale}: verified` : `${locale}: MISMATCH`),
+  });
+  if (!result.ok) {
+    throw new Error(
+      `Readback does not match the local files:\n  - ${describeVerification(result)}`,
+    );
+  }
+  output(`Verified ${plural(locales.length, "locale")} against a fresh load of the dashboard.`);
+  // Only a sync that was confirmed by a fresh load may be trusted later, so the
+  // record is written here and nowhere earlier.
+  if (filesByLocale) {
+    const entries = [];
+    for (const { locale, state } of result.results) {
+      entries.push([
+        locale,
+        {
+          files: await hashFiles(filesByLocale.get(locale)),
+          thumbnails: syncedGroup(listing, locale) === "global" ? state.global : state.localized,
+        },
+      ]);
+    }
+    await recordSync({ dir: stateDir, listing, entries });
+  }
+}
+
+async function runVerify({ rest, env, listing, dependencies }) {
+  const { parts, rest: optionArguments } = parseListingParts(rest);
+  const locales = parseLocaleArguments(listing, optionArguments);
+  const output = dependencies.output ?? console.log;
+  // Checking needs the expected text, not the screenshot files, so a listing
+  // can be verified on a machine that never captured anything.
+  const { descriptionsByLocale } = await loadInputs({
+    parts: parts.filter((part) => part === "descriptions"),
+    locales,
+    listing,
+    flags: {},
+    dependencies,
+    output,
+  });
+  await withDashboard({ env, listing, dependencies, output }, (dashboard) =>
+    readBack({ parts, locales, listing, descriptionsByLocale, dashboard, output }),
+  );
 }
 
 export async function main(args = process.argv.slice(2), env = process.env, dependencies = {}) {
@@ -260,6 +354,7 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   const listing = dependencies.listing ?? LISTING;
   if (command === "capture") return runCapture({ rest, listing, dependencies });
   validateExtensionId(env.CWS_EXTENSION_ID);
+  if (command === "verify") return runVerify({ rest, env, listing, dependencies });
   return runValidateOrSync({ command, rest, env, listing, dependencies });
 }
 

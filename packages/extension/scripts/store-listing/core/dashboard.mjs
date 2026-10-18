@@ -33,6 +33,21 @@ function localeNamePattern(locale) {
   return new RegExp(`[\\u2013\\u2014-]\\s*${dashboardCode}(?:\\s*\\(default\\))?\\s*$`, "i");
 }
 
+// A dashboard thumbnail is served from a path whose leading segment names the
+// image and whose "=" suffix only sizes it, so the segment identifies an upload
+// across reloads. Anything that is not a hosted image identifies itself.
+export function thumbnailId(src) {
+  if (!src) return "";
+  let url;
+  try {
+    url = new URL(src);
+  } catch {
+    return src;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return src;
+  return (url.pathname.split("/").pop() ?? "").split("=")[0];
+}
+
 export class ChromeWebStoreDashboard {
   constructor({
     page,
@@ -184,6 +199,44 @@ export class ChromeWebStoreDashboard {
       await navigation.click();
     }
     await listingHeading.first().waitFor({ state: "visible", timeout: this.timeout });
+  }
+
+  // Reloads the listing from the server. The page keeps its own copy of what it
+  // has edited, so only a fresh load shows what the dashboard really stored.
+  async reload() {
+    await this.page.reload({ waitUntil: "domcontentloaded" });
+    await this.page
+      .getByRole("heading", { name: LABELS.storeListing })
+      .first()
+      .waitFor({ state: "visible", timeout: this.timeout });
+    await this.languageControl().first().waitFor({ state: "visible", timeout: this.timeout });
+  }
+
+  async thumbnailIds(section = SECTIONS.localized) {
+    const sources = await this.screenshotItems(section).evaluateAll((media) =>
+      media.map((image) => image.currentSrc || image.getAttribute("src") || ""),
+    );
+    return sources.map(thumbnailId);
+  }
+
+  // Everything the dashboard currently holds for one language, plus the shared
+  // screenshots, read without changing anything.
+  async readLocaleState(code) {
+    await this.selectLocale(code);
+    const language = await requireUnique(this.languageControl(), "listing language selector");
+    const description = this.descriptionControl();
+    return {
+      locale: code,
+      language: await this.selectedLocaleName(
+        language,
+        await language.evaluate((el) => el.tagName),
+      ),
+      description: (await description.count()) === 1 ? await description.inputValue() : "",
+      packageTitle: await this.packageText(LABELS.packageTitle),
+      packageSummary: await this.packageText(LABELS.packageSummary),
+      localized: await this.thumbnailIds(SECTIONS.localized),
+      global: await this.thumbnailIds(SECTIONS.global),
+    };
   }
 
   // The menu paints its options asynchronously, so counting straight after the
