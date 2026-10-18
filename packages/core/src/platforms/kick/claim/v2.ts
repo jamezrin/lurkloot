@@ -58,6 +58,10 @@ export class KickClaimV2 implements KickClaimCapability {
     return this.state.has(this.key(campaign, reward));
   }
 
+  suppressedUrl(campaign: DropCampaign, reward: DropReward): string | undefined {
+    return this.state.get(this.key(campaign, reward));
+  }
+
   suppress(campaign: DropCampaign, reward: DropReward, url: string): void {
     this.state.set(this.key(campaign, reward), url);
     const guidance = { kind: "link_required" as const, url };

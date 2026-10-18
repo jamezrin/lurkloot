@@ -10,6 +10,7 @@ import type {
   TwitchPlatformSettings,
 } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import {
   campaignSearchFingerprint,
@@ -4675,6 +4676,79 @@ describe("scheduler tick", () => {
           event.category === "diagnostic" && /claim/i.test(event.message) && event.level !== "info",
       ),
     ).toBe(false);
+  });
+
+  it("stays quiet on every tick for a claim the platform refused with link guidance", async () => {
+    const ready = campaign("linked-drops", { platform: "kick", rewards: [reward("claimable")] });
+    // Refreshed campaigns arrive as fresh objects without guidance; the
+    // adapter stamps it on each refusal, as Kick does for a suppressed claim.
+    const kick = adapter("kick", [], [channel("allowed", { platform: "kick" })]);
+    kick.refreshCampaigns = vi.fn(async () => [structuredClone(ready)]);
+    kick.claimReward = vi.fn(async (_campaign: DropCampaign, claimReward: DropReward) => {
+      claimReward.claimGuidance = { kind: "link_required", url: "https://accounts.example/link" };
+      return false;
+    });
+    const enabledSettings = settings({
+      platform: {
+        twitch: { enabled: false, idleWatchlistChannels: [] },
+        kick: { enabled: true, idleWatchlistChannels: [] },
+      },
+    });
+    let state: SchedulerState = {
+      authHealth: HEALTHY_AUTH,
+      sessions: {
+        twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+      },
+      campaigns: { twitch: [], kick: [] },
+    };
+    const events: EngineEvent[] = [];
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      const result = await runSchedulerTick(state, enabledSettings, {
+        twitch: adapter("twitch", [], []),
+        kick,
+      });
+      state = result.state;
+      events.push(...result.events);
+    }
+
+    expect(kick.claimReward).toHaveBeenCalled();
+    expect(
+      events.filter(
+        (event) => event.category === "diagnostic" && event.message.startsWith("Could not claim"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("still warns when a claim is refused without guidance", async () => {
+    const ready = campaign("drops", { rewards: [reward("claimable")] });
+    const twitch = adapter("twitch", [ready], [channel("allowed")]);
+    twitch.claimReward = vi.fn(async () => false);
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(
+      result.events.filter(
+        (event) => event.category === "diagnostic" && event.message.startsWith("Could not claim"),
+      ),
+    ).toHaveLength(1);
   });
 
   it("reports an unreleased claim only when it first enters the waiting state", async () => {

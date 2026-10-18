@@ -9,6 +9,8 @@ export type KickClaimOutcome =
 export interface KickClaimCapability {
   classify(response: unknown, campaign: DropCampaign): KickClaimOutcome;
   isSuppressed?(campaign: DropCampaign, reward: DropReward): boolean;
+  // The account-link URL a suppressed claim was refused with, if any.
+  suppressedUrl?(campaign: DropCampaign, reward: DropReward): string | undefined;
   suppress?(campaign: DropCampaign, reward: DropReward, url: string): void;
   reconcileProgress?(
     campaigns: DropCampaign[],

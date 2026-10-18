@@ -110,7 +110,9 @@ export async function claimReadyRewards(
               ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
               ...(campaign.url ? { campaignUrl: campaign.url } : {}),
             });
-          } else {
+          } else if (!reward.claimGuidance) {
+            // A refusal that carries guidance was already explained by the
+            // platform, once; warning here would repeat it on every tick (#779).
             events.push({
               level: "warn",
               message: `Could not claim ${reward.name} from ${campaign.name}`,
