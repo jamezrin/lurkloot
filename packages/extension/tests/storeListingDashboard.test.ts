@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { ChromeWebStoreDashboard } from "../scripts/store-screenshot-dashboard.mjs";
+import { ChromeWebStoreDashboard } from "../scripts/store-listing/core/dashboard.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { main, parseListingParts } from "../scripts/cws-listing.mjs";
+import { main, parseListingParts } from "../scripts/store-listing/cli.mjs";
 
 let browser: Browser;
 let page: Page;

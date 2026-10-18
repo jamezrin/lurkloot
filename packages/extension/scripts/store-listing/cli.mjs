@@ -1,16 +1,16 @@
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
-import { parseRequestedLocales } from "./store-screenshot-config.mjs";
-import { validateStoreScreenshotFiles } from "./store-screenshot-files.mjs";
-import { ChromeWebStoreDashboard } from "./store-screenshot-dashboard.mjs";
-import { syncStoreListing } from "./store-listing-sync.mjs";
-import { loadStoreDescriptions } from "./store-listing-descriptions.mjs";
+import { parseRequestedLocales } from "./lurkloot.mjs";
+import { validateStoreScreenshotFiles } from "./core/files.mjs";
+import { ChromeWebStoreDashboard } from "./core/dashboard.mjs";
+import { syncStoreListing } from "./core/sync.mjs";
+import { loadStoreDescriptions } from "./core/descriptions.mjs";
 import {
   abandonBrowserSession,
   finishBrowserSession,
   startBrowserSession,
-} from "./store-screenshot-browser.mjs";
+} from "./core/browser.mjs";
 
 function required(value, name) {
   if (!value) throw new Error(`${name} is required`);

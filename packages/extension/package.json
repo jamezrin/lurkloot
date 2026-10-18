@@ -16,10 +16,10 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "kick:inspect": "node scripts/kick-inspect.mjs",
-    "screenshot:store": "pnpm build && node scripts/capture-store.mjs screenshots",
-    "cws:listing": "node scripts/cws-listing.mjs",
+    "screenshot:store": "pnpm build && node scripts/store-listing/capture.mjs screenshots",
+    "cws:listing": "node scripts/store-listing/cli.mjs",
     "cws:listing:sync": "pnpm screenshot:store && pnpm cws:listing",
-    "promo:store": "pnpm build && node scripts/capture-store.mjs promos",
+    "promo:store": "pnpm build && node scripts/store-listing/capture.mjs promos",
     "promo:store:sync": "pnpm promo:store"
   },
   "dependencies": {

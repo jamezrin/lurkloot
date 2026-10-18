@@ -1,4 +1,4 @@
-import { localeConfig } from "./store-screenshot-config.mjs";
+import { localeConfig } from "../lurkloot.mjs";
 
 export const SECTIONS = Object.freeze({ localized: "localized", global: "global" });
 

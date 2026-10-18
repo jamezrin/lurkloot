@@ -5,7 +5,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
 import { chromium } from "playwright";
-import { STORE_SCREENSHOT_LOCALES } from "./store-screenshot-config.mjs";
+import { STORE_SCREENSHOT_LOCALES } from "./lurkloot.mjs";
 
 const execFileAsync = promisify(execFile);
 const root = resolve(".output/chrome-mv3");

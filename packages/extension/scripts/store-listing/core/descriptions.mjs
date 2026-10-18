@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateLocaleCodes } from "./store-screenshot-config.mjs";
+import { validateLocaleCodes } from "../lurkloot.mjs";
 
 export const STORE_DESCRIPTIONS_DIR = fileURLToPath(
-  new URL("../store-descriptions", import.meta.url),
+  new URL("../../../store-descriptions", import.meta.url),
 );
 
 // The dashboard rejects a detailed description longer than this.

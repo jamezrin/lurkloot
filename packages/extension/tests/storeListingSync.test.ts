@@ -4,7 +4,7 @@ import {
   replaceLocaleScreenshots,
   syncStoreListing,
   // @ts-expect-error The production utility is an executable JavaScript module.
-} from "../scripts/store-listing-sync.mjs";
+} from "../scripts/store-listing/core/sync.mjs";
 
 type UploadFile = { variant: { file: string }; path: string };
 

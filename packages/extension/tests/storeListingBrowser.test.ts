@@ -7,7 +7,7 @@ import {
   resolveBrowserBinary,
   startBrowserSession,
   // @ts-expect-error The production utility is an executable JavaScript module.
-} from "../scripts/store-screenshot-browser.mjs";
+} from "../scripts/store-listing/core/browser.mjs";
 
 function fakeChild() {
   const listeners: Record<string, (code?: number) => void> = {};

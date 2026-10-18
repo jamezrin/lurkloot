@@ -14,7 +14,7 @@ import {
   STORE_SCREENSHOT_LOCALES,
   STORE_SCREENSHOT_VARIANTS,
   // @ts-expect-error The capture manifest is an executable JavaScript module.
-} from "../scripts/store-screenshot-config.mjs";
+} from "../scripts/store-listing/lurkloot.mjs";
 
 // Catalogs live in the single-source @lurkloot/locales package as <locale>.json.
 const messagesDir = dirname(
@@ -205,10 +205,10 @@ describe("i18n", () => {
       localeCodes().sort(),
     );
     const promoSource = readFileSync(
-      join(dirname(import.meta.dirname), "scripts/capture-store.mjs"),
+      join(dirname(import.meta.dirname), "scripts/store-listing/capture.mjs"),
       "utf8",
     );
-    expect(promoSource).toContain('from "./store-screenshot-config.mjs"');
+    expect(promoSource).toContain('from "./lurkloot.mjs"');
     expect(promoSource).toContain("STORE_SCREENSHOT_LOCALES");
     expect(promoSource).not.toMatch(/const ALL_LOCALES = \[/);
   });

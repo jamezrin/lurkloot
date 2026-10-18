@@ -8,9 +8,9 @@ import {
   parseRequestedLocales,
   screenshotFilename,
   // @ts-expect-error The production utility is an executable JavaScript module.
-} from "../scripts/store-screenshot-config.mjs";
+} from "../scripts/store-listing/lurkloot.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { validateStoreScreenshotFiles } from "../scripts/store-screenshot-files.mjs";
+import { validateStoreScreenshotFiles } from "../scripts/store-listing/core/files.mjs";
 
 const temporaryDirectories: string[] = [];
 

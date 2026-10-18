@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { loadStoreDescriptions } from "../scripts/store-listing-descriptions.mjs";
+import { loadStoreDescriptions } from "../scripts/store-listing/core/descriptions.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { STORE_SCREENSHOT_LOCALES } from "../scripts/store-screenshot-config.mjs";
+import { STORE_SCREENSHOT_LOCALES } from "../scripts/store-listing/lurkloot.mjs";
 
 const localeCodes = (STORE_SCREENSHOT_LOCALES as { code: string }[]).map(({ code }) => code);
 
