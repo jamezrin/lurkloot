@@ -1041,25 +1041,40 @@ NoPixelV uses its normal REST watchtime/giveaway protocol. Fortnite uses its nor
 
 ## Store listing tooling
 
-`packages/extension/scripts/store-listing/` keeps the Chrome Web Store listing in step with the
-repository: it photographs the popup, then edits the Developer Dashboard's draft and reads it back.
-It is operator tooling, never shipped in the extension and never run in CI, because it needs a
-person signed in to Google.
+Two halves keep the Chrome Web Store listing in step with the repository. It is operator tooling,
+never shipped in the extension and never run in CI, because it needs a person signed in to Google.
 
-- `core/` is product-agnostic. It takes a **listing profile** (`defineListing`: locales, screenshot
-  variants, file naming, the command to rerun, the state directory name) and imports nothing from
-  the product adapter or the rest of the repository. `lurkloot.mjs` holds the profile and the paths;
-  `capture.mjs` and `cli.mjs` wire them to the core. `storeListingBoundary.test.ts` enforces both
-  halves: a core file may import only other `core/` files, `node:` modules and `playwright`, and may
-  not name the product.
-- One side effect has one owner. The dashboard driver is the only code that touches the page,
-  `browser.mjs` the only code that starts or leaves Chrome, `provenance.mjs` the only writer of
-  `capture-manifest.json` and `syncState.mjs` the only writer of `sync-state.json`.
-- A state belongs to the code that writes it. `sync-state.json` is written only after a readback
-  against a fresh load of the dashboard has passed, and a sync trusts it only when the local file
-  hashes and the dashboard's thumbnail ids both still match. `capture-manifest.json` is written by
-  capture and checked by every sync, so images from an unknown or different build are refused.
-- The driver's locators are tested against sanitized snapshots of the real page
-  (`tests/fixtures/cws-dashboard/`, `storeListingContract.test.ts`), not only against hand-built
-  pages. The procedure and the cautions about committing a snapshot are in
-  [chrome-web-store-submission.md](chrome-web-store-submission.md#when-the-dashboard-changes).
+- **Generators** (`packages/extension/scripts/store/`) are specific to Lurkloot: they photograph the
+  built popup, copy `store-descriptions/*.txt` and make the promo tiles, and write the results into a
+  **bundle** directory (`artifacts/store/`, ignored by git). `store:generate` builds once and runs
+  every generator in one process. They are the only code that knows the listing languages
+  (`lurkloot.mjs`) or what a screenshot shows.
+- **`@lurkloot/store-sync`** (`packages/store-sync/`) is generic: it reads a bundle and drives the
+  Developer Dashboard to match it, then reads the dashboard back. It knows nothing about Lurkloot.
+
+The bundle layout is the contract between them
+([packages/store-sync/README.md](../packages/store-sync/README.md)). The rules that keep it a contract:
+
+- **The sync side stays liftable.** `store-sync` imports only itself, `node:` and `playwright`, names
+  no product and depends on no workspace package. The generators use only its public entry points
+  (`@lurkloot/store-sync`, `@lurkloot/store-sync/cli`), never its files. `storeSyncBoundary.test.ts`
+  and `storeGenerateBoundary.test.ts` enforce both directions, and the second also pins the exact
+  public API.
+- **A wrapper supplies options, not behaviour.** `scripts/store/cli.mjs` gives `store-sync` the bundle
+  directory, the command to rerun, the version the checkout is at and the Chrome profile name. The
+  one Lurkloot-specific guard, that `store-descriptions/` still matches the bundle's copies, is a
+  `checks` hook the sync calls, not code in it.
+- **A state belongs to the code that writes it.** `bundle.json` is written only by `stampBundle`,
+  and producers never hand-write it, so a file nobody stamped is never uploaded. `sync-state.json` is
+  written only by a sync, only after a readback against a fresh load of the dashboard has passed, and
+  a producer replacing its sections never touches it. A sync trusts it only while the local file
+  hashes and the dashboard's thumbnail ids both still match.
+- **One owner per side effect.** The dashboard driver is the only code that touches the page,
+  `browser.mjs` the only code that starts or leaves Chrome, and a generator replaces only the
+  sections it generated.
+- **Artwork is tied to the build it shows.** Each section is stamped with the version read from the
+  built `manifest.json`, never from tags. A sync refuses artwork from another version than the
+  checkout's, from different versions in one run, or from a dirty tree.
+- **Locators are tested against the real page.** `packages/store-sync/tests/fixtures/cws-dashboard/`
+  holds sanitized snapshots and `storeSyncContract.test.ts` runs every locator against them, not only
+  against hand-built pages.

@@ -1,8 +1,8 @@
 # Store descriptions
 
 The detailed Chrome Web Store description for each locale, one plain-text file per locale code.
-`pnpm cws:listing` pastes each file into the dashboard as is and then reads it back to compare, so
-write plain text with a blank line between paragraphs. The limit is 16,000 characters.
+`pnpm store:generate:descriptions` copies each file into the store bundle and `pnpm store:sync`
+pastes it into the dashboard as is, then reads it back to compare, so write plain text with a blank line between paragraphs. The limit is 16,000 characters.
 
 The summary shown in search results is not here: the store takes it from the manifest, which reads
 the `extensionDescription` message in `packages/locales/messages/<locale>.json`.

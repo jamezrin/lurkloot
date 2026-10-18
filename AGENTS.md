@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a TypeScript pnpm monorepo (`packages/*`, see `pnpm-workspace.yaml`) centered on a WXT WebExtension for Twitch and Kick drop farming. Seven workspace packages:
+This is a TypeScript pnpm monorepo (`packages/*`, see `pnpm-workspace.yaml`) centered on a WXT WebExtension for Twitch and Kick drop farming. Eight workspace packages:
 
 - **`packages/extension`** — the WXT extension shell. Entrypoints are in `entrypoints/`: `background.ts` wires browser lifecycle/runtime APIs to the controller, content scripts are split by platform (`kick.content.ts`, `twitch.content.ts`, `twitchKeepAlive.content.ts`), and `popup/` mounts the React popup. Extension-specific browser adapters and helpers live in `src/core/` (`storage.ts`, `tabs.ts`, `tabPorts.ts`, `browserTabs.ts`, `kickPageDocument.ts`, `playbackContent.ts`, `keepAliveContent.ts`, `version.ts`, `links.ts`). Tests are in `tests/**/*.test.ts`. Static assets are in `public/`. `wxt.config.ts` declares the manifest, permissions, content scripts, and localized-message copy step.
 - **`packages/core`** — the browser-free farming engine imported as `@lurkloot/core`. It owns the scheduler/controller (`packages/core/src/core/scheduler.ts`, and `packages/core/src/background/controller.ts` with its owner modules in the same directory), the tab registry and its rules (browser tab mechanics are extension-only), tabless watch logic, Twitch integrity handling, and platform adapters/parsers under `packages/core/src/platforms/` (`adapter.ts`, `twitch/`, `kick/`). It must not import WXT or browser globals; `packages/extension/tests/coreBoundary.test.ts` guards this so the extension and CLI can both reuse it.
@@ -10,6 +10,7 @@ This is a TypeScript pnpm monorepo (`packages/*`, see `pnpm-workspace.yaml`) cen
 - **`packages/locales`** — the localized message catalog package imported as `@lurkloot/locales`. JSON catalogs live in `messages/`, and `src/index.ts` exposes the async catalog loader used by the extension and popup UI.
 - **`packages/popup-ui`** — the shared React popup UI imported as `@lurkloot/popup-ui` (`Popup.tsx`, `primitives.tsx`, view components like `idleWatchlist.tsx`/`drops.tsx`/`settings.tsx`, and the rate-nudge logic), consumed by both the extension popup and the site demo.
 - **`packages/shared`** — framework-agnostic shared contracts imported as `@lurkloot/shared`: `models.ts`, `settings.ts`, `messages.ts`, `categories.ts`, `i18n.ts`, `logging.ts`.
+- **`packages/store-sync`** — the generic Chrome Web Store listing sync, imported as `@lurkloot/store-sync`. It reads a *bundle* directory (descriptions, screenshots, promo tiles, stamped with where they came from) and drives the Developer Dashboard to match it, then reads the dashboard back. It knows nothing about Lurkloot, imports nothing outside itself, `node:` and `playwright`, and is meant to be liftable into its own repository; `tests/storeSyncBoundary.test.ts` guards that. Lurkloot's own generators (screenshots, promo tiles, descriptions) live in `packages/extension/scripts/store/` and write the bundle through its public API only. Read its [README](packages/store-sync/README.md) and the "Generating the listing content" section of [docs/chrome-web-store-submission.md](docs/chrome-web-store-submission.md) before touching either.
 - **`packages/site`** — the Astro marketing site (deployed to Cloudflare Pages at `https://lurkloot.jamezrin.com`). Pages are in `src/pages/` (`index.astro`, `privacy.astro`, `changelog.astro`, and the SEO landing pages `twitch-drops-farmer.astro`/`kick-drops-farmer.astro`), changelog data is in `src/changelog.json` with types in `src/changelog.ts`, other content data is in `src/faq.ts`/`src/consts.ts`, and components/layouts/styles are alongside. It imports the real popup UI for the live demo. Read [docs/seo.md](docs/seo.md) before editing page metadata, structured data, or either platform landing page — the two landing pages deliberately share a shell but no copy, and must not be collapsed into one templated component.
 
 Other top-level dirs: `docs/` (architecture and store-listing notes), `scripts/` (repo tooling), and `references/` (optional, untracked local snapshots — see below).
@@ -29,6 +30,7 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 - `pnpm check`: run script tests, workspace typechecks, extension tests, and the Astro site build.
 - `pnpm verify`: run `pnpm check` and both browser builds.
 - `pnpm zip` / `pnpm zip:firefox`: package release artifacts into `packages/extension/.output/`.
+- `pnpm store:generate` (and `store:generate:screenshots` / `:promo` / `:descriptions`), `pnpm store:sync`, `pnpm store:verify`: generate the Chrome Web Store listing bundle and sync it to the Developer Dashboard. Operator tooling that needs a signed-in Chrome; see [docs/chrome-web-store-submission.md](docs/chrome-web-store-submission.md).
 
 ## Cutting a Release
 

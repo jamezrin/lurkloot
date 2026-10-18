@@ -12,6 +12,6 @@ CWS_PUBLISHER_ID = "5fdc4582-d1e8-4714-819e-d4bdcee7da79"
 #   [env]
 #   CWS_SERVICE_ACCOUNT_JSON = '{"type":"service_account", ...}'
 #
-# The listing dashboard commands (pnpm cws:listing and its stages: capture,
-# validate, sync, verify, snapshot) do not use it — they only need the two ids
-# above and a signed-in Chrome.
+# The store listing commands (pnpm store:validate / store:sync / store:verify /
+# store:snapshot) do not use it — they only need the two ids above and a
+# signed-in Chrome.
