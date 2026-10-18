@@ -98,6 +98,25 @@ Run `git worktree list` before starting: if a worktree for the work already exis
 than creating a second one. Remove a worktree with `git worktree remove .worktrees/<name>` once its
 branch is merged.
 
+### Testing a Worktree Build in the Browser
+
+The user keeps the unpacked extension loaded from the main checkout's output directory
+(`packages/extension/.output/chrome-mv3`, or `packages/extension/.output/firefox-mv2` for Firefox),
+not from each worktree. At the end of every task that changes extension behavior, ask the user
+whether they want to test it in the browser. If they do, build inside the worktree and copy the
+result into the main checkout's output directory, so they only need to reload the extension:
+
+```bash
+# from .worktrees/<name>
+pnpm build # or pnpm build:firefox
+rsync -a --delete packages/extension/.output/chrome-mv3/ "$(git rev-parse --path-format=absolute --git-common-dir)/../packages/extension/.output/chrome-mv3/"
+```
+
+Copy even when the main checkout is on a different branch or commit than the worktree. `.output/`
+is gitignored, so the copy does not touch the main checkout's HEAD or working tree. Do not check
+out, reset or build in the main checkout to do this. Keep the destination directory and replace
+only its contents, as `rsync --delete` does, so the browser's loaded path stays valid.
+
 ## Commit & Pull Request Guidelines
 
 Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) using `<type>[optional scope]: <description>`. Use lowercase types and imperative, present-tense descriptions without a trailing period. Keep commits focused and use a scope when it adds useful context, such as `feat(popup): add schedule refresh button` or `fix(scheduler): refresh viewer counts`.

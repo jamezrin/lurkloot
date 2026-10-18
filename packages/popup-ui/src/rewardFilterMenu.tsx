@@ -1,5 +1,5 @@
 import type React from "react";
-import { useId } from "react";
+import { useId, useRef, useState } from "react";
 import { Checkbox } from "@base-ui/react/checkbox";
 import { CheckboxGroup } from "@base-ui/react/checkbox-group";
 import { Popover } from "@base-ui/react/popover";
@@ -23,6 +23,7 @@ import {
 import { useT } from "./context";
 import { FLOATING_POPUP_CLASS } from "./dropdown";
 import { usePortalContainer } from "./portal";
+import { useCloseOnOutsideScroll } from "./outsideScroll";
 import { cn } from "./primitives";
 import type { TFunction } from "./types";
 
@@ -91,6 +92,12 @@ export function rewardFilterLabel(filter: RewardFilter, platform: Platform, t: T
       : current.kinds.map((kind) => t(KIND_SHORT_KEYS[kind])).join(", ");
   const mode = MODE_LABEL_KEYS[current.subscriptions];
   return mode ? `${kinds} · ${t(mode)}` : kinds;
+}
+
+/** Whether RewardFilterFields asks anything at all. On a platform with one
+ * kind and no subscription rewards it has nothing to render. */
+export function hasRewardFilterFields(platform: Platform, showSubscriptions: boolean): boolean {
+  return PLATFORM_REWARD_KINDS[platform].length > 1 || showSubscriptions;
 }
 
 /** The two questions of the reward filter: which kinds, and what to do with
@@ -211,7 +218,8 @@ export function RewardFilterFields({
  *
  * It is non-modal, like Dropdown: a modal popover locks page scroll by
  * restyling the body, and every body restyle makes Chrome re-measure the
- * extension popup. */
+ * extension popup. So any scroll outside the menu closes it
+ * (useCloseOnOutsideScroll). */
 export function RewardFilterMenu({
   platform,
   filter,
@@ -231,13 +239,17 @@ export function RewardFilterMenu({
 }): React.ReactElement {
   const t = useT();
   const [portalRef, container] = usePortalContainer();
+  const [open, setOpen] = useState(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+  useCloseOnOutsideScroll(open, () => setOpen(false), popupRef, container);
+  const fields = hasRewardFilterFields(platform, showSubscriptions);
   // Pinned-only narrows what is farmed as much as the filter does, and the
   // closed button is the only place the Queue says so.
   const narrowed = farmPinnedOnly || isRewardFilterNarrowed(filter, platform);
   const filterLabel = rewardFilterLabel(filter, platform, t);
   const label = farmPinnedOnly ? `${filterLabel} · ${t("rewardFilterPinnedOnly")}` : filterLabel;
   return (
-    <Popover.Root modal={false}>
+    <Popover.Root modal={false} open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         ref={portalRef}
         data-reward-filter=""
@@ -262,20 +274,23 @@ export function RewardFilterMenu({
           className="z-50 outline-none"
         >
           <Popover.Popup
+            ref={popupRef}
             aria-label={t("rewardFilterTitle")}
             className={cn(
               FLOATING_POPUP_CLASS,
-              "nice-scroll max-h-[var(--available-height)] w-[15.5rem] space-y-2 overflow-y-auto p-2.5 shadow-lg",
+              "nice-scroll max-h-[var(--available-height)] w-[15.5rem] space-y-2 overflow-y-auto overscroll-contain p-2.5 shadow-lg",
             )}
           >
-            <RewardFilterFields
-              platform={platform}
-              filter={filter}
-              showSubscriptions={showSubscriptions}
-              counts={counts}
-              onChange={onChange}
-            />
-            <div className="border-t border-zinc-200 pt-1.5 first:border-t-0 first:pt-0 dark:border-zinc-800">
+            {fields ? (
+              <RewardFilterFields
+                platform={platform}
+                filter={filter}
+                showSubscriptions={showSubscriptions}
+                counts={counts}
+                onChange={onChange}
+              />
+            ) : null}
+            <div className={cn(fields && "border-t border-zinc-200 pt-1.5 dark:border-zinc-800")}>
               <Checkbox.Root
                 checked={farmPinnedOnly}
                 onCheckedChange={(value) => onFarmPinnedOnlyChange(value)}
@@ -292,7 +307,11 @@ export function RewardFilterMenu({
                 <button
                   type="button"
                   data-reward-filter-reset=""
-                  onClick={() => onChange(defaultRewardFilter(platform))}
+                  // Reset clears everything the button names, pinned-only too.
+                  onClick={() => {
+                    onChange(defaultRewardFilter(platform));
+                    if (farmPinnedOnly) onFarmPinnedOnlyChange(false);
+                  }}
                   className="w-full rounded-md px-1 py-1 text-start text-[11.5px] font-semibold text-zinc-800 underline decoration-zinc-300 underline-offset-2 outline-none hover:bg-[var(--ink-soft)] hover:decoration-current focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-100 dark:decoration-zinc-600"
                 >
                   {t("rewardFilterReset")}
