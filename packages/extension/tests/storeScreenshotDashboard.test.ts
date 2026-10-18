@@ -414,6 +414,39 @@ describe("Chrome Web Store dashboard adapter for new languages", () => {
     }
   });
 
+  // Switching from English, whose images sit only in the shared group, to a new
+  // language changes neither the empty localized group nor the description the
+  // dashboard pre-fills from English. Only the package title and summary differ.
+  it("accepts a switch between two empty localized groups once the package summary changes", async () => {
+    await page.setContent(`
+      <label>Listing language<select><option>English – en (default)</option><option>Japanese – ja</option></select></label>
+      <div><p>Title from package</p><p id="title">Lurkloot - Twitch &amp; Kick Drop Farmer</p></div>
+      <div><p>Summary from package</p><p id="summary">Farm Twitch and Kick drops.</p></div>
+      <label>Description<textarea>English body</textarea></label>
+      <span>Localized screenshots</span>
+      <div id="panel"><ol></ol><input type="file" accept="image/png"></div>
+      <span>Global screenshots</span>
+      <div id="global-panel">
+        <ol>${[1, 2, 3, 4, 5].map((number) => `<li><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=#g-${number}" alt="Screenshot ${number}"></li>`).join("")}</ol>
+        <input type="file" accept="image/png">
+      </div>
+      <script>
+        document.querySelector("select").addEventListener("change", () => {
+          setTimeout(() => {
+            document.querySelector("#title").textContent = "Lurkloot - Twitch & Kick ドロップファーマー";
+            document.querySelector("#summary").textContent = "Twitch と Kick のドロップをファームします。";
+          }, 25);
+        });
+      </script>
+    `);
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
+
+    await dashboard.selectLocale("ja");
+
+    expect(await dashboard.screenshotCount("localized")).toBe(0);
+    expect(await page.locator("#summary").textContent()).toMatch(/ドロップ/);
+  });
+
   it("fails closed when both groups resolve to the same panel", async () => {
     await page.setContent(
       fixture

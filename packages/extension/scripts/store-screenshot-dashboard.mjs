@@ -14,6 +14,8 @@ const LABELS = Object.freeze({
   storeListing: /store listing/i,
   localizedSection: "Localized screenshots",
   globalSection: "Global screenshots",
+  packageTitle: "Title from package",
+  packageSummary: "Summary from package",
 });
 
 async function requireUnique(locator, description) {
@@ -279,13 +281,26 @@ export class ChromeWebStoreDashboard {
     );
   }
 
-  // Two new locales both start with no screenshots, so the description is part
-  // of what proves the panel switched languages.
+  // The read-only title and summary the dashboard shows from the selected
+  // language's manifest messages.
+  async packageText(label) {
+    const value = this.page.locator(
+      `xpath=//*[normalize-space(text())="${label}"]/following-sibling::*[1]`,
+    );
+    return (await value.count()) === 1 ? ((await value.textContent())?.trim() ?? "") : "";
+  }
+
+  // A new language starts with no screenshots of its own and a description the
+  // dashboard pre-fills from English, so switching to it from English changes
+  // neither. Its package title and summary come from its own manifest messages,
+  // so they are part of what proves the panel switched languages.
   async localeContentFingerprint() {
     const description = this.descriptionControl();
     return JSON.stringify([
       await this.screenshotMediaFingerprint(),
       (await description.count()) === 1 ? await description.inputValue() : "",
+      await this.packageText(LABELS.packageTitle),
+      await this.packageText(LABELS.packageSummary),
     ]);
   }
 

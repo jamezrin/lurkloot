@@ -84,11 +84,14 @@ automation resumes on its own, sets the description and replaces the five screen
 `_locales` directories in the uploaded package, so upload a build that contains `ja`, `id`, `pl`,
 `ko`, `uk`, and `cs` before the first listing run for those languages.
 
-A language added that way starts with no screenshots of its own. The command fills it in order rather
-than rotating, and checks for every language that the localized and global groups are separate
-panels, so an empty language can never be mistaken for the shared set. The empty-group layout has not
-yet been seen on the live dashboard: run a new language on its own first, for example
-`pnpm cws:listing -- --locales ja`, and look at the draft before syncing the rest.
+A language added that way starts with no screenshots of its own and a description the dashboard
+pre-fills from English. The command fills it in order rather than rotating, and checks for every
+language that the localized and global groups are separate panels, so an empty language can never be
+mistaken for the shared set. English keeps its images only in the global group, so its localized group
+is empty too. Switching from English to a new language therefore changes neither group nor the
+description. The command confirms the switch from the read-only "Title from package" and "Summary
+from package" values, which come from each language's manifest messages. The six languages added in
+1.18.0 were filled this way on 2026-10-18.
 
 Playwright never launches the browser. Google refuses interactive sign-in in a browser started with
 automation switches — it answers `accounts.google.com/v3/signin/rejected`, "Couldn't sign you in;
