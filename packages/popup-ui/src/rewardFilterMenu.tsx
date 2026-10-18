@@ -307,7 +307,11 @@ export function RewardFilterMenu({
                 <button
                   type="button"
                   data-reward-filter-reset=""
-                  onClick={() => onChange(defaultRewardFilter(platform))}
+                  // Reset clears everything the button names, pinned-only too.
+                  onClick={() => {
+                    onChange(defaultRewardFilter(platform));
+                    if (farmPinnedOnly) onFarmPinnedOnlyChange(false);
+                  }}
                   className="w-full rounded-md px-1 py-1 text-start text-[11.5px] font-semibold text-zinc-800 underline decoration-zinc-300 underline-offset-2 outline-none hover:bg-[var(--ink-soft)] hover:decoration-current focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-100 dark:decoration-zinc-600"
                 >
                   {t("rewardFilterReset")}

@@ -245,3 +245,41 @@ describe("RewardFilterMenu menu", () => {
     );
   });
 });
+
+describe("RewardFilterMenu reset", () => {
+  it("clears pinned only along with the filter", () => {
+    const onChange = vi.fn();
+    const onFarmPinnedOnlyChange = vi.fn();
+    const container = mount(
+      <RewardFilterMenu
+        platform="kick"
+        filter={defaultRewardFilter("kick")}
+        showSubscriptions={false}
+        farmPinnedOnly
+        onChange={onChange}
+        onFarmPinnedOnlyChange={onFarmPinnedOnlyChange}
+      />,
+    );
+    act(() => container.querySelector<HTMLElement>("[data-reward-filter]")!.click());
+    act(() => document.querySelector<HTMLElement>("[data-reward-filter-reset]")!.click());
+    expect(onChange).toHaveBeenCalledWith(defaultRewardFilter("kick"));
+    expect(onFarmPinnedOnlyChange).toHaveBeenCalledWith(false);
+  });
+
+  it("leaves pinned only alone when it is already off", () => {
+    const onFarmPinnedOnlyChange = vi.fn();
+    const container = mount(
+      <RewardFilterMenu
+        platform="twitch"
+        filter={{ kinds: ["badge"], subscriptions: "include" }}
+        showSubscriptions
+        farmPinnedOnly={false}
+        onChange={() => undefined}
+        onFarmPinnedOnlyChange={onFarmPinnedOnlyChange}
+      />,
+    );
+    act(() => container.querySelector<HTMLElement>("[data-reward-filter]")!.click());
+    act(() => document.querySelector<HTMLElement>("[data-reward-filter-reset]")!.click());
+    expect(onFarmPinnedOnlyChange).not.toHaveBeenCalled();
+  });
+});
