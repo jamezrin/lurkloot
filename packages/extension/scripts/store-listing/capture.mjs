@@ -1,49 +1,43 @@
 import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { createServer } from "node:http";
-import { mkdir, readFile, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
+import { mkdir, readFile, stat } from "node:fs/promises";
+import { createServer } from "node:http";
 import { extname, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { chromium } from "playwright";
-import { STORE_SCREENSHOT_LOCALES } from "./lurkloot.mjs";
+import { parseLocaleArguments } from "./core/listing.mjs";
+import { LISTING, STORE_PATHS } from "./lurkloot.mjs";
 
 const execFileAsync = promisify(execFile);
-const root = resolve(".output/chrome-mv3");
-const candidates = ["popup.html", "popup/index.html"];
 
-// One capture for the store listing. Screenshots keep the existing filenames and
-// show the current artwork, with the popup at its real 720×600 size.
-//   node scripts/capture-store.mjs screenshots [locale...]
-//   node scripts/capture-store.mjs promos [locale...]
-const args = process.argv.slice(2);
-const mode = args[0];
-if (mode !== "screenshots" && mode !== "promos") {
-  throw new Error("Usage: node scripts/capture-store.mjs <screenshots|promos> [locale...]");
-}
-const outputDir = resolve(
-  mode === "screenshots" ? "artifacts/store-screenshots" : "artifacts/store-promo",
-);
-const shots = [
-  ["queue", "lurkloot-01-drops-1280x800.png"],
-  ["games", "lurkloot-02-extras-1280x800.png"],
-  ["kick", "lurkloot-03-easy-1280x800.png"],
-  ["watchlist", "lurkloot-04-settings-1280x800.png"],
-  ["extensions", "lurkloot-05-updated-1280x800.png"],
-];
-const promos = [
-  { id: "small", width: 440, height: 280 },
-  { id: "marquee", width: 1400, height: 560 },
-];
+const POPUP_CANDIDATES = ["popup.html", "popup/index.html"];
 
-const ALL_LOCALES = STORE_SCREENSHOT_LOCALES.map(({ code }) => code);
-const requested = args.slice(1).filter((code) => code !== "--");
-const locales =
-  requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
-if (locales.length === 0) {
-  throw new Error(`No known locales in: ${requested.join(", ")}. Known: ${ALL_LOCALES.join(", ")}`);
-}
+// One capture for the store listing. Screenshots show the current artwork, with
+// the popup at its real 720×600 size, in the files the listing profile names.
+//   node scripts/store-listing/capture.mjs screenshots [--locales a b]
+//   node scripts/store-listing/capture.mjs promos [--locales a b]
+export const CAPTURE_MODES = Object.freeze(["screenshots", "promos"]);
 
-const contentTypes = {
+export const PROMO_FORMATS = Object.freeze([
+  Object.freeze({ id: "small", width: 440, height: 280 }),
+  Object.freeze({ id: "marquee", width: 1400, height: 560 }),
+]);
+
+// What each popup story must have rendered before it is photographed.
+export const STORY_READINESS = Object.freeze({
+  queue: Object.freeze({ selector: 'main[data-view="queue"] [data-campaign-id]' }),
+  games: Object.freeze({
+    selector: 'main[data-view="queue"] [data-campaign-id]',
+    open: 'button[data-view="games"]',
+    then: "[data-game]",
+  }),
+  kick: Object.freeze({ selector: 'main[data-view="queue"] [data-campaign-id]' }),
+  watchlist: Object.freeze({ selector: "#idle-watchlist" }),
+  extensions: Object.freeze({ selector: "[data-extension-overview]" }),
+});
+
+const CONTENT_TYPES = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -56,22 +50,20 @@ const contentTypes = {
 
 async function fileExists(path) {
   try {
-    const details = await stat(path);
-    return details.isFile();
+    return (await stat(path)).isFile();
   } catch {
     return false;
   }
 }
 
-async function findPopupPath() {
-  for (const candidate of candidates) {
-    const path = join(root, candidate);
-    if (await fileExists(path)) return `/${candidate}`;
+async function findPopupPath(root) {
+  for (const candidate of POPUP_CANDIDATES) {
+    if (await fileExists(join(root, candidate))) return `/${candidate}`;
   }
   throw new Error(`Could not find a built popup HTML file in ${root}. Run pnpm build first.`);
 }
 
-function startServer() {
+function startServer(root) {
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     let requestPath;
@@ -97,7 +89,7 @@ function startServer() {
     }
 
     response.writeHead(200, {
-      "Content-Type": contentTypes[extname(filePath)] ?? "application/octet-stream",
+      "Content-Type": CONTENT_TYPES[extname(filePath)] ?? "application/octet-stream",
       "Cache-Control": "no-store",
     });
     createReadStream(filePath).pipe(response);
@@ -116,105 +108,143 @@ function startServer() {
   });
 }
 
-const popupPath = await findPopupPath();
-const manifest = JSON.parse(await readFile(join(root, "manifest.json"), "utf8"));
-const { server, origin } = await startServer();
-let browser;
-
-try {
-  browser = await chromium.launch();
-  const page = await browser.newPage({
-    viewport: { width: 1280, height: 800 },
-    deviceScaleFactor: 1,
+async function captureScreenshot({ page, origin, popupPath, locale, variant, file, output }) {
+  const story = variant.story;
+  const readiness = STORY_READINESS[story];
+  await page.goto(`${origin}${popupPath}?screenshot=store&story=${story}&locale=${locale}`, {
+    waitUntil: "networkidle",
   });
-  await page.addInitScript((version) => {
-    globalThis.chrome = {
-      i18n: { getMessage: () => "", getUILanguage: () => "en" },
-      runtime: { getURL: (path) => path, getManifest: () => ({ version }) },
-      storage: { local: { get: async () => ({}), set: async () => {} } },
-    };
-  }, manifest.version);
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  for (const locale of locales) {
-    const localeDir = join(outputDir, locale);
-    await mkdir(localeDir, { recursive: true });
-    if (mode === "screenshots") {
-      await page.setViewportSize({ width: 1280, height: 800 });
-      for (const [story, filename] of shots) {
-        await page.goto(`${origin}${popupPath}?screenshot=store&story=${story}&locale=${locale}`, {
-          waitUntil: "networkidle",
-        });
-        await page.waitForSelector(
-          story === "extensions"
-            ? "[data-extension-overview]"
-            : story === "watchlist"
-              ? "#idle-watchlist"
-              : 'main[data-view="queue"] [data-campaign-id]',
-        );
-        if (story === "games") {
-          await page.locator('button[data-view="games"]').click();
-          await page.waitForSelector("[data-game]");
+  await page.waitForSelector(readiness.selector);
+  if (readiness.open) {
+    await page.locator(readiness.open).click();
+    await page.waitForSelector(readiness.then);
+  }
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all([...document.images].map((image) => image.decode().catch(() => undefined)));
+  });
+  await page.waitForTimeout(500);
+  const bounds = await page.locator("[data-store-popup]").boundingBox();
+  if (
+    !bounds
+    || bounds.width !== 720
+    || bounds.height !== 600
+    || bounds.x + bounds.width > LISTING.screenshotSize.width
+    || bounds.y + bounds.height > LISTING.screenshotSize.height
+  ) {
+    throw new Error(`Clipped popup: ${JSON.stringify(bounds)}`);
+  }
+  await page.screenshot({
+    path: file,
+    clip: { x: 0, y: 0, ...LISTING.screenshotSize },
+  });
+  const visibleText = (await page.locator("body").innerText()).replaceAll("Chrome Runner Skin", "");
+  if (/NoPixel|Fortnite|Firefox|Chrome/i.test(visibleText)) {
+    throw new Error(
+      `Unexpected named provider or browser in ${story}: ${visibleText.match(/.{0,60}(?:NoPixel|Fortnite|Firefox|Chrome).{0,60}/gi)}`,
+    );
+  }
+  output(`[${locale}] Captured ${LISTING.screenshotFilename(variant)}: ${JSON.stringify(bounds)}`);
+}
+
+async function capturePromo({ page, origin, popupPath, locale, format, localeDir, output }) {
+  await page.setViewportSize({ width: format.width, height: format.height });
+  await page.goto(`${origin}${popupPath}?screenshot=promo&format=${format.id}&locale=${locale}`, {
+    waitUntil: "networkidle",
+  });
+  await page.waitForSelector("[data-store-promo]");
+  await page.evaluate(() => document.fonts.ready);
+  const promoFile = `lurkloot-promo-${format.id}-${format.width}x${format.height}.png`;
+  const promoPath = join(localeDir, promoFile);
+  await page.screenshot({ path: promoPath, omitBackground: false });
+  await execFileAsync("magick", [
+    promoPath,
+    "-alpha",
+    "off",
+    "-define",
+    "png:color-type=2",
+    promoPath,
+  ]);
+  output(`[${locale}] Captured ${promoFile}`);
+}
+
+export async function captureStore({
+  mode,
+  locales,
+  listing = LISTING,
+  paths = STORE_PATHS,
+  output = console.log,
+}) {
+  if (!CAPTURE_MODES.includes(mode)) {
+    throw new Error(`Capture mode must be one of ${CAPTURE_MODES.join(", ")}`);
+  }
+  listing.validateLocaleCodes(locales);
+  const root = resolve(paths.build);
+  const outputDir = resolve(mode === "screenshots" ? paths.screenshots : paths.promos);
+  const popupPath = await findPopupPath(root);
+  const manifest = JSON.parse(await readFile(join(root, "manifest.json"), "utf8"));
+  const { server, origin } = await startServer(root);
+  let browser;
+
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 800 },
+      deviceScaleFactor: 1,
+    });
+    await page.addInitScript((version) => {
+      globalThis.chrome = {
+        i18n: { getMessage: () => "", getUILanguage: () => "en" },
+        runtime: { getURL: (path) => path, getManifest: () => ({ version }) },
+        storage: { local: { get: async () => ({}), set: async () => {} } },
+      };
+    }, manifest.version);
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+    for (const locale of locales) {
+      const localeDir = join(outputDir, locale);
+      await mkdir(localeDir, { recursive: true });
+      if (mode === "screenshots") {
+        await page.setViewportSize({ ...listing.screenshotSize });
+        for (const variant of listing.screenshots) {
+          await captureScreenshot({
+            page,
+            origin,
+            popupPath,
+            locale,
+            variant,
+            file: join(localeDir, listing.screenshotFilename(variant)),
+            output,
+          });
         }
-        await page.evaluate(async () => {
-          await document.fonts.ready;
-          await Promise.all(
-            [...document.images].map((image) => image.decode().catch(() => undefined)),
-          );
-        });
-        await page.waitForTimeout(500);
-        const bounds = await page.locator("[data-store-popup]").boundingBox();
-        if (
-          !bounds
-          || bounds.width !== 720
-          || bounds.height !== 600
-          || bounds.x + bounds.width > 1280
-          || bounds.y + bounds.height > 800
-        ) {
-          throw new Error(`Clipped popup: ${JSON.stringify(bounds)}`);
+      } else {
+        for (const format of PROMO_FORMATS) {
+          await capturePromo({ page, origin, popupPath, locale, format, localeDir, output });
         }
-        await page.screenshot({
-          path: join(localeDir, filename),
-          clip: { x: 0, y: 0, width: 1280, height: 800 },
-        });
-        const visibleText = (await page.locator("body").innerText()).replaceAll(
-          "Chrome Runner Skin",
-          "",
-        );
-        if (/NoPixel|Fortnite|Firefox|Chrome/i.test(visibleText)) {
-          throw new Error(
-            `Unexpected named provider or browser in ${story}: ${visibleText.match(/.{0,60}(?:NoPixel|Fortnite|Firefox|Chrome).{0,60}/gi)}`,
-          );
-        }
-        console.log(`[${locale}] Captured ${filename}: ${JSON.stringify(bounds)}`);
-      }
-    } else {
-      for (const format of promos) {
-        await page.setViewportSize({ width: format.width, height: format.height });
-        await page.goto(
-          `${origin}${popupPath}?screenshot=promo&format=${format.id}&locale=${locale}`,
-          { waitUntil: "networkidle" },
-        );
-        await page.waitForSelector("[data-store-promo]");
-        await page.evaluate(() => document.fonts.ready);
-        const promoFile = `lurkloot-promo-${format.id}-${format.width}x${format.height}.png`;
-        const promoPath = join(localeDir, promoFile);
-        await page.screenshot({ path: promoPath, omitBackground: false });
-        await execFileAsync("magick", [
-          promoPath,
-          "-alpha",
-          "off",
-          "-define",
-          "png:color-type=2",
-          promoPath,
-        ]);
-        console.log(`[${locale}] Captured ${promoFile}`);
       }
     }
+    if (errors.length) throw new Error(errors.join("\n"));
+  } finally {
+    await browser?.close();
+    server.close();
   }
-  if (errors.length) throw new Error(errors.join("\n"));
-} finally {
-  await browser?.close();
-  server.close();
+}
+
+export async function main(args = process.argv.slice(2)) {
+  const [mode, ...rest] = args;
+  if (!CAPTURE_MODES.includes(mode)) {
+    throw new Error(
+      `Usage: node scripts/store-listing/capture.mjs <${CAPTURE_MODES.join("|")}> [--locales a b]`,
+    );
+  }
+  await captureStore({ mode, locales: parseLocaleArguments(LISTING, rest) });
+}
+
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((error) => {
+    console.error(`store capture: ${error.message}`);
+    process.exitCode = 1;
+  });
 }

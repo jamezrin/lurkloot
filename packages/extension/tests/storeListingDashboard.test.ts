@@ -4,9 +4,21 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { ChromeWebStoreDashboard } from "../scripts/store-listing/core/dashboard.mjs";
+import { ChromeWebStoreDashboard as Dashboard } from "../scripts/store-listing/core/dashboard.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
 import { main, parseListingParts } from "../scripts/store-listing/cli.mjs";
+// @ts-expect-error The production utility is an executable JavaScript module.
+import { LISTING } from "../scripts/store-listing/lurkloot.mjs";
+
+// The driver is generic; these tests exercise it with the Lurkloot profile.
+type DashboardInstance = any;
+const ChromeWebStoreDashboard = class {
+  constructor(options: Record<string, unknown>) {
+    return new Dashboard({ listing: LISTING, ...options });
+  }
+} as unknown as new (
+  options: Record<string, unknown>,
+) => DashboardInstance;
 
 let browser: Browser;
 let page: Page;

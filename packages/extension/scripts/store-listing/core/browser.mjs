@@ -13,12 +13,14 @@ const DEFAULT_PORT = 9333;
 // once rather than on every sync. It holds a live Google session, so it lives
 // with the user's other browser state rather than anywhere inside the
 // repository, and is never distributed.
-const stateHome =
-  process.env.XDG_STATE_HOME
-  || (process.platform === "darwin"
-    ? join(homedir(), "Library", "Application Support")
-    : join(homedir(), ".local", "state"));
-const DEFAULT_PROFILE_DIR = join(stateHome, "lurkloot", "cws-chrome-profile");
+export function defaultProfileDir(profileApp, env = process.env) {
+  const stateHome =
+    env.XDG_STATE_HOME
+    || (process.platform === "darwin"
+      ? join(homedir(), "Library", "Application Support")
+      : join(homedir(), ".local", "state"));
+  return join(stateHome, profileApp, "cws-chrome-profile");
+}
 
 // Chrome channels first: Chromium builds are the ones Google turns away at
 // sign-in, so a box carrying both must not silently resolve to Chromium.
@@ -102,9 +104,12 @@ export async function startBrowserSession({
   resolveBinary = resolveBrowserBinary,
   spawnBrowser = spawn,
   probe = probeEndpoint,
+  listing,
   makeProfileDir = async () => {
-    await mkdir(DEFAULT_PROFILE_DIR, { recursive: true });
-    return DEFAULT_PROFILE_DIR;
+    if (!listing) throw new Error("startBrowserSession needs a listing profile or makeProfileDir");
+    const directory = defaultProfileDir(listing.profileApp, env);
+    await mkdir(directory, { recursive: true });
+    return directory;
   },
   readyTimeoutMs = 30000,
 } = {}) {

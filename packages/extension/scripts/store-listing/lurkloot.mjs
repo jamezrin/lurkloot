@@ -1,9 +1,16 @@
+import { fileURLToPath } from "node:url";
+import { defineListing } from "./core/listing.mjs";
+
+// Everything specific to the Lurkloot listing lives here. The generic tooling
+// in core/ receives this profile and never imports it.
+
+// Each variant names the popup story the capture renders for it.
 export const STORE_SCREENSHOT_VARIANTS = Object.freeze([
-  Object.freeze({ id: "drops", file: "01-drops", popup: true }),
-  Object.freeze({ id: "extras", file: "02-extras", popup: true }),
-  Object.freeze({ id: "easy", file: "03-easy", popup: true }),
-  Object.freeze({ id: "settings", file: "04-settings", popup: true }),
-  Object.freeze({ id: "updated", file: "05-updated", popup: false }),
+  Object.freeze({ id: "drops", file: "01-drops", story: "queue" }),
+  Object.freeze({ id: "extras", file: "02-extras", story: "games" }),
+  Object.freeze({ id: "easy", file: "03-easy", story: "kick" }),
+  Object.freeze({ id: "settings", file: "04-settings", story: "watchlist" }),
+  Object.freeze({ id: "updated", file: "05-updated", story: "extensions" }),
 ]);
 
 export const STORE_SCREENSHOT_LOCALES = Object.freeze([
@@ -26,54 +33,25 @@ export const STORE_SCREENSHOT_LOCALES = Object.freeze([
   Object.freeze({ code: "cs", dashboardLabel: "Czech" }),
 ]);
 
-const localeCodes = STORE_SCREENSHOT_LOCALES.map(({ code }) => code);
-const knownLocales = new Set(localeCodes);
+export const LISTING = defineListing({
+  name: "lurkloot",
+  locales: STORE_SCREENSHOT_LOCALES,
+  screenshots: STORE_SCREENSHOT_VARIANTS,
+  screenshotSize: { width: 1280, height: 800 },
+  // The shared "Global screenshots" group shows the English artwork.
+  globalScreenshotsFrom: "en",
+  profileApp: "lurkloot",
+  command: "pnpm cws:listing",
+});
 
-export function screenshotFilename(variant) {
-  return `lurkloot-${variant.file}-1280x800.png`;
-}
+// Anchored to this file rather than the working directory, so a stage behaves
+// the same whether pnpm or a person started it.
+const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 
-export function validateLocaleCodes(requested) {
-  const seen = new Set();
-  for (const code of requested) {
-    if (!knownLocales.has(code)) {
-      throw new Error(`Unknown locale ${code}. Known locales: ${localeCodes.join(", ")}`);
-    }
-    if (seen.has(code)) {
-      throw new Error(`Duplicate locale ${code}`);
-    }
-    seen.add(code);
-  }
-  return [...requested];
-}
-
-export function parseRequestedLocales(args) {
-  let requested;
-  for (let index = 0; index < args.length; index += 1) {
-    const argument = args[index];
-    if (argument === "--") continue;
-    if (argument === "--validate-only") continue;
-    if (argument !== "--locales") {
-      throw new Error(
-        `${argument.startsWith("--") ? "Unknown option" : "Unexpected argument"} ${argument}`,
-      );
-    }
-    if (requested) throw new Error("Duplicate option --locales");
-    requested = [];
-    while (index + 1 < args.length && !args[index + 1].startsWith("--")) {
-      requested.push(args[index + 1]);
-      index += 1;
-    }
-  }
-  if (!requested) return [...localeCodes];
-  if (requested.length === 0) {
-    throw new Error("--locales requires at least one locale code");
-  }
-  return validateLocaleCodes(requested);
-}
-
-export function localeConfig(code) {
-  const locale = STORE_SCREENSHOT_LOCALES.find((candidate) => candidate.code === code);
-  if (!locale) throw new Error(`Unknown locale ${code}`);
-  return locale;
-}
+export const STORE_PATHS = Object.freeze({
+  packageRoot,
+  build: `${packageRoot}.output/chrome-mv3`,
+  screenshots: `${packageRoot}artifacts/store-screenshots`,
+  promos: `${packageRoot}artifacts/store-promo`,
+  descriptions: `${packageRoot}store-descriptions`,
+});

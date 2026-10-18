@@ -1,14 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  STORE_SCREENSHOT_VARIANTS,
-  screenshotFilename,
-  validateLocaleCodes,
-} from "../lurkloot.mjs";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-function validatePng(bytes, path) {
+function validatePng(bytes, path, { width: expectedWidth, height: expectedHeight }) {
   if (
     bytes.length < 24
     || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)
@@ -18,14 +13,14 @@ function validatePng(bytes, path) {
   }
   const width = bytes.readUInt32BE(16);
   const height = bytes.readUInt32BE(20);
-  if (width !== 1280 || height !== 800) {
-    throw new Error(`${path} is ${width}x${height}; expected 1280x800`);
+  if (width !== expectedWidth || height !== expectedHeight) {
+    throw new Error(`${path} is ${width}x${height}; expected ${expectedWidth}x${expectedHeight}`);
   }
 }
 
-export async function validateStoreScreenshotFiles({ root, locales }) {
-  validateLocaleCodes(locales);
-  const expectedNames = new Set(STORE_SCREENSHOT_VARIANTS.map(screenshotFilename));
+export async function validateStoreScreenshotFiles({ root, locales, listing }) {
+  listing.validateLocaleCodes(locales);
+  const expectedNames = new Set(listing.screenshots.map(listing.screenshotFilename));
   const filesByLocale = new Map();
 
   for (const locale of locales) {
@@ -49,8 +44,8 @@ export async function validateStoreScreenshotFiles({ root, locales }) {
     }
 
     const files = [];
-    for (const variant of STORE_SCREENSHOT_VARIANTS) {
-      const filename = screenshotFilename(variant);
+    for (const variant of listing.screenshots) {
+      const filename = listing.screenshotFilename(variant);
       const path = join(localeDirectory, filename);
       let bytes;
       try {
@@ -58,7 +53,7 @@ export async function validateStoreScreenshotFiles({ root, locales }) {
       } catch {
         throw new Error(`Missing expected screenshot for ${locale}: ${filename}`);
       }
-      validatePng(bytes, path);
+      validatePng(bytes, path, listing.screenshotSize);
       files.push({ variant, path });
     }
     filesByLocale.set(locale, files);

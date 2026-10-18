@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { basename } from "node:path";
 import {
-  replaceLocaleScreenshots,
-  syncStoreListing,
+  replaceLocaleScreenshots as replace,
+  syncStoreListing as sync,
   // @ts-expect-error The production utility is an executable JavaScript module.
 } from "../scripts/store-listing/core/sync.mjs";
+// @ts-expect-error The production utility is an executable JavaScript module.
+import { LISTING } from "../scripts/store-listing/lurkloot.mjs";
+
+const replaceLocaleScreenshots = (options: Record<string, unknown>) =>
+  replace({ listing: LISTING, ...options });
+const syncStoreListing = (options: Record<string, unknown>) =>
+  sync({ listing: LISTING, ...options });
 
 type UploadFile = { variant: { file: string }; path: string };
 

@@ -204,13 +204,6 @@ describe("i18n", () => {
     expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(
       localeCodes().sort(),
     );
-    const promoSource = readFileSync(
-      join(dirname(import.meta.dirname), "scripts/store-listing/capture.mjs"),
-      "utf8",
-    );
-    expect(promoSource).toContain('from "./lurkloot.mjs"');
-    expect(promoSource).toContain("STORE_SCREENSHOT_LOCALES");
-    expect(promoSource).not.toMatch(/const ALL_LOCALES = \[/);
   });
 
   it("captures the five reworked screenshot stems", () => {

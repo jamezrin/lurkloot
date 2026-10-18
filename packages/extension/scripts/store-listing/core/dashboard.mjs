@@ -1,5 +1,3 @@
-import { localeConfig } from "../lurkloot.mjs";
-
 export const SECTIONS = Object.freeze({ localized: "localized", global: "global" });
 
 const LABELS = Object.freeze({
@@ -40,11 +38,14 @@ export class ChromeWebStoreDashboard {
     page,
     extensionId,
     publisherId,
+    listing,
     timeout = 30_000,
     authenticationTimeout = 10 * 60_000,
     output = console.log,
   }) {
+    if (!listing) throw new Error("ChromeWebStoreDashboard needs a listing profile");
     this.page = page;
+    this.listing = listing;
     this.extensionId = extensionId;
     this.publisherId = publisherId;
     this.timeout = timeout;
@@ -204,7 +205,7 @@ export class ChromeWebStoreDashboard {
     if (tagName !== "SELECT") await this.openLanguageMenu(language);
 
     for (const code of locales) {
-      const locale = localeConfig(code);
+      const locale = this.listing.localeConfig(code);
       const { dashboardLabel } = locale;
       const name = localeNamePattern(locale);
       const options =
@@ -331,7 +332,7 @@ export class ChromeWebStoreDashboard {
   }
 
   async selectLocale(code) {
-    const locale = localeConfig(code);
+    const locale = this.listing.localeConfig(code);
     const { dashboardLabel } = locale;
     const name = localeNamePattern(locale);
     const language = await requireUnique(this.languageControl(), "listing language selector");
@@ -416,7 +417,7 @@ export class ChromeWebStoreDashboard {
     // lifecycle observer's alert watch.
     await this.waitForUploadedThumbnailReady(lifecycle, section);
     const lifecycleError = await lifecycle.evaluate(
-      (element) => element.__lurklootUploadState.error,
+      (element) => element.__storeListingUploadState.error,
     );
     const errors = this.uploadErrors(section);
     const errorMessages = [];
@@ -430,7 +431,7 @@ export class ChromeWebStoreDashboard {
         `Screenshot upload failed validation: ${[lifecycleError, ...errorMessages].filter(Boolean).join("; ")}`,
       );
     }
-    await lifecycle.evaluate((element) => element.__lurklootUploadObserver?.disconnect());
+    await lifecycle.evaluate((element) => element.__storeListingUploadObserver?.disconnect());
     this.uploadLifecycle = undefined;
     this.uploadPending = false;
   }
@@ -450,7 +451,9 @@ export class ChromeWebStoreDashboard {
   async waitForUploadedThumbnailReady(lifecycle, section = SECTIONS.localized) {
     const deadline = Date.now() + this.timeout;
     while (Date.now() < deadline) {
-      const state = await lifecycle.evaluate((element) => ({ ...element.__lurklootUploadState }));
+      const state = await lifecycle.evaluate((element) => ({
+        ...element.__storeListingUploadState,
+      }));
       if (state.error) throw new Error(`Screenshot upload failed validation: ${state.error}`);
       // Thumbnail URLs are re-signed by the dashboard, so a source that was
       // captured earlier cannot identify the new image. Completion is instead
@@ -489,7 +492,7 @@ export class ChromeWebStoreDashboard {
     const handle = await region.elementHandle();
     if (!handle) throw new Error("Localized screenshot region is not attached");
     await handle.evaluate((element) => {
-      element.__lurklootUploadObserver?.disconnect();
+      element.__storeListingUploadObserver?.disconnect();
       const state = { error: "", settledAt: null, started: false };
       const visible = (candidate) => {
         if (!(candidate instanceof HTMLElement) || !candidate.isConnected) return false;
@@ -531,8 +534,8 @@ export class ChromeWebStoreDashboard {
         characterData: true,
         subtree: true,
       });
-      element.__lurklootUploadState = state;
-      element.__lurklootUploadObserver = observer;
+      element.__storeListingUploadState = state;
+      element.__storeListingUploadObserver = observer;
       update();
     });
     return handle;
@@ -565,7 +568,7 @@ export class ChromeWebStoreDashboard {
     // element that may not exist yet.
     await this.page.evaluate(
       (patterns) => {
-        window.__lurklootSaveObserver?.disconnect();
+        window.__storeListingSaveObserver?.disconnect();
         const saved = new RegExp(patterns.saved, "i");
         const saving = new RegExp(patterns.saving, "i");
         const normalize = (text) => text.replace(/\s+/g, " ").trim();
@@ -587,8 +590,8 @@ export class ChromeWebStoreDashboard {
         const observer = new MutationObserver(readRegions);
         observer.observe(document.body, { childList: true, characterData: true, subtree: true });
         readRegions();
-        window.__lurklootSaveState = state;
-        window.__lurklootSaveObserver = observer;
+        window.__storeListingSaveState = state;
+        window.__storeListingSaveObserver = observer;
       },
       { saved: LABELS.saved.source, saving: LABELS.saving.source },
     );
@@ -596,12 +599,12 @@ export class ChromeWebStoreDashboard {
     await save.click();
     try {
       await this.page.waitForFunction(
-        () => window.__lurklootSaveState.acknowledged === true,
+        () => window.__storeListingSaveState.acknowledged === true,
         undefined,
         { timeout: this.timeout },
       );
     } finally {
-      await this.page.evaluate(() => window.__lurklootSaveObserver?.disconnect());
+      await this.page.evaluate(() => window.__storeListingSaveObserver?.disconnect());
     }
   }
 }

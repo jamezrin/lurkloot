@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
-import { parseRequestedLocales } from "./lurkloot.mjs";
+import { parseLocaleArguments } from "./core/listing.mjs";
+import { LISTING, STORE_PATHS } from "./lurkloot.mjs";
 import { validateStoreScreenshotFiles } from "./core/files.mjs";
 import { ChromeWebStoreDashboard } from "./core/dashboard.mjs";
 import { syncStoreListing } from "./core/sync.mjs";
@@ -34,9 +35,10 @@ function connectOverCdp(url) {
   return chromium.connectOverCDP(url);
 }
 
-function defaultCreateDashboard({ page, env, output }) {
+function defaultCreateDashboard({ page, env, output, listing }) {
   return new ChromeWebStoreDashboard({
     page,
+    listing,
     extensionId: env.CWS_EXTENSION_ID,
     publisherId: env.CWS_PUBLISHER_ID,
     output,
@@ -72,7 +74,8 @@ function plural(count, noun) {
 export async function main(args = process.argv.slice(2), env = process.env, dependencies = {}) {
   validateExtensionId(env.CWS_EXTENSION_ID);
   const { parts, rest } = parseListingParts(args);
-  const locales = parseRequestedLocales(rest);
+  const listing = dependencies.listing ?? LISTING;
+  const locales = parseLocaleArguments(listing, rest, { allowedFlags: ["--validate-only"] });
   const output = dependencies.output ?? console.log;
 
   // Everything is read and checked before a browser starts, so a missing image
@@ -81,8 +84,8 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   let imageCount = 0;
   if (parts.includes("screenshots")) {
     const validateFiles = dependencies.validateFiles ?? validateStoreScreenshotFiles;
-    const screenshotRoot = dependencies.screenshotRoot ?? resolve("artifacts/store-screenshots");
-    filesByLocale = await validateFiles({ root: screenshotRoot, locales });
+    const screenshotRoot = dependencies.screenshotRoot ?? STORE_PATHS.screenshots;
+    filesByLocale = await validateFiles({ root: screenshotRoot, locales, listing });
     imageCount = [...filesByLocale.values()].reduce((total, files) => total + files.length, 0);
     output(
       `Validated ${plural(imageCount, "screenshot")} for ${plural(locales.length, "locale")}.`,
@@ -91,7 +94,11 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   let descriptionsByLocale;
   if (parts.includes("descriptions")) {
     const loadDescriptions = dependencies.loadDescriptions ?? loadStoreDescriptions;
-    descriptionsByLocale = await loadDescriptions({ locales });
+    descriptionsByLocale = await loadDescriptions({
+      locales,
+      dir: dependencies.descriptionsDir ?? STORE_PATHS.descriptions,
+      listing,
+    });
     output(
       `Validated ${plural(descriptionsByLocale.size, "description")} for ${plural(locales.length, "locale")}.`,
     );
@@ -103,6 +110,7 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   const createDashboard = dependencies.createDashboard ?? defaultCreateDashboard;
   const session = await openBrowser({
     env,
+    listing,
     output,
     connect: dependencies.connect ?? connectOverCdp,
   });
@@ -111,9 +119,10 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
     // The signed-in session lives in the browser's existing context; a new one
     // would carry no cookies and land on a signed-out dashboard.
     const page = await session.context.newPage();
-    dashboard = createDashboard({ page, env, output });
+    dashboard = createDashboard({ page, env, output, listing });
     await dashboard.openAndWaitForAuthentication();
     await syncStoreListing({
+      listing,
       locales,
       filesByLocale,
       descriptionsByLocale,

@@ -3,14 +3,21 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import {
+  LISTING,
   STORE_SCREENSHOT_LOCALES,
   STORE_SCREENSHOT_VARIANTS,
-  parseRequestedLocales,
-  screenshotFilename,
   // @ts-expect-error The production utility is an executable JavaScript module.
 } from "../scripts/store-listing/lurkloot.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { validateStoreScreenshotFiles } from "../scripts/store-listing/core/files.mjs";
+import { parseLocaleArguments } from "../scripts/store-listing/core/listing.mjs";
+// @ts-expect-error The production utility is an executable JavaScript module.
+import { validateStoreScreenshotFiles as validateFiles } from "../scripts/store-listing/core/files.mjs";
+
+const screenshotFilename = (variant: unknown) => LISTING.screenshotFilename(variant);
+const parseRequestedLocales = (args: string[]) =>
+  parseLocaleArguments(LISTING, args, { allowedFlags: ["--validate-only"] });
+const validateStoreScreenshotFiles = (options: { root: string; locales: string[] }) =>
+  validateFiles({ listing: LISTING, ...options });
 
 const temporaryDirectories: string[] = [];
 
@@ -72,13 +79,6 @@ describe("store screenshot manifest", () => {
       "lurkloot-03-easy-1280x800.png",
       "lurkloot-04-settings-1280x800.png",
       "lurkloot-05-updated-1280x800.png",
-    ]);
-    expect(STORE_SCREENSHOT_VARIANTS.map((variant: { popup: boolean }) => variant.popup)).toEqual([
-      true,
-      true,
-      true,
-      true,
-      false,
     ]);
   });
 
