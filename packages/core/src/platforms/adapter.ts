@@ -112,6 +112,10 @@ export interface PlatformAdapter {
     requests: ChannelCheckRequest[],
     options?: AdapterOperationOptions,
   ): Promise<ChannelCheckBatch>;
+  // False when the reward was not claimed. A refusal the adapter has already
+  // explained to the user leaves `reward.claimGuidance` set, and the claim loop
+  // then stays quiet instead of warning on every tick (#779); any other refusal
+  // must leave it unset so the loop reports it.
   claimReward(
     campaign: DropCampaign,
     reward: DropReward,

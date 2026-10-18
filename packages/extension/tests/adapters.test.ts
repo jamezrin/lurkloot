@@ -976,6 +976,31 @@ describe("KickAdapter", () => {
     });
   });
 
+  it("drops stored link guidance when a fresh claim state is refused without a link", async () => {
+    const adapter = kickAdapter(
+      jsonFetcher((url) => {
+        if (url === "https://web.kick.com/api/v1/drops/claim") return { message: "Not available" };
+        throw new Error(`Unexpected URL ${url}`);
+      }),
+    );
+    const campaign = {
+      id: "campaign",
+      name: "Campaign",
+      rewards: [
+        {
+          id: "reward",
+          name: "Reward",
+          status: "claimable",
+          claimGuidance: { kind: "link_required", url: "https://accounts.example/link" },
+        },
+      ],
+    } as DropCampaign;
+
+    await expect(adapter.claimReward(campaign, campaign.rewards[0])).resolves.toBe(false);
+
+    expect(campaign.rewards[0].claimGuidance).toBeUndefined();
+  });
+
   it("cleans all campaign suppressions after affirmative linking, including absent rewards", () => {
     const capability = createKickClaimCapability("kick-claim-v2");
     const campaign = {

@@ -874,6 +874,10 @@ export class KickAdapter implements PlatformAdapter {
       if (outcome.kind === "link_required") {
         this.claimCapability.suppress?.(campaign, reward, outcome.url);
         this.warnAccountNotLinked(campaign, reward, outcome.url);
+      } else {
+        // Guidance stored before a restart no longer explains this refusal;
+        // drop it so the claim loop reports it (#779).
+        reward.claimGuidance = undefined;
       }
       return false;
     } catch (error) {
