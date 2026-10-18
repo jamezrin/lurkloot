@@ -16,7 +16,10 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals"],
+    // WXT 0.21 enables this in the generated config. The extension and the
+    // packages it imports are not written for it.
+    "noUncheckedIndexedAccess": false
   },
   "include": ["**/*.ts", "**/*.tsx", ".wxt/wxt.d.ts"],
   "exclude": ["node_modules", ".output"]
