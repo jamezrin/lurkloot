@@ -11,10 +11,10 @@ import {
   type MessageCatalog,
 } from "@lurkloot/shared/i18n";
 import {
-  STORE_SCREENSHOT_LOCALES,
-  STORE_SCREENSHOT_VARIANTS,
-  // @ts-expect-error The capture manifest is an executable JavaScript module.
-} from "../scripts/store-listing/lurkloot.mjs";
+  LOCALES as STORE_LOCALES,
+  SCREENSHOTS as STORE_SCREENSHOTS,
+  // @ts-expect-error The store profile is an executable JavaScript module.
+} from "../scripts/store/lurkloot.mjs";
 
 // Catalogs live in the single-source @lurkloot/locales package as <locale>.json.
 const messagesDir = dirname(
@@ -201,13 +201,11 @@ describe("i18n", () => {
   });
 
   it("captures store artwork for every catalog locale", () => {
-    expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(
-      localeCodes().sort(),
-    );
+    expect([...(STORE_LOCALES as string[])].sort()).toEqual(localeCodes().sort());
   });
 
   it("captures the five reworked screenshot stems", () => {
-    expect(STORE_SCREENSHOT_VARIANTS.map(({ file }: { file: string }) => file)).toEqual([
+    expect(STORE_SCREENSHOTS.map(({ file }: { file: string }) => file)).toEqual([
       "01-drops",
       "02-extras",
       "03-easy",

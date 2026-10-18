@@ -19,10 +19,6 @@
     "zip:firefox": "pnpm --filter @lurkloot/extension zip:firefox",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r typecheck",
-    "screenshot:store": "pnpm --filter @lurkloot/extension screenshot:store",
-    "cws:listing": "pnpm --filter @lurkloot/extension cws:listing",
-    "cws:listing:sync": "pnpm --filter @lurkloot/extension cws:listing:sync",
-    "promo:store": "pnpm --filter @lurkloot/extension promo:store",
     "kick:inspect": "pnpm --filter @lurkloot/extension kick:inspect",
     "privacy:gist": "scripts/update-privacy-gist.sh",
     "release:check": "node scripts/release.mjs check",
@@ -32,7 +28,15 @@
     "locales:test": "node --test scripts/check-locales.test.mjs",
     "format": "biome format --write .",
     "check": "biome check . && pnpm cws:test && pnpm release:test && pnpm locales:test && pnpm locales:check && pnpm -r typecheck && pnpm test && pnpm build:site",
-    "verify": "pnpm check && pnpm build && pnpm build:firefox"
+    "verify": "pnpm check && pnpm build && pnpm build:firefox",
+    "store:generate": "pnpm --filter @lurkloot/extension store:generate",
+    "store:generate:screenshots": "pnpm --filter @lurkloot/extension store:generate:screenshots",
+    "store:generate:promo": "pnpm --filter @lurkloot/extension store:generate:promo",
+    "store:generate:descriptions": "pnpm --filter @lurkloot/extension store:generate:descriptions",
+    "store:validate": "pnpm --filter @lurkloot/extension store:validate",
+    "store:sync": "pnpm --filter @lurkloot/extension store:sync",
+    "store:verify": "pnpm --filter @lurkloot/extension store:verify",
+    "store:snapshot": "pnpm --filter @lurkloot/extension store:snapshot"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

@@ -91,6 +91,9 @@ importers:
       '@lurkloot/shared':
         specifier: workspace:*
         version: link:../shared
+      '@lurkloot/store-sync':
+        specifier: workspace:*
+        version: link:../store-sync
       '@vitejs/plugin-react':
         specifier: ^6.0.0
         version: 6.1.2(vite@8.3.4(@types/node@24.19.2)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.1))
@@ -296,6 +299,22 @@ importers:
       wrangler:
         specifier: ^4.103.0
         version: 4.151.1(@types/node@24.19.2)
+
+  packages/store-sync:
+    dependencies:
+      playwright:
+        specifier: ^1.61.0
+        version: 1.64.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.19.2
+      typescript:
+        specifier: ^7.0.0
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.5(@types/node@24.19.2)(happy-dom@21.0.3)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 
 packages:
 
