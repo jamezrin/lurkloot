@@ -38,6 +38,14 @@ describe("store listing command", () => {
       command: "sync",
       rest: ["--locales", "ja"],
     });
+    expect(parseCommand(["--", "validate", "--locales", "ja"])).toEqual({
+      command: "validate",
+      rest: ["--locales", "ja"],
+    });
+    expect(parseCommand(["--", "--locales", "ja"])).toEqual({
+      command: "sync",
+      rest: ["--locales", "ja"],
+    });
     expect(parseCommand(["validate", "--only", "descriptions"])).toEqual({
       command: "validate",
       rest: ["--only", "descriptions"],

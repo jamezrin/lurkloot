@@ -49,12 +49,12 @@ falls back when unhealthy, and confirm reward progress on the platforms' invento
 pnpm zip && pnpm zip:firefox     # extension packages
 pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 17)
 pnpm promo:store                 # artifacts/store-promo/<locale>/
-pnpm promo:store:sync            # same files as promo:store; does not upload
 ```
 
-Pass locale codes to limit, for example `pnpm screenshot:store ja id pl ko uk cs`. Promo
-tiles for every catalog locale, including those six, are under `artifacts/store-promo/<locale>/`.
-`promo:store:sync` only writes those tiles. It does not replace anything in the Developer Dashboard.
+Pass `--locales` to limit, for example `pnpm screenshot:store --locales ja id pl ko uk cs`. An unknown
+locale is an error rather than being skipped. Promo tiles for every catalog locale are under
+`artifacts/store-promo/<locale>/`. Nothing uploads the promo tiles; add them in the Developer
+Dashboard by hand.
 
 ## Syncing the listing automatically
 
@@ -63,8 +63,22 @@ local operator command below uses a visible Chrome session to set the detailed d
 five screenshots of every locale through the Developer Dashboard, then save the listing draft:
 
 ```bash
-pnpm cws:listing:sync
+pnpm cws:listing:sync                       # build, capture, sync, read back
+pnpm cws:listing:sync --locales ja id       # the same for some locales
 ```
+
+`cws:listing:sync` builds the extension, then runs `sync --capture`, so the locale list reaches the
+capture as well as the sync. Everything is one command with stages:
+
+| Command | What it does | Needs the dashboard |
+| --- | --- | --- |
+| `capture [screenshots\|promos]` | Photographs the built popup into `artifacts/` and records [provenance](#what-the-screenshots-show) | no |
+| `validate` | Checks the files, descriptions and provenance | no |
+| `sync` | Validates, edits the draft, then reads it back | yes |
+| `verify` | Reads the dashboard and compares it with the local files; changes nothing | yes |
+| `snapshot --locales …` | Writes sanitized copies of the page for the [contract tests](#when-the-dashboard-changes) | yes |
+
+Run them as `pnpm cws:listing <command> -- <options>` (a bare `pnpm cws:listing` is a `sync`).
 
 Each description is the plain-text file `packages/extension/store-descriptions/<locale>.txt`. The
 summary is not synced: the dashboard takes it from the package's `extensionDescription` message.
@@ -147,7 +161,80 @@ pnpm cws:listing -- --only descriptions
 pnpm cws:listing -- --only screenshots --locales ar
 ```
 
-`--only descriptions` needs no generated screenshots.
+`--only descriptions` needs no generated screenshots and no provenance.
+
+### What the screenshots show
+
+Captured images say nothing about which build they came from, so `capture` writes
+`artifacts/store-screenshots/capture-manifest.json` beside them: for every locale the extension
+version from the built `manifest.json`, the commit, whether the working tree was dirty, and a hash of
+each file. A sync refuses to go on when
+
+- there is no manifest, or a requested locale is not in it;
+- the locales were captured from different versions (an incremental capture makes this easy);
+- the captured version is not the version of the checkout running the sync;
+- a file changed after it was captured;
+- the capture came from a dirty tree.
+
+`--allow-version-mismatch` and `--allow-dirty` accept the second to fourth and the last. Local tags
+are never consulted: the first 1.18.0 captures here came from a stale tag and said 1.17.2. To list
+what a version shipped, capture from its release commit in a worktree.
+
+### Reading the dashboard back
+
+Neither the dashboard nor the page's own state is proof that a save worked, so a `sync` ends by
+reloading the listing and comparing it with the local files: each language's description (line
+endings and surrounding whitespace ignored) and the number of screenshots in the group that language
+uses. For the source language, `en`, that is the shared group; its own localized group is empty on the
+live dashboard and is not checked. A mismatch fails the command and names the locale.
+
+`verify` runs the same check without changing anything, for all locales by default, and needs no
+captured screenshots. `--no-verify` skips the readback after a sync. When Chrome was already running,
+the tab the command opened is closed after a clean run and left open after a failure.
+
+### Skipping what is already there
+
+After a sync passes its readback, `sync-state.json` records, per language, the hash of every local
+image and the thumbnail ids the dashboard showed for it. The next sync leaves a language's
+screenshots alone only when **both** still match, so an image edited locally is uploaded again, and an
+image changed by hand on the dashboard is replaced rather than trusted. A language with no record is
+filled as before. `--force` always uploads. Descriptions were already skipped when unchanged.
+
+### Locked listings
+
+An item that has been submitted cannot be edited until its review ends. The form stays disabled and
+the page says `Status: Pending review`. The preflight waits out the moment the form is disabled while
+loading, then stops with that status in the message and changes nothing. `verify` still works, and
+prints the status.
+
+### When the dashboard changes
+
+The driver locates controls by their accessible names and by headings, because Google offers no
+stable API. `tests/fixtures/cws-dashboard/` holds sanitized snapshots of the real page, and
+`storeListingContract.test.ts` runs every locator against them. When the dashboard changes, retake
+them while signed in:
+
+```bash
+pnpm cws:listing snapshot -- --locales en es
+```
+
+The snapshot keeps only the listing form and removes scripts, styles, links, hidden inputs, option
+lists (which hold account and site names), image addresses and every attribute outside a short allow
+list. Guard tests fail on an email address, an id, a Google host or a `data-` attribute, but look at
+the diff before committing it: the page is a signed-in session and the repository is public.
+
+### Layout
+
+`packages/extension/scripts/store-listing/` is split so that it could be lifted out of this
+repository without rewriting:
+
+- `core/` is the generic tooling: the dashboard driver, the Chrome session, the sync and readback
+  loops, provenance, sync state and the sanitizer. It receives a **listing profile** (languages,
+  screenshot variants, file names, the command to rerun) and never imports one.
+  `storeListingBoundary.test.ts` fails if a core file imports anything outside `core/` or names the
+  product.
+- `lurkloot.mjs` is the profile and the repository paths; `capture.mjs` and `cli.mjs` are the
+  product's wiring.
 
 A run interrupted between deletion and upload may leave four screenshots in one locale. The next
 locale-filtered run repairs that state before replacing the full ordered set. The operation is safe

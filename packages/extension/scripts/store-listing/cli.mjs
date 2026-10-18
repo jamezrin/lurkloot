@@ -87,7 +87,9 @@ export function parseListingParts(args) {
 
 // A bare invocation, or one that starts with an option, is a sync: that is what
 // this command did before it had stages.
-export function parseCommand(args) {
+export function parseCommand(rawArguments) {
+  // pnpm hands a literal "--" through when someone writes `pnpm cws:listing -- …`.
+  const args = rawArguments[0] === "--" ? rawArguments.slice(1) : rawArguments;
   const [first, ...others] = args;
   if (COMMANDS.includes(first)) return { command: first, rest: others };
   return { command: "sync", rest: args };
