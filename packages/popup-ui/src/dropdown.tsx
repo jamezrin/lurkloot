@@ -1,6 +1,8 @@
 import type React from "react";
+import { useRef, useState } from "react";
 import { Select } from "@base-ui/react/select";
 import { Check, ChevronDown } from "lucide-react";
+import { useCloseOnOutsideScroll } from "./outsideScroll";
 import { usePortalContainer } from "./portal";
 import { cn } from "./primitives";
 import { Tip } from "./tooltip";
@@ -19,7 +21,8 @@ export const FLOATING_POPUP_CLASS =
  * came up white in a dark popup, with the selected option white on white.
  *
  * It is non-modal: a modal select locks page scroll by restyling the body,
- * and every body restyle makes Chrome re-measure the extension popup. */
+ * and every body restyle makes Chrome re-measure the extension popup. So any
+ * scroll outside the list closes it (useCloseOnOutsideScroll). */
 export function Dropdown<T extends string>({
   label,
   value,
@@ -47,12 +50,17 @@ export function Dropdown<T extends string>({
   attributes?: Record<string, string>;
 }): React.ReactElement {
   const [portalRef, container] = usePortalContainer();
+  const [open, setOpen] = useState(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+  useCloseOnOutsideScroll(open, () => setOpen(false), popupRef, container);
   return (
     <Select.Root
       items={options}
       value={value}
       disabled={disabled}
       modal={false}
+      open={open}
+      onOpenChange={setOpen}
       onValueChange={(next) => {
         if (next !== null && next !== value) void onChange(next as T);
       }}
@@ -84,13 +92,14 @@ export function Dropdown<T extends string>({
           className="z-50 outline-none"
         >
           <Select.Popup
+            ref={popupRef}
             aria-label={label}
             className={cn(
               FLOATING_POPUP_CLASS,
               "max-h-[var(--available-height)] min-w-[var(--anchor-width)] max-w-[18rem]",
             )}
           >
-            <Select.List className="nice-scroll max-h-[240px] overflow-y-auto">
+            <Select.List className="nice-scroll max-h-[240px] overflow-y-auto overscroll-contain">
               {options.map((option) => (
                 <Select.Item
                   key={option.value}

@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Checkbox } from "@base-ui/react/checkbox";
 import { CheckboxGroup } from "@base-ui/react/checkbox-group";
 import { Popover } from "@base-ui/react/popover";
@@ -23,6 +23,7 @@ import {
 import { useT } from "./context";
 import { FLOATING_POPUP_CLASS } from "./dropdown";
 import { usePortalContainer } from "./portal";
+import { useCloseOnOutsideScroll } from "./outsideScroll";
 import { cn } from "./primitives";
 import type { TFunction } from "./types";
 
@@ -217,9 +218,8 @@ export function RewardFilterFields({
  *
  * It is non-modal, like Dropdown: a modal popover locks page scroll by
  * restyling the body, and every body restyle makes Chrome re-measure the
- * extension popup. Without that lock the Queue can scroll under it, and an
- * anchored menu would ride along off screen, so any scroll outside the menu
- * closes it, as it does a native select. */
+ * extension popup. So any scroll outside the menu closes it
+ * (useCloseOnOutsideScroll). */
 export function RewardFilterMenu({
   platform,
   filter,
@@ -241,19 +241,7 @@ export function RewardFilterMenu({
   const [portalRef, container] = usePortalContainer();
   const [open, setOpen] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: Event) => {
-      if (event.target instanceof Node && popupRef.current?.contains(event.target)) return;
-      setOpen(false);
-    };
-    // Scroll does not bubble, so only a capturing listener hears every
-    // scroller; nor does it leave a shadow root, so in the site demo the
-    // listener goes on the root the popup is portalled into.
-    const target = container?.nodeType === 11 ? container : document;
-    target.addEventListener("scroll", close, { capture: true, passive: true });
-    return () => target.removeEventListener("scroll", close, { capture: true });
-  }, [open, container]);
+  useCloseOnOutsideScroll(open, () => setOpen(false), popupRef, container);
   const fields = hasRewardFilterFields(platform, showSubscriptions);
   // Pinned-only narrows what is farmed as much as the filter does, and the
   // closed button is the only place the Queue says so.
