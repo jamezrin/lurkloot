@@ -43,6 +43,25 @@ export function favouriteTogglePatch(
   return patch;
 }
 
+/** Move a favourite into the place of the favourite shown at `toIndex`.
+ * `shown` is the favourites on screen, in order: the stored list minus blocked
+ * games and whatever the search hides. Moving onto a shown neighbour's slot,
+ * rather than to `toIndex` itself, keeps every hidden favourite where it was. */
+export function moveFavourite(
+  favourites: CategorySelection[],
+  shown: CategorySelection[],
+  category: CategorySelection,
+  toIndex: number,
+): CategorySelection[] {
+  const displaced = shown[Math.max(0, Math.min(toIndex, shown.length - 1))];
+  const from = favourites.findIndex((entry) => sameCategory(entry, category));
+  const to = displaced ? favourites.findIndex((entry) => sameCategory(entry, displaced)) : -1;
+  if (from === -1 || to === -1 || from === to) return favourites;
+  const next = [...favourites];
+  next.splice(to, 0, ...next.splice(from, 1));
+  return next;
+}
+
 /** Block or unblock a game. Blocking touches only the denylist: the game keeps
  * its star and its place on the allowlist, so unblocking restores exactly what
  * was there. */

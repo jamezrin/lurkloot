@@ -26,6 +26,7 @@ afterEach(() => {
 
 const rust: CategorySelection = { id: "rust", name: "Rust" };
 const other: CategorySelection = { id: "other", name: "Other Game" };
+const warframe: CategorySelection = { id: "warframe", name: "Warframe" };
 
 const suggestions: GameItem[] = [
   { id: "rust", name: "Rust", short: "RU", accent: "#fff" },
@@ -81,6 +82,25 @@ function settingsWith(patch: Record<string, unknown>): ExtensionSettings {
 
 const row = (container: Element, id: string) => container.querySelector(`[data-game="${id}"]`);
 
+/** Click a favourite's number, type a new one and press Enter. */
+function setRank(container: Element, id: string, value: string): void {
+  act(() =>
+    row(container, id)!
+      .querySelector<HTMLButtonElement>("[data-game-favourite-rank] button")!
+      .click(),
+  );
+  const input = row(container, id)!.querySelector<HTMLInputElement>(
+    "[data-game-favourite-rank] input",
+  )!;
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  act(() => {
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  });
+}
+
 describe("games view", () => {
   it("lists every game with a live campaign while farming all games", () => {
     const { container } = mount(settingsWith({ categoryMode: "all" }));
@@ -115,9 +135,50 @@ describe("games view", () => {
       (node) => node.dataset.game,
     );
     expect(order).toEqual(["other", "rust"]);
-    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe(
-      "",
+    // Only a favourite has a number and a drag handle: the rest have no order.
+    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")).toBeNull();
+    expect(row(container, "rust")?.querySelector('[aria-label^="reorderItem"]')).toBeNull();
+    expect(row(container, "other")?.querySelector('[aria-label^="reorderItem"]')).not.toBeNull();
+  });
+
+  it("moves a favourite to the number typed into its rank", () => {
+    const { container, props } = mount(
+      settingsWith({ categoryMode: "all", favouriteCategories: [rust, other, warframe] }),
     );
+
+    setRank(container, "warframe", "1");
+
+    expect(props.onFavouritesChange).toHaveBeenCalledWith([warframe, rust, other]);
+  });
+
+  it("leaves the favourites alone when the typed rank is invalid or unchanged", () => {
+    const { container, props } = mount(
+      settingsWith({ categoryMode: "all", favouriteCategories: [rust, other] }),
+    );
+
+    setRank(container, "other", "2");
+    setRank(container, "other", "x");
+
+    expect(props.onFavouritesChange).not.toHaveBeenCalled();
+  });
+
+  it("numbers favourites past a blocked one, which keeps its star and its slot", () => {
+    const { container, props } = mount(
+      settingsWith({
+        categoryMode: "all",
+        favouriteCategories: [rust, other, warframe],
+        blockedCategories: [other],
+      }),
+    );
+
+    const rank = (id: string) =>
+      row(container, id)?.querySelector("[data-game-favourite-rank]")?.textContent;
+    expect(rank("rust")).toBe("1");
+    expect(rank("warframe")).toBe("2");
+
+    setRank(container, "warframe", "1");
+
+    expect(props.onFavouritesChange).toHaveBeenCalledWith([warframe, rust, other]);
   });
 
   it("stars a game so its campaigns rank above the strategy", () => {

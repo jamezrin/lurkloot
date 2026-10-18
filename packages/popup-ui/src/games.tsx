@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { DragDropProvider } from "@dnd-kit/react";
+import { useSortable } from "@dnd-kit/react/sortable";
 import { Ban, Plus, Search, Star } from "lucide-react";
 import type {
   CategoryMode,
@@ -6,16 +8,27 @@ import type {
   ExtensionSettings,
   Platform,
 } from "@lurkloot/shared/models";
+import { rankedFavouriteCategories } from "@lurkloot/shared/categories";
 import { useT } from "./context";
 import { ViewToolbar } from "./viewToolbar";
 import { GAME_ACCENTS, PLATFORMS } from "./constants";
 import { initials } from "./format";
 import type { GameItem } from "./types";
-import { EmptyPanel, ImageWithFallback, cn } from "./primitives";
+import {
+  DragHandle,
+  EmptyPanel,
+  ImageWithFallback,
+  RankInput,
+  cn,
+  preventNativeDrag,
+  reorderFromDragEnd,
+  type SortableDragEndEvent,
+} from "./primitives";
 
 import {
   containsCategory as contains,
   favouriteTogglePatch,
+  moveFavourite,
   sameCategory,
   withoutCategory as without,
 } from "./categoryActions";
@@ -29,7 +42,8 @@ import { Tip } from "./tooltip";
  * favourites are the only way a category affects ranking; and blocking is the
  * single denylist, applied in both modes. Blocking suppresses a game without
  * erasing its star or its place on the allowlist, so unblocking restores
- * exactly what was there. */
+ * exactly what was there. Favourites reorder the way pins do: by dragging, or
+ * by typing a new number. */
 export function GamesPanel({
   platform,
   settings,
@@ -55,6 +69,9 @@ export function GamesPanel({
   const platformSettings = settings.platform[platform];
   const { categoryMode, categories, favouriteCategories, blockedCategories } = platformSettings;
   const label = PLATFORMS[platform].label;
+  // The favourites that hold a number: a blocked one keeps its star but not a
+  // place, the same count a queued campaign's "favourite #n" uses.
+  const ranked = useMemo(() => rankedFavouriteCategories(platformSettings), [platformSettings]);
 
   // One list in both modes: the games the user picked, the games with a live
   // campaign right now, and anything starred. An allowlist mode that showed only
@@ -80,18 +97,7 @@ export function GamesPanel({
       .map((favourite) => listed.find((entry) => sameCategory(entry, favourite)))
       .filter((entry): entry is CategorySelection => Boolean(entry));
     const others = listed.filter((entry) => !contains(favouriteCategories, entry));
-    return [
-      ...favourites.map((category, index) => ({
-        category,
-        index,
-        first: index === 0 ? ("favourites" as const) : undefined,
-      })),
-      ...others.map((category, index) => ({
-        category,
-        index: favourites.length + index,
-        first: index === 0 ? ("others" as const) : undefined,
-      })),
-    ];
+    return [...favourites, ...others].map((category, index) => ({ category, index }));
   }, [listed, favouriteCategories]);
 
   const [query, setQuery] = useState("");
@@ -101,21 +107,11 @@ export function GamesPanel({
     (category: CategorySelection) => !needle || category.name.toLowerCase().includes(needle),
     [needle],
   );
-  // Dividers come from what is on screen, so a group the search empties loses
-  // its heading too.
-  const visible = useMemo(() => {
-    const shown = ordered.filter(({ category }) => matches(category));
-    const favourite = (category: CategorySelection) => contains(favouriteCategories, category);
-    return shown.map((entry, position) => ({
-      ...entry,
-      first:
-        position === 0 || favourite(shown[position - 1]!.category) !== favourite(entry.category)
-          ? favourite(entry.category)
-            ? ("favourites" as const)
-            : ("others" as const)
-          : undefined,
-    }));
-  }, [ordered, matches, favouriteCategories]);
+  // Each group's heading comes from what is on screen, so a group the search
+  // empties loses its heading too.
+  const visible = ordered.filter(({ category }) => matches(category));
+  const favouriteRows = visible.filter(({ category }) => contains(favouriteCategories, category));
+  const otherRows = visible.filter(({ category }) => !contains(favouriteCategories, category));
   const blockedMatches = blockedCategories.filter(matches);
   const remote = useCategorySearch(needle ? query.trim() : "", onSearchCategories);
   // Games from the platform's own search that are not on screen already.
@@ -135,9 +131,128 @@ export function GamesPanel({
     if (patch.categories) void onCategoriesChange(patch.categories);
   }
 
+  function moveTo(category: CategorySelection, shown: CategorySelection[], toIndex: number): void {
+    const next = moveFavourite(favouriteCategories, shown, category, toIndex);
+    if (next !== favouriteCategories) void onFavouritesChange(next);
+  }
+
+  // Only favourites are sortable, so a drag reorders the starred games shown
+  // and leaves the hidden ones (blocked, or filtered out by the search) in place.
+  const shownFavourites = favouriteRows.map(({ category }) => category);
+  function endDrag(event: SortableDragEndEvent): void {
+    const next = reorderFromDragEnd(shownFavourites, event);
+    if (next === shownFavourites) return;
+    const movedId = event.operation.source?.id;
+    const toIndex = next.findIndex((category) => category.id === movedId);
+    const moved = shownFavourites.find((category) => category.id === movedId);
+    if (!moved || toIndex === -1) return;
+    moveTo(moved, shownFavourites, toIndex);
+  }
+
   function toggleSelected(category: CategorySelection): void {
     void onCategoriesChange(
       contains(categories, category) ? without(categories, category) : [...categories, category],
+    );
+  }
+
+  function renderGame({
+    category,
+    index,
+  }: {
+    category: CategorySelection;
+    index: number;
+  }): React.ReactElement {
+    const favourite = contains(favouriteCategories, category);
+    const favouriteRank = ranked.findIndex((entry) => sameCategory(entry, category));
+    const selected = categoryMode === "all" || contains(categories, category);
+    const count = campaignCounts[category.id.toLowerCase()] ?? 0;
+    return (
+      <GameRow
+        key={category.id}
+        category={category}
+        sortIndex={
+          favourite ? shownFavourites.findIndex((entry) => sameCategory(entry, category)) : -1
+        }
+        rank={
+          favourite && favouriteRank !== -1 ? (
+            <span data-game-favourite-rank className="flex shrink-0">
+              <RankInput
+                index={favouriteRank}
+                count={ranked.length}
+                label={category.name}
+                onMove={(toIndex) => moveTo(category, ranked, toIndex)}
+                size="row"
+              />
+            </span>
+          ) : null
+        }
+      >
+        {categoryMode === "include" ? (
+          <Checkbox
+            checked={selected}
+            onChange={() => toggleSelected(category)}
+            label={t("gamesFarmGame", category.name)}
+            attributes={{ "data-game-select": "" }}
+          />
+        ) : null}
+        <div className="h-6 w-6 shrink-0 overflow-hidden rounded-md">
+          <ImageWithFallback
+            src={category.imageUrl}
+            alt={category.name}
+            fit="cover"
+            fallback={
+              <div
+                className="flex h-full w-full items-center justify-center text-[9px] font-black text-white"
+                style={{
+                  backgroundColor: GAME_ACCENTS[index % GAME_ACCENTS.length],
+                }}
+              >
+                {initials(category.name)}
+              </div>
+            }
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[12px] font-semibold text-zinc-800 dark:text-zinc-100">
+            {category.name}
+          </div>
+          <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
+            {count === 0
+              ? t("gamesNoCampaigns")
+              : count === 1
+                ? t("gamesCampaignCountOne")
+                : t("gamesCampaignCount", String(count))}
+          </div>
+        </div>
+        <Tip label={t(favourite ? "gamesUnfavourite" : "gamesFavourite", category.name)}>
+          <button
+            type="button"
+            data-game-favourite
+            aria-pressed={favourite}
+            aria-label={t(favourite ? "gamesUnfavourite" : "gamesFavourite", category.name)}
+            onClick={() => toggleFavourite(category)}
+            className={cn(
+              "grid h-6 w-6 shrink-0 place-items-center rounded-lg transition-colors",
+              favourite
+                ? "text-amber-500 dark:text-amber-400"
+                : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200",
+            )}
+          >
+            <Star size={14} fill={favourite ? "currentColor" : "none"} />
+          </button>
+        </Tip>
+        <Tip label={t("gamesBlock", category.name)}>
+          <button
+            type="button"
+            data-game-block
+            aria-label={t("gamesBlock", category.name)}
+            onClick={() => void onBlockedChange([...blockedCategories, category])}
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+          >
+            <Ban size={14} />
+          </button>
+        </Tip>
+      </GameRow>
     );
   }
 
@@ -263,111 +378,33 @@ export function GamesPanel({
             </EmptyPanel>
           ) : (
             <div className="space-y-1">
-              {visible.map(({ category, index, first }) => {
-                const favourite = contains(favouriteCategories, category);
-                const favouriteRank = favouriteCategories.findIndex((entry) =>
-                  sameCategory(entry, category),
-                );
-                const selected = categoryMode === "all" || contains(categories, category);
-                const count = campaignCounts[category.id.toLowerCase()] ?? 0;
-                return (
-                  <React.Fragment key={category.id}>
-                    {first ? (
-                      <GamesDivider
-                        label={t(
-                          first === "favourites" ? "gamesFavouritesGroup" : "gamesOtherGroup",
-                        )}
-                        hint={t(
-                          first === "favourites"
-                            ? "gamesFavouritesGroupHint"
-                            : categoryMode === "all"
-                              ? "gamesOtherGroupAllHint"
-                              : "gamesOtherGroupIncludeHint",
-                        )}
-                      />
-                    ) : null}
-                    <div
-                      data-game={category.id}
-                      className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-900"
-                    >
-                      {categoryMode === "include" ? (
-                        <Checkbox
-                          checked={selected}
-                          onChange={() => toggleSelected(category)}
-                          label={t("gamesFarmGame", category.name)}
-                          attributes={{ "data-game-select": "" }}
-                        />
-                      ) : null}
-                      <div className="h-6 w-6 shrink-0 overflow-hidden rounded-md">
-                        <ImageWithFallback
-                          src={category.imageUrl}
-                          alt={category.name}
-                          fit="cover"
-                          fallback={
-                            <div
-                              className="flex h-full w-full items-center justify-center text-[9px] font-black text-white"
-                              style={{ backgroundColor: GAME_ACCENTS[index % GAME_ACCENTS.length] }}
-                            >
-                              {initials(category.name)}
-                            </div>
-                          }
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[12px] font-semibold text-zinc-800 dark:text-zinc-100">
-                          {category.name}
-                        </div>
-                        <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                          {count === 0
-                            ? t("gamesNoCampaigns")
-                            : count === 1
-                              ? t("gamesCampaignCountOne")
-                              : t("gamesCampaignCount", String(count))}
-                        </div>
-                      </div>
-                      <Tip
-                        label={t(favourite ? "gamesUnfavourite" : "gamesFavourite", category.name)}
-                      >
-                        <button
-                          type="button"
-                          data-game-favourite
-                          aria-pressed={favourite}
-                          aria-label={t(
-                            favourite ? "gamesUnfavourite" : "gamesFavourite",
-                            category.name,
-                          )}
-                          onClick={() => toggleFavourite(category)}
-                          className={cn(
-                            "grid h-6 w-6 shrink-0 place-items-center rounded-lg transition-colors",
-                            favourite
-                              ? "text-amber-500 dark:text-amber-400"
-                              : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200",
-                          )}
-                        >
-                          <Star size={14} fill={favourite ? "currentColor" : "none"} />
-                        </button>
-                      </Tip>
-                      <span
-                        data-game-favourite-rank
-                        className="-ms-1.5 w-2 shrink-0 font-mono text-[10px] font-semibold text-zinc-500 tabular dark:text-zinc-400"
-                      >
-                        {favourite && favouriteRank !== -1 ? favouriteRank + 1 : ""}
-                      </span>
-                      <Tip label={t("gamesBlock", category.name)}>
-                        <button
-                          type="button"
-                          data-game-block
-                          aria-label={t("gamesBlock", category.name)}
-                          onClick={() => void onBlockedChange([...blockedCategories, category])}
-                          className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-                        >
-                          <Ban size={14} />
-                        </button>
-                      </Tip>
-                    </div>
-                  </React.Fragment>
-                );
-              })}
+              {favouriteRows.length > 0 ? (
+                <>
+                  <GamesDivider
+                    label={t("gamesFavouritesGroup")}
+                    hint={t("gamesFavouritesGroupHint")}
+                  />
+                  {/* The favourites are the only sortable rows, in a drag scope
+                      and a container of their own, so a drag never meets a
+                      heading or a row whose place means nothing. */}
+                  <DragDropProvider onDragEnd={endDrag}>
+                    <div className="space-y-1">{favouriteRows.map(renderGame)}</div>
+                  </DragDropProvider>
+                </>
+              ) : null}
+              {otherRows.length > 0 ? (
+                <>
+                  <GamesDivider
+                    label={t("gamesOtherGroup")}
+                    hint={t(
+                      categoryMode === "all"
+                        ? "gamesOtherGroupAllHint"
+                        : "gamesOtherGroupIncludeHint",
+                    )}
+                  />
+                  {otherRows.map(renderGame)}
+                </>
+              ) : null}
             </div>
           )}
 
@@ -440,6 +477,74 @@ export function GamesPanel({
         </>
       )}
     </section>
+  );
+}
+
+/** One game in the list. A favourite (`sortIndex` among the favourites shown)
+ * leads with a drag handle and its number, like a pinned campaign; any other
+ * game has neither, since its place carries no meaning. */
+function GameRow({
+  category,
+  sortIndex,
+  rank,
+  children,
+}: {
+  category: CategorySelection;
+  sortIndex: number;
+  rank: React.ReactNode;
+  children: React.ReactNode;
+}): React.ReactElement {
+  if (sortIndex === -1) return <GameRowFrame category={category}>{children}</GameRowFrame>;
+  return (
+    <SortableGameRow category={category} sortIndex={sortIndex} rank={rank}>
+      {children}
+    </SortableGameRow>
+  );
+}
+
+function SortableGameRow({
+  category,
+  sortIndex,
+  rank,
+  children,
+}: {
+  category: CategorySelection;
+  sortIndex: number;
+  rank: React.ReactNode;
+  children: React.ReactNode;
+}): React.ReactElement {
+  const t = useT();
+  const { ref, handleRef, isDragging } = useSortable({ id: category.id, index: sortIndex });
+  return (
+    <div ref={ref} onDragStart={preventNativeDrag}>
+      <GameRowFrame category={category} dimmed={isDragging}>
+        <DragHandle handleRef={handleRef} label={t("reorderItem", category.name)} />
+        {rank}
+        {children}
+      </GameRowFrame>
+    </div>
+  );
+}
+
+function GameRowFrame({
+  category,
+  dimmed = false,
+  children,
+}: {
+  category: CategorySelection;
+  dimmed?: boolean;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div
+      data-game={category.id}
+      className={cn(
+        "flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-900",
+        dimmed && "opacity-40",
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
