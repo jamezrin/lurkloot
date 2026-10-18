@@ -175,30 +175,44 @@ const admitSocket = createSocketAdmission({
 // where the DNR rules reach them; on Firefox they open here and the webRequest
 // listener rewrites them. Either way a socket whose Origin cannot be set stays
 // closed.
-const platformWebSocket: WebSocketFactory = chromeOffscreen?.offscreen
-  ? createSocketHostFactory({
-      onConnect: browser.runtime.onConnect as never,
-      documentUrl: `${extensionOrigin}/${SOCKET_HOST_PATH}`,
-      // Without getContexts (Chrome before 116) a stale document cannot be
-      // seen; creating one then fails and the socket retries.
-      hasDocument: async () =>
-        ((await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))
-          ?.length ?? 0) > 0,
-      createDocument: () =>
-        chromeOffscreen.offscreen!.createDocument({
-          url: SOCKET_HOST_PATH,
-          reasons: ["WORKERS"],
-          justification: "Runs the extension's Twitch and Kick connections in a worker.",
-        }),
-      closeDocument: () => chromeOffscreen.offscreen!.closeDocument(),
-      admit: admitSocket,
-    })
-  : createAdmittedWebSocketFactory(admitSocket, createBrowserWebSocket);
+//
+// The Chrome host registers runtime.onConnect as soon as it is created. WXT
+// 0.21 evaluates this module during `wxt prepare` against a fake browser that
+// rejects that call, so the host is installed from the background main instead
+// of at import. That main is the worker's real startup, still before a
+// document can connect. Until then, sockets use the admitted factory; Firefox
+// never replaces it.
+let platformWebSocket: WebSocketFactory = createAdmittedWebSocketFactory(
+  admitSocket,
+  createBrowserWebSocket,
+);
+
+function installChromeSocketHost(): void {
+  if (!chromeOffscreen?.offscreen) return;
+  platformWebSocket = createSocketHostFactory({
+    onConnect: browser.runtime.onConnect as never,
+    documentUrl: `${extensionOrigin}/${SOCKET_HOST_PATH}`,
+    // Without getContexts (Chrome before 116) a stale document cannot be
+    // seen; creating one then fails and the socket retries.
+    hasDocument: async () =>
+      ((await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))
+        ?.length ?? 0) > 0,
+    createDocument: () =>
+      chromeOffscreen.offscreen!.createDocument({
+        url: SOCKET_HOST_PATH,
+        reasons: ["WORKERS"],
+        justification: "Runs the extension's Twitch and Kick connections in a worker.",
+      }),
+    closeDocument: () => chromeOffscreen.offscreen!.closeDocument(),
+    admit: admitSocket,
+  });
+}
 // The one Kick realtime connection, shared by discovery signals and chat
 // presence (#755). Its socket carries kick.com's origin, so Kick's Centrifugo
 // accepts it as well as Pusher.
 const kickRealtime = new KickRealtimeConnection({
-  createWebSocket: platformWebSocket,
+  // Read the factory at call time. Chrome replaces it when the background starts.
+  createWebSocket: (url) => platformWebSocket(url),
   postJson: kickRealtimePost((url, init) => kickRealtimeFetcher.fetchJson<unknown>(url, init)),
 });
 const credentialCookies = {
@@ -511,6 +525,7 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
 });
 
 export default defineBackground(() => {
+  installChromeSocketHost();
   if (import.meta.env.FIREFOX) ensureSocketOriginListener();
   void platformOriginRulesReady();
 
