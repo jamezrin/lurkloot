@@ -4,11 +4,11 @@ import type { KickAccountProgress } from "@lurkloot/shared/models";
 import { I18nContext, useT } from "./context";
 import { Tip } from "./tooltip";
 
-// Kick's viewer level beside its switch, set as two rows like the watching
-// lines to its left: the level and the daily watch streak, then a bar filling
-// toward the next level. The column is as wide as its text, so the bar spans
-// exactly the row above it. Drawn here rather than Kick's own badge art, which
-// stays on Kick.
+// Kick's viewer level beside its switch, set as an outlined pill held apart
+// from the switch so it reads as a stat rather than the switch's label: the
+// level and the daily watch streak, with a bar along the pill's bottom edge
+// filling toward the next level. Drawn here rather than Kick's own badge art,
+// which stays on Kick.
 
 // Stands in for the level while the short label is split around it.
 const LEVEL_SLOT = "\u0001";
@@ -51,7 +51,7 @@ export function KickAccountProgressView({
         role="img"
         aria-label={streak ? `${summary}. ${t("kickStreakDays", number.format(streak))}` : summary}
         data-account-progress="kick"
-        className="inline-flex shrink-0 flex-col items-stretch gap-[5px] text-[11px] leading-none"
+        className="relative me-1.5 inline-flex shrink-0 items-center overflow-hidden rounded-full border border-[var(--surface-edge)] px-2.5 py-[5px] text-[11px] leading-none"
       >
         <span className="flex items-center gap-1 whitespace-nowrap font-semibold text-zinc-900 tabular dark:text-zinc-50">
           <span>
@@ -79,9 +79,10 @@ export function KickAccountProgressView({
             </>
           ) : null}
         </span>
-        {/* Inset by the leading capital's side bearing, so the bar starts under
-            the label's first stroke rather than its glyph box. */}
-        <span className="ms-px h-[3px] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <span
+          aria-hidden
+          className="absolute inset-x-2.5 bottom-0 h-[2px] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800"
+        >
           {percent > 0 ? (
             <span
               data-kick-level-bar
