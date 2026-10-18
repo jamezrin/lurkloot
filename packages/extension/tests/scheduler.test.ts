@@ -2942,6 +2942,7 @@ describe("scheduler tick", () => {
 
   describe("unlinked campaigns farmed last", () => {
     const kickSettings = settings({
+      tablessMode: true,
       platform: {
         twitch: { enabled: false, idleWatchlistChannels: [] },
         kick: { enabled: true, idleWatchlistChannels: [], unlinkedCampaigns: "last" },
@@ -3044,6 +3045,8 @@ describe("scheduler tick", () => {
           .mock.calls.every(([target]) => target.username === "unlinked-channel"),
       ).toBe(true);
       expect(kick.stopWatchTab).not.toHaveBeenCalled();
+      // The re-assertions are not new opens: churn stays at the first one.
+      expect(state.criticalHealth?.kick.managedTabOpens.length ?? 0).toBeLessThanOrEqual(1);
     });
 
     it("keeps a pinned unlinked campaign ahead of linked ones", async () => {
