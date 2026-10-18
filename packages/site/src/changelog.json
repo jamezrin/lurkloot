@@ -37,6 +37,10 @@
       {
         "kind": "fixed",
         "text": "Dropdowns in the popup, such as the Queue's Then by list, now close when you scroll the list behind them, instead of scrolling off the top of the popup."
+      },
+      {
+        "kind": "fixed",
+        "text": "Lurkloot no longer tries to claim Kick rewards every minute when the campaign needs a linked Kick account. It waits before trying again and warns once, instead of filling the activity log with failed claims."
       }
     ]
   },
