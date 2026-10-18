@@ -819,6 +819,13 @@ describe("runLoop heartbeat driver", () => {
       await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(1));
       expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
+      // The attempt stays in flight until its result is stored, and a heartbeat
+      // fired meanwhile joins it instead of ticking again. Wait for the store,
+      // or the next minute's fire can land while the file write is still out.
+      await vi.waitFor(async () => {
+        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
+        expect(state.sessions.twitch.lastHeartbeatAt).toBeDefined();
+      });
 
       await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(2));
