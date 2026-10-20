@@ -14,7 +14,7 @@ export const STORY_READINESS = Object.freeze({
   }),
   kick: Object.freeze({ selector: "[data-platform-features]" }),
   watchlist: Object.freeze({ selector: "#idle-watchlist" }),
-  free: Object.freeze({ selector: "[data-store-free]" }),
+  free: Object.freeze({ selector: '[data-store-artwork="free"]' }),
 });
 
 const CONTENT_TYPES = {

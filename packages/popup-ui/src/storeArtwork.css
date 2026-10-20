@@ -40,6 +40,9 @@
   inset-inline: 64px;
   height: 230px;
 }
+[data-store-artwork] [data-artwork-heading] > span {
+  display: block;
+}
 [data-store-artwork] [data-artwork-heading] {
   font-family: Archivo, sans-serif;
   font-size: 104px;
@@ -236,29 +239,35 @@
   transform: scale(1.7);
 }
 
-/* The closing shot: where the code lives and under which licence. */
-.store-free {
-  display: inline-flex;
-  align-items: center;
-  gap: 32px;
-  padding: 36px 48px 36px 36px;
-  border: 2px solid #2a2a2a;
-  border-radius: 32px;
-  background: #181818;
+/* The closing shot is one statement: a larger headline whose second line
+   takes the mark's purple-to-green gradient, over a soft glow. */
+[data-store-artwork="free"] {
+  background:
+    radial-gradient(640px 420px at 88% 92%, rgb(63 191 18 / 0.22), transparent 70%),
+    radial-gradient(720px 480px at 70% 18%, rgb(124 58 237 / 0.32), transparent 70%),
+    #101010;
 }
-.store-free > div {
-  display: grid;
-  gap: 10px;
+[data-store-artwork="free"] [data-artwork-copy] {
+  inset-block-start: 220px;
+  height: 340px;
 }
-.store-free strong {
-  font-size: 52px;
-  font-weight: 700;
-  letter-spacing: -1px;
+[data-store-artwork="free"] [data-artwork-heading] {
+  letter-spacing: -6px;
 }
-.store-free span {
-  font-size: 32px;
-  color: #b4ff9a;
-  font-weight: 600;
+[data-store-artwork="free"] [data-artwork-heading] > span:last-child {
+  background: linear-gradient(90deg, #b48cff, #8b5cf6 45%, #53fc18);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-block-end: 0.08em;
+}
+[data-store-artwork="free"] .store-subtitle {
+  top: 598px;
+  font-size: 40px;
+  color: #d4d4d8;
+}
+[data-store-artwork="free"] [data-store-popup] {
+  visibility: hidden;
 }
 
 /* Keep named third-party extension providers out of listing artwork. */

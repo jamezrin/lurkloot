@@ -44,8 +44,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Farm everything.\nWatch nothing.",
+        "description": "Always free and open source. No ads, no subscriptions."
       }
     },
     "platforms": {

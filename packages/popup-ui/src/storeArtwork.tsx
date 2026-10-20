@@ -8,8 +8,6 @@ import { STORE_ARTWORK_COPY, type StoreArtworkCopy } from "./storeArtworkCopy";
 
 export type StoreStory = keyof StoreArtworkCopy["stories"];
 
-const REPOSITORY = "github.com/jamezrin/lurkloot";
-
 // Store artwork is one large headline and one large visual per image: the
 // listing shows screenshots scaled down and never at full size. Product
 // visuals are real demo UI, enlarged; camera styles live in storeArtwork.css.
@@ -35,11 +33,15 @@ export function StoreArtwork({
       if (cancelled || !heading) return;
       // Keep every language large, while respecting its actual bundled glyphs
       // and line breaks. Never squeeze or horizontally stretch the type.
-      let size = 104;
+      // The closing shot is a statement, set larger than the others.
+      const closing = story === "free";
+      const maxHeight = closing ? 340 : 230;
+      const minSize = closing ? 88 : 64;
+      let size = closing ? 156 : 104;
       heading.style.fontSize = `${size}px`;
       while (
-        (heading.offsetHeight > 230 || heading.scrollWidth > heading.clientWidth)
-        && size > 64
+        (heading.offsetHeight > maxHeight || heading.scrollWidth > heading.clientWidth)
+        && size > minSize
       ) {
         heading.style.fontSize = `${--size}px`;
       }
@@ -66,7 +68,9 @@ export function StoreArtwork({
       </span>
       <section data-artwork-copy>
         <h1 ref={headingRef} data-artwork-heading>
-          {copy.title}
+          {copy.title.split("\n").map((line) => (
+            <span key={line}>{line}</span>
+          ))}
         </h1>
       </section>
       {subtitle ? (
@@ -79,9 +83,7 @@ export function StoreArtwork({
           <RewardCamera source={children} rewards={OPENING_REWARDS} />
         ) : story === "kick" ? (
           <PlatformFeatures platforms={text.platforms} />
-        ) : story === "free" ? (
-          <OpenSource />
-        ) : (
+        ) : story === "free" ? null : (
           <div className="store-focus">{children}</div>
         )}
       </div>
@@ -115,18 +117,6 @@ function PlatformFeatures({
           </ul>
         </section>
       ))}
-    </div>
-  );
-}
-
-function OpenSource(): React.ReactElement {
-  return (
-    <div className="store-free" data-store-free dir="ltr">
-      <LurklootMark size={88} />
-      <div>
-        <strong>{REPOSITORY}</strong>
-        <span>Apache-2.0</span>
-      </div>
     </div>
   );
 }
