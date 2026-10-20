@@ -108,8 +108,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Siempre gratis.\nCódigo abierto.",
-        "description": "Sin anuncios. Sin suscripciones. Cada línea de código está en GitHub."
+        "title": "Farmea todo.\nNo mires nada.",
+        "description": "Siempre gratis y de código abierto. Sin anuncios ni suscripciones."
       }
     },
     "platforms": {
@@ -172,8 +172,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Toujours gratuit.\nCode ouvert.",
-        "description": "Pas de pub. Pas d’abonnement. Chaque ligne de code est sur GitHub."
+        "title": "Farmez tout.\nNe regardez rien.",
+        "description": "Toujours gratuit et open source. Sans pub, sans abonnement."
       }
     },
     "platforms": {
@@ -236,8 +236,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Sempre gratuito.\nCodice aperto.",
-        "description": "Niente pubblicità. Niente abbonamenti. Ogni riga di codice è su GitHub."
+        "title": "Farma tutto.\nNon guardare nulla.",
+        "description": "Sempre gratuito e open source. Niente pubblicità, niente abbonamenti."
       }
     },
     "platforms": {
@@ -300,8 +300,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Immer kostenlos.\nOpen Source.",
-        "description": "Keine Werbung. Keine Abos. Jede Zeile Code ist auf GitHub."
+        "title": "Farme alles.\nSchau nichts.",
+        "description": "Immer kostenlos und Open Source. Keine Werbung, keine Abos."
       }
     },
     "platforms": {
@@ -364,8 +364,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Sempre gratuito.\nCódigo aberto.",
-        "description": "Sem anúncios. Sem assinaturas. Cada linha de código está no GitHub."
+        "title": "Farme tudo.\nNão assista nada.",
+        "description": "Sempre grátis e de código aberto. Sem anúncios, sem assinaturas."
       }
     },
     "platforms": {
@@ -428,8 +428,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Her zaman ücretsiz.\nAçık kaynak.",
-        "description": "Reklam yok. Abonelik yok. Her kod satırı GitHub’da."
+        "title": "Her şeyi farm'la.\nHiçbir şey izleme.",
+        "description": "Her zaman ücretsiz ve açık kaynak. Reklam yok, abonelik yok."
       }
     },
     "platforms": {
@@ -492,8 +492,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Всегда бесплатно.\nОткрытый код.",
-        "description": "Без рекламы и подписок. Весь код открыт на GitHub."
+        "title": "Фарми всё.\nНичего не смотри.",
+        "description": "Всегда бесплатно и с открытым кодом. Без рекламы и подписок."
       }
     },
     "platforms": {
@@ -556,8 +556,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "永久免费。\n开源项目。",
-        "description": "无广告，无订阅，全部代码都在 GitHub 上。"
+        "title": "全部挂机。\n什么都不看。",
+        "description": "永久免费开源。无广告，无订阅。"
       }
     },
     "platforms": {
@@ -620,8 +620,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "हमेशा मुफ़्त।\nओपन सोर्स।",
-        "description": "कोई विज्ञापन नहीं, कोई सब्सक्रिप्शन नहीं। पूरा कोड GitHub पर है।"
+        "title": "सब फ़ार्म करें।\nकुछ न देखें।",
+        "description": "हमेशा मुफ़्त और ओपन सोर्स। कोई विज्ञापन या सदस्यता नहीं।"
       }
     },
     "platforms": {
@@ -684,8 +684,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "مجاني دائمًا.\nمفتوح المصدر.",
-        "description": "بلا إعلانات ولا اشتراكات. كل سطر من الكود متاح على GitHub."
+        "title": "فارِم كل شيء.\nلا تشاهد شيئًا.",
+        "description": "مجاني دائمًا ومفتوح المصدر. بلا إعلانات ولا اشتراكات."
       }
     },
     "platforms": {
@@ -748,8 +748,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "いつまでも無料。\nオープンソース。",
-        "description": "広告なし、サブスクなし。コードはすべて GitHub で公開。"
+        "title": "全部ファーム。\n何も見ない。",
+        "description": "いつでも無料のオープンソース。広告もサブスクもなし。"
       }
     },
     "platforms": {
@@ -812,8 +812,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Selalu gratis.\nOpen source.",
-        "description": "Tanpa iklan. Tanpa langganan. Setiap baris kode ada di GitHub."
+        "title": "Farm semua.\nTanpa menonton.",
+        "description": "Selalu gratis dan open source. Tanpa iklan, tanpa langganan."
       }
     },
     "platforms": {
@@ -876,8 +876,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Zawsze za darmo.\nOpen source.",
-        "description": "Bez reklam. Bez subskrypcji. Każda linijka kodu jest na GitHubie."
+        "title": "Farmuj wszystko.\nNie oglądaj nic.",
+        "description": "Zawsze za darmo i open source. Bez reklam i subskrypcji."
       }
     },
     "platforms": {
@@ -940,8 +940,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "언제나 무료.\n오픈 소스.",
-        "description": "광고 없음, 구독 없음. 모든 코드는 GitHub에 공개되어 있어요."
+        "title": "모두 파밍.\n아무것도 안 봐.",
+        "description": "언제나 무료이며 오픈 소스. 광고도 구독도 없습니다."
       }
     },
     "platforms": {
@@ -1004,8 +1004,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Завжди безкоштовно.\nВідкритий код.",
-        "description": "Без реклами та підписок. Увесь код доступний на GitHub."
+        "title": "Фарми все.\nНічого не дивись.",
+        "description": "Завжди безкоштовно і з відкритим кодом. Без реклами й підписок."
       }
     },
     "platforms": {
@@ -1068,8 +1068,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "free": {
         "number": "05",
-        "title": "Vždy zdarma.\nOpen source.",
-        "description": "Žádné reklamy. Žádná předplatná. Každý řádek kódu je na GitHubu."
+        "title": "Farmi vše.\nNic nesleduj.",
+        "description": "Vždy zdarma a open source. Žádné reklamy, žádná předplatná."
       }
     },
     "platforms": {

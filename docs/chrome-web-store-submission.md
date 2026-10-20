@@ -34,16 +34,16 @@ localized headline, at most one supporting line, and one large visual:
 2. Game priorities: the real games list.
 3. Two platforms: a checklist of what Lurkloot supports on Twitch and on Kick.
 4. Idle watchlist: the real watchlist rows.
-5. Always free and open source: the repository and licence.
+5. Farm everything, watch nothing: a larger closing statement, noting it is free and open source.
 
 Paragraphs and popup-sized UI are omitted, because their text is unreadable at that scale.
 `StoreArtwork` frames real demo popup components: shot 01 photographs reward tiles from a hidden
 popup and zooms them (`RewardCamera`), shots 02 and 04 crop the popup with scoped camera styles.
-The platform checklists (`platforms` in `storeArtworkCopy.ts`) and the closing lockup are
+The platform checklists (`platforms` in `storeArtworkCopy.ts`) and the closing statement are
 editorial artwork; keep the checklists to features Lurkloot actually supports. Promo tiles have
 their own composition.
 
-Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px and
+Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px (156px in the closing statement) and
 fit to their actual glyphs after fonts load, with a 64px minimum. Generation rejects headline
 overflow, clipped subtitles or checklist items, clipped or stale reward tiles, and focus regions
 outside the canvas. The numbered file stems are stable upload slots; their names predate these
