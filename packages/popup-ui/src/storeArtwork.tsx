@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Check } from "lucide-react";
 import { LurklootMark } from "./mark";
 import { isRtlLocale } from "@lurkloot/shared/i18n";
@@ -7,6 +7,13 @@ import type { SupportedLocale } from "@lurkloot/shared/models";
 import { STORE_ARTWORK_COPY, type StoreArtworkCopy } from "./storeArtworkCopy";
 
 export type StoreStory = keyof StoreArtworkCopy["stories"];
+
+type HeadingFit = { maxHeight: number; minSize: number; start: number };
+const HEADING_FIT: Partial<Record<StoreStory, HeadingFit>> = {
+  queue: { maxHeight: 330, minSize: 44, start: 76 },
+  free: { maxHeight: 340, minSize: 88, start: 156 },
+};
+const DEFAULT_HEADING_FIT: HeadingFit = { maxHeight: 230, minSize: 64, start: 104 };
 
 // Store artwork is one large headline and one large visual per image: the
 // listing shows screenshots scaled down and never at full size. Product
@@ -33,17 +40,30 @@ export function StoreArtwork({
       if (cancelled || !heading) return;
       // Keep every language large, while respecting its actual bundled glyphs
       // and line breaks. Never squeeze or horizontally stretch the type.
-      // The closing shot is a statement, set larger than the others.
-      const closing = story === "free";
-      const maxHeight = closing ? 340 : 230;
-      const minSize = closing ? 88 : 64;
-      let size = closing ? 156 : 104;
+      // The opening headline sits in a column beside the popup; the closing
+      // shot is a statement, set larger than the others.
+      const { maxHeight, minSize, start } = HEADING_FIT[story] ?? DEFAULT_HEADING_FIT;
+      let size = start;
       heading.style.fontSize = `${size}px`;
       while (
         (heading.offsetHeight > maxHeight || heading.scrollWidth > heading.clientWidth)
         && size > minSize
       ) {
         heading.style.fontSize = `${--size}px`;
+      }
+      // The platform checklists shrink together until the longest item fits.
+      const lists = heading.closest("[data-store-artwork]")?.querySelector<HTMLElement>(
+        "[data-platform-features]",
+      );
+      if (lists) {
+        const overflows = (): boolean =>
+          Array.from(lists.querySelectorAll("li")).some((item) => item.scrollWidth > item.clientWidth)
+          || lists.scrollWidth > lists.clientWidth;
+        let listSize = 42;
+        lists.style.setProperty("--store-list-size", `${listSize}px`);
+        while (overflows() && listSize > 28) {
+          lists.style.setProperty("--store-list-size", `${--listSize}px`);
+        }
       }
       heading.dataset.artworkHeadingReady = "";
     });
@@ -59,19 +79,24 @@ export function StoreArtwork({
       data-subtitled={subtitle ? "" : undefined}
       dir={rtl ? "rtl" : "ltr"}
     >
-      <header className="store-brand">
-        <LurklootMark size={36} />
-        <span>Lurkloot</span>
-      </header>
-      <span className="store-number" dir="ltr">
-        {copy.number} / 05
-      </span>
       <section data-artwork-copy>
         <h1 ref={headingRef} data-artwork-heading>
           {copy.title.split("\n").map((line) => (
             <span key={line}>{line}</span>
           ))}
         </h1>
+        {"steps" in copy ? (
+          <ul className="store-steps">
+            {copy.steps.map((step) => (
+              <li key={step} data-artwork-detail>
+                <span className="store-check">
+                  <Check size={24} strokeWidth={3.5} />
+                </span>
+                {step}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
       {subtitle ? (
         <p className="store-subtitle" data-artwork-detail>
@@ -80,7 +105,7 @@ export function StoreArtwork({
       ) : null}
       <div data-store-popup>
         {story === "queue" ? (
-          <RewardCamera source={children} rewards={OPENING_REWARDS} />
+          <div className="store-full-popup">{children}</div>
         ) : story === "kick" ? (
           <PlatformFeatures platforms={text.platforms} />
         ) : story === "free" ? null : (
@@ -117,57 +142,6 @@ function PlatformFeatures({
           </ul>
         </section>
       ))}
-    </div>
-  );
-}
-
-// Indexes into the first campaign's rewards: claimed, in progress, not started.
-const OPENING_REWARDS = [0, 1, 2] as const;
-
-// Reward tiles are too small to read in a listing thumbnail at popup scale.
-// The camera renders the real popup out of sight and photographs chosen tiles
-// of its first campaign: a static copy of real UI, enlarged with CSS zoom.
-function RewardCamera({
-  source,
-  rewards,
-}: {
-  source: React.ReactNode;
-  rewards: readonly number[];
-}): React.ReactElement {
-  const sourceRef = useRef<HTMLDivElement>(null);
-  const filmRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const root = sourceRef.current;
-    const film = filmRef.current;
-    if (!root || !film) return;
-    const capture = (): boolean => {
-      const row = root.querySelector("[data-campaign-id] [data-reward-row]");
-      const tiles = row ? rewards.map((index) => row.children[index]) : [];
-      if (!row || tiles.some((tile) => !tile)) return false;
-      // Tiles read theme colours from custom properties set on the popup.
-      const style = getComputedStyle(row);
-      for (const name of Array.from(style)) {
-        if (name.startsWith("--")) film.style.setProperty(name, style.getPropertyValue(name));
-      }
-      film.replaceChildren(...tiles.map((tile) => tile.cloneNode(true)));
-      return true;
-    };
-    // Recapture on every change: the catalog and images load after the tiles
-    // first appear, and the copy must show the settled UI.
-    if (capture()) setReady(true);
-    const observer = new MutationObserver(() => {
-      if (capture()) setReady(true);
-    });
-    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
-    return () => observer.disconnect();
-  }, [rewards]);
-  return (
-    <div className="store-reward-camera" data-reward-camera-ready={ready || undefined}>
-      <div ref={filmRef} className="store-reward-film" />
-      <div ref={sourceRef} className="store-camera-source" aria-hidden>
-        {source}
-      </div>
     </div>
   );
 }

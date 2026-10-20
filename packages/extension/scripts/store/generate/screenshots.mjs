@@ -39,7 +39,8 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
     ) {
       throw new Error("Artwork headline does not fit its reading area.");
     }
-    const stage = document.querySelector("[data-store-popup]").getBoundingClientRect();
+    // Copy may sit beside the visual, but never in the canvas's bottom margin.
+    const floor = document.querySelector("[data-store-artwork]").getBoundingClientRect().bottom - 24;
     const story = document.querySelector("[data-store-artwork]").dataset.storeArtwork;
     const requireInside = (selector, cameraSelector) => {
       const element = document.querySelector(selector);
@@ -58,35 +59,22 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
         throw new Error(`Clipped artwork subject: ${selector}`);
       }
     };
-    if (story === "queue") requireInside(".store-reward-film", ".store-reward-camera");
-    // The zoomed tiles are copies; they must match the settled, translated source.
-    for (const camera of document.querySelectorAll(".store-reward-camera")) {
-      const source = [
-        ...camera.querySelectorAll(".store-camera-source [data-campaign-id] [data-reward-row] > *"),
-      ].map((tile) => tile.textContent);
-      for (const copy of camera.querySelector(".store-reward-film").children) {
-        if (!source.includes(copy.textContent)) {
-          throw new Error(`Stale reward tile copy: ${copy.textContent}`);
-        }
-      }
-    }
+    if (story === "queue") requireInside(".store-full-popup > main", "[data-store-popup]");
     for (const detail of document.querySelectorAll("[data-artwork-detail]")) {
       const box = detail.getBoundingClientRect();
       if (
         detail.scrollWidth > detail.clientWidth
         || detail.scrollHeight > detail.clientHeight + 1
-        || box.bottom > stage.bottom
+        || box.bottom > floor
       ) {
-        throw new Error("Artwork detail does not fit its reading area.");
+        throw new Error(`Artwork detail does not fit its reading area: ${detail.textContent}`);
       }
     }
   });
   const bounds = await page.locator("[data-store-popup]").boundingBox();
   if (
     !bounds
-    || bounds.width > 1152
     || bounds.width <= 0
-    || bounds.height > 600
     || bounds.height <= 0
     || bounds.x < 0
     || bounds.y < 0

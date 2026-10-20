@@ -15,28 +15,9 @@
   --store-muted: #606060;
   background: #f5f5f5;
 }
-.store-brand {
-  position: absolute;
-  inset-block-start: 36px;
-  inset-inline-start: 64px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -1px;
-}
-.store-number {
-  position: absolute;
-  inset-block-start: 40px;
-  inset-inline-end: 64px;
-  color: var(--store-muted);
-  font-size: 23px;
-  font-variant-numeric: tabular-nums;
-}
 [data-artwork-copy] {
   position: absolute;
-  inset-block-start: 116px;
+  inset-block-start: 56px;
   inset-inline: 64px;
   height: 230px;
 }
@@ -60,10 +41,10 @@
 }
 [data-store-popup] {
   position: absolute;
-  top: 390px;
+  top: 320px;
   left: 64px;
   width: 1152px;
-  height: 350px;
+  height: 432px;
   overflow: hidden;
 }
 .store-focus {
@@ -117,45 +98,21 @@
 [data-store-artwork="games"] .store-focus [data-game]:nth-child(n + 3 of [data-game]) {
   display: none;
 }
-/* Real reward tiles, photographed from a hidden popup and zoomed until their
-   names and percentages read at listing-thumbnail size. */
-.store-reward-camera {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: #101010;
-}
-.store-reward-film {
-  display: flex;
-  gap: 12px;
-  zoom: 2.4;
-  direction: ltr;
-}
-/* A shorter art well leaves room for the subtitle without shrinking the type. */
-.store-reward-film > * > div:first-child {
-  height: 46px;
-}
-/* The opening tiles are cards in their own right, set on the dark canvas. */
-[data-store-artwork="queue"] .store-reward-camera {
-  place-items: start;
-}
-.store-camera-source {
-  position: fixed;
-  inset-block-start: 0;
-  inset-inline-start: 1400px;
-  width: 720px;
-  height: 600px;
-  visibility: hidden;
+[data-store-artwork="games"] .store-focus > main {
+  width: 480px !important;
+  transform: scale(2.4);
 }
 /* What each platform supports, as two large checklists. */
 [data-store-artwork="kick"] [data-store-popup] {
-  top: 384px;
-  height: 376px;
+  top: 324px;
+  height: 440px;
 }
+/* Columns size to their longest feature, so long languages borrow width
+   from the shorter list instead of clipping. */
 .store-platforms {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
+  grid-template-columns: minmax(0, max-content) minmax(0, max-content);
+  column-gap: 96px;
   height: 100%;
 }
 .store-platform {
@@ -166,11 +123,11 @@
   align-items: center;
   gap: 16px;
   font-family: Archivo, sans-serif;
-  font-size: 52px;
+  font-size: 60px;
   font-weight: 750;
   letter-spacing: -1.5px;
   line-height: 1;
-  margin: 0 0 28px;
+  margin: 0 0 32px;
 }
 .store-platform h2 > span {
   width: 20px;
@@ -191,8 +148,8 @@
 .store-platform li {
   display: flex;
   align-items: center;
-  gap: 18px;
-  font-size: 36px;
+  gap: 20px;
+  font-size: var(--store-list-size, 42px);
   font-weight: 600;
   line-height: 1.1;
   white-space: nowrap;
@@ -200,8 +157,8 @@
 }
 .store-check {
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   display: grid;
   place-items: center;
   border-radius: 10px;
@@ -215,7 +172,7 @@
 /* Stories with a subtitle: headline, one supporting line, then the visual. */
 .store-subtitle {
   position: absolute;
-  top: 352px;
+  top: 296px;
   inset-inline: 64px;
   max-width: 1080px;
   margin: 0;
@@ -231,12 +188,61 @@
   color: #3f3f46;
 }
 [data-store-artwork][data-subtitled] [data-store-popup] {
-  top: 470px;
-  height: 290px;
+  top: 410px;
+  height: 342px;
 }
-[data-store-artwork="watchlist"] .store-focus > main {
-  width: 678px !important;
-  transform: scale(1.7);
+
+/* The opening shot shows the whole popup, slightly enlarged, beside the
+   headline, so the listing shows what the extension looks like. */
+[data-store-artwork="queue"] [data-artwork-copy] {
+  inset-block-start: 100px;
+  inset-inline: 56px auto;
+  width: 412px;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 48px;
+}
+/* Each title line is set on its own line; the fit shrinks the type instead. */
+[data-store-artwork="queue"] [data-artwork-heading] > span {
+  white-space: nowrap;
+}
+[data-store-artwork="queue"] [data-store-popup] {
+  top: 100px;
+  left: auto;
+  inset-inline-end: 48px;
+  width: 720px;
+  height: 600px;
+  border-radius: 14px;
+  box-shadow: 0 30px 90px rgb(124 58 237 / 0.3);
+}
+.store-steps {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.store-steps li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.store-steps .store-check {
+  width: 40px;
+  height: 40px;
+  background: #53fc18;
+}
+.store-full-popup {
+  direction: ltr;
+}
+.store-full-popup > main {
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 /* The closing shot is one statement: a larger headline whose second line
@@ -248,7 +254,7 @@
     #101010;
 }
 [data-store-artwork="free"] [data-artwork-copy] {
-  inset-block-start: 220px;
+  inset-block-start: 180px;
   height: 340px;
 }
 [data-store-artwork="free"] [data-artwork-heading] {
@@ -262,7 +268,7 @@
   padding-block-end: 0.08em;
 }
 [data-store-artwork="free"] .store-subtitle {
-  top: 598px;
+  top: 560px;
   font-size: 40px;
   color: #d4d4d8;
 }

@@ -8,7 +8,7 @@ const POPUP_CANDIDATES = ["popup.html", "popup/index.html"];
 
 // What each popup story must have rendered before it is photographed.
 export const STORY_READINESS = Object.freeze({
-  queue: Object.freeze({ selector: "[data-reward-camera-ready]" }),
+  queue: Object.freeze({ selector: 'main[data-view="queue"] [data-campaign-id]' }),
   games: Object.freeze({
     selector: 'main[data-view="games"] [data-game]',
   }),

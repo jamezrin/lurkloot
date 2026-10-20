@@ -4,7 +4,8 @@ import type { SupportedLocale } from "@lurkloot/shared/models";
 export interface StoreArtworkCopy {
   tagline: string;
   stories: {
-    queue: StoreArtworkStory & { description: string };
+    // The opening shot: what Lurkloot does for you, beside the full popup.
+    queue: StoreArtworkStory & { steps: string[] };
     games: StoreArtworkStory;
     kick: StoreArtworkStory;
     watchlist: StoreArtworkStory & { description: string };
@@ -26,8 +27,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Your drops.\nOn autopilot.",
-        "description": "Pick what matters. Lurkloot finds a stream, tracks your progress, and claims your rewards."
+        "title": "Farm drops\nwithout lifting\na finger.",
+        "steps": [
+          "Finds a live stream",
+          "Tracks your progress",
+          "Claims your rewards"
+        ]
       },
       "games": {
         "number": "02",
@@ -90,8 +95,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Tus drops.\nEn automático.",
-        "description": "Elige lo que te importa. Lurkloot busca una transmisión, sigue tu progreso y reclama tus recompensas."
+        "title": "Farmea drops\nsin mover\nun dedo.",
+        "steps": [
+          "Encuentra un directo",
+          "Sigue tu progreso",
+          "Reclama recompensas"
+        ]
       },
       "games": {
         "number": "02",
@@ -154,8 +163,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Vos drops.\nEn automatique.",
-        "description": "Choisissez l’essentiel. Lurkloot trouve un stream, suit votre progression et récupère vos récompenses."
+        "title": "Farmez sans\nlever le\npetit doigt.",
+        "steps": [
+          "Trouve un direct",
+          "Suit votre avancée",
+          "Réclame les gains"
+        ]
       },
       "games": {
         "number": "02",
@@ -218,8 +231,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "I tuoi drop.\nIn automatico.",
-        "description": "Scegli ciò che conta. Lurkloot trova uno stream, segue i progressi e riscatta le tue ricompense."
+        "title": "Farma i drop\nsenza muovere\nun dito.",
+        "steps": [
+          "Trova una diretta",
+          "Segue i progressi",
+          "Riscuote i premi"
+        ]
       },
       "games": {
         "number": "02",
@@ -282,8 +299,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Deine Drops.\nGanz automatisch.",
-        "description": "Wähle, was dir wichtig ist. Lurkloot findet einen Stream, verfolgt den Fortschritt und holt deine Belohnungen ab."
+        "title": "Drops farmen,\nohne Finger\nzu rühren.",
+        "steps": [
+          "Findet einen Stream",
+          "Verfolgt Fortschritt",
+          "Holt Belohnungen ab"
+        ]
       },
       "games": {
         "number": "02",
@@ -346,8 +367,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Seus drops.\nNo automático.",
-        "description": "Escolha o que importa. O Lurkloot encontra uma transmissão, acompanha o progresso e resgata suas recompensas."
+        "title": "Farme drops\nsem levantar\num dedo.",
+        "steps": [
+          "Encontra uma live",
+          "Monitora o progresso",
+          "Resgata recompensas"
+        ]
       },
       "games": {
         "number": "02",
@@ -410,8 +435,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Drop’ların.\nOtomatik pilotta.",
-        "description": "Senin için önemli olanı seç. Lurkloot bir yayın bulur, ilerlemeyi takip eder ve ödüllerini alır."
+        "title": "Drop farm'la\nparmak\nkıpırdatmadan.",
+        "steps": [
+          "Canlı yayın bulur",
+          "İlerlemeyi takip eder",
+          "Ödülleri toplar"
+        ]
       },
       "games": {
         "number": "02",
@@ -474,8 +503,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Ваши дропы.\nНа автопилоте.",
-        "description": "Выберите главное. Lurkloot найдёт трансляцию, отследит прогресс и заберёт награды."
+        "title": "Фармите дропы\nне шевеля\nпальцем.",
+        "steps": [
+          "Находит стрим",
+          "Отслеживает прогресс",
+          "Получает награды"
+        ]
       },
       "games": {
         "number": "02",
@@ -538,8 +571,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "你的掉宝。\n自动搞定。",
-        "description": "选择你在意的奖励。Lurkloot 会寻找直播、跟踪进度，并领取奖励。"
+        "title": "无需动手\n挂机掉宝",
+        "steps": [
+          "自动寻找直播",
+          "追踪观看进度",
+          "自动领取奖励"
+        ]
       },
       "games": {
         "number": "02",
@@ -602,8 +639,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "आपके ड्रॉप्स।\nअपने-आप।",
-        "description": "जो ज़रूरी है, उसे चुनें। Lurkloot स्ट्रीम ढूँढता है, प्रगति देखता है और आपके इनाम क्लेम करता है।"
+        "title": "ड्रॉप्स फ़ार्म करें\nबिना उंगली\nहिलाए।",
+        "steps": [
+          "स्ट्रीम ढूंढता है",
+          "प्रगति ट्रैक करता है",
+          "इनाम लेता है"
+        ]
       },
       "games": {
         "number": "02",
@@ -666,8 +707,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "الدروب الخاصة بك.\nتلقائيًا.",
-        "description": "اختر ما يهمك. يعثر Lurkloot على بث، ويتابع تقدمك، ويطالب بمكافآتك."
+        "title": "فارِم الدروب\nدون رفع إصبع.",
+        "steps": [
+          "يجد بثًا مباشرًا",
+          "يتابع تقدمك",
+          "يستلم المكافآت"
+        ]
       },
       "games": {
         "number": "02",
@@ -730,8 +775,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "あなたのドロップ。\nオートパイロットで。",
-        "description": "大事なものを選ぶだけ。Lurkloot が配信を見つけ、進捗を追い、報酬を受け取ります。"
+        "title": "ドロップを\n手間いらずで\nファーム",
+        "steps": [
+          "配信を見つける",
+          "進捗を追跡",
+          "報酬を受け取る"
+        ]
       },
       "games": {
         "number": "02",
@@ -794,8 +843,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Drop Anda.\nOtomatis.",
-        "description": "Pilih yang penting. Lurkloot mencari siaran, melacak progres, dan mengklaim hadiah Anda."
+        "title": "Farm drop\ntanpa angkat\njari.",
+        "steps": [
+          "Mencari siaran live",
+          "Melacak progres",
+          "Mengklaim hadiah"
+        ]
       },
       "games": {
         "number": "02",
@@ -858,8 +911,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Twoje dropy.\nNa autopilocie.",
-        "description": "Wybierz, co dla Ciebie ważne. Lurkloot znajdzie stream, śledzi postęp i odbiera nagrody."
+        "title": "Farmuj dropy\nbez kiwnięcia\npalcem.",
+        "steps": [
+          "Znajduje transmisje",
+          "Śledzi postępy",
+          "Odbiera nagrody"
+        ]
       },
       "games": {
         "number": "02",
@@ -922,8 +979,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "내 드롭.\n자동으로.",
-        "description": "중요한 것만 고르세요. Lurkloot가 스트림을 찾고, 진행 상황을 추적하며, 보상을 수령합니다."
+        "title": "손 까딱 없이\n드롭 파밍",
+        "steps": [
+          "라이브 방송 찾음",
+          "진행 상황 추적",
+          "보상 자동 수령"
+        ]
       },
       "games": {
         "number": "02",
@@ -986,8 +1047,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Ваші дропи.\nНа автопілоті.",
-        "description": "Оберіть, що важливо. Lurkloot знайде стрим, відстежить прогрес і забере нагороди."
+        "title": "Фарміть дропи\nне ворухнувши\nпальцем.",
+        "steps": [
+          "Знаходить стрім",
+          "Відстежує прогрес",
+          "Отримує нагороди"
+        ]
       },
       "games": {
         "number": "02",
@@ -1050,8 +1115,12 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
     "stories": {
       "queue": {
         "number": "01",
-        "title": "Vaše drops.\nNa autopilotu.",
-        "description": "Vyberte, na čem vám záleží. Lurkloot najde stream, sleduje váš postup a vyzvedne vaše odměny."
+        "title": "Farmi dropy\nbez hnutí\nprstem.",
+        "steps": [
+          "Najde živé vysílání",
+          "Sleduje postup",
+          "Vyzvedne odměny"
+        ]
       },
       "games": {
         "number": "02",

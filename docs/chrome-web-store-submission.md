@@ -27,27 +27,28 @@ The store's default locale is `en` (manifest `default_locale`). Fill the main li
 ### Screenshot composition
 
 The listing shows screenshots scaled down, about 640×400 in its viewer and smaller in the
-carousel, and does not open them at full size. Each of the five images is therefore one large
-localized headline, at most one supporting line, and one large visual:
+carousel, and does not open them at full size. The images therefore carry no logo header or
+"01 / 05" counter, and each is one large localized headline with one large visual:
 
-1. Drops on autopilot: real reward tiles, zoomed.
-2. Game priorities: the real games list.
+1. Farm drops without lifting a finger: the whole popup at actual size, so users see what they
+   install, beside the headline and three short steps.
+2. Game priorities: the real games list, enlarged.
 3. Two platforms: a checklist of what Lurkloot supports on Twitch and on Kick.
-4. Idle watchlist: the real watchlist rows.
-5. Farm everything, watch nothing: a larger closing statement, noting it is free and open source.
+4. Idle watchlist: one supporting line and the real watchlist rows, enlarged.
+5. Farm everything, watch nothing: a larger closing statement, noting it is free and open
+   source.
 
-Paragraphs and popup-sized UI are omitted, because their text is unreadable at that scale.
-`StoreArtwork` frames real demo popup components: shot 01 photographs reward tiles from a hidden
-popup and zooms them (`RewardCamera`), shots 02 and 04 crop the popup with scoped camera styles.
-The platform checklists (`platforms` in `storeArtworkCopy.ts`) and the closing statement are
-editorial artwork; keep the checklists to features Lurkloot actually supports. Promo tiles have
-their own composition.
+`StoreArtwork` frames real demo popup components; shots 02 and 04 crop the popup with scoped
+camera styles. The platform checklists (`platforms` in `storeArtworkCopy.ts`) and the closing
+statement are editorial artwork; keep the checklists to features Lurkloot actually supports.
+Promo tiles have their own composition.
 
-Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px (156px in the closing statement) and
-fit to their actual glyphs after fonts load, with a 64px minimum. Generation rejects headline
-overflow, clipped subtitles or checklist items, clipped or stale reward tiles, and focus regions
-outside the canvas. The numbered file stems are stable upload slots; their names predate these
-stories.
+Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px
+(76px beside the opening popup, 156px in the closing statement) and fit to their actual glyphs
+after fonts load; the platform checklists shrink together until their longest item fits.
+Generation rejects headline overflow, clipped subtitles, steps or checklist items, copy in the
+canvas's bottom margin, a clipped opening popup, and focus regions outside the canvas. The
+numbered file stems are stable upload slots; their names predate these stories.
 
 ## 2. Localized listings
 
