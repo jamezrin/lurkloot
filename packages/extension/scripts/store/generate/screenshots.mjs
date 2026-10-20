@@ -40,7 +40,8 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
       throw new Error("Artwork headline does not fit its reading area.");
     }
     // Copy may sit beside the visual, but never in the canvas's bottom margin.
-    const floor = document.querySelector("[data-store-artwork]").getBoundingClientRect().bottom - 24;
+    const floor =
+      document.querySelector("[data-store-artwork]").getBoundingClientRect().bottom - 24;
     const story = document.querySelector("[data-store-artwork]").dataset.storeArtwork;
     const requireInside = (selector, cameraSelector) => {
       const element = document.querySelector(selector);
@@ -67,7 +68,9 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
         || detail.scrollHeight > detail.clientHeight + 1
         || box.bottom > floor
       ) {
-        throw new Error(`Artwork detail does not fit its reading area: ${detail.textContent} ${JSON.stringify([detail.scrollWidth, detail.clientWidth, detail.scrollHeight, detail.clientHeight, box.bottom, floor])}`);
+        throw new Error(
+          `Artwork detail does not fit its reading area: ${detail.textContent} ${JSON.stringify([detail.scrollWidth, detail.clientWidth, detail.scrollHeight, detail.clientHeight, box.bottom, floor])}`,
+        );
       }
     }
   });

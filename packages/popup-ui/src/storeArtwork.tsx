@@ -53,9 +53,9 @@ export function StoreArtwork({
         heading.style.fontSize = `${--size}px`;
       }
       // The platform checklists shrink together until the longest item fits.
-      const lists = heading.closest("[data-store-artwork]")?.querySelector<HTMLElement>(
-        "[data-platform-features]",
-      );
+      const lists = heading
+        .closest("[data-store-artwork]")
+        ?.querySelector<HTMLElement>("[data-platform-features]");
       if (lists) {
         const overflows = (): boolean =>
           Array.from(lists.querySelectorAll("li, ul")).some(

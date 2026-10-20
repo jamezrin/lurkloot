@@ -220,7 +220,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
         "feature": "Liste d'attente",
         "title": "Continuez à regarder\nsans drops.",
         "howItWorks": [
-          "Choisis tes streamers préférés",
+          "Choisissez vos streamers préférés",
           "Rien à farmer ? La première chaîne en direct est regardée",
           "Bascule quand ils passent en direct ou hors ligne"
         ],
@@ -1213,7 +1213,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Idle Watchlist",
+        "feature": "대기 시청 목록",
         "title": "드롭이 없어도\n계속 시청하세요.",
         "howItWorks": [
           "좋아하는 스트리머를 고르세요",
@@ -1380,7 +1380,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "feature": "Záložní seznam",
-        "title": "Sledujte dál,\nkdyž nejsou drops.",
+        "title": "Sleduj dál,\nkdyž nejsou drops.",
         "howItWorks": [
           "Vyber si oblíbené streamery",
           "Nic k farmení? Sleduje se první live kanál",
@@ -1410,7 +1410,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
         "Záložní seznam"
       ],
       "twitch": [
-        "Channel points",
+        "Body kanálu",
         "Rozšíření Twitch"
       ],
       "kick": [
