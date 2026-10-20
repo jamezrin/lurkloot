@@ -127,7 +127,7 @@
 }
 /* A shorter art well leaves room for the subtitle without shrinking the type. */
 .store-reward-film > * > div:first-child {
-  height: 48px;
+  height: 46px;
 }
 /* The opening tiles are cards in their own right, set on the dark canvas. */
 [data-store-artwork="queue"] .store-reward-camera {
