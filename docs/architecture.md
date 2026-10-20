@@ -1081,7 +1081,7 @@ The bundle layout is the contract between them
 
 The screenshot camera belongs to `StoreArtwork` and its scoped `storeArtwork.css`, not to
 product components. It can omit surrounding chrome and enlarge real demo UI, but must not
-change runtime state or normal popup layout. The opening story shows the whole popup at actual size; the others crop it
-with scoped camera styles or use editorial artwork. Localized headings fit
-after bundled fonts load; the screenshot generator waits for that fit and the camera, and
-rejects overflowing copy, clipped subjects or an out-of-canvas focus region.
+change runtime state or normal popup layout. The opening story shows the whole popup at
+actual size; the others crop it with scoped camera styles or use editorial artwork.
+Localized headings fit after bundled fonts load; the screenshot generator waits for that fit,
+and rejects overflowing copy, clipped subjects or an out-of-canvas focus region.
