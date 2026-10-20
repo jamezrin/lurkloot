@@ -95,12 +95,9 @@
 [data-store-artwork="games"] .store-focus section > div > .flex:has(> span.h-px) {
   display: none !important;
 }
-[data-store-artwork="games"] .store-focus [data-game]:nth-child(n + 3 of [data-game]) {
-  display: none;
-}
 [data-store-artwork="games"] .store-focus > main {
-  width: 480px !important;
-  transform: scale(2.4);
+  width: 524px !important;
+  transform: scale(2.2);
 }
 /* What each platform supports, as two large checklists. */
 [data-store-artwork="kick"] [data-store-popup] {
@@ -196,6 +193,58 @@
 [data-store-artwork][data-subtitled] [data-store-popup] {
   top: 410px;
   height: 342px;
+}
+/* What idle watching earns, as platform-tinted tags under the subtitle. */
+.store-earns {
+  position: absolute;
+  top: 392px;
+  inset-inline: 64px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.store-earns li {
+  display: flex;
+  gap: 0.4em;
+  padding: 0.2em 0.65em 0.24em;
+  border: 2px solid rgb(124 58 237 / 0.45);
+  border-radius: 999px;
+  background: rgb(124 58 237 / 0.1);
+  color: #101010;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.store-earns li b {
+  color: #6d28d9;
+}
+.store-earns li[data-platform="kick"] {
+  border-color: rgb(22 163 74 / 0.5);
+  background: rgb(83 252 24 / 0.16);
+}
+.store-earns li[data-platform="kick"] b {
+  color: #15803d;
+}
+/* The games and watchlist panels end in the gap before the next row. */
+[data-store-artwork="games"][data-subtitled] [data-store-popup] {
+  height: 326px;
+}
+/* Two channels, cut in the gap before the third, keep the rows large. */
+[data-store-artwork="watchlist"][data-subtitled] [data-store-popup] {
+  top: 484px;
+  height: 240px;
+}
+/* The games shot keeps the real header row with its all-or-selected switch. */
+/* :not(#popup-platform-panel) outranks the rule that hides the header row. */
+[data-store-artwork="games"] .store-focus > main > div > div:has(> [data-view-toolbar]):not(#popup-platform-panel) {
+  display: flex !important;
+}
+[data-store-artwork="games"] .store-focus [data-game]:nth-child(n + 3 of [data-game]) {
+  display: none;
 }
 
 /* The opening shot shows the whole popup, slightly enlarged, beside the

@@ -6,9 +6,10 @@ export interface StoreArtworkCopy {
   stories: {
     // The opening shot: what Lurkloot does for you, beside the full popup.
     queue: StoreArtworkStory & { steps: string[] };
-    games: StoreArtworkStory;
+    games: StoreArtworkStory & { description: string };
     kick: StoreArtworkStory;
-    watchlist: StoreArtworkStory & { description: string };
+    // What idle watching still earns, shown as tags under the subtitle.
+    watchlist: StoreArtworkStory & { description: string; earns: { twitch: string[]; kick: string[] } };
     free: StoreArtworkStory & { description: string };
   };
   // What Lurkloot supports on each platform, listed in the dual-platform shot.
@@ -36,7 +37,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Your games.\nYour priorities."
+        "title": "Your games.\nYour priorities.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -45,7 +47,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -104,7 +115,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Tus juegos.\nTus prioridades."
+        "title": "Tus juegos.\nTus prioridades.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -113,7 +125,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Sigue viendo\ncuando no haya drops.",
-        "description": "Tu lista de reserva te mantiene en tus canales favoritos cuando Lurkloot no tiene nada que farmear."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -172,7 +193,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Vos jeux.\nVos priorités."
+        "title": "Vos jeux.\nVos priorités.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -181,7 +203,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Continuez à regarder\nsans drops.",
-        "description": "Votre liste de veille vous garde dans vos chaînes préférées quand Lurkloot n’a rien à farmer."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -240,7 +271,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "I tuoi giochi.\nLe tue priorità."
+        "title": "I tuoi giochi.\nLe tue priorità.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -249,7 +281,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Continua a guardare\nsenza drop.",
-        "description": "La lista di riserva ti tiene nei tuoi canali preferiti quando Lurkloot non ha nulla da farmare."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -308,7 +349,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Deine Spiele.\nDeine Prioritäten."
+        "title": "Deine Spiele.\nDeine Prioritäten.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -317,7 +359,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Weiter schauen,\nauch ohne Drops.",
-        "description": "Deine Leerlauf-Watchlist hält dich in deinen Lieblingskanälen, wenn Lurkloot nichts zu farmen hat."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -376,7 +427,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Seus jogos.\nSuas prioridades."
+        "title": "Seus jogos.\nSuas prioridades.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -385,7 +437,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Continue assistindo\nsem drops.",
-        "description": "Sua lista de reserva mantém você nos seus canais favoritos quando o Lurkloot não tem nada para farmar."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -444,7 +505,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Oyunların.\nÖnceliklerin."
+        "title": "Oyunların.\nÖnceliklerin.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -453,7 +515,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Drop olmadığında\nizlemeye devam et.",
-        "description": "Lurkloot farmlayacak bir şey olmadığında Yedek Kanallar seni favori kanallarında tutar."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -512,7 +583,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Ваши игры.\nВаши приоритеты."
+        "title": "Ваши игры.\nВаши приоритеты.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -521,7 +593,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Продолжайте смотреть,\nкогда дропов нет.",
-        "description": "Список просмотра в простое держит вас на любимых каналах, когда Lurkloot нечего фармить."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -580,7 +661,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "你的游戏。\n你的优先级。"
+        "title": "你的游戏。\n你的优先级。",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -589,7 +671,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "没有掉宝时\n也要继续观看。",
-        "description": "没有可挂机的掉宝时，空闲观看列表会让你继续留在喜爱的频道中。"
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -648,7 +739,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "आपके गेम।\nआपकी प्राथमिकताएँ।"
+        "title": "आपके गेम।\nआपकी प्राथमिकताएँ।",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -657,7 +749,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "ड्रॉप्स न हों तब भी\nदेखते रहें।",
-        "description": "जब Lurkloot के पास फ़ार्म करने को कुछ न हो, तब निष्क्रिय वॉचलिस्ट आपको पसंदीदा चैनलों पर रखती है।"
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -716,7 +817,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "ألعابك.\nأولوياتك."
+        "title": "ألعابك.\nأولوياتك.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -725,7 +827,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "استمر في المشاهدة\nحين لا توجد دروبس.",
-        "description": "تُبقيك قائمة المشاهدة الخاملة في قنواتك المفضلة حين لا يكون لدى Lurkloot ما يفارمه."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -784,7 +895,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "あなたのゲーム。\nあなたの優先度。"
+        "title": "あなたのゲーム。\nあなたの優先度。",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -793,7 +905,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "ドロップが無くても、\n視聴は続く。",
-        "description": "ファームするものがない時も、アイドル・ウォッチリストでお気に入りの配信に待機します。"
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -852,7 +973,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Game Anda.\nPrioritas Anda."
+        "title": "Game Anda.\nPrioritas Anda.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -861,7 +983,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Tetap menonton\nsaat tak ada drop.",
-        "description": "Idle Watchlist membuat kamu tetap menonton saluran favorit saat tidak ada drop untuk di-farm."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -920,7 +1051,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Twoje gry.\nTwoje priorytety."
+        "title": "Twoje gry.\nTwoje priorytety.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -929,7 +1061,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Oglądaj dalej,\ngdy nie ma dropów.",
-        "description": "Lista zapasowa trzyma Cię na ulubionych kanałach, gdy Lurkloot nie ma czego farmić."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -988,7 +1129,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "내 게임.\n내 우선순위."
+        "title": "내 게임.\n내 우선순위.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -997,7 +1139,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "드롭이 없어도\n계속 시청하세요.",
-        "description": "파밍할 것이 없을 때도 대기 시청 목록으로 좋아하는 채널에 머물러요."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -1056,7 +1207,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Ваші ігри.\nВаші пріоритети."
+        "title": "Ваші ігри.\nВаші пріоритети.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -1065,7 +1217,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Дивіться далі,\nколи дропів немає.",
-        "description": "Idle Watchlist тримає вас на улюблених каналах, коли Lurkloot нема чого фармити."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",
@@ -1124,7 +1285,8 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "games": {
         "number": "02",
-        "title": "Vaše hry.\nVaše priority."
+        "title": "Vaše hry.\nVaše priority.",
+        "description": "Lurkloot farms every game by default. Want only some? Tick them, star favourites, block the rest."
       },
       "kick": {
         "number": "03",
@@ -1133,7 +1295,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "watchlist": {
         "number": "04",
         "title": "Sledujte dál,\nkdyž nejsou drops.",
-        "description": "Záložní seznam vás udrží na oblíbených kanálech, když Lurkloot nemá co farmit."
+        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "earns": {
+          "twitch": [
+            "Channel points"
+          ],
+          "kick": [
+            "Daily rewards",
+            "Level XP"
+          ]
+        }
       },
       "free": {
         "number": "05",

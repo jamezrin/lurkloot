@@ -103,6 +103,18 @@ export function StoreArtwork({
           {subtitle}
         </p>
       ) : null}
+      {"earns" in copy ? (
+        <ul className="store-earns">
+          {(["twitch", "kick"] as const).flatMap((platform) =>
+            copy.earns[platform].map((reward) => (
+              <li key={`${platform}-${reward}`} data-platform={platform} data-artwork-detail>
+                <b>{platform === "twitch" ? "Twitch" : "Kick"}</b>
+                {reward}
+              </li>
+            )),
+          )}
+        </ul>
+      ) : null}
       <div data-store-popup>
         {story === "queue" ? (
           <div className="store-full-popup">{children}</div>
