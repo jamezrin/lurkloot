@@ -28,16 +28,60 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
     await document.fonts.ready;
     await Promise.all([...document.images].map((image) => image.decode().catch(() => undefined)));
   });
+  await page.waitForSelector("[data-artwork-heading-ready]");
   await page.waitForTimeout(500);
+  await page.evaluate(() => {
+    const heading = document.querySelector("[data-artwork-heading]");
+    if (
+      !heading
+      || heading.offsetHeight > heading.parentElement.clientHeight
+      || heading.scrollWidth > heading.clientWidth
+    ) {
+      throw new Error("Artwork headline does not fit its reading area.");
+    }
+    const stage = document.querySelector("[data-store-popup]").getBoundingClientRect();
+    const story = document.querySelector("[data-store-artwork]").dataset.storeArtwork;
+    const requireInside = (selector, cameraSelector) => {
+      const element = document.querySelector(selector);
+      const camera = document.querySelector(cameraSelector);
+      if (!element || !camera) throw new Error(`Missing artwork subject: ${selector}`);
+      const box = element.getBoundingClientRect();
+      const frame = camera.getBoundingClientRect();
+      if (
+        box.width <= 0
+        || box.height <= 0
+        || box.left < frame.left
+        || box.right > frame.right
+        || box.top < frame.top
+        || box.bottom > frame.bottom
+      ) {
+        throw new Error(`Clipped artwork subject: ${selector}`);
+      }
+    };
+    if (story === "queue") requireInside(".store-full-popup > main", "[data-store-popup]");
+    if (story === "kick") {
+      requireInside('[data-account-progress="kick"]', ".store-progress-focus");
+    }
+    for (const detail of document.querySelectorAll("[data-artwork-detail]")) {
+      const box = detail.getBoundingClientRect();
+      if (detail.scrollWidth > detail.clientWidth || box.bottom > stage.bottom) {
+        throw new Error("Artwork detail does not fit its reading area.");
+      }
+    }
+  });
   const bounds = await page.locator("[data-store-popup]").boundingBox();
   if (
     !bounds
-    || bounds.width !== 720
-    || bounds.height !== 600
+    || bounds.width > 1152
+    || bounds.width <= 0
+    || bounds.height > 600
+    || bounds.height <= 0
+    || bounds.x < 0
+    || bounds.y < 0
     || bounds.x + bounds.width > SCREENSHOT_SIZE.width
     || bounds.y + bounds.height > SCREENSHOT_SIZE.height
   ) {
-    throw new Error(`Clipped popup: ${JSON.stringify(bounds)}`);
+    throw new Error(`Invalid artwork focus: ${JSON.stringify(bounds)}`);
   }
   await page.screenshot({ path: file, clip: { x: 0, y: 0, ...SCREENSHOT_SIZE } });
   const visibleText = (await page.locator("body").innerText()).replaceAll("Chrome Runner Skin", "");

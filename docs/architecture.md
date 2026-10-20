@@ -1078,3 +1078,11 @@ The bundle layout is the contract between them
 - **Locators are tested against the real page.** `packages/store-sync/tests/fixtures/cws-dashboard/`
   holds sanitized snapshots and `storeSyncContract.test.ts` runs every locator against them, not only
   against hand-built pages.
+
+The screenshot camera belongs to `StoreArtwork` and its scoped `storeArtwork.css`, not to
+product components. It can omit surrounding chrome and enlarge real demo UI, but must not
+change runtime state or normal popup layout. The dual-platform story mounts two independent
+demo popups: a Twitch reward excerpt and an enlarged real Kick account-progress pill. The
+opening story shows the complete popup. Localized headings fit after bundled fonts load;
+the screenshot generator waits
+for that fit and rejects overflowing copy or an out-of-canvas focus region.

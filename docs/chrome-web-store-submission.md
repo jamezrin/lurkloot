@@ -24,6 +24,23 @@ The store's default locale is `en` (manifest `default_locale`). Fill the main li
 | Marquee 1400×560 | `artifacts/store/global/promo/marquee.png` (optional) |
 | Icon 128×128 | from the built package |
 
+### Screenshot composition
+
+The five images use one large localized headline and one visual each: the complete popup,
+game priorities, Twitch rewards beside Kick level and streak, idle channels, and optional
+Twitch extension rewards. The opening shot shows the full 720×600 popup, including navigation.
+The others use focused excerpts or a diagram; paragraphs and bullet stacks are omitted.
+`StoreArtwork` uses scoped camera styles around real demo popup components; its three-step
+extension diagram is editorial artwork. Promo tiles have their own existing composition.
+
+Review at 640×400 and 400×250, as well as the 1280×800 export size. Main headlines start at
+104px (80px beside the opening popup) and fit to their actual glyphs after fonts load,
+with a 72px minimum (64px in the narrower opening composition). Generation rejects
+headline overflow, extension-step overflow, a clipped full popup or Kick progress pill, and
+focus regions outside the canvas. Keep the
+important reward details and three channel/game rows inside the camera when the product UI
+changes. The numbered file stems are stable upload slots; their names predate these stories.
+
 ## 2. Localized listings
 
 `pnpm store:generate` then `pnpm store:sync` sets the description and five screenshots of every

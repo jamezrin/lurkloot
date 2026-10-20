@@ -38,7 +38,7 @@ vi.mock("../scripts/store/generate/popup.mjs", async (importOriginal) => {
           evaluate: async () => {},
           locator: () => ({
             click: async () => {},
-            boundingBox: async () => ({ x: 512, y: 128, width: 720, height: 600 }),
+            boundingBox: async () => ({ x: 64, y: 390, width: 1152, height: 350 }),
             innerText: async () => "Queue",
           }),
           screenshot: async ({ path }: { path: string }) => {

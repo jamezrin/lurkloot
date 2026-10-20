@@ -10,11 +10,9 @@ const POPUP_CANDIDATES = ["popup.html", "popup/index.html"];
 export const STORY_READINESS = Object.freeze({
   queue: Object.freeze({ selector: 'main[data-view="queue"] [data-campaign-id]' }),
   games: Object.freeze({
-    selector: 'main[data-view="queue"] [data-campaign-id]',
-    open: 'button[data-view="games"]',
-    then: "[data-game]",
+    selector: 'main[data-view="games"] [data-game]',
   }),
-  kick: Object.freeze({ selector: 'main[data-view="queue"] [data-campaign-id]' }),
+  kick: Object.freeze({ selector: '[data-store-artwork="kick"] [data-kick-streak]' }),
   watchlist: Object.freeze({ selector: "#idle-watchlist" }),
   extensions: Object.freeze({ selector: "[data-extension-overview]" }),
 });

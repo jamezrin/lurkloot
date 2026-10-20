@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./storeArtwork.css";
 
 /* Scan the popup-ui components explicitly. Tailwind v4's automatic source
    detection is rooted at the importing project, so when the landing page pulls

@@ -159,15 +159,29 @@ export function PopupApp(): React.ReactElement {
         ? requested
         : "queue";
     return (
-      <StoreArtwork story={story} locale={POPUP_LOCALE}>
+      <StoreArtwork
+        story={story}
+        locale={POPUP_LOCALE}
+        secondary={
+          story === "kick" ? (
+            <Popup
+              adapter={POPUP_ADAPTER}
+              initialState={{
+                preview: true,
+                locale: POPUP_LOCALE,
+                variant: screenshotVariant("easy"),
+              }}
+            />
+          ) : undefined
+        }
+      >
         <Popup
           adapter={POPUP_ADAPTER}
           initialState={{
             preview: true,
+            view: story === "games" ? "games" : undefined,
             locale: POPUP_LOCALE,
-            variant: screenshotVariant(
-              story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops",
-            ),
+            variant: screenshotVariant(story === "watchlist" ? "extras" : "drops"),
           }}
         />
       </StoreArtwork>

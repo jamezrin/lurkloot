@@ -1,227 +1,125 @@
 import type React from "react";
+import { useEffect, useRef } from "react";
+import { Check, ArrowRight, SlidersHorizontal, ListOrdered, Gift } from "lucide-react";
 import { LurklootMark } from "./mark";
-
 import { isRtlLocale } from "@lurkloot/shared/i18n";
 import type { SupportedLocale } from "@lurkloot/shared/models";
 import { STORE_ARTWORK_COPY, type StoreArtworkCopy } from "./storeArtworkCopy";
 
 export type StoreStory = keyof StoreArtworkCopy["stories"];
 
+// Store artwork is a focused, enlarged excerpt of the real product. Its camera
+// styles are scoped here; the normal popup and the site's demo keep their UI.
 export function StoreArtwork({
   story,
   children,
+  secondary,
   locale = "en",
 }: {
   story: StoreStory;
   children: React.ReactNode;
+  secondary?: React.ReactNode;
   locale?: SupportedLocale;
 }): React.ReactElement {
-  const text = STORE_ARTWORK_COPY[locale];
-  const copy = text.stories[story];
+  const copy = STORE_ARTWORK_COPY[locale].stories[story];
   const rtl = isRtlLocale(locale);
-  const localized = locale !== "en";
   const light = story === "games" || story === "watchlist";
-  const ink = light ? "#101010" : "#fafafa";
-  const muted = light ? "#606060" : "#a5a5a5";
-  const line = light ? "#d8d8d8" : "#333333";
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void document.fonts.ready.then(() => {
+      const heading = headingRef.current;
+      if (cancelled || !heading) return;
+      // Keep every language large, while respecting its actual bundled glyphs
+      // and line breaks. Never squeeze or horizontally stretch the type.
+      const maxHeight = story === "queue" ? 350 : 230;
+      const minSize = story === "queue" ? 64 : 72;
+      let size = story === "queue" ? 80 : 104;
+      heading.style.fontSize = `${size}px`;
+      while (
+        (heading.offsetHeight > maxHeight || heading.scrollWidth > heading.clientWidth)
+        && size > minSize
+      ) {
+        heading.style.fontSize = `${--size}px`;
+      }
+      heading.dataset.artworkHeadingReady = "";
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [copy.title, story]);
   return (
     <div
       lang={locale.replace("_", "-")}
       data-store-artwork={story}
-      style={{
-        position: "relative",
-        width: 1280,
-        height: 800,
-        overflow: "hidden",
-        background: light ? "#f5f5f5" : "#101010",
-        color: ink,
-        fontFamily: "Geist, sans-serif",
-      }}
+      data-light={light || undefined}
+      dir={rtl ? "rtl" : "ltr"}
     >
-      <header
-        style={{
-          position: "absolute",
-          top: 30,
-          left: 48,
-          right: 48,
-          height: 58,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderBottom: `1px solid ${line}`,
-          paddingBottom: 20,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            fontSize: 23,
-            fontWeight: 700,
-            letterSpacing: "-0.8px",
-          }}
-        >
-          <LurklootMark size={32} />
-          Lurkloot
-        </div>
-        <span style={{ fontSize: 12, letterSpacing: "1.5px", color: muted }}>{text.tagline}</span>
+      <header className="store-brand">
+        <LurklootMark size={36} />
+        <span>Lurkloot</span>
       </header>
-      <section
-        data-artwork-copy
-        dir={rtl ? "rtl" : "ltr"}
-        style={{ position: "absolute", left: 48, top: 176, width: 400 }}
-      >
-        <div
-          style={{
-            fontSize: 11,
-            letterSpacing: "1.8px",
-            fontWeight: 600,
-            color: muted,
-            marginBottom: 26,
-          }}
-        >
-          {copy.number} / {copy.label}
-        </div>
-        <h1
-          data-artwork-heading
-          style={{
-            fontFamily: "Archivo, sans-serif",
-            whiteSpace: "pre-line",
-            fontSize: localized ? 45 : 57,
-            lineHeight: locale === "hi" || rtl ? 1.25 : 1.04,
-            fontWeight: 750,
-            letterSpacing: localized ? "-1px" : "-2.8px",
-            margin: 0,
-          }}
-        >
+      <span className="store-number" dir="ltr">
+        {copy.number} / 05
+      </span>
+      <section data-artwork-copy>
+        <h1 ref={headingRef} data-artwork-heading>
           {copy.title}
         </h1>
-        <p
-          style={{
-            color: muted,
-            fontSize: localized ? 17 : 18,
-            lineHeight: 1.55,
-            maxWidth: localized ? 370 : 330,
-            margin: "26px 0 36px",
-          }}
-        >
-          {copy.description}
-        </p>
-        <div
-          style={{
-            borderTop: `1px solid ${line}`,
-            maxWidth: localized ? 380 : 330,
-            paddingTop: 22,
-            display: "grid",
-            gap: 15,
-          }}
-        >
-          {copy.points.map((point) => (
-            <div
-              key={point}
-              style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 14 }}
-            >
-              <span aria-hidden style={{ width: 4, height: 4, flexShrink: 0, background: ink }} />
-              {point}
-            </div>
-          ))}
-        </div>
       </section>
-      <style>{`[data-store-artwork] [data-watch-source-place] > div > div:last-child, [data-store-artwork] button[data-view="nopixel"], [data-store-artwork] button[data-view="fortnite"] { display: none !important; } [data-store-popup] > main { border: 0 !important; box-shadow: none !important; }`}</style>
-      <div
-        data-store-popup
-        style={{
-          position: "absolute",
-          top: 128,
-          left: 512,
-          width: 720,
-          height: 600,
-          overflow: "hidden",
-          boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
-        }}
-      >
-        {story === "extensions" ? <ExtensionOverview copy={text.overview} rtl={rtl} /> : children}
+      {story === "extensions" ? <p className="store-feature-label">{copy.points[0]}</p> : null}
+      <div data-store-popup>
+        {story === "extensions" ? (
+          <ExtensionOverview copy={STORE_ARTWORK_COPY[locale].overview} />
+        ) : story === "kick" ? (
+          <div className="store-platforms">
+            <div className="store-platform" data-platform="twitch">
+              <h2>
+                <span />
+                Twitch
+              </h2>
+              <div className="store-focus">{children}</div>
+            </div>
+            <div className="store-platform" data-platform="kick">
+              <h2>
+                <span />
+                Kick
+              </h2>
+              <div className="store-progress-focus">{secondary}</div>
+            </div>
+          </div>
+        ) : story === "queue" ? (
+          <div className="store-full-popup">{children}</div>
+        ) : (
+          <div className="store-focus">{children}</div>
+        )}
       </div>
-      <footer
-        style={{
-          position: "absolute",
-          left: 48,
-          right: 48,
-          bottom: 26,
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 11,
-          color: muted,
-        }}
-      >
-        <span style={{ marginLeft: "auto" }}>{copy.caption}</span>
-      </footer>
+      {story === "queue" ? (
+        <div className="store-outcome">
+          <Check size={32} strokeWidth={3} />
+          {copy.points[1]}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-// Editorial feature diagram, deliberately separate from the captured product UI.
-function ExtensionOverview({
-  copy,
-  rtl,
-}: {
-  copy: StoreArtworkCopy["overview"];
-  rtl: boolean;
-}): React.ReactElement {
+// An editorial sequence, not an imitation of the product's extension screens.
+function ExtensionOverview({ copy }: { copy: StoreArtworkCopy["overview"] }): React.ReactElement {
+  const icons = [SlidersHorizontal, ListOrdered, Gift];
   return (
-    <div
-      data-extension-overview
-      dir={rtl ? "rtl" : "ltr"}
-      style={{
-        width: 720,
-        height: 600,
-        padding: "40px 44px",
-        background: "#f5f5f5",
-        color: "#101010",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-        <LurklootMark size={36} />
-        <span style={{ fontSize: 12, letterSpacing: 2 }}>{copy.tagline}</span>
-      </div>
-      <h2
-        style={{
-          fontFamily: "Archivo, sans-serif",
-          fontSize: 38,
-          lineHeight: 1.1,
-          letterSpacing: -1.5,
-          margin: "0 0 14px",
-        }}
-      >
-        {copy.title}
-      </h2>
-      <p
-        style={{
-          fontSize: 17,
-          color: "#606060",
-          lineHeight: 1.5,
-          margin: "0 0 32px",
-          maxWidth: 520,
-        }}
-      >
-        {copy.description}
-      </p>
-      {copy.steps.map(([title, description], index) => {
-        const number = String(index + 1).padStart(2, "0");
+    <div data-extension-overview>
+      {copy.steps.map(([title], index) => {
+        const Icon = icons[index];
         return (
-          <div
-            key={number}
-            style={{ display: "flex", gap: 22, padding: "22px 0", borderTop: "1px solid #d8d8d8" }}
-          >
-            <span style={{ fontSize: 12, color: "#737373", paddingTop: 4 }}>{number}</span>
-            <div>
-              <h3 style={{ fontSize: 20, fontWeight: 650, margin: "0 0 7px" }}>{title}</h3>
-              <p style={{ fontSize: 14, color: "#606060", margin: 0, lineHeight: 1.45 }}>
-                {description}
-              </p>
-            </div>
+          <div className="store-extension-step" key={title}>
+            <span className="store-step-icon">
+              <Icon size={56} strokeWidth={1.5} />
+            </span>
+            <h2 data-artwork-detail>{title}</h2>
+            {index < copy.steps.length - 1 ? (
+              <ArrowRight className="store-step-arrow" size={32} />
+            ) : null}
           </div>
         );
       })}
