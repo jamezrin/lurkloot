@@ -95,6 +95,11 @@
 .store-focus [data-campaign-notices] {
   display: none !important;
 }
+/* Secondary lines are popup-grey; darken them so they survive the thumbnail. */
+.store-focus #popup-platform-panel [class*="text-zinc-400"],
+.store-focus #popup-platform-panel [class*="text-zinc-500"] {
+  color: #52525b !important;
+}
 .store-focus #popup-platform-panel {
   overflow: visible;
 }

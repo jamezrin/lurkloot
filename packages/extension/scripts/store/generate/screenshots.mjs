@@ -64,6 +64,17 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
     if (story === "kick") {
       requireInside('[data-account-progress="kick"]', ".store-progress-focus");
     }
+    // The zoomed tiles are copies; they must match the settled, translated source.
+    for (const camera of document.querySelectorAll(".store-reward-camera")) {
+      const source = [
+        ...camera.querySelectorAll(".store-camera-source [data-campaign-id] [data-reward-row] > *"),
+      ].map((tile) => tile.textContent);
+      for (const copy of camera.querySelector(".store-reward-film").children) {
+        if (!source.includes(copy.textContent)) {
+          throw new Error(`Stale reward tile copy: ${copy.textContent}`);
+        }
+      }
+    }
     for (const detail of document.querySelectorAll("[data-artwork-detail]")) {
       const box = detail.getBoundingClientRect();
       if (detail.scrollWidth > detail.clientWidth || box.bottom > stage.bottom) {
