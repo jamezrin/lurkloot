@@ -36,8 +36,9 @@ carousel, and does not open them at full size. The images therefore carry no log
    all-or-selected switch and the games list, enlarged.
 3. Much more than drops: what Lurkloot supports on both platforms, listed once, then what
    each platform adds.
-4. Idle watchlist: what idle watching still earns (Twitch channel points, Kick daily rewards
-   and level XP) as tags, above two real watchlist rows, enlarged.
+4. Idle watchlist: the feature's name (each catalog's `navIdleWatchlist`), how it works in three
+   short steps, and what it keeps earning (Twitch channel points, Kick daily rewards and level
+   XP), beside three real watchlist rows whose ranks show the watch order.
 5. Farm everything, watch nothing: a larger closing statement, noting it is free and open
    source.
 
@@ -47,8 +48,8 @@ statement are editorial artwork; keep them to features Lurkloot actually support
 Promo tiles have their own composition.
 
 Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px
-(76px beside the opening popup, 156px in the closing statement) and fit to their actual glyphs
-after fonts load; the platform feature tags and the earn tags shrink until they fit.
+(76px beside the opening popup, 92px above the watchlist guide, 156px in the closing statement) and fit to their actual glyphs
+after fonts load; the platform feature tags and the watchlist guide shrink until they fit.
 Generation rejects headline overflow, clipped subtitles, steps or checklist items, copy in the
 canvas's bottom margin, a clipped opening popup, and focus regions outside the canvas. The
 numbered file stems are stable upload slots; their names predate these stories.

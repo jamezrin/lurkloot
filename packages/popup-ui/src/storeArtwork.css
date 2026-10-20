@@ -230,30 +230,96 @@
   top: 410px;
   height: 342px;
 }
-/* What idle watching earns, as platform-tinted tags under the subtitle. */
-.store-earns {
+/* The games panel ends in the gap before the next row. */
+[data-store-artwork="games"][data-subtitled] [data-store-popup] {
+  height: 326px;
+}
+/* The watchlist shot: the feature's name, the headline, then how it works
+   beside the real list, whose ranks carry the watch order. */
+[data-store-artwork="watchlist"] [data-artwork-copy] {
+  inset-block-start: 44px;
+  height: auto;
+}
+.store-feature {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 6px 18px 8px;
+  border-radius: 999px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.store-watch-guide {
+  --store-guide-size: 32px;
   position: absolute;
-  top: 392px;
-  inset-inline: 64px;
+  top: 336px;
+  inset-inline-start: 64px;
+  width: 548px;
+  height: 432px;
   display: flex;
-  gap: 14px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.9em;
   overflow: hidden;
+  font-size: var(--store-guide-size);
+}
+.store-guide-steps {
+  display: grid;
+  gap: 0.75em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.store-guide-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #101010;
+}
+.store-guide-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.4em;
+  height: 1.4em;
+  margin-top: -0.1em;
+  border-radius: 12px;
+  background: rgb(124 58 237 / 0.12);
+  color: #6d28d9;
+}
+.store-guide-earning > p {
+  margin: 0 0 0.45em;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: #52525b;
+}
+.store-earns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .store-earns li {
   display: flex;
-  gap: 0.4em;
-  padding: 0.2em 0.65em 0.24em;
+  gap: 0.35em;
+  padding: 0.18em 0.6em 0.22em;
   border: 2px solid rgb(124 58 237 / 0.45);
   border-radius: 999px;
   background: rgb(124 58 237 / 0.1);
   color: #101010;
-  font-size: var(--store-earn-size, 32px);
+  font-size: 0.85em;
   font-weight: 600;
   line-height: 1.1;
   white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .store-earns li b {
   color: #6d28d9;
@@ -265,14 +331,16 @@
 .store-earns li[data-platform="kick"] b {
   color: #15803d;
 }
-/* The games and watchlist panels end in the gap before the next row. */
-[data-store-artwork="games"][data-subtitled] [data-store-popup] {
-  height: 326px;
+[data-store-artwork="watchlist"] [data-store-popup] {
+  top: 336px;
+  left: auto;
+  inset-inline-end: 64px;
+  width: 560px;
+  height: 322px;
 }
-/* Two channels, cut in the gap before the third, keep the rows large. */
-[data-store-artwork="watchlist"][data-subtitled] [data-store-popup] {
-  top: 484px;
-  height: 240px;
+[data-store-artwork="watchlist"] .store-focus > main {
+  width: 311px !important;
+  transform: scale(1.8);
 }
 /* The games shot keeps the real header row with its all-or-selected switch. */
 /* :not(#popup-platform-panel) outranks the rule that hides the header row. */

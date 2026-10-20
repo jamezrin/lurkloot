@@ -8,8 +8,13 @@ export interface StoreArtworkCopy {
     queue: StoreArtworkStory & { steps: string[] };
     games: StoreArtworkStory & { description: string };
     kick: StoreArtworkStory;
-    // What idle watching still earns, shown as tags under the subtitle.
-    watchlist: StoreArtworkStory & { description: string; earns: { twitch: string[]; kick: string[] } };
+    // How the idle watchlist works, beside the real list, then what it earns.
+    watchlist: StoreArtworkStory & {
+      feature: string;
+      howItWorks: string[];
+      earning: string;
+      earns: { twitch: string[]; kick: string[] };
+    };
     free: StoreArtworkStory & { description: string };
   };
   // What Lurkloot supports: on both platforms, then on each one alone.
@@ -46,8 +51,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Idle watchlist",
         "title": "Keep watching\nwhen there are no drops.",
-        "description": "Lurkloot lurks in your favourite channels and keeps earning:",
+        "howItWorks": [
+          "Pick your favourite streamers",
+          "Nothing to farm? The first live one is watched",
+          "Switches as they go live or offline"
+        ],
+        "earning": "Keeps earning",
         "earns": {
           "twitch": [
             "Channel points"
@@ -123,8 +134,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Lista de reserva",
         "title": "Sigue viendo\ncuando no haya drops.",
-        "description": "Lurkloot vigila tus canales favoritos y sigue ganando:",
+        "howItWorks": [
+          "Elige tus streamers favoritos",
+          "¿Nada que farmear? Se ve el primer canal en directo",
+          "Cambia al empezar o terminar la emisión"
+        ],
+        "earning": "Sigue ganando",
         "earns": {
           "twitch": [
             "Puntos de canal"
@@ -200,8 +217,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Liste d'attente",
         "title": "Continuez à regarder\nsans drops.",
-        "description": "Lurkloot suit vos chaînes favorites et continue de gagner :",
+        "howItWorks": [
+          "Choisis tes streamers préférés",
+          "Rien à farmer ? La première chaîne en direct est regardée",
+          "Bascule quand ils passent en direct ou hors ligne"
+        ],
+        "earning": "Continue de gagner",
         "earns": {
           "twitch": [
             "Points de chaîne"
@@ -277,8 +300,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Lista di riserva",
         "title": "Continua a guardare\nsenza drop.",
-        "description": "Lurkloot segue i tuoi canali preferiti e continua a guadagnare:",
+        "howItWorks": [
+          "Scegli i tuoi streamer preferiti",
+          "Niente da farmare? Si guarda il primo canale in diretta",
+          "Cambia quando vanno in diretta o offline"
+        ],
+        "earning": "Continua a guadagnare",
         "earns": {
           "twitch": [
             "Punti canale"
@@ -354,8 +383,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Ersatzliste",
         "title": "Weiter schauen,\nauch ohne Drops.",
-        "description": "Lurkloot schaut in deinen Lieblingskanälen vorbei und sammelt weiter:",
+        "howItWorks": [
+          "Wähle deine Lieblings-Streamer",
+          "Nichts zu farmen? Der erste Live-Kanal wird geschaut",
+          "Wechselt, sobald sie live oder offline gehen"
+        ],
+        "earning": "Sammelt weiter",
         "earns": {
           "twitch": [
             "Kanalpunkte"
@@ -431,8 +466,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Lista de reserva",
         "title": "Continue assistindo\nsem drops.",
-        "description": "Lurkloot fica nos seus canais favoritos e continua ganhando:",
+        "howItWorks": [
+          "Escolha seus streamers favoritos",
+          "Nada para farmar? O primeiro canal ao vivo é assistido",
+          "Troca quando entram ao vivo ou saem do ar"
+        ],
+        "earning": "Continua ganhando",
         "earns": {
           "twitch": [
             "Pontos do canal"
@@ -508,8 +549,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Yedek izleme listesi",
         "title": "Drop olmadığında\nizlemeye devam et.",
-        "description": "Lurkloot favori kanallarında bekler ve kazanmaya devam eder:",
+        "howItWorks": [
+          "Favori yayıncılarını seç",
+          "Farm edilecek bir şey yok mu? İlk canlı kanal izlenir",
+          "Yayına geçtiklerinde veya çevrimdışı olduklarında değişir"
+        ],
+        "earning": "Kazanmaya devam eder",
         "earns": {
           "twitch": [
             "Kanal puanları"
@@ -585,8 +632,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Резервный список",
         "title": "Продолжайте смотреть,\nкогда дропов нет.",
-        "description": "Lurkloot сидит в любимых каналах и продолжает зарабатывать:",
+        "howItWorks": [
+          "Выберите любимых стримеров",
+          "Нечего фармить? Смотрится первый канал в эфире",
+          "Переключается, когда они выходят в эфир или уходят"
+        ],
+        "earning": "Продолжает зарабатывать",
         "earns": {
           "twitch": [
             "Баллы канала"
@@ -662,8 +715,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "空闲观看列表",
         "title": "没有掉宝时\n也要继续观看。",
-        "description": "Lurkloot 在你收藏的频道里待命，持续获得：",
+        "howItWorks": [
+          "选择你喜欢的主播",
+          "没有可刷的内容？观看第一个正在直播的频道",
+          "主播开播或下播时自动切换"
+        ],
+        "earning": "持续获得",
         "earns": {
           "twitch": [
             "频道点数"
@@ -739,8 +798,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "आइडल वॉचलिस्ट",
         "title": "ड्रॉप्स न हों तब भी\nदेखते रहें।",
-        "description": "Lurkloot पसंदीदा चैनल पर रहता है और कमाई जारी रखता है:",
+        "howItWorks": [
+          "अपने पसंदीदा स्ट्रीमर चुनें",
+          "फ़ार्म करने को कुछ नहीं? पहला लाइव चैनल देखा जाता है",
+          "लाइव होने या बंद होने पर बदल जाता है"
+        ],
+        "earning": "कमाई जारी रहती है",
         "earns": {
           "twitch": [
             "चैनल पॉइंट"
@@ -816,8 +881,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "قائمة الانتظار للمشاهدة",
         "title": "استمر في المشاهدة\nحين لا توجد دروبس.",
-        "description": "يتابع Lurkloot قنواتك المفضلة ويواصل الربح:",
+        "howItWorks": [
+          "اختر قنواتك المفضلة",
+          "لا شيء لتجميعه؟ تُشاهَد أول قناة تبث مباشرة",
+          "يتبدّل عند بدء البث أو توقفه"
+        ],
+        "earning": "يواصل الكسب",
         "earns": {
           "twitch": [
             "نقاط القناة"
@@ -893,8 +964,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "アイドル・ウォッチリスト",
         "title": "ドロップが無くても、\n視聴は続く。",
-        "description": "Lurkloot はお気に入りチャンネルで待機し、稼ぎ続けます:",
+        "howItWorks": [
+          "お気に入りの配信者を選ぶ",
+          "ファーミングするものがない？ 最初のライブチャンネルを視聴",
+          "配信開始・終了に合わせて自動で切り替え"
+        ],
+        "earning": "獲得を継続",
         "earns": {
           "twitch": [
             "チャンネルポイント"
@@ -970,8 +1047,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Idle Watchlist",
         "title": "Tetap menonton\nsaat tak ada drop.",
-        "description": "Lurkloot memantau channel favoritmu dan terus dapat reward:",
+        "howItWorks": [
+          "Pilih streamer favoritmu",
+          "Tak ada yang di-farm? Saluran live pertama yang ditonton",
+          "Beralih saat mereka mulai atau berhenti siaran"
+        ],
+        "earning": "Tetap mendapatkan",
         "earns": {
           "twitch": [
             "Poin channel"
@@ -1047,8 +1130,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Lista zapasowa",
         "title": "Oglądaj dalej,\ngdy nie ma dropów.",
-        "description": "Lurkloot ogląda ulubione kanały i dalej zbiera nagrody:",
+        "howItWorks": [
+          "Wybierz ulubionych streamerów",
+          "Nic do farmienia? Oglądany jest pierwszy kanał na żywo",
+          "Przełącza się, gdy wchodzą na żywo lub znikają"
+        ],
+        "earning": "Nadal zdobywa",
         "earns": {
           "twitch": [
             "Punkty kanału"
@@ -1124,8 +1213,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Idle Watchlist",
         "title": "드롭이 없어도\n계속 시청하세요.",
-        "description": "Lurkloot이 즐겨찾는 채널에서 대기하며 계속 얻습니다:",
+        "howItWorks": [
+          "좋아하는 스트리머를 고르세요",
+          "파밍할 게 없나요? 첫 라이브 채널을 시청",
+          "라이브 시작·종료에 따라 자동으로 전환"
+        ],
+        "earning": "계속 획득",
         "earns": {
           "twitch": [
             "채널 포인트"
@@ -1201,8 +1296,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Idle Watchlist",
         "title": "Дивіться далі,\nколи дропів немає.",
-        "description": "Lurkloot сидить у ваших улюблених каналах і далі заробляє:",
+        "howItWorks": [
+          "Оберіть улюблених стримерів",
+          "Нема чого фармити? Дивиться перший канал у ефірі",
+          "Перемикається, коли вони виходять в ефір або йдуть офлайн"
+        ],
+        "earning": "Продовжує заробляти",
         "earns": {
           "twitch": [
             "Бали каналу"
@@ -1278,8 +1379,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
+        "feature": "Záložní seznam",
         "title": "Sledujte dál,\nkdyž nejsou drops.",
-        "description": "Lurkloot sleduje tvoje oblíbené kanály a dál získává:",
+        "howItWorks": [
+          "Vyber si oblíbené streamery",
+          "Nic k farmení? Sleduje se první live kanál",
+          "Přepíná se, když začnou nebo přestanou vysílat"
+        ],
+        "earning": "Stále vydělává",
         "earns": {
           "twitch": [
             "Body kanálu"

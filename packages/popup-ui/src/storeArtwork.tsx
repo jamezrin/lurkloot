@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef } from "react";
-import { Check } from "lucide-react";
+import { ArrowLeftRight, Check, Play, Star } from "lucide-react";
 import { LurklootMark } from "./mark";
 import { isRtlLocale } from "@lurkloot/shared/i18n";
 import type { SupportedLocale } from "@lurkloot/shared/models";
@@ -12,6 +12,7 @@ type HeadingFit = { maxHeight: number; minSize: number; start: number };
 const HEADING_FIT: Partial<Record<StoreStory, HeadingFit>> = {
   queue: { maxHeight: 330, minSize: 44, start: 76 },
   free: { maxHeight: 340, minSize: 88, start: 156 },
+  watchlist: { maxHeight: 200, minSize: 56, start: 92 },
 };
 const DEFAULT_HEADING_FIT: HeadingFit = { maxHeight: 230, minSize: 64, start: 104 };
 
@@ -66,15 +67,20 @@ export function StoreArtwork({
           lists.style.setProperty("--store-list-size", `${--listSize}px`);
         }
       }
-      // The earn tags stay on one line; they shrink together if it is long.
-      const earns = heading
+      // The watchlist guide shrinks as one block until it fits its column.
+      const guide = heading
         .closest("[data-store-artwork]")
-        ?.querySelector<HTMLElement>(".store-earns");
-      if (earns) {
-        let earnSize = 32;
-        earns.style.setProperty("--store-earn-size", `${earnSize}px`);
-        while (earns.scrollWidth > earns.clientWidth && earnSize > 22) {
-          earns.style.setProperty("--store-earn-size", `${--earnSize}px`);
+        ?.querySelector<HTMLElement>("[data-watch-guide]");
+      if (guide) {
+        const overflows = (): boolean =>
+          guide.scrollHeight > guide.clientHeight
+          || Array.from(guide.querySelectorAll("li")).some(
+            (item) => item.scrollWidth > item.clientWidth,
+          );
+        let guideSize = 32;
+        guide.style.setProperty("--store-guide-size", `${guideSize}px`);
+        while (overflows() && guideSize > 20) {
+          guide.style.setProperty("--store-guide-size", `${--guideSize}px`);
         }
       }
       heading.dataset.artworkHeadingReady = "";
@@ -98,6 +104,7 @@ export function StoreArtwork({
             <span data-platform="kick">Kick</span>
           </p>
         ) : null}
+        {"feature" in copy ? <p className="store-feature">{copy.feature}</p> : null}
         <h1 ref={headingRef} data-artwork-heading>
           {copy.title.split("\n").map((line) => (
             <span key={line}>{line}</span>
@@ -121,18 +128,7 @@ export function StoreArtwork({
           {subtitle}
         </p>
       ) : null}
-      {"earns" in copy ? (
-        <ul className="store-earns" data-artwork-detail>
-          {(["twitch", "kick"] as const).flatMap((platform) =>
-            copy.earns[platform].map((reward) => (
-              <li key={`${platform}-${reward}`} data-platform={platform} data-artwork-detail>
-                <b>{platform === "twitch" ? "Twitch" : "Kick"}</b>
-                {reward}
-              </li>
-            )),
-          )}
-        </ul>
-      ) : null}
+      {"howItWorks" in copy ? <WatchGuide copy={copy} /> : null}
       <div data-store-popup>
         {story === "queue" ? (
           <div className="store-full-popup">{children}</div>
@@ -143,6 +139,45 @@ export function StoreArtwork({
         ) : (
           <div className="store-focus">{children}</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+const GUIDE_ICONS = [Star, Play, ArrowLeftRight];
+
+// How the idle watchlist works, then what it keeps earning. The list beside it
+// carries the only numbers on the canvas: its watch order.
+function WatchGuide({
+  copy,
+}: {
+  copy: StoreArtworkCopy["stories"]["watchlist"];
+}): React.ReactElement {
+  return (
+    <div className="store-watch-guide" data-watch-guide>
+      <ul className="store-guide-steps">
+        {copy.howItWorks.map((step, index) => {
+          const Icon = GUIDE_ICONS[index] ?? Star;
+          return (
+            <li key={step} data-artwork-detail>
+              <span className="store-guide-icon">
+                <Icon size={22} strokeWidth={2.75} />
+              </span>
+              {step}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="store-guide-earning">
+        <p>{copy.earning}</p>
+        <ul className="store-earns">
+          {(["twitch", "kick"] as const).map((platform) => (
+            <li key={platform} data-platform={platform} data-artwork-detail>
+              <b>{platform === "twitch" ? "Twitch" : "Kick"}</b>
+              {copy.earns[platform].join(" · ")}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
