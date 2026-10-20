@@ -59,7 +59,7 @@ export function StoreArtwork({
         const overflows = (): boolean =>
           Array.from(lists.querySelectorAll("li")).some((item) => item.scrollWidth > item.clientWidth)
           || lists.scrollWidth > lists.clientWidth;
-        let listSize = 42;
+        let listSize = 38;
         lists.style.setProperty("--store-list-size", `${listSize}px`);
         while (overflows() && listSize > 28) {
           lists.style.setProperty("--store-list-size", `${--listSize}px`);
@@ -108,11 +108,35 @@ export function StoreArtwork({
           <div className="store-full-popup">{children}</div>
         ) : story === "kick" ? (
           <PlatformFeatures platforms={text.platforms} />
-        ) : story === "free" ? null : (
+        ) : story === "free" ? (
+          <ProgressRing />
+        ) : (
           <div className="store-focus">{children}</div>
         )}
       </div>
     </div>
+  );
+}
+
+// The mark's progress ring and play glyph, drawn as a large, quiet outline
+// behind the closing statement instead of a background gradient.
+function ProgressRing(): React.ReactElement {
+  return (
+    <svg className="store-ring" viewBox="0 0 128 128" fill="none" aria-hidden>
+      <circle cx="64" cy="64" r="34" stroke="#ffffff" strokeOpacity="0.04" strokeWidth="9" />
+      <path
+        d="M64 30 A34 34 0 1 1 36.2 83.9"
+        stroke="#8b5cf6"
+        strokeOpacity="0.2"
+        strokeWidth="9"
+        strokeLinecap="round"
+      />
+      <path
+        fill="#ffffff"
+        fillOpacity="0.035"
+        d="M55 50 C 55 47.2, 58.1 45.6, 60.4 47.1 L 81 60.9 C 83.1 62.3, 83.1 65.7, 81 67.1 L 60.4 80.9 C 58.1 82.4, 55 80.8, 55 78 Z"
+      />
+    </svg>
   );
 }
 
@@ -133,9 +157,6 @@ function PlatformFeatures({
           <ul>
             {platforms[platform].map((feature) => (
               <li key={feature} data-artwork-detail>
-                <span className="store-check">
-                  <Check size={26} strokeWidth={3.5} />
-                </span>
                 {feature}
               </li>
             ))}

@@ -127,7 +127,7 @@
   font-weight: 750;
   letter-spacing: -1.5px;
   line-height: 1;
-  margin: 0 0 32px;
+  margin: 0 0 28px;
 }
 .store-platform h2 > span {
   width: 20px;
@@ -138,22 +138,31 @@
 .store-platform[data-platform="kick"] h2 > span {
   background: #53fc18;
 }
+/* Each feature is a tag tinted with its platform's colour. */
 .store-platform ul {
   display: grid;
-  gap: 14px;
+  justify-items: start;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .store-platform li {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  font-size: var(--store-list-size, 42px);
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 0.18em 0.6em 0.22em;
+  border: 2px solid rgb(169 112 255 / 0.55);
+  border-radius: 999px;
+  background: rgb(169 112 255 / 0.14);
+  font-size: var(--store-list-size, 38px);
   font-weight: 600;
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
+}
+.store-platform[data-platform="kick"] li {
+  border-color: rgb(83 252 24 / 0.5);
+  background: rgb(83 252 24 / 0.1);
 }
 .store-check {
   flex: none;
@@ -164,9 +173,6 @@
   border-radius: 10px;
   background: #a970ff;
   color: #101010;
-}
-.store-platform[data-platform="kick"] .store-check {
-  background: #53fc18;
 }
 
 /* Stories with a subtitle: headline, one supporting line, then the visual. */
@@ -215,7 +221,6 @@
   width: 720px;
   height: 600px;
   border-radius: 14px;
-  box-shadow: 0 30px 90px rgb(124 58 237 / 0.3);
 }
 .store-steps {
   display: grid;
@@ -246,12 +251,13 @@
 }
 
 /* The closing shot is one statement: a larger headline whose second line
-   takes the mark's purple-to-green gradient, over a soft glow. */
-[data-store-artwork="free"] {
-  background:
-    radial-gradient(640px 420px at 88% 92%, rgb(63 191 18 / 0.22), transparent 70%),
-    radial-gradient(720px 480px at 70% 18%, rgb(124 58 237 / 0.32), transparent 70%),
-    #101010;
+   takes the mark's purple-to-green colours, over the mark's ring in outline. */
+.store-ring {
+  position: absolute;
+  inset-block-start: -40px;
+  inset-inline-end: -440px;
+  width: 920px;
+  height: 920px;
 }
 [data-store-artwork="free"] [data-artwork-copy] {
   inset-block-start: 180px;
@@ -272,8 +278,15 @@
   font-size: 40px;
   color: #d4d4d8;
 }
-[data-store-artwork="free"] [data-store-popup] {
-  visibility: hidden;
+[data-store-artwork="free"] [data-artwork-copy],
+[data-store-artwork="free"] .store-subtitle {
+  z-index: 1;
+}
+[data-store-artwork="free"][data-subtitled] [data-store-popup] {
+  inset: 0;
+  width: auto;
+  height: auto;
+  overflow: hidden;
 }
 
 /* Keep named third-party extension providers out of listing artwork. */

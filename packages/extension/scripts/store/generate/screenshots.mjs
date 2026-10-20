@@ -67,7 +67,7 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
         || detail.scrollHeight > detail.clientHeight + 1
         || box.bottom > floor
       ) {
-        throw new Error(`Artwork detail does not fit its reading area: ${detail.textContent}`);
+        throw new Error(`Artwork detail does not fit its reading area: ${detail.textContent} ${JSON.stringify([detail.scrollWidth, detail.clientWidth, detail.scrollHeight, detail.clientHeight, box.bottom, floor])}`);
       }
     }
   });
