@@ -38,7 +38,7 @@ export const SCREENSHOTS = Object.freeze([
   Object.freeze({ file: "02-extras", story: "games" }),
   Object.freeze({ file: "03-easy", story: "kick" }),
   Object.freeze({ file: "04-settings", story: "watchlist" }),
-  Object.freeze({ file: "05-updated", story: "extensions" }),
+  Object.freeze({ file: "05-updated", story: "free" }),
 ]);
 
 export const SCREENSHOT_SIZE = Object.freeze({ width: 1280, height: 800 });

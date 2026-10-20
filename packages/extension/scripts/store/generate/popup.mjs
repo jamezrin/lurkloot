@@ -12,11 +12,9 @@ export const STORY_READINESS = Object.freeze({
   games: Object.freeze({
     selector: 'main[data-view="games"] [data-game]',
   }),
-  kick: Object.freeze({
-    selector: '[data-store-artwork="kick"]:has([data-reward-camera-ready]):has([data-kick-streak])',
-  }),
+  kick: Object.freeze({ selector: "[data-platform-features]" }),
   watchlist: Object.freeze({ selector: "#idle-watchlist" }),
-  extensions: Object.freeze({ selector: "[data-extension-overview]" }),
+  free: Object.freeze({ selector: "[data-store-free]" }),
 });
 
 const CONTENT_TYPES = {

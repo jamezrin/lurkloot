@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, SlidersHorizontal, ListOrdered, Gift } from "lucide-react";
+import { Check } from "lucide-react";
 import { LurklootMark } from "./mark";
 import { isRtlLocale } from "@lurkloot/shared/i18n";
 import type { SupportedLocale } from "@lurkloot/shared/models";
@@ -8,20 +8,23 @@ import { STORE_ARTWORK_COPY, type StoreArtworkCopy } from "./storeArtworkCopy";
 
 export type StoreStory = keyof StoreArtworkCopy["stories"];
 
-// Store artwork is a focused, enlarged excerpt of the real product. Its camera
-// styles are scoped here; the normal popup and the site's demo keep their UI.
+const REPOSITORY = "github.com/jamezrin/lurkloot";
+
+// Store artwork is one large headline and one large visual per image: the
+// listing shows screenshots scaled down and never at full size. Product
+// visuals are real demo UI, enlarged; camera styles live in storeArtwork.css.
 export function StoreArtwork({
   story,
   children,
-  secondary,
   locale = "en",
 }: {
   story: StoreStory;
   children: React.ReactNode;
-  secondary?: React.ReactNode;
   locale?: SupportedLocale;
 }): React.ReactElement {
-  const copy = STORE_ARTWORK_COPY[locale].stories[story];
+  const text = STORE_ARTWORK_COPY[locale];
+  const copy = text.stories[story];
+  const subtitle = "description" in copy ? copy.description : undefined;
   const rtl = isRtlLocale(locale);
   const light = story === "games" || story === "watchlist";
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -36,7 +39,7 @@ export function StoreArtwork({
       heading.style.fontSize = `${size}px`;
       while (
         (heading.offsetHeight > 230 || heading.scrollWidth > heading.clientWidth)
-        && size > 72
+        && size > 64
       ) {
         heading.style.fontSize = `${--size}px`;
       }
@@ -51,6 +54,7 @@ export function StoreArtwork({
       lang={locale.replace("_", "-")}
       data-store-artwork={story}
       data-light={light || undefined}
+      data-subtitled={subtitle ? "" : undefined}
       dir={rtl ? "rtl" : "ltr"}
     >
       <header className="store-brand">
@@ -65,29 +69,18 @@ export function StoreArtwork({
           {copy.title}
         </h1>
       </section>
-      {story === "extensions" ? <p className="store-feature-label">{copy.points[0]}</p> : null}
+      {subtitle ? (
+        <p className="store-subtitle" data-artwork-detail>
+          {subtitle}
+        </p>
+      ) : null}
       <div data-store-popup>
-        {story === "extensions" ? (
-          <ExtensionOverview copy={STORE_ARTWORK_COPY[locale].overview} />
-        ) : story === "queue" ? (
+        {story === "queue" ? (
           <RewardCamera source={children} rewards={OPENING_REWARDS} />
         ) : story === "kick" ? (
-          <div className="store-platforms">
-            <div className="store-platform" data-platform="twitch">
-              <h2>
-                <span />
-                Twitch
-              </h2>
-              <RewardCamera source={children} rewards={PLATFORM_REWARDS} />
-            </div>
-            <div className="store-platform" data-platform="kick">
-              <h2>
-                <span />
-                Kick
-              </h2>
-              <div className="store-progress-focus">{secondary}</div>
-            </div>
-          </div>
+          <PlatformFeatures platforms={text.platforms} />
+        ) : story === "free" ? (
+          <OpenSource />
         ) : (
           <div className="store-focus">{children}</div>
         )}
@@ -96,9 +89,50 @@ export function StoreArtwork({
   );
 }
 
+// Editorial lists of what Lurkloot supports on each platform.
+function PlatformFeatures({
+  platforms,
+}: {
+  platforms: StoreArtworkCopy["platforms"];
+}): React.ReactElement {
+  return (
+    <div className="store-platforms" data-platform-features>
+      {(["twitch", "kick"] as const).map((platform) => (
+        <section className="store-platform" data-platform={platform} key={platform}>
+          <h2>
+            <span />
+            {platform === "twitch" ? "Twitch" : "Kick"}
+          </h2>
+          <ul>
+            {platforms[platform].map((feature) => (
+              <li key={feature} data-artwork-detail>
+                <span className="store-check">
+                  <Check size={26} strokeWidth={3.5} />
+                </span>
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function OpenSource(): React.ReactElement {
+  return (
+    <div className="store-free" data-store-free dir="ltr">
+      <LurklootMark size={88} />
+      <div>
+        <strong>{REPOSITORY}</strong>
+        <span>Apache-2.0</span>
+      </div>
+    </div>
+  );
+}
+
 // Indexes into the first campaign's rewards: claimed, in progress, not started.
 const OPENING_REWARDS = [0, 1, 2] as const;
-const PLATFORM_REWARDS = [1] as const;
 
 // Reward tiles are too small to read in a listing thumbnail at popup scale.
 // The camera renders the real popup out of sight and photographs chosen tiles
@@ -144,29 +178,6 @@ function RewardCamera({
       <div ref={sourceRef} className="store-camera-source" aria-hidden>
         {source}
       </div>
-    </div>
-  );
-}
-
-// An editorial sequence, not an imitation of the product's extension screens.
-function ExtensionOverview({ copy }: { copy: StoreArtworkCopy["overview"] }): React.ReactElement {
-  const icons = [SlidersHorizontal, ListOrdered, Gift];
-  return (
-    <div data-extension-overview>
-      {copy.steps.map(([title], index) => {
-        const Icon = icons[index];
-        return (
-          <div className="store-extension-step" key={title}>
-            <span className="store-step-icon">
-              <Icon size={56} strokeWidth={1.5} />
-            </span>
-            <h2 data-artwork-detail>{title}</h2>
-            {index < copy.steps.length - 1 ? (
-              <ArrowRight className="store-step-arrow" size={32} />
-            ) : null}
-          </div>
-        );
-      })}
     </div>
   );
 }

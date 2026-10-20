@@ -155,26 +155,11 @@ export function PopupApp(): React.ReactElement {
       requested === "games"
       || requested === "kick"
       || requested === "watchlist"
-      || requested === "extensions"
+      || requested === "free"
         ? requested
         : "queue";
     return (
-      <StoreArtwork
-        story={story}
-        locale={POPUP_LOCALE}
-        secondary={
-          story === "kick" ? (
-            <Popup
-              adapter={POPUP_ADAPTER}
-              initialState={{
-                preview: true,
-                locale: POPUP_LOCALE,
-                variant: screenshotVariant("easy"),
-              }}
-            />
-          ) : undefined
-        }
-      >
+      <StoreArtwork story={story} locale={POPUP_LOCALE}>
         <Popup
           adapter={POPUP_ADAPTER}
           initialState={{

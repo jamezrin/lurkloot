@@ -111,16 +111,6 @@
 [data-store-artwork="games"] .store-focus section > div > .flex:has(> span.h-px) {
   display: none !important;
 }
-.store-feature-label {
-  position: absolute;
-  top: 350px;
-  inset-inline-start: 64px;
-  font-size: 36px;
-  line-height: 1.1;
-  max-width: 1152px;
-  color: #c3a1ff;
-  margin: 0;
-}
 /* Real reward tiles, photographed from a hidden popup and zoomed until their
    names and percentages read at listing-thumbnail size. */
 .store-reward-camera {
@@ -132,13 +122,14 @@
 .store-reward-film {
   display: flex;
   gap: 12px;
-  zoom: 2.5;
+  zoom: 2.4;
   direction: ltr;
 }
-/* The opening tiles are cards in their own right, set on the dark canvas. */
-[data-store-artwork="queue"] [data-store-popup] {
-  height: 370px;
+/* A shorter art well leaves room for the subtitle without shrinking the type. */
+.store-reward-film > * > div:first-child {
+  height: 48px;
 }
+/* The opening tiles are cards in their own right, set on the dark canvas. */
 [data-store-artwork="queue"] .store-reward-camera {
   place-items: start;
 }
@@ -150,11 +141,15 @@
   height: 600px;
   visibility: hidden;
 }
-/* The two platform excerpts share the same camera scale and get large labels. */
+/* What each platform supports, as two large checklists. */
+[data-store-artwork="kick"] [data-store-popup] {
+  top: 384px;
+  height: 376px;
+}
 .store-platforms {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 48px;
   height: 100%;
 }
 .store-platform {
@@ -163,130 +158,104 @@
 .store-platform h2 {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 48px;
-  font-weight: 700;
+  gap: 16px;
+  font-family: Archivo, sans-serif;
+  font-size: 52px;
+  font-weight: 750;
+  letter-spacing: -1.5px;
   line-height: 1;
-  margin: 0 0 20px;
+  margin: 0 0 28px;
 }
 .store-platform h2 > span {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #a970ff;
 }
 .store-platform[data-platform="kick"] h2 > span {
   background: #53fc18;
 }
-[data-store-artwork="kick"] [data-store-popup] {
-  top: 372px;
-  height: 392px;
-}
-.store-platform .store-reward-camera,
-.store-progress-focus {
-  height: 324px;
-}
-.store-platform .store-reward-camera {
-  place-items: start;
-}
-.store-platform .store-reward-film {
-  zoom: 2.2;
-}
-/* A three-step feature diagram replaces the former second wall of text. */
-[data-extension-overview] {
+.store-platform ul {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 48px;
-  height: 100%;
-  align-items: start;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.store-extension-step {
-  position: relative;
-  padding-top: 16px;
+.store-platform li {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 36px;
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
 }
-.store-step-icon {
-  width: 100px;
-  height: 100px;
+.store-check {
+  flex: none;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 24px;
-  background: #252525;
-  color: #c3a1ff;
-  margin-bottom: 30px;
-}
-.store-extension-step:last-child .store-step-icon {
-  color: #b4ff9a;
-}
-.store-extension-step h2 {
-  font-family: Archivo, sans-serif;
-  font-size: 38px;
-  font-weight: 650;
-  line-height: 1.15;
-  letter-spacing: -1px;
-  margin: 0;
-}
-.store-step-arrow {
-  position: absolute;
-  inset-inline-end: 0;
-  top: 50px;
-  color: #737373;
-}
-[dir="rtl"] .store-step-arrow {
-  transform: rotate(180deg);
-}
-
-[data-store-artwork="games"] .store-focus [data-game]:nth-child(n + 3 of [data-game]) {
-  display: none;
-}
-
-/* Magnify the existing Kick status pill rather than repeat another drop queue. */
-.store-progress-focus {
-  overflow: hidden;
+  border-radius: 10px;
+  background: #a970ff;
   color: #101010;
 }
-.store-progress-focus > main {
-  width: 564px !important;
-  max-width: none !important;
-  height: 324px !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  background: none !important;
+.store-platform[data-platform="kick"] .store-check {
+  background: #53fc18;
 }
-.store-progress-focus > main > nav,
-.store-progress-focus > main > div > :not(:first-child),
-.store-progress-focus > main > div > div:first-child > :not([data-account-progress-slot]) {
-  display: none !important;
-}
-.store-progress-focus > main > div > div:first-child {
-  height: 324px;
-  justify-content: flex-start;
-  align-items: flex-start;
-  padding: 0;
-  border: 0;
-  background: none;
-}
-.store-progress-focus [data-account-progress-slot] {
-  display: flex !important;
-}
-.store-progress-focus [data-account-progress] {
+
+/* Stories with a subtitle: headline, one supporting line, then the visual. */
+.store-subtitle {
+  position: absolute;
+  top: 352px;
+  inset-inline: 64px;
+  max-width: 1080px;
   margin: 0;
-  padding: 32px 40px;
-  border-width: 2px;
-  border-radius: 28px;
-  background: #fff;
-  font-size: 64px;
+  font-size: 34px;
+  line-height: 1.25;
+  color: var(--store-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.store-progress-focus [data-account-progress] > span:first-child {
-  gap: 12px;
+[data-store-artwork][data-light] .store-subtitle {
+  color: #3f3f46;
 }
-.store-progress-focus [data-account-progress] svg {
-  width: 58px;
-  height: 58px;
+[data-store-artwork][data-subtitled] [data-store-popup] {
+  top: 470px;
+  height: 290px;
 }
-.store-progress-focus [data-account-progress] > span:last-child {
-  height: 8px;
-  bottom: 14px;
-  inset-inline: 40px;
+[data-store-artwork="watchlist"] .store-focus > main {
+  width: 678px !important;
+  transform: scale(1.7);
+}
+
+/* The closing shot: where the code lives and under which licence. */
+.store-free {
+  display: inline-flex;
+  align-items: center;
+  gap: 32px;
+  padding: 36px 48px 36px 36px;
+  border: 2px solid #2a2a2a;
+  border-radius: 32px;
+  background: #181818;
+}
+.store-free > div {
+  display: grid;
+  gap: 10px;
+}
+.store-free strong {
+  font-size: 52px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+.store-free span {
+  font-size: 32px;
+  color: #b4ff9a;
+  font-weight: 600;
 }
 
 /* Keep named third-party extension providers out of listing artwork. */

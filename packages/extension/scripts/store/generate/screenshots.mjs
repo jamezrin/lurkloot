@@ -58,12 +58,7 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
         throw new Error(`Clipped artwork subject: ${selector}`);
       }
     };
-    if (story === "queue" || story === "kick") {
-      requireInside(".store-reward-film", ".store-reward-camera");
-    }
-    if (story === "kick") {
-      requireInside('[data-account-progress="kick"]', ".store-progress-focus");
-    }
+    if (story === "queue") requireInside(".store-reward-film", ".store-reward-camera");
     // The zoomed tiles are copies; they must match the settled, translated source.
     for (const camera of document.querySelectorAll(".store-reward-camera")) {
       const source = [
@@ -77,7 +72,11 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
     }
     for (const detail of document.querySelectorAll("[data-artwork-detail]")) {
       const box = detail.getBoundingClientRect();
-      if (detail.scrollWidth > detail.clientWidth || box.bottom > stage.bottom) {
+      if (
+        detail.scrollWidth > detail.clientWidth
+        || detail.scrollHeight > detail.clientHeight + 1
+        || box.bottom > stage.bottom
+      ) {
         throw new Error("Artwork detail does not fit its reading area.");
       }
     }
