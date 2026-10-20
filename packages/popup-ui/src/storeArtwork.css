@@ -99,18 +99,21 @@
   width: 524px !important;
   transform: scale(2.2);
 }
-/* What each platform supports, as two large checklists. */
+/* What Lurkloot supports: shared features once, then each platform's own. */
 [data-store-artwork="kick"] [data-store-popup] {
   top: 324px;
   height: 440px;
 }
-/* Columns size to their longest feature, so long languages borrow width
-   from the shorter list instead of clipping. */
 .store-platforms {
   display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, max-content);
-  column-gap: 96px;
+  align-content: start;
+  gap: 52px;
   height: 100%;
+}
+.store-platform-pair {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, max-content);
+  column-gap: 120px;
 }
 .store-platform {
   min-width: 0;
@@ -118,44 +121,60 @@
 .store-platform h2 {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   font-family: Archivo, sans-serif;
-  font-size: 60px;
+  font-size: 52px;
   font-weight: 750;
   letter-spacing: -1.5px;
   line-height: 1;
-  margin: 0 0 28px;
+  margin: 0 0 24px;
 }
-.store-platform h2 > span {
+.store-platform h2 > [data-dot] {
   width: 20px;
   height: 20px;
   border-radius: 50%;
   background: #a970ff;
 }
-.store-platform[data-platform="kick"] h2 > span {
+.store-platform h2 > [data-dot="kick"] {
+  margin-inline-start: -8px;
   background: #53fc18;
 }
-/* Each feature is a tag tinted with its platform's colour. */
+.store-platform h2 > [data-dot="kick"]:first-child {
+  margin-inline-start: 0;
+}
 .store-platform ul {
-  display: grid;
-  justify-items: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
+  overflow: hidden;
 }
+.store-platform[data-platform="both"] ul {
+  flex-direction: row;
+  gap: 14px;
+}
+/* Each feature is a tag; shared ones are neutral, the rest take their
+   platform's colour. */
 .store-platform li {
+  flex: none;
   max-width: 100%;
   box-sizing: border-box;
   padding: 0.18em 0.6em 0.22em;
-  border: 2px solid rgb(169 112 255 / 0.55);
+  border: 2px solid rgb(255 255 255 / 0.35);
   border-radius: 999px;
-  background: rgb(169 112 255 / 0.14);
+  background: rgb(255 255 255 / 0.08);
   font-size: var(--store-list-size, 38px);
   font-weight: 600;
   line-height: 1.1;
   white-space: nowrap;
   overflow: hidden;
+}
+.store-platform[data-platform="twitch"] li {
+  border-color: rgb(169 112 255 / 0.55);
+  background: rgb(169 112 255 / 0.14);
 }
 .store-platform[data-platform="kick"] li {
   border-color: rgb(83 252 24 / 0.5);
@@ -163,12 +182,29 @@
 }
 .store-check {
   flex: none;
-  width: 46px;
-  height: 46px;
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: #a970ff;
+  color: #101010;
+}
+
+/* The opening shot names both platforms before anything else. */
+.store-platform-badges {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 -20px;
+}
+.store-platform-badges span {
+  padding: 6px 18px 8px;
+  border-radius: 999px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  background: #9146ff;
+  color: #fff;
+}
+.store-platform-badges span[data-platform="kick"] {
+  background: #53fc18;
   color: #101010;
 }
 

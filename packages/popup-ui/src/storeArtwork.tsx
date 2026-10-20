@@ -57,8 +57,9 @@ export function StoreArtwork({
       );
       if (lists) {
         const overflows = (): boolean =>
-          Array.from(lists.querySelectorAll("li")).some((item) => item.scrollWidth > item.clientWidth)
-          || lists.scrollWidth > lists.clientWidth;
+          Array.from(lists.querySelectorAll("li, ul")).some(
+            (item) => item.scrollWidth > item.clientWidth,
+          ) || lists.scrollWidth > lists.clientWidth;
         let listSize = 38;
         lists.style.setProperty("--store-list-size", `${listSize}px`);
         while (overflows() && listSize > 28) {
@@ -91,6 +92,12 @@ export function StoreArtwork({
       dir={rtl ? "rtl" : "ltr"}
     >
       <section data-artwork-copy>
+        {story === "queue" ? (
+          <p className="store-platform-badges" dir="ltr">
+            <span data-platform="twitch">Twitch</span>
+            <span data-platform="kick">Kick</span>
+          </p>
+        ) : null}
         <h1 ref={headingRef} data-artwork-heading>
           {copy.title.split("\n").map((line) => (
             <span key={line}>{line}</span>
@@ -163,29 +170,43 @@ function ProgressRing(): React.ReactElement {
   );
 }
 
-// Editorial lists of what Lurkloot supports on each platform.
+// What Lurkloot supports: the features both platforms share once, then what
+// each platform adds, so the lists do not repeat themselves.
 function PlatformFeatures({
   platforms,
 }: {
   platforms: StoreArtworkCopy["platforms"];
 }): React.ReactElement {
+  const tags = (features: string[]) => (
+    <ul>
+      {features.map((feature) => (
+        <li key={feature} data-artwork-detail>
+          {feature}
+        </li>
+      ))}
+    </ul>
+  );
   return (
     <div className="store-platforms" data-platform-features>
-      {(["twitch", "kick"] as const).map((platform) => (
-        <section className="store-platform" data-platform={platform} key={platform}>
-          <h2>
-            <span />
-            {platform === "twitch" ? "Twitch" : "Kick"}
-          </h2>
-          <ul>
-            {platforms[platform].map((feature) => (
-              <li key={feature} data-artwork-detail>
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      <section className="store-platform" data-platform="both">
+        <h2>
+          <span data-dot="twitch" />
+          <span data-dot="kick" />
+          Twitch + Kick
+        </h2>
+        {tags(platforms.both)}
+      </section>
+      <div className="store-platform-pair">
+        {(["twitch", "kick"] as const).map((platform) => (
+          <section className="store-platform" data-platform={platform} key={platform}>
+            <h2>
+              <span data-dot={platform} />
+              {platform === "twitch" ? "Twitch" : "Kick"}
+            </h2>
+            {tags(platforms[platform])}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

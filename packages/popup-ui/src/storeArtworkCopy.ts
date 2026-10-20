@@ -12,8 +12,8 @@ export interface StoreArtworkCopy {
     watchlist: StoreArtworkStory & { description: string; earns: { twitch: string[]; kick: string[] } };
     free: StoreArtworkStory & { description: string };
   };
-  // What Lurkloot supports on each platform, listed in the dual-platform shot.
-  platforms: { twitch: string[]; kick: string[] };
+  // What Lurkloot supports: on both platforms, then on each one alone.
+  platforms: { both: string[]; twitch: string[]; kick: string[] };
   promo: { lines: string[]; steps: [string, string][] };
 }
 
@@ -42,7 +42,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Two platforms.\nOne workspace."
+        "title": "Much more\nthan drops."
       },
       "watchlist": {
         "number": "04",
@@ -65,17 +65,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Badges",
-        "Idle watchlist",
+        "Idle watchlist"
+      ],
+      "twitch": [
         "Channel points",
         "Twitch extensions"
       ],
       "kick": [
-        "Drops",
-        "Badges",
-        "Idle watchlist",
         "Daily reward",
         "Account level"
       ]
@@ -120,7 +119,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Dos plataformas.\nUn solo lugar."
+        "title": "Mucho más\nque drops."
       },
       "watchlist": {
         "number": "04",
@@ -143,17 +142,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Insignias",
-        "Lista de reserva",
+        "Lista de reserva"
+      ],
+      "twitch": [
         "Puntos de canal",
         "Extensiones de Twitch"
       ],
       "kick": [
-        "Drops",
-        "Insignias",
-        "Lista de reserva",
         "Recompensa diaria",
         "Nivel de Kick"
       ]
@@ -198,7 +196,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Deux plateformes.\nUn seul espace."
+        "title": "Bien plus\nque des drops."
       },
       "watchlist": {
         "number": "04",
@@ -221,17 +219,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Badges",
-        "Liste d'attente",
+        "Liste d'attente"
+      ],
+      "twitch": [
         "Points de chaîne",
         "Extensions Twitch"
       ],
       "kick": [
-        "Drops",
-        "Badges",
-        "Liste d'attente",
         "Récompense quotidienne",
         "Niveau Kick"
       ]
@@ -276,7 +273,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Due piattaforme.\nUn unico spazio."
+        "title": "Molto di più\ndei drop."
       },
       "watchlist": {
         "number": "04",
@@ -299,17 +296,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Badge",
-        "Lista di riserva",
+        "Lista di riserva"
+      ],
+      "twitch": [
         "Punti canale",
         "Estensioni Twitch"
       ],
       "kick": [
-        "Drops",
-        "Badge",
-        "Lista di riserva",
         "Ricompensa giornaliera",
         "Livello Kick"
       ]
@@ -354,7 +350,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Zwei Plattformen.\nEin Ort."
+        "title": "Viel mehr als\nnur Drops."
       },
       "watchlist": {
         "number": "04",
@@ -377,17 +373,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Abzeichen",
-        "Ersatzliste",
+        "Ersatzliste"
+      ],
+      "twitch": [
         "Kanalpunkte",
         "Twitch-Erweiterungen"
       ],
       "kick": [
-        "Drops",
-        "Abzeichen",
-        "Ersatzliste",
         "Tägliche Belohnung",
         "Kontolevel"
       ]
@@ -432,7 +427,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Duas plataformas.\nUm só lugar."
+        "title": "Muito mais\ndo que drops."
       },
       "watchlist": {
         "number": "04",
@@ -455,17 +450,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Emblemas",
-        "Lista de reserva",
+        "Lista de reserva"
+      ],
+      "twitch": [
         "Pontos de canal",
         "Extensões da Twitch"
       ],
       "kick": [
-        "Drops",
-        "Emblemas",
-        "Lista de reserva",
         "Recompensa diária",
         "Nível na Kick"
       ]
@@ -510,7 +504,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "İki platform.\nTek alan."
+        "title": "Drop'tan çok\ndaha fazlası."
       },
       "watchlist": {
         "number": "04",
@@ -533,17 +527,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drop'lar",
         "Rozetler",
-        "Yedek izleme listesi",
+        "Yedek izleme listesi"
+      ],
+      "twitch": [
         "Kanal puanları",
         "Twitch uzantıları"
       ],
       "kick": [
-        "Drop'lar",
-        "Rozetler",
-        "Yedek izleme listesi",
         "Günlük ödül",
         "Hesap seviyesi"
       ]
@@ -588,7 +581,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Две платформы.\nОдно место."
+        "title": "Гораздо больше,\nчем дропы."
       },
       "watchlist": {
         "number": "04",
@@ -611,17 +604,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Значки",
-        "Резервный список",
+        "Резервный список"
+      ],
+      "twitch": [
         "Баллы канала",
         "Расширения Twitch"
       ],
       "kick": [
-        "Drops",
-        "Значки",
-        "Резервный список",
         "Ежедневная награда",
         "Уровень аккаунта"
       ]
@@ -666,7 +658,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "两个平台。\n一个工作区。"
+        "title": "远不止\n掉宝。"
       },
       "watchlist": {
         "number": "04",
@@ -689,17 +681,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "掉宝",
         "徽章",
-        "空闲观看列表",
+        "空闲观看列表"
+      ],
+      "twitch": [
         "频道积分",
         "Twitch 扩展"
       ],
       "kick": [
-        "掉宝",
-        "徽章",
-        "空闲观看列表",
         "每日奖励",
         "账户等级"
       ]
@@ -744,7 +735,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "दो प्लेटफ़ॉर्म।\nएक जगह।"
+        "title": "ड्रॉप्स से\nकहीं ज़्यादा।"
       },
       "watchlist": {
         "number": "04",
@@ -767,17 +758,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "बैज",
-        "आइडल वॉचलिस्ट",
+        "आइडल वॉचलिस्ट"
+      ],
+      "twitch": [
         "चैनल पॉइंट्स",
         "Twitch एक्सटेंशन"
       ],
       "kick": [
-        "Drops",
-        "बैज",
-        "आइडल वॉचलिस्ट",
         "दैनिक इनाम",
         "अकाउंट लेवल"
       ]
@@ -822,7 +812,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "منصتان.\nمساحة واحدة."
+        "title": "أكثر بكثير\nمن الدروب."
       },
       "watchlist": {
         "number": "04",
@@ -845,17 +835,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "شارات",
-        "قائمة الانتظار للمشاهدة",
+        "قائمة الانتظار للمشاهدة"
+      ],
+      "twitch": [
         "نقاط القناة",
         "إضافات Twitch"
       ],
       "kick": [
-        "Drops",
-        "شارات",
-        "قائمة الانتظار للمشاهدة",
         "المكافأة اليومية",
         "مستوى الحساب"
       ]
@@ -900,7 +889,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "2つのプラットフォーム。\n1つのワークスペース。"
+        "title": "ドロップだけ\nじゃない。"
       },
       "watchlist": {
         "number": "04",
@@ -923,17 +912,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "バッジ",
-        "アイドル・ウォッチリスト",
+        "アイドル・ウォッチリスト"
+      ],
+      "twitch": [
         "チャンネルポイント",
         "Twitch 拡張機能"
       ],
       "kick": [
-        "Drops",
-        "バッジ",
-        "アイドル・ウォッチリスト",
         "デイリー報酬",
         "アカウントレベル"
       ]
@@ -978,7 +966,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Dua platform.\nSatu tempat."
+        "title": "Lebih dari\nsekadar drop."
       },
       "watchlist": {
         "number": "04",
@@ -1001,17 +989,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Lencana",
-        "Idle Watchlist",
+        "Idle Watchlist"
+      ],
+      "twitch": [
         "Poin channel",
         "Ekstensi Twitch"
       ],
       "kick": [
-        "Drops",
-        "Lencana",
-        "Idle Watchlist",
         "Hadiah harian",
         "Level akun"
       ]
@@ -1056,7 +1043,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Dwie platformy.\nJedno miejsce."
+        "title": "Dużo więcej\nniż dropy."
       },
       "watchlist": {
         "number": "04",
@@ -1079,17 +1066,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Odznaki",
-        "Lista zapasowa",
+        "Lista zapasowa"
+      ],
+      "twitch": [
         "Punkty kanału",
         "Rozszerzenia Twitch"
       ],
       "kick": [
-        "Drops",
-        "Odznaki",
-        "Lista zapasowa",
         "Dzienna nagroda",
         "Poziom konta"
       ]
@@ -1134,7 +1120,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "두 플랫폼.\n하나의 작업 공간."
+        "title": "드롭보다\n훨씬 많은 것."
       },
       "watchlist": {
         "number": "04",
@@ -1157,17 +1143,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "배지",
-        "대기 시청 목록",
+        "대기 시청 목록"
+      ],
+      "twitch": [
         "채널 포인트",
         "Twitch 확장"
       ],
       "kick": [
-        "Drops",
-        "배지",
-        "대기 시청 목록",
         "일일 보상",
         "계정 레벨"
       ]
@@ -1212,7 +1197,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Дві платформи.\nОдин робочий простір."
+        "title": "Значно більше,\nніж дропи."
       },
       "watchlist": {
         "number": "04",
@@ -1235,17 +1220,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Значки",
-        "Idle Watchlist",
+        "Idle Watchlist"
+      ],
+      "twitch": [
         "Бали каналу",
         "Розширення Twitch"
       ],
       "kick": [
-        "Drops",
-        "Значки",
-        "Idle Watchlist",
         "Щоденна нагорода",
         "Рівень акаунта"
       ]
@@ -1290,7 +1274,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "kick": {
         "number": "03",
-        "title": "Dvě platformy.\nJeden pracovní prostor."
+        "title": "Mnohem víc\nnež drops."
       },
       "watchlist": {
         "number": "04",
@@ -1313,17 +1297,16 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       }
     },
     "platforms": {
-      "twitch": [
+      "both": [
         "Drops",
         "Odznaky",
-        "Záložní seznam",
+        "Záložní seznam"
+      ],
+      "twitch": [
         "Channel points",
         "Rozšíření Twitch"
       ],
       "kick": [
-        "Drops",
-        "Odznaky",
-        "Záložní seznam",
         "Denní odměna",
         "Úroveň účtu"
       ]

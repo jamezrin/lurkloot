@@ -30,24 +30,25 @@ The listing shows screenshots scaled down, about 640×400 in its viewer and smal
 carousel, and does not open them at full size. The images therefore carry no logo header or
 "01 / 05" counter, and each is one large localized headline with one large visual:
 
-1. Farm drops without lifting a finger: the whole popup at actual size, so users see what they
-   install, beside the headline and three short steps.
+1. Farm drops without lifting a finger: Twitch and Kick badges, the headline and three short
+   steps beside the whole popup at actual size, so users see what they install.
 2. Game priorities: Lurkloot farms every game by default; the real header with its
    all-or-selected switch and the games list, enlarged.
-3. Two platforms: a checklist of what Lurkloot supports on Twitch and on Kick.
+3. Much more than drops: what Lurkloot supports on both platforms, listed once, then what
+   each platform adds.
 4. Idle watchlist: what idle watching still earns (Twitch channel points, Kick daily rewards
    and level XP) as tags, above two real watchlist rows, enlarged.
 5. Farm everything, watch nothing: a larger closing statement, noting it is free and open
    source.
 
 `StoreArtwork` frames real demo popup components; shots 02 and 04 crop the popup with scoped
-camera styles. The platform checklists (`platforms` in `storeArtworkCopy.ts`) and the closing
-statement are editorial artwork; keep the checklists to features Lurkloot actually supports.
+camera styles. The platform feature tags (`platforms` in `storeArtworkCopy.ts`) and the closing
+statement are editorial artwork; keep them to features Lurkloot actually supports.
 Promo tiles have their own composition.
 
 Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px
 (76px beside the opening popup, 156px in the closing statement) and fit to their actual glyphs
-after fonts load; the platform checklists and the earn tags shrink until they fit.
+after fonts load; the platform feature tags and the earn tags shrink until they fit.
 Generation rejects headline overflow, clipped subtitles, steps or checklist items, copy in the
 canvas's bottom margin, a clipped opening popup, and focus regions outside the canvas. The
 numbered file stems are stable upload slots; their names predate these stories.
