@@ -28,18 +28,24 @@ The store's default locale is `en` (manifest `default_locale`). Fill the main li
 
 The listing shows screenshots scaled down, about 640×400 in its viewer and smaller in the
 carousel, and does not open them at full size. Each of the five images is therefore one large
-localized headline and one large visual: real reward tiles, game priorities, a Twitch reward
-beside the Kick level and streak, idle channels, and the optional Twitch extension steps.
-Paragraphs, bullet stacks and the complete popup are omitted, because popup-sized text is
-unreadable at that scale.
+localized headline, at most one supporting line, and one large visual:
 
-`StoreArtwork` frames real demo popup components. Shots 01 and 03 photograph reward tiles from a
-hidden popup and zoom them (`RewardCamera`); the others crop the popup with scoped camera styles.
-The three-step extension diagram is editorial artwork. Promo tiles have their own composition.
+1. Drops on autopilot: real reward tiles, zoomed.
+2. Game priorities: the real games list.
+3. Two platforms: a checklist of what Lurkloot supports on Twitch and on Kick.
+4. Idle watchlist: the real watchlist rows.
+5. Always free and open source: the repository and licence.
+
+Paragraphs and popup-sized UI are omitted, because their text is unreadable at that scale.
+`StoreArtwork` frames real demo popup components: shot 01 photographs reward tiles from a hidden
+popup and zooms them (`RewardCamera`), shots 02 and 04 crop the popup with scoped camera styles.
+The platform checklists (`platforms` in `storeArtworkCopy.ts`) and the closing lockup are
+editorial artwork; keep the checklists to features Lurkloot actually supports. Promo tiles have
+their own composition.
 
 Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px and
-fit to their actual glyphs after fonts load, with a 72px minimum. Generation rejects headline
-overflow, extension-step overflow, clipped reward tiles or Kick progress pill, and focus regions
+fit to their actual glyphs after fonts load, with a 64px minimum. Generation rejects headline
+overflow, clipped subtitles or checklist items, clipped or stale reward tiles, and focus regions
 outside the canvas. The numbered file stems are stable upload slots; their names predate these
 stories.
 
