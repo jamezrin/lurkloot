@@ -58,7 +58,9 @@ async function shoot({ page, origin, popupPath, locale, shot, file, output }) {
         throw new Error(`Clipped artwork subject: ${selector}`);
       }
     };
-    if (story === "queue") requireInside(".store-full-popup > main", "[data-store-popup]");
+    if (story === "queue" || story === "kick") {
+      requireInside(".store-reward-film", ".store-reward-camera");
+    }
     if (story === "kick") {
       requireInside('[data-account-progress="kick"]', ".store-progress-focus");
     }

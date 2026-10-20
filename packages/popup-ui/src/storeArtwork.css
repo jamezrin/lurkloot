@@ -101,10 +101,6 @@
 .store-focus [data-scroll-panel] > div > :not(section):not(:has(section)) {
   display: none !important;
 }
-[data-store-artwork="kick"] .store-focus [data-queue-group]:not(:first-child),
-[data-store-artwork="kick"] .store-focus [data-campaign-id] ~ [data-campaign-id] {
-  display: none !important;
-}
 /* Omit surrounding helper copy from the focused product excerpts. */
 .store-focus [data-scroll-panel] > div > div:has(section) > :not(section),
 [data-store-artwork="games"] .store-focus section > div > .flex:has(> span.h-px) {
@@ -120,42 +116,34 @@
   color: #c3a1ff;
   margin: 0;
 }
-/* The opening shot establishes the complete product, with no camera edits. */
-[data-store-artwork="queue"] [data-artwork-copy] {
-  inset-block-start: 160px;
-  inset-inline-start: 64px;
-  inset-inline-end: auto;
-  width: 400px;
-  height: 350px;
+/* Real reward tiles, photographed from a hidden popup and zoomed until their
+   names and percentages read at listing-thumbnail size. */
+.store-reward-camera {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #101010;
 }
-[data-store-artwork="queue"] [data-artwork-heading] {
-  font-size: 80px;
-  letter-spacing: -2.5px;
+.store-reward-film {
+  display: flex;
+  gap: 12px;
+  zoom: 2.5;
+  direction: ltr;
 }
+/* The opening tiles are cards in their own right, set on the dark canvas. */
 [data-store-artwork="queue"] [data-store-popup] {
-  top: 144px;
-  left: auto;
-  inset-inline-end: 64px;
+  height: 370px;
+}
+[data-store-artwork="queue"] .store-reward-camera {
+  place-items: start center;
+}
+.store-camera-source {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline-start: 1400px;
   width: 720px;
   height: 600px;
-  border-radius: 12px;
-}
-.store-full-popup > main {
-  border: 0 !important;
-  box-shadow: none !important;
-}
-.store-outcome {
-  position: absolute;
-  top: 580px;
-  line-height: 1.2;
-  inset-inline-start: 64px;
-  width: 400px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #b4ff9a;
-  font-size: 28px;
-  font-weight: 600;
+  visibility: hidden;
 }
 /* The two platform excerpts share the same camera scale and get large labels. */
 .store-platforms {
@@ -185,12 +173,19 @@
 .store-platform[data-platform="kick"] h2 > span {
   background: #53fc18;
 }
-.store-platform .store-focus {
-  height: 280px;
+[data-store-artwork="kick"] [data-store-popup] {
+  top: 372px;
+  height: 392px;
 }
-.store-platform .store-focus > main {
-  width: 512px !important;
-  transform: scale(1.1);
+.store-platform .store-reward-camera,
+.store-progress-focus {
+  height: 324px;
+}
+.store-platform .store-reward-camera {
+  place-items: start;
+}
+.store-platform .store-reward-film {
+  zoom: 2.2;
 }
 /* A three-step feature diagram replaces the former second wall of text. */
 [data-extension-overview] {
@@ -241,18 +236,16 @@
 
 /* Magnify the existing Kick status pill rather than repeat another drop queue. */
 .store-progress-focus {
-  height: 280px;
   overflow: hidden;
-  border-radius: 20px;
-  background: #fff;
   color: #101010;
 }
 .store-progress-focus > main {
   width: 564px !important;
   max-width: none !important;
-  height: 280px !important;
+  height: 324px !important;
   border: 0 !important;
   box-shadow: none !important;
+  background: none !important;
 }
 .store-progress-focus > main > nav,
 .store-progress-focus > main > div > :not(:first-child),
@@ -260,32 +253,35 @@
   display: none !important;
 }
 .store-progress-focus > main > div > div:first-child {
-  height: 280px;
-  justify-content: center;
+  height: 324px;
+  justify-content: flex-start;
+  align-items: flex-start;
+  padding: 0;
   border: 0;
-  background: #fff;
+  background: none;
 }
 .store-progress-focus [data-account-progress-slot] {
   display: flex !important;
 }
 .store-progress-focus [data-account-progress] {
   margin: 0;
-  padding: 28px 32px;
+  padding: 32px 40px;
   border-width: 2px;
-  border-radius: 24px;
-  font-size: 48px;
+  border-radius: 28px;
+  background: #fff;
+  font-size: 64px;
 }
 .store-progress-focus [data-account-progress] > span:first-child {
   gap: 12px;
 }
 .store-progress-focus [data-account-progress] svg {
-  width: 44px;
-  height: 44px;
+  width: 58px;
+  height: 58px;
 }
 .store-progress-focus [data-account-progress] > span:last-child {
-  height: 6px;
-  bottom: 12px;
-  inset-inline: 32px;
+  height: 8px;
+  bottom: 14px;
+  inset-inline: 40px;
 }
 
 /* Keep named third-party extension providers out of listing artwork. */

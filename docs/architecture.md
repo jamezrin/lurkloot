@@ -1081,8 +1081,10 @@ The bundle layout is the contract between them
 
 The screenshot camera belongs to `StoreArtwork` and its scoped `storeArtwork.css`, not to
 product components. It can omit surrounding chrome and enlarge real demo UI, but must not
-change runtime state or normal popup layout. The dual-platform story mounts two independent
-demo popups: a Twitch reward excerpt and an enlarged real Kick account-progress pill. The
-opening story shows the complete popup. Localized headings fit after bundled fonts load;
-the screenshot generator waits
-for that fit and rejects overflowing copy or an out-of-canvas focus region.
+change runtime state or normal popup layout. `RewardCamera` renders a demo popup out of sight
+and copies chosen reward tiles of its first campaign, found through the row's
+`data-reward-row` hook, into a zoomed frame; the opening and dual-platform stories use it, and
+the dual-platform story also mounts a second demo popup for the enlarged Kick account-progress
+pill. Localized headings fit after bundled fonts load; the screenshot generator waits for that
+fit and the camera, and rejects overflowing copy, clipped subjects or an out-of-canvas focus
+region.

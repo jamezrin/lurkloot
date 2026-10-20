@@ -8,11 +8,13 @@ const POPUP_CANDIDATES = ["popup.html", "popup/index.html"];
 
 // What each popup story must have rendered before it is photographed.
 export const STORY_READINESS = Object.freeze({
-  queue: Object.freeze({ selector: 'main[data-view="queue"] [data-campaign-id]' }),
+  queue: Object.freeze({ selector: "[data-reward-camera-ready]" }),
   games: Object.freeze({
     selector: 'main[data-view="games"] [data-game]',
   }),
-  kick: Object.freeze({ selector: '[data-store-artwork="kick"] [data-kick-streak]' }),
+  kick: Object.freeze({
+    selector: '[data-store-artwork="kick"]:has([data-reward-camera-ready]):has([data-kick-streak])',
+  }),
   watchlist: Object.freeze({ selector: "#idle-watchlist" }),
   extensions: Object.freeze({ selector: "[data-extension-overview]" }),
 });

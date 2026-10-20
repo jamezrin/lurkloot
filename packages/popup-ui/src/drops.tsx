@@ -1351,7 +1351,11 @@ function RewardCarousel({
 
   return (
     <div className="relative -mx-0.5">
-      <div ref={rowRef} className="no-scrollbar flex gap-2 overflow-x-auto px-0.5 pb-1">
+      <div
+        ref={rowRef}
+        data-reward-row
+        className="no-scrollbar flex gap-2 overflow-x-auto px-0.5 pb-1"
+      >
         {rewards.map((reward) => (
           <RewardTile
             key={reward.id}

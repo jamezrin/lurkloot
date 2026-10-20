@@ -26,20 +26,22 @@ The store's default locale is `en` (manifest `default_locale`). Fill the main li
 
 ### Screenshot composition
 
-The five images use one large localized headline and one visual each: the complete popup,
-game priorities, Twitch rewards beside Kick level and streak, idle channels, and optional
-Twitch extension rewards. The opening shot shows the full 720×600 popup, including navigation.
-The others use focused excerpts or a diagram; paragraphs and bullet stacks are omitted.
-`StoreArtwork` uses scoped camera styles around real demo popup components; its three-step
-extension diagram is editorial artwork. Promo tiles have their own existing composition.
+The listing shows screenshots scaled down, about 640×400 in its viewer and smaller in the
+carousel, and does not open them at full size. Each of the five images is therefore one large
+localized headline and one large visual: real reward tiles, game priorities, a Twitch reward
+beside the Kick level and streak, idle channels, and the optional Twitch extension steps.
+Paragraphs, bullet stacks and the complete popup are omitted, because popup-sized text is
+unreadable at that scale.
 
-Review at 640×400 and 400×250, as well as the 1280×800 export size. Main headlines start at
-104px (80px beside the opening popup) and fit to their actual glyphs after fonts load,
-with a 72px minimum (64px in the narrower opening composition). Generation rejects
-headline overflow, extension-step overflow, a clipped full popup or Kick progress pill, and
-focus regions outside the canvas. Keep the
-important reward details and three channel/game rows inside the camera when the product UI
-changes. The numbered file stems are stable upload slots; their names predate these stories.
+`StoreArtwork` frames real demo popup components. Shots 01 and 03 photograph reward tiles from a
+hidden popup and zoom them (`RewardCamera`); the others crop the popup with scoped camera styles.
+The three-step extension diagram is editorial artwork. Promo tiles have their own composition.
+
+Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px and
+fit to their actual glyphs after fonts load, with a 72px minimum. Generation rejects headline
+overflow, extension-step overflow, clipped reward tiles or Kick progress pill, and focus regions
+outside the canvas. The numbered file stems are stable upload slots; their names predate these
+stories.
 
 ## 2. Localized listings
 

@@ -1,6 +1,6 @@
 import type React from "react";
-import { useEffect, useRef } from "react";
-import { Check, ArrowRight, SlidersHorizontal, ListOrdered, Gift } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, SlidersHorizontal, ListOrdered, Gift } from "lucide-react";
 import { LurklootMark } from "./mark";
 import { isRtlLocale } from "@lurkloot/shared/i18n";
 import type { SupportedLocale } from "@lurkloot/shared/models";
@@ -32,13 +32,11 @@ export function StoreArtwork({
       if (cancelled || !heading) return;
       // Keep every language large, while respecting its actual bundled glyphs
       // and line breaks. Never squeeze or horizontally stretch the type.
-      const maxHeight = story === "queue" ? 350 : 230;
-      const minSize = story === "queue" ? 64 : 72;
-      let size = story === "queue" ? 80 : 104;
+      let size = 104;
       heading.style.fontSize = `${size}px`;
       while (
-        (heading.offsetHeight > maxHeight || heading.scrollWidth > heading.clientWidth)
-        && size > minSize
+        (heading.offsetHeight > 230 || heading.scrollWidth > heading.clientWidth)
+        && size > 72
       ) {
         heading.style.fontSize = `${--size}px`;
       }
@@ -71,6 +69,8 @@ export function StoreArtwork({
       <div data-store-popup>
         {story === "extensions" ? (
           <ExtensionOverview copy={STORE_ARTWORK_COPY[locale].overview} />
+        ) : story === "queue" ? (
+          <RewardCamera source={children} rewards={OPENING_REWARDS} />
         ) : story === "kick" ? (
           <div className="store-platforms">
             <div className="store-platform" data-platform="twitch">
@@ -78,7 +78,7 @@ export function StoreArtwork({
                 <span />
                 Twitch
               </h2>
-              <div className="store-focus">{children}</div>
+              <RewardCamera source={children} rewards={PLATFORM_REWARDS} />
             </div>
             <div className="store-platform" data-platform="kick">
               <h2>
@@ -88,18 +88,62 @@ export function StoreArtwork({
               <div className="store-progress-focus">{secondary}</div>
             </div>
           </div>
-        ) : story === "queue" ? (
-          <div className="store-full-popup">{children}</div>
         ) : (
           <div className="store-focus">{children}</div>
         )}
       </div>
-      {story === "queue" ? (
-        <div className="store-outcome">
-          <Check size={32} strokeWidth={3} />
-          {copy.points[1]}
-        </div>
-      ) : null}
+    </div>
+  );
+}
+
+// Indexes into the first campaign's rewards: claimed, in progress, not started.
+const OPENING_REWARDS = [0, 1, 2] as const;
+const PLATFORM_REWARDS = [1] as const;
+
+// Reward tiles are too small to read in a listing thumbnail at popup scale.
+// The camera renders the real popup out of sight and photographs chosen tiles
+// of its first campaign: a static copy of real UI, enlarged with CSS zoom.
+function RewardCamera({
+  source,
+  rewards,
+}: {
+  source: React.ReactNode;
+  rewards: readonly number[];
+}): React.ReactElement {
+  const sourceRef = useRef<HTMLDivElement>(null);
+  const filmRef = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const root = sourceRef.current;
+    const film = filmRef.current;
+    if (!root || !film) return;
+    const capture = (): boolean => {
+      const row = root.querySelector("[data-campaign-id] [data-reward-row]");
+      const tiles = row ? rewards.map((index) => row.children[index]) : [];
+      if (!row || tiles.some((tile) => !tile)) return false;
+      // Tiles read theme colours from custom properties set on the popup.
+      const style = getComputedStyle(row);
+      for (const name of Array.from(style)) {
+        if (name.startsWith("--")) film.style.setProperty(name, style.getPropertyValue(name));
+      }
+      film.replaceChildren(...tiles.map((tile) => tile.cloneNode(true)));
+      return true;
+    };
+    // Recapture on every change: the catalog and images load after the tiles
+    // first appear, and the copy must show the settled UI.
+    if (capture()) setReady(true);
+    const observer = new MutationObserver(() => {
+      if (capture()) setReady(true);
+    });
+    observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
+    return () => observer.disconnect();
+  }, [rewards]);
+  return (
+    <div className="store-reward-camera" data-reward-camera-ready={ready || undefined}>
+      <div ref={filmRef} className="store-reward-film" />
+      <div ref={sourceRef} className="store-camera-source" aria-hidden>
+        {source}
+      </div>
     </div>
   );
 }
