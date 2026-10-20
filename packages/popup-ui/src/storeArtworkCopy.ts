@@ -103,29 +103,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Sigue viendo\ncuando no haya drops.",
+        "description": "Tu lista de reserva te mantiene en tus canales favoritos cuando Lurkloot no tiene nada que farmear."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Siempre gratis.\nCódigo abierto.",
+        "description": "Sin anuncios. Sin suscripciones. Cada línea de código está en GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Insignias",
+        "Lista de reserva",
+        "Puntos de canal",
+        "Extensiones de Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Insignias",
+        "Lista de reserva",
+        "Recompensa diaria",
+        "Nivel de Kick"
       ]
     },
     "promo": {
@@ -167,29 +167,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Continuez à regarder\nsans drops.",
+        "description": "Votre liste de veille vous garde dans vos chaînes préférées quand Lurkloot n’a rien à farmer."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Toujours gratuit.\nCode ouvert.",
+        "description": "Pas de pub. Pas d’abonnement. Chaque ligne de code est sur GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
         "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Liste de veille",
+        "Points de chaîne",
+        "Extensions Twitch"
       ],
       "kick": [
         "Drops",
         "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Liste de veille",
+        "Récompense quotidienne",
+        "Niveau Kick"
       ]
     },
     "promo": {
@@ -231,29 +231,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Continua a guardare\nsenza drop.",
+        "description": "La lista di riserva ti tiene nei tuoi canali preferiti quando Lurkloot non ha nulla da farmare."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Sempre gratuito.\nCodice aperto.",
+        "description": "Niente pubblicità. Niente abbonamenti. Ogni riga di codice è su GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Badge",
+        "Lista di riserva",
+        "Punti canale",
+        "Estensioni Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Badge",
+        "Lista di riserva",
+        "Ricompensa giornaliera",
+        "Livello Kick"
       ]
     },
     "promo": {
@@ -295,29 +295,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Weiter schauen,\nauch ohne Drops.",
+        "description": "Deine Leerlauf-Watchlist hält dich in deinen Lieblingskanälen, wenn Lurkloot nichts zu farmen hat."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Immer kostenlos.\nOpen Source.",
+        "description": "Keine Werbung. Keine Abos. Jede Zeile Code ist auf GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Abzeichen",
+        "Leerlauf-Watchlist",
+        "Kanalpunkte",
+        "Twitch-Erweiterungen"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Abzeichen",
+        "Leerlauf-Watchlist",
+        "Tägliche Belohnung",
+        "Kontolevel"
       ]
     },
     "promo": {
@@ -359,29 +359,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Continue assistindo\nsem drops.",
+        "description": "Sua lista de reserva mantém você nos seus canais favoritos quando o Lurkloot não tem nada para farmar."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Sempre gratuito.\nCódigo aberto.",
+        "description": "Sem anúncios. Sem assinaturas. Cada linha de código está no GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Emblemas",
+        "Lista de reserva",
+        "Pontos de canal",
+        "Extensões da Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Emblemas",
+        "Lista de reserva",
+        "Recompensa diária",
+        "Nível na Kick"
       ]
     },
     "promo": {
@@ -423,29 +423,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Drop olmadığında\nizlemeye devam et.",
+        "description": "Lurkloot farmlayacak bir şey olmadığında Yedek Kanallar seni favori kanallarında tutar."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Her zaman ücretsiz.\nAçık kaynak.",
+        "description": "Reklam yok. Abonelik yok. Her kod satırı GitHub’da."
       }
     },
     "platforms": {
       "twitch": [
-        "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Drop'lar",
+        "Rozetler",
+        "Yedek Kanallar",
+        "Kanal puanları",
+        "Twitch uzantıları"
       ],
       "kick": [
-        "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Drop'lar",
+        "Rozetler",
+        "Yedek Kanallar",
+        "Günlük ödül",
+        "Hesap seviyesi"
       ]
     },
     "promo": {
@@ -487,29 +487,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Продолжайте смотреть,\nкогда дропов нет.",
+        "description": "Список просмотра в простое держит вас на любимых каналах, когда Lurkloot нечего фармить."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Всегда бесплатно.\nОткрытый код.",
+        "description": "Без рекламы и подписок. Весь код открыт на GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Значки",
+        "Список просмотра",
+        "Баллы канала",
+        "Расширения Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Значки",
+        "Список просмотра",
+        "Ежедневная награда",
+        "Уровень аккаунта"
       ]
     },
     "promo": {
@@ -551,29 +551,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "没有掉宝时\n也要继续观看。",
+        "description": "没有可挂机的掉宝时，空闲观看列表会让你继续留在喜爱的频道中。"
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "永久免费。\n开源项目。",
+        "description": "无广告，无订阅，全部代码都在 GitHub 上。"
       }
     },
     "platforms": {
       "twitch": [
-        "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "掉宝",
+        "徽章",
+        "空闲观看列表",
+        "频道积分",
+        "Twitch 扩展"
       ],
       "kick": [
-        "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "掉宝",
+        "徽章",
+        "空闲观看列表",
+        "每日奖励",
+        "账户等级"
       ]
     },
     "promo": {
@@ -615,29 +615,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "ड्रॉप्स न हों तब भी\nदेखते रहें।",
+        "description": "जब Lurkloot के पास फ़ार्म करने को कुछ न हो, तब निष्क्रिय वॉचलिस्ट आपको पसंदीदा चैनलों पर रखती है।"
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "हमेशा मुफ़्त।\nओपन सोर्स।",
+        "description": "कोई विज्ञापन नहीं, कोई सब्सक्रिप्शन नहीं। पूरा कोड GitHub पर है।"
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "बैज",
+        "निष्क्रिय वॉचलिस्ट",
+        "चैनल पॉइंट्स",
+        "Twitch एक्सटेंशन"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "बैज",
+        "निष्क्रिय वॉचलिस्ट",
+        "दैनिक इनाम",
+        "अकाउंट लेवल"
       ]
     },
     "promo": {
@@ -679,29 +679,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "استمر في المشاهدة\nحين لا توجد دروبس.",
+        "description": "تُبقيك قائمة المشاهدة الخاملة في قنواتك المفضلة حين لا يكون لدى Lurkloot ما يفارمه."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "مجاني دائمًا.\nمفتوح المصدر.",
+        "description": "بلا إعلانات ولا اشتراكات. كل سطر من الكود متاح على GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "شارات",
+        "المشاهدة الخاملة",
+        "نقاط القناة",
+        "إضافات Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "شارات",
+        "المشاهدة الخاملة",
+        "المكافأة اليومية",
+        "مستوى الحساب"
       ]
     },
     "promo": {
@@ -743,29 +743,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "ドロップが無くても、\n視聴は続く。",
+        "description": "ファームするものがない時も、アイドル・ウォッチリストでお気に入りの配信に待機します。"
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "いつまでも無料。\nオープンソース。",
+        "description": "広告なし、サブスクなし。コードはすべて GitHub で公開。"
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "バッジ",
+        "アイドル・ウォッチリスト",
+        "チャンネルポイント",
+        "Twitch 拡張機能"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "バッジ",
+        "アイドル・ウォッチリスト",
+        "デイリー報酬",
+        "アカウントレベル"
       ]
     },
     "promo": {
@@ -807,29 +807,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Tetap menonton\nsaat tak ada drop.",
+        "description": "Idle Watchlist membuat kamu tetap menonton saluran favorit saat tidak ada drop untuk di-farm."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Selalu gratis.\nOpen source.",
+        "description": "Tanpa iklan. Tanpa langganan. Setiap baris kode ada di GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Lencana",
+        "Idle Watchlist",
+        "Poin channel",
+        "Ekstensi Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Lencana",
+        "Idle Watchlist",
+        "Hadiah harian",
+        "Level akun"
       ]
     },
     "promo": {
@@ -871,29 +871,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Oglądaj dalej,\ngdy nie ma dropów.",
+        "description": "Lista zapasowa trzyma Cię na ulubionych kanałach, gdy Lurkloot nie ma czego farmić."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Zawsze za darmo.\nOpen source.",
+        "description": "Bez reklam. Bez subskrypcji. Każda linijka kodu jest na GitHubie."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Odznaki",
+        "Lista zapasowa",
+        "Punkty kanału",
+        "Rozszerzenia Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Odznaki",
+        "Lista zapasowa",
+        "Dzienna nagroda",
+        "Poziom konta"
       ]
     },
     "promo": {
@@ -935,29 +935,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "드롭이 없어도\n계속 시청하세요.",
+        "description": "파밍할 것이 없을 때도 대기 시청 목록으로 좋아하는 채널에 머물러요."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "언제나 무료.\n오픈 소스.",
+        "description": "광고 없음, 구독 없음. 모든 코드는 GitHub에 공개되어 있어요."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "배지",
+        "대기 시청 목록",
+        "채널 포인트",
+        "Twitch 확장"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "배지",
+        "대기 시청 목록",
+        "일일 보상",
+        "계정 레벨"
       ]
     },
     "promo": {
@@ -999,29 +999,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Дивіться далі,\nколи дропів немає.",
+        "description": "Idle Watchlist тримає вас на улюблених каналах, коли Lurkloot нема чого фармити."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Завжди безкоштовно.\nВідкритий код.",
+        "description": "Без реклами та підписок. Увесь код доступний на GitHub."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Channel points",
-        "Twitch extensions"
+        "Значки",
+        "Idle Watchlist",
+        "Бали каналу",
+        "Розширення Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Значки",
+        "Idle Watchlist",
+        "Щоденна нагорода",
+        "Рівень акаунта"
       ]
     },
     "promo": {
@@ -1063,29 +1063,29 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "title": "Keep watching\nwhen there are no drops.",
-        "description": "Your idle watchlist keeps you lurking in your favourite channels when Lurkloot has nothing to farm."
+        "title": "Sledujte dál,\nkdyž nejsou drops.",
+        "description": "Záložní seznam vás udrží na oblíbených kanálech, když Lurkloot nemá co farmit."
       },
       "free": {
         "number": "05",
-        "title": "Always free.\nOpen source.",
-        "description": "No ads. No subscriptions. Every line of code is on GitHub."
+        "title": "Vždy zdarma.\nOpen source.",
+        "description": "Žádné reklamy. Žádná předplatná. Každý řádek kódu je na GitHubu."
       }
     },
     "platforms": {
       "twitch": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
+        "Odznaky",
+        "Záložní seznam",
         "Channel points",
-        "Twitch extensions"
+        "Rozšíření Twitch"
       ],
       "kick": [
         "Drops",
-        "Badges",
-        "Idle watchlist",
-        "Daily reward",
-        "Account level"
+        "Odznaky",
+        "Záložní seznam",
+        "Denní odměna",
+        "Úroveň účtu"
       ]
     },
     "promo": {

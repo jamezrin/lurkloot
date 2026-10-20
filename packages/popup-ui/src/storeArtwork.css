@@ -111,6 +111,9 @@
 [data-store-artwork="games"] .store-focus section > div > .flex:has(> span.h-px) {
   display: none !important;
 }
+[data-store-artwork="games"] .store-focus [data-game]:nth-child(n + 3 of [data-game]) {
+  display: none;
+}
 /* Real reward tiles, photographed from a hidden popup and zoomed until their
    names and percentages read at listing-thumbnail size. */
 .store-reward-camera {
