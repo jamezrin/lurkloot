@@ -135,7 +135,7 @@
   height: 370px;
 }
 [data-store-artwork="queue"] .store-reward-camera {
-  place-items: start center;
+  place-items: start;
 }
 .store-camera-source {
   position: fixed;
