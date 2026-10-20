@@ -65,6 +65,17 @@ export function StoreArtwork({
           lists.style.setProperty("--store-list-size", `${--listSize}px`);
         }
       }
+      // The earn tags stay on one line; they shrink together if it is long.
+      const earns = heading
+        .closest("[data-store-artwork]")
+        ?.querySelector<HTMLElement>(".store-earns");
+      if (earns) {
+        let earnSize = 32;
+        earns.style.setProperty("--store-earn-size", `${earnSize}px`);
+        while (earns.scrollWidth > earns.clientWidth && earnSize > 22) {
+          earns.style.setProperty("--store-earn-size", `${--earnSize}px`);
+        }
+      }
       heading.dataset.artworkHeadingReady = "";
     });
     return () => {
@@ -104,7 +115,7 @@ export function StoreArtwork({
         </p>
       ) : null}
       {"earns" in copy ? (
-        <ul className="store-earns">
+        <ul className="store-earns" data-artwork-detail>
           {(["twitch", "kick"] as const).flatMap((platform) =>
             copy.earns[platform].map((reward) => (
               <li key={`${platform}-${reward}`} data-platform={platform} data-artwork-detail>

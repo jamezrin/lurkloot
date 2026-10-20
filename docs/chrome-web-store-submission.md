@@ -32,9 +32,11 @@ carousel, and does not open them at full size. The images therefore carry no log
 
 1. Farm drops without lifting a finger: the whole popup at actual size, so users see what they
    install, beside the headline and three short steps.
-2. Game priorities: the real games list, enlarged.
+2. Game priorities: Lurkloot farms every game by default; the real header with its
+   all-or-selected switch and the games list, enlarged.
 3. Two platforms: a checklist of what Lurkloot supports on Twitch and on Kick.
-4. Idle watchlist: one supporting line and the real watchlist rows, enlarged.
+4. Idle watchlist: what idle watching still earns (Twitch channel points, Kick daily rewards
+   and level XP) as tags, above two real watchlist rows, enlarged.
 5. Farm everything, watch nothing: a larger closing statement, noting it is free and open
    source.
 
@@ -45,7 +47,7 @@ Promo tiles have their own composition.
 
 Review at 640×400 and 400×250 as well as the 1280×800 export size. Headlines start at 104px
 (76px beside the opening popup, 156px in the closing statement) and fit to their actual glyphs
-after fonts load; the platform checklists shrink together until their longest item fits.
+after fonts load; the platform checklists and the earn tags shrink until they fit.
 Generation rejects headline overflow, clipped subtitles, steps or checklist items, copy in the
 canvas's bottom margin, a clipped opening popup, and focus regions outside the canvas. The
 numbered file stems are stable upload slots; their names predate these stories.
