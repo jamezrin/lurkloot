@@ -224,14 +224,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "twitch": [
         "Drops",
         "Badges",
-        "Liste de veille",
+        "Liste d'attente",
         "Points de chaîne",
         "Extensions Twitch"
       ],
       "kick": [
         "Drops",
         "Badges",
-        "Liste de veille",
+        "Liste d'attente",
         "Récompense quotidienne",
         "Niveau Kick"
       ]
@@ -380,14 +380,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "twitch": [
         "Drops",
         "Abzeichen",
-        "Leerlauf-Watchlist",
+        "Ersatzliste",
         "Kanalpunkte",
         "Twitch-Erweiterungen"
       ],
       "kick": [
         "Drops",
         "Abzeichen",
-        "Leerlauf-Watchlist",
+        "Ersatzliste",
         "Tägliche Belohnung",
         "Kontolevel"
       ]
@@ -536,14 +536,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "twitch": [
         "Drop'lar",
         "Rozetler",
-        "Yedek Kanallar",
+        "Yedek izleme listesi",
         "Kanal puanları",
         "Twitch uzantıları"
       ],
       "kick": [
         "Drop'lar",
         "Rozetler",
-        "Yedek Kanallar",
+        "Yedek izleme listesi",
         "Günlük ödül",
         "Hesap seviyesi"
       ]
@@ -614,14 +614,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "twitch": [
         "Drops",
         "Значки",
-        "Список просмотра",
+        "Резервный список",
         "Баллы канала",
         "Расширения Twitch"
       ],
       "kick": [
         "Drops",
         "Значки",
-        "Список просмотра",
+        "Резервный список",
         "Ежедневная награда",
         "Уровень аккаунта"
       ]
@@ -770,14 +770,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "twitch": [
         "Drops",
         "बैज",
-        "निष्क्रिय वॉचलिस्ट",
+        "आइडल वॉचलिस्ट",
         "चैनल पॉइंट्स",
         "Twitch एक्सटेंशन"
       ],
       "kick": [
         "Drops",
         "बैज",
-        "निष्क्रिय वॉचलिस्ट",
+        "आइडल वॉचलिस्ट",
         "दैनिक इनाम",
         "अकाउंट लेवल"
       ]
@@ -848,14 +848,14 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "twitch": [
         "Drops",
         "شارات",
-        "المشاهدة الخاملة",
+        "قائمة الانتظار للمشاهدة",
         "نقاط القناة",
         "إضافات Twitch"
       ],
       "kick": [
         "Drops",
         "شارات",
-        "المشاهدة الخاملة",
+        "قائمة الانتظار للمشاهدة",
         "المكافأة اليومية",
         "مستوى الحساب"
       ]
