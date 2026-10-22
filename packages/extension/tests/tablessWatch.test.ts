@@ -777,17 +777,12 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
-  it("reports unhealthy when a connected Kick stream changes category", async () => {
+  it("stays healthy when Kick's channel info reports a different category", async () => {
     let now = 1000;
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) {
-        return fetchJson.mock.calls.filter(([calledUrl]) =>
-          String(calledUrl).includes("/api/v2/channels/"),
-        ).length === 1
-          ? ({ id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 10 }] } } as unknown)
-          : ({ id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 20 }] } } as unknown);
-      }
+      if (url.includes("/api/v2/channels/"))
+        return { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 15 }] } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -798,15 +793,40 @@ describe("kick viewer watcher", () => {
       now: () => now,
     });
 
-    await watcher.start({ ...kickChannel, categoryId: "10" }, {});
+    await watcher.start({ ...kickChannel, categoryId: "8" }, {});
     socket.emit("open");
 
-    now += 61_000;
-    await expect(watcher.tick({})).resolves.toMatchObject({
-      ok: false,
-      live: true,
-      message: "Kick channel category no longer matches",
+    for (let minute = 0; minute < 10; minute += 1) {
+      now += 61_000;
+      await expect(watcher.tick({})).resolves.toMatchObject({ ok: true, live: true });
+    }
+    await watcher.stop();
+  });
+
+  it("reads Kick channel info past the browser HTTP cache", async () => {
+    let now = 1000;
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (url.includes("/api/v2/channels/"))
+        return { id: 1, livestream: { id: 2, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
     });
+
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => now,
+    });
+
+    await watcher.start({ ...kickChannel, channelId: "1", broadcastId: "2" }, {});
+    socket.emit("open");
+    now += 61_000;
+    await watcher.tick({});
+
+    const infoReads = fetchJson.mock.calls.filter(([url]) => url.includes("/api/v2/channels/"));
+    expect(infoReads.length).toBeGreaterThanOrEqual(2);
+    for (const [, init] of infoReads) expect(init).toMatchObject({ cache: "no-store" });
     await watcher.stop();
   });
 

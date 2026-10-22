@@ -147,14 +147,8 @@ export class KickWatcher implements TablessWatchController {
     if (!this.targets?.isLive) {
       return { ok: false, live: false, message: "Kick channel is offline" };
     }
-    const expectedCategoryId = this.channel.categoryId;
-    if (
-      expectedCategoryId
-      && this.targets.categoryId
-      && this.targets.categoryId !== expectedCategoryId
-    ) {
-      return { ok: false, live: true, message: "Kick channel category no longer matches" };
-    }
+    // The scheduler owns the category check (checkChannel, every tick); an
+    // Idle Watchlist watch has none. A second check here could only disagree.
     if (!this.targets.liveStreamId) {
       return { ok: false, live: true, message: "Kick channel is missing a livestream id" };
     }
@@ -496,7 +490,9 @@ export class KickWatcher implements TablessWatchController {
       } | null;
     }>(
       `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}/info`,
-      undefined,
+      // Kick serves this route with max-age=14400; a cached copy hides a new
+      // livestream id or an offline stream for hours.
+      { cache: "no-store" },
       this.diagnostics.emit,
     );
     const channelId = data.id == null ? channel.channelId : String(data.id);
