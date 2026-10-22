@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.18.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Kick tabless farming no longer falls back to a watch tab after a streamer switches category. Lurkloot was reading a copy of the channel's details that Kick lets the browser keep for hours, so it kept seeing the old category and gave up on tabless farming."
+      },
+      {
+        "kind": "fixed",
+        "text": "When tabless farming falls back to a watch tab, Lurkloot now tries tabless again after 10 minutes, then after 20, instead of keeping the tab open until the channel changes. If tabless keeps failing, it stays on the tab after the third fallback."
+      }
+    ]
+  },
+  {
     "version": "1.18.0",
     "changes": [
       {
