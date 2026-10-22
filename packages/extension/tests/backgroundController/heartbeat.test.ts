@@ -2043,6 +2043,72 @@ describe("background controller", () => {
     expect(watcher.stop).toHaveBeenCalled();
   });
 
+  describe("tab fallback expiry", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    // One minute per step: a due heartbeat, any fallback tick it hands off,
+    // then the alarm tick. Returns each step's watch mode.
+    async function driveMinutes(env: ReturnType<typeof harness>, minutes: number) {
+      const modes: Array<WatchSession["watchMode"]> = [];
+      for (let minute = 0; minute < minutes; minute += 1) {
+        advanceToNextHeartbeatDue();
+        await env.controller.runWatchHeartbeat();
+        await env.controller.settleBackgroundWork();
+        await env.controller.tick(["twitch"]);
+        await env.controller.settleBackgroundWork();
+        modes.push(env.state.sessions.twitch.watchMode);
+      }
+      return modes;
+    }
+
+    function tabFallbacks(modes: Array<WatchSession["watchMode"]>): number {
+      return modes.filter((mode, index) => mode === "tab" && modes[index - 1] !== "tab").length;
+    }
+
+    it("retries tabless after the fallback expires and stays tabless once healthy", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+      let healthy = false;
+      const watcher = fakeTablessWatcher(async () => ({ ok: healthy, live: true }));
+      const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      await env.controller.tick(["twitch"]);
+
+      const failing = await driveMinutes(env, 3);
+      expect(failing.at(-1)).toBe("tab");
+      expect(env.state.sessions.twitch).toMatchObject({
+        tablessFallback: true,
+        tablessFallbackAttempts: 1,
+      });
+
+      healthy = true;
+      const recovering = await driveMinutes(env, 20);
+      expect(recovering.slice(0, 5)).toEqual(Array(5).fill("tab"));
+      expect(recovering.at(-1)).toBe("tabless");
+      expect(env.state.sessions.twitch.tablessFallbackAttempts).toBeUndefined();
+      expect(allDiagnostics(env).map((event) => event.message)).toContain(
+        "Tab fallback expired; retrying tabless watching for twitch-creator",
+      );
+    });
+
+    it("stops retrying tabless after the final fallback while heartbeats keep failing", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+      const watcher = fakeTablessWatcher(async () => ({ ok: false, live: true }));
+      const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+      await env.controller.tick(["twitch"]);
+
+      const modes = await driveMinutes(env, 6 * 60);
+
+      expect(tabFallbacks(modes)).toBe(3);
+      expect(modes.slice(-4 * 60)).toEqual(Array(4 * 60).fill("tab"));
+      expect(env.state.sessions.twitch.tablessFallbackAttempts).toBe(3);
+    });
+  });
+
   it.each(["generation", "context"] as const)(
     "skips heartbeat fallback when the persisted $authority changes after result commit",
     async (authority) => {

@@ -508,6 +508,14 @@ or sends a heartbeat.
   (`tabless_fallback`). The tick moves the watch to a tab through the watch-tab port. The job ends
   once the hook has run. A post-claim handoff's immediate heartbeat leaves the fallback to the next
   job or tick, as before.
+- **Fallback expiry (#884).** The scheduler owns the fallback's lifetime. It stamps
+  `tablessFallbackAt` and counts `tablessFallbackAttempts` for the channel. Once the fallback is
+  older than `TABLESS_FALLBACK_RETRY_BASE_MS` (10 minutes) doubled per earlier attempt, the next tick
+  retries tabless for the same channel with fresh heartbeat counters. The fallback that reaches
+  `TABLESS_FALLBACK_MAX_ATTEMPTS` (three) is final, so a tabless watch that keeps failing settles on
+  its tab after three opens. A healthy heartbeat, a channel switch or a cleared session resets the
+  count. `heartbeat.test.ts` ("tab fallback expiry") drives six hours of failing heartbeats and
+  asserts the opens stop.
 
 ### Host ports and jobs (#593)
 

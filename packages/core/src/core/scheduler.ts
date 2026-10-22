@@ -118,8 +118,8 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
 // cannot open watch tabs, so tabless is derived there rather than configured.
 // Otherwise off unless tabless mode is enabled and the platform supports it;
 // falls back to a tab (returns false) when we deliberately switched to a tab for
-// this same channel, or when tabless heartbeats have been failing past the
-// tabless fallback limit.
+// this same channel and that fallback has not expired, or when tabless
+// heartbeats have been failing past the tabless fallback limit.
 function chooseTablessWatch(
   previous: WatchSession,
   settings: EngineSettings,
@@ -128,7 +128,13 @@ function chooseTablessWatch(
 ): boolean {
   if (!host.watchTabs) return true;
   if (!settings.tablessMode || !host.supportsTabless) return false;
-  if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
+  if (
+    sameChannel
+    && previous.watchMode === "tab"
+    && previous.tablessFallback
+    && !tablessFallbackExpired(previous, Date.now())
+  )
+    return false;
   if (
     sameChannel
     && previous.watchMode === "tabless"
@@ -136,6 +142,19 @@ function chooseTablessWatch(
   )
     return false;
   return true;
+}
+
+export const TABLESS_FALLBACK_RETRY_BASE_MS = 10 * 60_000;
+// The fallback that reaches this count is final for the channel: a tabless
+// watch that keeps failing settles on its tab instead of reopening forever.
+export const TABLESS_FALLBACK_MAX_ATTEMPTS = 3;
+
+function tablessFallbackExpired(session: WatchSession, now: number): boolean {
+  const attempts = session.tablessFallbackAttempts ?? 1;
+  if (attempts >= TABLESS_FALLBACK_MAX_ATTEMPTS) return false;
+  const since = Date.parse(session.tablessFallbackAt ?? "");
+  if (!Number.isFinite(since)) return false;
+  return now - since >= TABLESS_FALLBACK_RETRY_BASE_MS * 2 ** (attempts - 1);
 }
 
 function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
@@ -661,6 +680,8 @@ function clearedWatchSession(
     playbackChecks: 0,
     watchMode: undefined,
     tablessFallback: undefined,
+    tablessFallbackAt: undefined,
+    tablessFallbackAttempts: undefined,
     heartbeatChecks: 0,
     lastHeartbeatAt: undefined,
     lastHeartbeatOk: undefined,
@@ -2040,14 +2061,30 @@ export async function* decidePlatformTick(
         tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
         session.watchMode = "tabless";
         session.tablessFallback = false;
+        session.tablessFallbackAt = undefined;
+        // A retry keeps the count, so a watch that keeps failing reaches the
+        // final fallback; a healthy heartbeat on this channel clears it.
+        const recovered = previous.watchMode === "tabless" && previous.lastHeartbeatOk === true;
+        session.tablessFallbackAttempts =
+          sameChannel && !recovered ? previous.tablessFallbackAttempts : undefined;
         session.tabId = undefined;
         session.watchTabOpenedAt = undefined;
         session.tabManagedByExtension = undefined;
-        // Carry heartbeat health across the same channel; reset on a switch.
-        session.heartbeatChecks = sameChannel ? (previous.heartbeatChecks ?? 0) : 0;
-        session.lastHeartbeatAt = sameChannel ? previous.lastHeartbeatAt : undefined;
-        session.lastHeartbeatOk = sameChannel ? previous.lastHeartbeatOk : undefined;
-        if (!sameChannel || previous.watchMode !== "tabless") {
+        // Carry heartbeat health across the same tabless channel. A switch or a
+        // retry from a fallback tab starts over, so the failures that caused
+        // the fallback cannot send the retry straight back to a tab.
+        const continuesTabless = sameChannel && previous.watchMode === "tabless";
+        session.heartbeatChecks = continuesTabless ? (previous.heartbeatChecks ?? 0) : 0;
+        session.lastHeartbeatAt = continuesTabless ? previous.lastHeartbeatAt : undefined;
+        session.lastHeartbeatOk = continuesTabless ? previous.lastHeartbeatOk : undefined;
+        if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) {
+          emitDiagnostic(
+            emit,
+            platform,
+            "info",
+            `Tab fallback expired; retrying tabless watching for ${decision.channel.displayName ?? decision.channel.username}`,
+          );
+        } else if (!sameChannel || previous.watchMode !== "tabless") {
           emitDiagnostic(
             emit,
             platform,
@@ -2110,6 +2147,19 @@ export async function* decidePlatformTick(
         // channel instead of flipping back to a failing tabless heartbeat.
         session.watchMode = "tab";
         session.tablessFallback = Boolean(settings.tablessMode && capabilities.supportsTabless);
+        const continuesFallback =
+          sameChannel && previous.watchMode === "tab" && previous.tablessFallback === true;
+        if (!session.tablessFallback) {
+          session.tablessFallbackAt = undefined;
+          session.tablessFallbackAttempts = undefined;
+        } else if (continuesFallback) {
+          session.tablessFallbackAt = previous.tablessFallbackAt ?? new Date().toISOString();
+          session.tablessFallbackAttempts = previous.tablessFallbackAttempts ?? 1;
+        } else {
+          session.tablessFallbackAt = new Date().toISOString();
+          session.tablessFallbackAttempts =
+            (sameChannel ? (previous.tablessFallbackAttempts ?? 0) : 0) + 1;
+        }
         session.tablessHeartbeat = undefined;
         // A new tab id, a different channel, or a switch out of tabless all mean
         // the page starts from scratch: restart the playback grace window (#250).

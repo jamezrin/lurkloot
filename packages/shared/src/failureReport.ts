@@ -115,6 +115,8 @@ export function buildFailureReport(input: FailureReportInput): string {
         ["reason code", session.reasonCode],
         ["watch mode", session.watchMode],
         ["tabless fallback", session.tablessFallback],
+        ["tabless fallback at", session.tablessFallbackAt],
+        ["tabless fallback attempts", session.tablessFallbackAttempts],
         ["last heartbeat ok", session.lastHeartbeatOk],
         ["heartbeat checks", session.heartbeatChecks],
         ["offline checks", session.offlineChecks],

@@ -214,8 +214,14 @@ export interface WatchSession {
   // muted tab. Absent means tab-based, preserving prior behavior.
   watchMode?: "tab" | "tabless";
   // True when tabless mode was wanted but we opened a tab anyway (because the
-  // heartbeat kept failing). Keeps the channel on its tab until it switches.
+  // heartbeat kept failing). Keeps the channel on its tab until the fallback
+  // expires or the channel switches.
   tablessFallback?: boolean;
+  // When the current fallback began, and how many fallbacks this channel has
+  // had without a healthy tabless heartbeat in between. Tabless is retried once
+  // the fallback outlives a delay that doubles per attempt, up to a cap (#884).
+  tablessFallbackAt?: string;
+  tablessFallbackAttempts?: number;
   // Health of the tabless heartbeat. lastHeartbeatOk is whether the last watch
   // signal was accepted; heartbeatChecks counts consecutive unhealthy checks so
   // the scheduler can fall back to a real tab after tablessFallbackFailureLimit.
