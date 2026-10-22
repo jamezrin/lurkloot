@@ -51,7 +51,7 @@
     "@types/react-dom": "^19.2.3",
     "fake-indexeddb": "^6.2.5",
     "happy-dom": "^21.0.0",
-    "linkedom": "0.18.13",
+    "linkedom": "0.18.14",
     "playwright": "^1.61.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^7.0.0",
