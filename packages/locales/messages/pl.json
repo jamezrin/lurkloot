@@ -402,7 +402,7 @@
     "message": "Przydatne ustawienia"
   },
   "tourSettingsBody": {
-    "message": "Grupa Drops zawiera strategię, automatyczne odbieranie oraz pomijanie dropów, których nie da się ukończyć na czas. Karty farmienia i Powiadomienia są tuż poniżej."
+    "message": "Grupa Drops zawiera strategię, automatyczne odbieranie oraz pomijanie dropów, których nie da się ukończyć na czas. Tuż pod nią są Karty farmienia, a tuż nad nią Powiadomienia."
   },
   "tourDoneTitle": {
     "message": "Gotowe! Zabierajmy się za farmienie tych dropów!"

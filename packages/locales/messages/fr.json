@@ -402,7 +402,7 @@
     "message": "Paramètres utiles"
   },
   "tourSettingsBody": {
-    "message": "Le groupe Drops regroupe votre stratégie, la réclamation automatique et l'ignorance des drops impossibles à finir à temps. Les onglets de farm et les Notifications sont juste en dessous."
+    "message": "Le groupe Drops regroupe votre stratégie, la réclamation automatique et l'ignorance des drops impossibles à finir à temps. Les onglets de farm sont juste en dessous, et les Notifications juste au-dessus."
   },
   "tourDoneTitle": {
     "message": "C'est parti ! Farmons ces drops !"

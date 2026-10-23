@@ -402,7 +402,7 @@
     "message": "Kullanışlı ayarlar"
   },
   "tourSettingsBody": {
-    "message": "Droplar grubunda stratejin, otomatik alma ve zamanında bitmeyecek dropları atlama ayarları var. Hemen altında Sekme Yönetimi ve Bildirimler yer alır."
+    "message": "Droplar grubunda stratejin, otomatik alma ve zamanında bitmeyecek dropları atlama ayarları var. Hemen altında Sekme Yönetimi, hemen üstünde Bildirimler yer alır."
   },
   "tourDoneTitle": {
     "message": "Hazırsın! Hadi bu dropları farmlayalım!"

@@ -402,7 +402,7 @@
     "message": "유용한 설정"
   },
   "tourSettingsBody": {
-    "message": "Drops 그룹에는 전략, 자동 수령, 제때 끝낼 수 없는 Drops 건너뛰기 설정이 있습니다. 파밍 탭과 알림은 바로 아래에 있습니다."
+    "message": "Drops 그룹에는 전략, 자동 수령, 제때 끝낼 수 없는 Drops 건너뛰기 설정이 있습니다. 그 바로 아래에 파밍 탭이 있고, 바로 위에 알림이 있습니다."
   },
   "tourDoneTitle": {
     "message": "준비 완료! 이제 Drops를 파밍해 볼까요!"

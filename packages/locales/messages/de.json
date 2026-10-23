@@ -402,7 +402,7 @@
     "message": "Nützliche Einstellungen"
   },
   "tourSettingsBody": {
-    "message": "Die Gruppe Drops enthält deine Strategie, das automatische Abholen und das Überspringen von Drops, die nicht rechtzeitig fertig werden. Farming-Tabs und Benachrichtigungen findest du direkt darunter."
+    "message": "Die Gruppe Drops enthält deine Strategie, das automatische Abholen und das Überspringen von Drops, die nicht rechtzeitig fertig werden. Darunter folgen Farming-Tabs, darüber Benachrichtigungen."
   },
   "tourDoneTitle": {
     "message": "Alles bereit! Los geht’s mit dem Farmen dieser Drops!"
