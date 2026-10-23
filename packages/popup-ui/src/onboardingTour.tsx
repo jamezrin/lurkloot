@@ -87,13 +87,23 @@ function useSpotlight(
 ): { target: Rect | null; frame: Size } {
   const [target, setTarget] = useState<Rect | null>(null);
   const [frame, setFrame] = useState<Size>(FALLBACK_FRAME);
+  const updateFrame = (main: HTMLElement) => {
+    const next = frameSize(main);
+    setFrame((current) =>
+      current.width === next.width && current.height === next.height ? current : next,
+    );
+  };
 
   useEffect(() => {
     const main = rootRef.current?.closest("main");
     if (!main) return undefined;
-    setFrame(frameSize(main));
-    setTarget(null);
-    if (!step) return undefined;
+    updateFrame(main);
+    // The previous step's rect stays until this one's is measured, so the
+    // spotlight glides from one target to the next instead of blinking out.
+    if (!step) {
+      setTarget(null);
+      return undefined;
+    }
 
     let handle = 0;
     let cancelled = false;
@@ -103,7 +113,7 @@ function useSpotlight(
     const measure = () => {
       if (cancelled || found.length === 0) return;
       const next = measureTargets(main, found);
-      setFrame(frameSize(main));
+      updateFrame(main);
       setTarget((current) => (sameRect(current, next) ? current : next));
       last = next;
     };
@@ -130,11 +140,13 @@ function useSpotlight(
           && main.getAttribute("data-platform") === step.platform;
         if (!onStep) {
           if (viewFrames < VIEW_FRAMES) query(viewFrames + 1, targetFrames);
+          else setTarget(null);
           return;
         }
         found = findTargets(main, step);
         if (found.length === 0) {
           if (targetFrames < TARGET_FRAMES) query(viewFrames, targetFrames + 1);
+          else setTarget(null);
           return;
         }
         scrollIntoPanel(found[0]);

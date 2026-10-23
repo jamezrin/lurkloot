@@ -279,6 +279,27 @@ describe("onboarding tour host", () => {
     expect(fake.getPendingOnboarding).toHaveBeenCalledOnce();
   });
 
+  it("keeps one spotlight gliding between steps, across a view switch too", async () => {
+    const { adapter } = fakeAdapter();
+    const container = await mount(adapter);
+    await press(container, "start");
+    const spotlight = container.querySelector("[data-tour-spotlight]");
+    expect(spotlight).not.toBeNull();
+    // Steps 1 to 4 share the queue; step 5 switches to Completed.
+    for (let i = 0; i < 4; i += 1) {
+      // Right after the click, before any frame has measured the new target,
+      // the previous rect still shows: no scrim, no centred card.
+      act(() => action(container, "next")!.click());
+      expect(container.querySelector("[data-tour-spotlight]")).toBe(spotlight);
+      expect(container.querySelector("[data-tour-scrim]")).toBeNull();
+      expect(dialog(container)?.getAttribute("data-side")).not.toBe("center");
+      await settle();
+      expect(container.querySelector("[data-tour-spotlight]")).toBe(spotlight);
+    }
+    expect(progress(container)).toBe("5 / 12");
+    expect(main(container).getAttribute("data-view")).toBe("completed");
+  });
+
   it("centres the card when a step's target is missing, and still advances", async () => {
     const { adapter } = fakeAdapter();
     const container = await mount(adapter);
