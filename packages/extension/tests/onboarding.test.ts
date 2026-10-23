@@ -34,10 +34,13 @@ describe("pending onboarding flag", () => {
     expect(await loadPendingOnboarding()).toBe(true);
   });
 
-  it.each(["update", "chrome_update", "shared_module_update"])("does not arm on %s", async (reason) => {
-    await armOnboardingForInstall(reason);
-    expect(await loadPendingOnboarding()).toBe(false);
-  });
+  it.each(["update", "chrome_update", "shared_module_update"])(
+    "does not arm on %s",
+    async (reason) => {
+      await armOnboardingForInstall(reason);
+      expect(await loadPendingOnboarding()).toBe(false);
+    },
+  );
 
   it("removes the key when dismissed", async () => {
     await armPendingOnboarding();

@@ -36,6 +36,9 @@ describe("tour demo scenario", () => {
     const { state } = await snapshot("tour");
     expect(state.twitchExtensions?.nopixel).toBeDefined();
     expect(state.twitchExtensions?.fortnite).toBeDefined();
+    const { settings } = await snapshot("tour");
+    expect(settings.twitchExtensions.nopixel.enabled).toBe(true);
+    expect(settings.twitchExtensions.fortnite.enabled).toBe(true);
     expect(state.accountProgress?.kick?.progress?.streakDays).toBeGreaterThan(0);
   });
 
@@ -52,6 +55,8 @@ describe("tour demo scenario", () => {
   it("leaves the default scenario unchanged", async () => {
     const { settings, state } = await snapshot();
     expect(state.twitchExtensions).toBeUndefined();
+    expect(settings.twitchExtensions.nopixel.enabled).toBe(false);
+    expect(settings.twitchExtensions.fortnite.enabled).toBe(false);
     expect(settings.platform.twitch.unlinkedCampaigns).toBe("include");
     expect((await activity("default", "twitch")).events).toEqual([]);
   });

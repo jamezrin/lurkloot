@@ -553,6 +553,10 @@ function tourSnapshot(base: RuntimeSnapshot): RuntimeSnapshot {
     settings: {
       ...base.settings,
       showTips: false,
+      twitchExtensions: {
+        nopixel: { ...base.settings.twitchExtensions.nopixel, enabled: true },
+        fortnite: { ...base.settings.twitchExtensions.fortnite, enabled: true },
+      },
       platform: {
         ...base.settings.platform,
         twitch: { ...base.settings.platform.twitch, unlinkedCampaigns: "last" },
