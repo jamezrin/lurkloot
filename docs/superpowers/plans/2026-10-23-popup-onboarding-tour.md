@@ -131,7 +131,7 @@
   | 9 | kickProgress | kick | queue | – | `[data-account-progress="kick"]` | tourKickProgressTitle / Body |
   | 10 | kickChallenges | kick | settings | `kick` | `[data-tour="kick-challenges"]` | tourKickChallengesTitle / Body |
   | 11 | activity | kick | activity | – | `[data-tour="activity-list"]` | tourActivityTitle / Body |
-  | 12 | settings | kick | settings | `general.drops` | `[id="settings-group-general.drops"]` | tourSettingsTitle / Body |
+  | 12 | settings | kick | settings | `general.drops` | `[id="settings-section-general.drops"]` | tourSettingsTitle / Body |
 
   Each Body key is the Title key with `Title` replaced by `Body`.
 

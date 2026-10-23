@@ -23,15 +23,19 @@ export function Segmented<T extends string>({
   options,
   onChange,
   itemAttribute,
+  attributes,
 }: {
   label: string;
   value: T;
   options: Array<SegmentedOption<T>>;
   onChange(value: T): void;
   itemAttribute?: string;
+  // Extra attributes for the group itself, such as a data- hook.
+  attributes?: Record<string, string>;
 }): React.ReactElement {
   return (
     <ToggleGroup
+      {...attributes}
       aria-label={label}
       value={[value]}
       onValueChange={(next) => {

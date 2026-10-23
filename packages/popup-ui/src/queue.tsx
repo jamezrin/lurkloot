@@ -372,7 +372,7 @@ export function QueuePanel({
           </div>
         )
       ) : (
-        <div ref={listRef} className="space-y-1">
+        <div ref={listRef} data-tour="queue-list" className="space-y-1">
           {tiers.map((tier) => {
             const rows = queued.filter((campaign) => campaign.rankTier === tier);
             if (rows.length === 0) return null;
@@ -391,7 +391,7 @@ export function QueuePanel({
                         value={strategy}
                         options={strategyOptions}
                         onChange={(value) => void onStrategyChange(value as PriorityMode)}
-                        attributes={{ "data-queue-strategy": "" }}
+                        attributes={{ "data-queue-strategy": "", "data-tour": "queue-strategy" }}
                         className="rounded-md px-1 py-0.5 text-[10.5px] font-semibold text-zinc-700 hover:bg-[var(--ink-soft)] focus-visible:ring-1 focus-visible:ring-[var(--accent-ring)] aria-expanded:bg-[var(--ink-soft)] dark:text-zinc-200"
                       />
                     ) : pinned ? (

@@ -160,6 +160,7 @@ export function WorkspaceRail({
       />
       <NavGroup
         labelKey="navExtensions"
+        tourId="rail-extensions"
         items={inWatchOrder(EXTENSION_ITEMS)}
         view={view}
         platform={platform}
@@ -240,6 +241,7 @@ function RailLink({
 
 function NavGroup({
   labelKey,
+  tourId,
   items,
   view,
   platform,
@@ -248,6 +250,8 @@ function NavGroup({
   onViewChange,
 }: {
   labelKey?: string;
+  // The onboarding tour's anchor for the group.
+  tourId?: string;
   liveView?: PopupView;
   items: NavItem[];
   view: PopupView;
@@ -261,7 +265,7 @@ function NavGroup({
   // whole, heading included.
   if (visible.length === 0) return null;
   return (
-    <div data-rail-group={labelKey} className="flex flex-col gap-0.5">
+    <div data-rail-group={labelKey} data-tour={tourId} className="flex flex-col gap-0.5">
       {labelKey ? (
         <div className="@[560px]:block hidden px-2 pb-1 text-[10.5px] font-medium tracking-[0.01em] text-zinc-500">
           {t(labelKey)}
@@ -351,6 +355,7 @@ function PlatformRail({
     // go, Home/End jump to the ends, and only the selected tab is a tab stop.
     <Tabs.Root value={active} onValueChange={(value) => onChange(value as Platform)}>
       <Tabs.List
+        data-tour="platform-switch"
         activateOnFocus
         aria-label={t("navPlatform")}
         className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-lg border border-[var(--rail-edge)] p-0.5"

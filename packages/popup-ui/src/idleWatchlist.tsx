@@ -143,7 +143,7 @@ export function IdleWatchlistPanel({
       {streamers.length === 0 ? (
         <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel>
       ) : (
-        <div className="space-y-1.5">
+        <div data-tour="watchlist" className="space-y-1.5">
           <div className="flex items-center gap-2 pt-1">
             <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
               {t("idleWatchlistOrderTitle")}

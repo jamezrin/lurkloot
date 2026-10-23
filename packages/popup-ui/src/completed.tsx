@@ -53,7 +53,7 @@ export function CompletedPanel({
   }, [focus?.id, focus?.seq]);
 
   return (
-    <section className="space-y-1.5">
+    <section data-tour="completed-list" className="space-y-1.5">
       <ViewToolbar>
         <Segmented<CompletedTab>
           label={t("navCompleted")}

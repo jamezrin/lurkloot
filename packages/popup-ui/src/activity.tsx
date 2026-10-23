@@ -272,7 +272,10 @@ export function ActivityLog({
           placeholder={t("searchDiagnostics")}
         />
       ) : null}
-      <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div
+        data-tour="activity-list"
+        className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50"
+      >
         {visible.length === 0 ? (
           <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">
             {showDiagnostics && searchingDiagnostics && trimmedSearchQuery

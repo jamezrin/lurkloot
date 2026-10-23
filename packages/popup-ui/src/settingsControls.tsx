@@ -252,6 +252,7 @@ export function SettingRow({
   onChange,
   disabled = false,
   disabledReason,
+  tourId,
 }: {
   title: string;
   description: string;
@@ -259,10 +260,13 @@ export function SettingRow({
   onChange(value: boolean): void | Promise<void>;
   disabled?: boolean;
   disabledReason?: string;
+  // The onboarding tour's anchor for the row.
+  tourId?: string;
 }) {
   return (
     <Tip label={disabled ? disabledReason : undefined}>
       <div
+        data-tour={tourId}
         className={cn(
           "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5",
           disabled && "opacity-60",

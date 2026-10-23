@@ -55,7 +55,10 @@ export function StatusStrip({
   const watching = presentation.state === "running" && farmingChannel ? farmingChannel : undefined;
 
   return (
-    <div className="relative flex min-h-[58px] shrink-0 items-center gap-2.5 border-b border-[var(--surface-edge)] bg-[var(--surface)] px-3.5 py-2">
+    <div
+      data-tour="status-strip"
+      className="relative flex min-h-[58px] shrink-0 items-center gap-2.5 border-b border-[var(--surface-edge)] bg-[var(--surface)] px-3.5 py-2"
+    >
       <StripLead
         campaign={watching ? campaign : undefined}
         presentation={presentation}

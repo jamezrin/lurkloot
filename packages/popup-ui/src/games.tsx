@@ -292,6 +292,7 @@ export function GamesPanel({
           label={t("categoryModeTitle")}
           value={categoryMode}
           itemAttribute="data-games-mode"
+          attributes={{ "data-tour": "games-mode" }}
           options={(["all", "include"] as const).map((mode) => ({
             value: mode,
             label: t(mode === "all" ? "categoryModeAll" : "categoryModeInclude"),

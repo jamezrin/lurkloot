@@ -578,6 +578,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             descriptionKey: "autoClaimChallengesDescription",
             render: () => (
               <SettingRow
+                tourId="kick-challenges"
                 title={t("autoClaimChallengesTitle")}
                 description={t("autoClaimChallengesDescription")}
                 checked={settings.platform.kick.autoClaimChallenges}

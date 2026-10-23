@@ -65,7 +65,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     "settings",
     "kick",
     "settings",
-    ['[id="settings-group-general.drops"]'],
+    ['[id="settings-section-general.drops"]'],
     "tourSettingsTitle",
     "general.drops",
   ),
