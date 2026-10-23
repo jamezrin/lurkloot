@@ -6,14 +6,23 @@ import type {
   RuntimeMessage,
   RuntimeSnapshot,
 } from "@lurkloot/shared/messages";
-import type { DropCampaign, SupportedLocale } from "@lurkloot/shared/models";
+import type { ActivityEvent, StoredEngineEvent } from "@lurkloot/shared/events";
+import type {
+  DropCampaign,
+  Platform,
+  SupportedLocale,
+  TwitchExtensionSummary,
+} from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import type { PopupAdapter } from "./types";
 import { openHttpsLink } from "./links";
 
+export type DemoScenario = "default" | "tour";
+
 function handleDemoMessage(
   message: RuntimeMessage,
+  scenario: DemoScenario,
 ):
   | RuntimeSnapshot
   | PlaybackControl
@@ -24,7 +33,7 @@ function handleDemoMessage(
   switch (message.type) {
     case "getSnapshot":
     case "tickNow":
-      return demoSnapshot();
+      return demoSnapshot(scenario);
     case "searchCategories":
       return {
         categories: [
@@ -35,18 +44,18 @@ function handleDemoMessage(
       };
     case "saveSettings":
       return {
-        ...demoSnapshot(),
-        settings: applySettingsPatch(demoSnapshot().settings, message.settingsPatch),
+        ...demoSnapshot(scenario),
+        settings: applySettingsPatch(demoSnapshot(scenario).settings, message.settingsPatch),
       };
     case "setAutomation":
       return {
-        ...demoSnapshot(),
+        ...demoSnapshot(scenario),
         settings: mergeSettings({
-          ...demoSnapshot().settings,
+          ...demoSnapshot(scenario).settings,
           platform: {
-            ...demoSnapshot().settings.platform,
+            ...demoSnapshot(scenario).settings.platform,
             [message.platform]: {
-              ...demoSnapshot().settings.platform[message.platform],
+              ...demoSnapshot(scenario).settings.platform[message.platform],
               enabled: message.enabled,
             },
           },
@@ -54,13 +63,13 @@ function handleDemoMessage(
       };
     case "setPlatformEnabled":
       return {
-        ...demoSnapshot(),
+        ...demoSnapshot(scenario),
         settings: mergeSettings({
-          ...demoSnapshot().settings,
+          ...demoSnapshot(scenario).settings,
           platform: {
-            ...demoSnapshot().settings.platform,
+            ...demoSnapshot(scenario).settings.platform,
             [message.platform]: {
-              ...demoSnapshot().settings.platform[message.platform],
+              ...demoSnapshot(scenario).settings.platform[message.platform],
               enabled: message.enabled,
             },
           },
@@ -72,9 +81,12 @@ function handleDemoMessage(
     // The demo host never offers credential export (no exportCredentials hook),
     // so this is unreachable — return a snapshot to keep the switch exhaustive.
     case "exportCliCredentials":
-      return demoSnapshot();
+      return demoSnapshot(scenario);
     case "getActivity":
-      return { events: [], nextCursor: undefined };
+      return {
+        events: scenario === "tour" ? tourActivity(message.platform, message.category) : [],
+        nextCursor: undefined,
+      };
     case "exportDiagnostics":
       return { events: [] };
     case "getPlaybackControl":
@@ -85,11 +97,15 @@ function handleDemoMessage(
 export function createDemoPopupAdapter(options?: {
   locale?: SupportedLocale;
   version?: string;
+  // "tour" layers the onboarding tour's data onto the default demo; omitting it
+  // keeps the landing site, screenshots and promo artwork exactly as they were.
+  scenario?: DemoScenario;
 }): PopupAdapter {
+  const scenario = options?.scenario ?? "default";
   const store: Record<string, unknown> = {};
   return {
     version: options?.version ?? "1.0.0",
-    send: async <T>(message: RuntimeMessage) => handleDemoMessage(message) as T,
+    send: async <T>(message: RuntimeMessage) => handleDemoMessage(message, scenario) as T,
     getStorage: async (keys?: string | string[]) => {
       if (typeof keys === "string") return { [keys]: store[keys] };
       if (Array.isArray(keys)) return Object.fromEntries(keys.map((key) => [key, store[key]]));
@@ -105,7 +121,12 @@ export function createDemoPopupAdapter(options?: {
   };
 }
 
-function demoSnapshot(): RuntimeSnapshot {
+function demoSnapshot(scenario: DemoScenario): RuntimeSnapshot {
+  const snapshot = defaultDemoSnapshot();
+  return scenario === "tour" ? tourSnapshot(snapshot) : snapshot;
+}
+
+function defaultDemoSnapshot(): RuntimeSnapshot {
   const now = Date.now();
   const inHours = (hours: number) => new Date(now + hours * 3_600_000).toISOString();
   const settings = mergeSettings({
@@ -501,4 +522,130 @@ function demoSnapshot(): RuntimeSnapshot {
       lastTickAt: new Date(now - 45_000).toISOString(),
     },
   };
+}
+
+// The tour reads the same data as the default demo, plus what its steps point at:
+// the Queue shows every tier (pin, favourite, then the unlinked campaign farmed
+// last), the Extensions step shows both providers, and Tips stay out of the way.
+function tourSnapshot(base: RuntimeSnapshot): RuntimeSnapshot {
+  const now = Date.now();
+  const updatedAt = new Date(now - 30_000).toISOString();
+  const twitchExtensions: Record<"nopixel" | "fortnite", TwitchExtensionSummary> = {
+    nopixel: {
+      status: "farming",
+      reasonCode: "watchtime",
+      progress: [{ key: "daily-pack", earned: 2, required: 3 }],
+      pending: [{ key: "giveaway", state: "open" }],
+      channel: { username: "rivalspilot", displayName: "RivalsPilot" },
+      updatedAt,
+    },
+    fortnite: {
+      status: "farming",
+      reasonCode: "collecting",
+      progress: [{ key: "rewards", earned: 1, required: 4 }],
+      pending: [{ key: "takeover", state: "open" }],
+      channel: { username: "lootforge", displayName: "LootForge" },
+      updatedAt,
+    },
+  };
+  return {
+    ...base,
+    settings: {
+      ...base.settings,
+      showTips: false,
+      platform: {
+        ...base.settings.platform,
+        twitch: { ...base.settings.platform.twitch, unlinkedCampaigns: "last" },
+      },
+    },
+    state: { ...base.state, twitchExtensions },
+  };
+}
+
+function tourActivity(platform: Platform | undefined, category: string): StoredEngineEvent[] {
+  if (category !== "activity") return [];
+  const now = Date.now();
+  const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
+  const event = (id: string, minutesAgo: number, body: ActivityEvent): StoredEngineEvent => ({
+    ...body,
+    id: `tour-${id}`,
+    at: at(minutesAgo),
+  });
+  const twitchReward = {
+    campaignId: "tw-marathon",
+    campaignName: "Marathon Legends Launch Drops",
+  };
+  const kickReward = { campaignId: "kick-arena", campaignName: "Arena Clash Creator Rewards" };
+  const events: StoredEngineEvent[] = [
+    event("tw-started", 84, {
+      category: "activity",
+      code: "farming_started",
+      level: "info",
+      platform: "twitch",
+      data: {
+        ...twitchReward,
+        rewardId: "tw-marathon-boost",
+        rewardName: "Signal Booster",
+        channel: "rivalspilot",
+      },
+    }),
+    event("tw-claimed", 190, {
+      category: "activity",
+      code: "reward_claimed",
+      level: "info",
+      platform: "twitch",
+      data: {
+        ...twitchReward,
+        rewardId: "tw-marathon-badge",
+        rewardName: "Founder Badge",
+        method: "automatic",
+      },
+    }),
+    event("tw-stopped", 205, {
+      category: "activity",
+      code: "farming_stopped",
+      level: "info",
+      platform: "twitch",
+      data: {
+        ...twitchReward,
+        rewardId: "tw-marathon-badge",
+        rewardName: "Founder Badge",
+        reason: "watch_requirement_completed",
+      },
+    }),
+    event("kick-started", 48, {
+      category: "activity",
+      code: "farming_started",
+      level: "info",
+      platform: "kick",
+      data: {
+        ...kickReward,
+        rewardId: "kick-arena-token",
+        rewardName: "Drop Token",
+        channel: "greenroomgg",
+      },
+    }),
+    event("kick-claimed", 120, {
+      category: "activity",
+      code: "reward_claimed",
+      level: "info",
+      platform: "kick",
+      data: {
+        ...kickReward,
+        rewardId: "kick-arena-spray",
+        rewardName: "Neon Spray",
+        method: "automatic",
+      },
+    }),
+    event("kick-challenge", 150, {
+      category: "activity",
+      code: "challenge_claimed",
+      level: "info",
+      platform: "kick",
+      data: { challengeId: "tour-daily", rarity: "Rare", recurrence: "Daily" },
+    }),
+  ];
+  return events
+    .filter((entry) => !platform || ("platform" in entry && entry.platform === platform))
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
