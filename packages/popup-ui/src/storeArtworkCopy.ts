@@ -1047,7 +1047,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Idle Watchlist",
+        "feature": "Daftar cadangan",
         "title": "Tetap menonton\nsaat tak ada drop.",
         "howItWorks": [
           "Pilih streamer favoritmu",
@@ -1075,7 +1075,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Lencana",
-        "Idle Watchlist"
+        "Daftar cadangan"
       ],
       "twitch": [
         "Poin channel",
@@ -1296,7 +1296,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Idle Watchlist",
+        "feature": "Резервний список",
         "title": "Дивіться далі,\nколи дропів немає.",
         "howItWorks": [
           "Оберіть улюблених стримерів",
@@ -1324,7 +1324,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Значки",
-        "Idle Watchlist"
+        "Резервний список"
       ],
       "twitch": [
         "Бали каналу",

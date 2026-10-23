@@ -377,11 +377,16 @@ describe("i18n", () => {
       fr: new Set(["rewardKindBadge"]),
     };
 
+    // Case-insensitive, so a title-cased copy of the English ("Idle Watchlist"
+    // for "Idle watchlist") still counts as left untranslated.
+    const sameText = (a?: string, b?: string) =>
+      a !== undefined && b !== undefined && a.toLowerCase() === b.toLowerCase();
+
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {
       const catalog = readCatalog(locale);
       const unchanged = Object.keys(english).filter(
         (key) =>
-          catalog[key]?.message === english[key]?.message
+          sameText(catalog[key]?.message, english[key]?.message)
           && !allowedSameAsEnglish.has(key)
           && !loanwords[locale]?.has(key),
       );

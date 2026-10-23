@@ -1698,7 +1698,7 @@
     "message": "Twitch 拡張機能"
   },
   "extensionDropsTitle": {
-    "message": "Extensions"
+    "message": "拡張機能"
   },
   "extensionSettingsHint": {
     "message": "Twitch タブなしで拡張機能報酬をファームします。Twitch の自動化、除外、手動一時停止が適用されます。"
@@ -2082,7 +2082,7 @@
     "message": "Beta"
   },
   "navExtensions": {
-    "message": "Extensions"
+    "message": "拡張機能"
   },
   "navGroupOthers": {
     "message": "その他"

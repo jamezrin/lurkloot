@@ -90,7 +90,7 @@
     "message": "Ігри"
   },
   "navIdleWatchlist": {
-    "message": "Idle Watchlist"
+    "message": "Резервний список"
   },
   "navActivity": {
     "message": "Активність"
@@ -285,7 +285,7 @@
     "message": "Вкладка «Ігри» визначає, які ігри фармляться, які йдуть першими та які ніколи не фармляться."
   },
   "tipIdleWatchlist": {
-    "message": "Оберіть, коли дивитися канали Idle Watchlist, змінивши пріоритет джерел перегляду в налаштуваннях платформи."
+    "message": "Оберіть, коли дивитися канали резервного списку, змінивши пріоритет джерел перегляду в налаштуваннях платформи."
   },
   "tipTablessMode": {
     "message": "Режим без вкладок споживає менше ресурсів і за потреби перемикається на вкладку без звуку."
@@ -498,7 +498,7 @@
     "message": "Виключити з фарму"
   },
   "noIdleWatchlist": {
-    "message": "Канали Idle Watchlist не налаштовані."
+    "message": "Канали резервного списку не налаштовані."
   },
   "channelPlaceholder": {
     "message": "канал"
@@ -594,10 +594,10 @@
     "message": "Резервні канали, коли немає доступних дропів."
   },
   "preferKnownChannelsTitle": {
-    "message": "Надавати перевагу підписаним каналам і Idle Watchlist"
+    "message": "Надавати перевагу підписаним каналам і каналам резервного списку"
   },
   "preferKnownChannelsDescription": {
-    "message": "Коли дроп доступний на кількох каналах, обирає той, на який ви підписані або який у Idle Watchlist, а не незнайомий."
+    "message": "Коли дроп доступний на кількох каналах, обирає той, на який ви підписані або який у резервному списку, а не незнайомий."
   },
   "platformSettingsTitle": {
     "message": "Налаштування платформи"
@@ -651,7 +651,7 @@
     "message": "Вимкнути звук вкладок фарму"
   },
   "muteTabsDescription": {
-    "message": "Тримає вкладки drops і Idle Watchlist без звуку під час фарму."
+    "message": "Тримає вкладки drops і вкладки резервного списку без звуку під час фарму."
   },
   "keepVideosUnmutedTitle": {
     "message": "Не вимикати звук відео фарму"
@@ -822,13 +822,13 @@
     "message": "Автоматизація"
   },
   "farmOnPlatform": {
-    "message": "Фармить дропи та дивиться канали Idle Watchlist на $1."
+    "message": "Фармить дропи та дивиться канали резервного списку на $1."
   },
   "enabled": {
     "message": "Увімкнено"
   },
   "idleWatchlistEditHint": {
-    "message": "Редагуйте їх на вкладці Idle Watchlist після вибору $1."
+    "message": "Редагуйте їх на вкладці «Резервний список» після вибору $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Автозабір балів каналу"
@@ -1104,7 +1104,7 @@
     "message": "Більше, ніж дропи."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Бали каналу, виклики Kick і 2-хвилинні дропи — теж забираються за вас. Idle Watchlist, коли фармити більше нічого."
+    "message": "Бали каналу, виклики Kick і 2-хвилинні дропи — теж забираються за вас. Резервний список, коли фармити більше нічого."
   },
   "screenshotExtrasPointsName": {
     "message": "Бали каналу"
@@ -1119,7 +1119,7 @@
     "message": "Kick · теж забирається за вас"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Idle Watchlist"
+    "message": "Резервний список"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Дивиться ваших стримерів між кампаніями"
@@ -1446,7 +1446,7 @@
     "message": "нагорода з вищим пріоритетом взяла верх"
   },
   "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "канал Idle Watchlist з вищим пріоритетом став доступним"
+    "message": "канал резервного списку з вищим пріоритетом став доступним"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "вимогу перегляду виконано"
@@ -1866,10 +1866,10 @@
     "message": "Відкрити Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Додати $1 до Idle Watchlist"
+    "message": "Додати $1 до резервного списку"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Прибрати $1 з Idle Watchlist"
+    "message": "Прибрати $1 з резервного списку"
   },
   "navNoPixel": {
     "message": "NoPixel V"

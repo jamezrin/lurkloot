@@ -90,7 +90,7 @@
     "message": "Game"
   },
   "navIdleWatchlist": {
-    "message": "Idle Watchlist"
+    "message": "Daftar cadangan"
   },
   "navActivity": {
     "message": "Aktivitas"
@@ -285,7 +285,7 @@
     "message": "Tampilan Game menentukan game mana yang di-farm, mana yang diutamakan, dan mana yang tidak pernah di-farm."
   },
   "tipIdleWatchlist": {
-    "message": "Atur kapan saluran Idle Watchlist ditonton dengan mengubah prioritas sumber tontonan di pengaturan platform."
+    "message": "Atur kapan saluran daftar cadangan ditonton dengan mengubah prioritas sumber tontonan di pengaturan platform."
   },
   "tipTablessMode": {
     "message": "Mode tanpa tab memakai lebih sedikit sumber daya dan beralih ke tab bisu jika diperlukan."
@@ -498,7 +498,7 @@
     "message": "Kecualikan dari farming"
   },
   "noIdleWatchlist": {
-    "message": "Tidak ada saluran idle watchlist yang dikonfigurasi."
+    "message": "Tidak ada saluran daftar cadangan yang dikonfigurasi."
   },
   "channelPlaceholder": {
     "message": "saluran"
@@ -594,10 +594,10 @@
     "message": "Saluran cadangan saat tidak ada drop yang memenuhi syarat."
   },
   "preferKnownChannelsTitle": {
-    "message": "Utamakan saluran yang diikuti dan Idle Watchlist"
+    "message": "Utamakan saluran yang diikuti dan daftar cadangan"
   },
   "preferKnownChannelsDescription": {
-    "message": "Saat drop tersedia di beberapa saluran, pilih yang Anda ikuti atau ada di Idle Watchlist, bukan yang asing."
+    "message": "Saat drop tersedia di beberapa saluran, pilih yang Anda ikuti atau ada di daftar cadangan, bukan yang asing."
   },
   "platformSettingsTitle": {
     "message": "Pengaturan platform"
@@ -651,7 +651,7 @@
     "message": "Bisukan tab farming"
   },
   "muteTabsDescription": {
-    "message": "Biarkan tab drop dan Idle Watchlist bisu saat farming."
+    "message": "Biarkan tab drop dan daftar cadangan bisu saat farming."
   },
   "keepVideosUnmutedTitle": {
     "message": "Biarkan video farming tidak bisu"
@@ -822,13 +822,13 @@
     "message": "Otomatisasi"
   },
   "farmOnPlatform": {
-    "message": "Farm drop dan tonton saluran Idle Watchlist di $1."
+    "message": "Farm drop dan tonton saluran daftar cadangan di $1."
   },
   "enabled": {
     "message": "Diaktifkan"
   },
   "idleWatchlistEditHint": {
-    "message": "Edit dari tab Idle Watchlist setelah memilih $1."
+    "message": "Edit dari tab Daftar cadangan setelah memilih $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Klaim channel points otomatis"
@@ -1104,7 +1104,7 @@
     "message": "Lebih dari drop."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Channel points, tantangan Kick, dan drop 2 menit — juga diklaim untuk Anda. Idle watchlist saat tidak ada yang perlu di-farm."
+    "message": "Channel points, tantangan Kick, dan drop 2 menit — juga diklaim untuk Anda. Daftar cadangan saat tidak ada yang perlu di-farm."
   },
   "screenshotExtrasPointsName": {
     "message": "Poin channel"
@@ -1119,7 +1119,7 @@
     "message": "Kick · juga diklaim untuk Anda"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Daftar tontonan idle"
+    "message": "Daftar cadangan"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Menonton streamer Anda di antara kampanye"
@@ -1446,7 +1446,7 @@
     "message": "hadiah prioritas lebih tinggi mengambil alih"
   },
   "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "saluran Idle Watchlist prioritas lebih tinggi tersedia"
+    "message": "saluran daftar cadangan prioritas lebih tinggi tersedia"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "persyaratan tonton selesai"
@@ -1866,10 +1866,10 @@
     "message": "Buka Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Tambahkan $1 ke idle watchlist"
+    "message": "Tambahkan $1 ke daftar cadangan"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Hapus $1 dari idle watchlist"
+    "message": "Hapus $1 dari daftar cadangan"
   },
   "navNoPixel": {
     "message": "NoPixel V"
