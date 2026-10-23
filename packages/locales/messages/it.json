@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Prima le campagne fissate, poi i giochi preferiti, poi tutto il resto secondo la strategia scelta. Le campagne per account non collegati possono essere farmate per ultime."
   },
-  "tourQueueControlsTitle": {
-    "message": "Personalizzala"
-  },
-  "tourQueueControlsBody": {
-    "message": "Fissa una campagna e trascina i pin per riordinarli. Sotto Poi per scegli Scadenza più vicina o Bassa disponibilità prima. Escludi una campagna: passa in Saltate, dove puoi rimetterla."
-  },
   "tourCompletedTitle": {
     "message": "Completate e scadute"
   },

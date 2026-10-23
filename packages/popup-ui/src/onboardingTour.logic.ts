@@ -6,6 +6,9 @@ export interface TourStep {
   platform: Platform;
   view: PopupView;
   settingsFocus?: string;
+  // The rail entry for the view the step is about, lit beside the main target
+  // so the user learns where that view lives.
+  railView?: PopupView;
   targets: readonly string[];
   titleKey: string;
   bodyKey: string;
@@ -17,13 +20,14 @@ function step(
   view: PopupView,
   targets: readonly string[],
   titleKey: string,
-  settingsFocus?: string,
+  extra: { settingsFocus?: string; railView?: PopupView } = {},
 ): TourStep {
   return {
     id,
     platform,
     view,
-    ...(settingsFocus ? { settingsFocus } : {}),
+    ...(extra.settingsFocus ? { settingsFocus: extra.settingsFocus } : {}),
+    ...(extra.railView ? { railView: extra.railView } : {}),
     targets,
     titleKey,
     bodyKey: titleKey.replace("Title", "Body"),
@@ -33,17 +37,26 @@ function step(
 export const TOUR_STEPS: readonly TourStep[] = [
   step("statusStrip", "twitch", "queue", ['[data-tour="status-strip"]'], "tourStatusStripTitle"),
   step("platformSwitch", "twitch", "queue", ['[data-tour="platform-switch"]'], "tourPlatformTitle"),
-  step("queueOrder", "twitch", "queue", ['[data-tour="queue-list"]'], "tourQueueOrderTitle"),
+  step("queueOrder", "twitch", "queue", ['[data-tour="queue-list"]'], "tourQueueOrderTitle", {
+    railView: "queue",
+  }),
   step(
-    "queueControls",
+    "rewardFilter",
     "twitch",
     "queue",
-    ['[data-tour="queue-strategy"]'],
-    "tourQueueControlsTitle",
+    ['[data-tour="reward-filter"]'],
+    "tourRewardFilterTitle",
+    { railView: "queue" },
   ),
-  step("completed", "twitch", "completed", ['[data-tour="completed-list"]'], "tourCompletedTitle"),
-  step("games", "twitch", "games", ['[data-tour="games-mode"]'], "tourGamesTitle"),
-  step("watchlist", "twitch", "watchlist", ['[data-tour="watchlist"]'], "tourWatchlistTitle"),
+  step("completed", "twitch", "completed", ['[data-tour="completed-list"]'], "tourCompletedTitle", {
+    railView: "completed",
+  }),
+  step("games", "twitch", "games", ['[data-tour="games-mode"]'], "tourGamesTitle", {
+    railView: "games",
+  }),
+  step("watchlist", "twitch", "watchlist", ['[data-tour="watchlist"]'], "tourWatchlistTitle", {
+    railView: "watchlist",
+  }),
   step("extensions", "twitch", "nopixel", ['[data-tour="rail-extensions"]'], "tourExtensionsTitle"),
   step(
     "kickProgress",
@@ -58,16 +71,18 @@ export const TOUR_STEPS: readonly TourStep[] = [
     "settings",
     ['[data-tour="kick-challenges"]'],
     "tourKickChallengesTitle",
-    "kick",
+    { settingsFocus: "kick", railView: "settings" },
   ),
-  step("activity", "kick", "activity", ['[data-tour="activity-list"]'], "tourActivityTitle"),
+  step("activity", "kick", "activity", ['[data-tour="activity-list"]'], "tourActivityTitle", {
+    railView: "activity",
+  }),
   step(
     "settings",
     "kick",
     "settings",
     ['[id="settings-section-general.drops"]'],
     "tourSettingsTitle",
-    "general.drops",
+    { settingsFocus: "general.drops", railView: "settings" },
   ),
 ];
 
@@ -147,19 +162,44 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, Math.max(min, max)));
 }
 
+export interface PlacementFrame {
+  width: number;
+  height: number;
+  // Where the frame starts inside the popup; 0 when omitted.
+  left?: number;
+}
+
+/** The part of the popup the card may sit in. When the rail is lit, that is
+ * everything beside the rail, on whichever side the rail is drawn (the rail
+ * follows the reading direction), so the card never covers the rail's hole. */
+export function placementFrame(
+  frame: { width: number; height: number },
+  rail: Rect | null,
+): Required<PlacementFrame> {
+  if (!rail) return { left: 0, width: frame.width, height: frame.height };
+  const railLeft = Math.max(0, Math.min(rail.left, frame.width));
+  const railRight = Math.max(railLeft, Math.min(rail.left + rail.width, frame.width));
+  // A rail in the frame's start half is on the left; otherwise it is on the right.
+  if (railLeft + (railRight - railLeft) / 2 <= frame.width / 2) {
+    return { left: railRight, width: frame.width - railRight, height: frame.height };
+  }
+  return { left: 0, width: railLeft, height: frame.height };
+}
+
 export function placeCard(
   target: Rect | null,
   card: { width: number; height: number },
-  frame: { width: number; height: number },
+  frame: PlacementFrame,
 ): { top: number; left: number; side: "below" | "above" | "right" | "left" | "center" } {
+  const frameLeft = frame.left ?? 0;
   const minTop = FRAME_MARGIN;
   const maxTop = frame.height - FRAME_MARGIN - card.height;
-  const minLeft = FRAME_MARGIN;
-  const maxLeft = frame.width - FRAME_MARGIN - card.width;
+  const minLeft = frameLeft + FRAME_MARGIN;
+  const maxLeft = frameLeft + frame.width - FRAME_MARGIN - card.width;
   if (!target) {
     return {
       top: clamp((frame.height - card.height) / 2, minTop, maxTop),
-      left: clamp((frame.width - card.width) / 2, minLeft, maxLeft),
+      left: clamp(frameLeft + (frame.width - card.width) / 2, minLeft, maxLeft),
       side: "center",
     };
   }

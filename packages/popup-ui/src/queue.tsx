@@ -381,7 +381,6 @@ export function QueuePanel({
               <div key={tier} data-queue-group={tier} className="space-y-1">
                 <GroupDivider
                   label={t(TIER_LABEL_KEYS[tier])}
-                  tourTarget={tier === strategyTier ? "queue-strategy" : undefined}
                   hint={
                     tier === strategyTier ? (
                       // The strategy lives where it acts: it ranks exactly
@@ -753,18 +752,13 @@ function GroupDivider({
   label,
   hint,
   action,
-  tourTarget,
 }: {
   label: string;
   hint?: React.ReactNode;
   action?: { label: string; onClick(): void; attribute?: string };
-  tourTarget?: string;
 }): React.ReactElement {
   return (
-    <div
-      className="flex items-center gap-2 pt-2"
-      {...(tourTarget ? { "data-tour": tourTarget } : {})}
-    >
+    <div className="flex items-center gap-2 pt-2">
       <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</span>
       {typeof hint === "string" ? (
         <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span>

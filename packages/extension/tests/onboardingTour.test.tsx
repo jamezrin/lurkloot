@@ -198,6 +198,16 @@ describe("onboarding tour host", () => {
       expect(dialog(container)?.getAttribute("data-side"), step.id).not.toBe("center");
       expect(container.querySelector("[data-tour-spotlight]"), step.id).not.toBeNull();
       expect(container.querySelector("[data-tour-scrim]"), step.id).toBeNull();
+      // A view step also lights that view's rail entry; no other step does.
+      const railSpotlights = container.querySelectorAll("[data-tour-rail-spotlight]");
+      expect(railSpotlights.length, step.id).toBe(step.railView ? 1 : 0);
+      if (step.railView) {
+        expect(railSpotlights[0]?.getAttribute("data-rail-view"), step.id).toBe(step.railView);
+        expect(
+          main(container).querySelector(`[data-tour="rail"] button[data-view="${step.railView}"]`),
+          step.id,
+        ).not.toBeNull();
+      }
       if (step.id === "activity") {
         expect(
           container.querySelector('[data-tour="activity-list"] [data-activity-card]'),
@@ -328,6 +338,8 @@ describe("onboarding tour host", () => {
     expect(dialog(container)?.getAttribute("data-side")).toBe("center");
     expect(container.querySelector("[data-tour-scrim]")).not.toBeNull();
     expect(container.querySelector("[data-tour-spotlight]")).toBeNull();
+    // The fallback is a plain scrim: no rail cut-out either.
+    expect(container.querySelector("[data-tour-rail-spotlight]")).toBeNull();
     await press(container, "next");
     expect(progress(container)).toBe("7 / 12");
   });

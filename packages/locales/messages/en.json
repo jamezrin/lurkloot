@@ -348,13 +348,13 @@
     "message": "How the queue is ordered"
   },
   "tourQueueOrderBody": {
-    "message": "Pinned campaigns come first, then your favourite games, then everything else by the strategy you pick. Campaigns for unlinked accounts can be farmed last."
+    "message": "Pinned campaigns come first, then your favourite games, then the rest in the order you pick under Then by. Click a campaign to expand it and see its rewards and progress, or to pin or exclude it."
   },
-  "tourQueueControlsTitle": {
-    "message": "Make it yours"
+  "tourRewardFilterTitle": {
+    "message": "Choose what to farm"
   },
-  "tourQueueControlsBody": {
-    "message": "Pin a campaign and drag pins to reorder them. Pick Ending soonest or Low availability first under Then by. Exclude a campaign and it moves to Skipped, where you can bring it back."
+  "tourRewardFilterBody": {
+    "message": "Open All rewards to choose which reward types to farm, what to do with campaigns without a linked account, and whether to farm pinned campaigns only."
   },
   "tourCompletedTitle": {
     "message": "Finished and expired"
@@ -366,13 +366,13 @@
     "message": "Choose your games"
   },
   "tourGamesBody": {
-    "message": "Pick All categories to farm every game except the ones you block, or Only selected to farm just the games you tick. Star a game to put its campaigns first."
+    "message": "Pick All categories to farm every game except the ones you block, or Only selected to farm just the games you tick. Star a game to put its campaigns first, or block it so it is never farmed."
   },
   "tourWatchlistTitle": {
     "message": "Idle Watchlist"
   },
   "tourWatchlistBody": {
-    "message": "When there are no drops to farm, Lurkloot watches these channels so you keep earning channel points, claimed for you. Watch-source priority in Settings decides when they are watched."
+    "message": "When there are no drops to farm, Lurkloot watches these channels, so you keep earning channel points on Twitch and your daily rewards and watch streak on Kick. Watch-source priority in Settings decides when they are watched."
   },
   "tourExtensionsTitle": {
     "message": "Twitch Extensions"
@@ -402,13 +402,13 @@
     "message": "Useful settings"
   },
   "tourSettingsBody": {
-    "message": "The Drops group holds your strategy, auto-claim and skipping drops that cannot finish in time. Farming tabs is right below, and Notifications just above."
+    "message": "Lurkloot is highly configurable. The Drops group holds your strategy, auto-claim and skipping drops that cannot finish in time, and the search bar finds any setting fast."
   },
   "tourDoneTitle": {
     "message": "You're set! Let's get farming these drops!"
   },
   "tourDoneBody": {
-    "message": "Sign in to Twitch or Kick on their official websites in this browser. Lurkloot never asks for your credentials. Then switch on the platform you want to farm."
+    "message": "Sign in to Twitch or Kick on their official websites in this browser. Lurkloot never asks for your credentials. Then switch on the platform you want to farm (or both)."
   },
   "tourFinish": {
     "message": "Let's go!"

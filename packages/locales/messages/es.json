@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Primero las campañas fijadas, luego tus juegos favoritos y después el resto según la estrategia que elijas. Las campañas de cuentas sin vincular pueden farmearse al final."
   },
-  "tourQueueControlsTitle": {
-    "message": "Personalízalo"
-  },
-  "tourQueueControlsBody": {
-    "message": "Fija una campaña y arrastra los pines para reordenarlos. Elige Termina antes o Baja disponibilidad primero en Después por. Si excluyes una campaña, pasará a Omitidas, desde donde puedes recuperarla."
-  },
   "tourCompletedTitle": {
     "message": "Completadas y caducadas"
   },

@@ -87,11 +87,11 @@ Twitch:
 2. **Platform switch** (rail) — Twitch and Kick each have their own queue,
    games and watchlist.
 3. **Queue order** (Queue view, the grouped list) — Pinned → Favourite games →
-   "Then by" strategy → Unlinked, farmed last.
-4. **Changing the order** (a campaign row's pin control and the "Then by"
-   dropdown) — pin and drag pins to reorder; Ending soonest vs Lowest
-   availability; excluding a campaign moves it to Skipped, where it can be put
-   back.
+   the rest in the "Then by" order; click a campaign to expand it, see its
+   rewards and progress, or pin or exclude it.
+4. **Choose what to farm** (the Queue's "All rewards" filter button) — which
+   reward types to farm, what to do with campaigns without a linked account,
+   and whether to farm pinned campaigns only.
 5. **Completed** (Completed view) — Finished: every reward claimed. Expired:
    ended before it was finished.
 6. **Games** (Games view, mode toggle) — All farms every game except blocked
@@ -129,12 +129,17 @@ popup to the user's real snapshot on the Queue view, on the platform they had
 selected before the tour.
 
 **One spotlight per step** *(my call)*. Each step has exactly one target
-rectangle. Where a step above names several things: step 4 spotlights the
-"Then by" row together with the first campaign row (one box around both, which
-are adjacent at the top of the queue); step 8 opens an extension view first,
+rectangle. Where a step above names several things: step 8 opens an extension view first,
 then spotlights the rail's NoPixel/Fortnite entries; step 12 spotlights the
 Drops group only, and its copy mentions Farming tabs and Notifications. There
 are no sub-steps, so the counter is always `n / 12`.
+
+**Left-menu highlight.** A step whose subject is a view also lights that
+view's rail entry with a second cut-out in the same ring style, so the user
+learns where the view lives: steps 3 and 4 light Queue, 5 Completed, 6 Games,
+7 Idle Watchlist, 10 and 12 Settings, 11 Activity. Steps 1, 2, 8 (whose
+target is already the rail) and 9 light no rail entry. The message box is
+placed beside the rail, never over it, on those steps.
 
 Copy above is intent, not final wording. Final copy is short (one or two
 sentences per step), English first, then localized.
@@ -145,7 +150,12 @@ sentences per step), English first, then localized.
   included). The UI underneath stays faintly visible.
 - **Spotlight:** the current target shows through a rounded cut-out with a
   subtle ring/outline and a little padding. Implementation of the cut-out
-  (SVG mask, box-shadow, clip-path) is the builder's choice.
+  (SVG mask, box-shadow, clip-path) is the builder's choice. It is a
+  box-shadow spotlight; when a step lights its rail entry too, the frame is
+  split at the rail's edge with `clip-path: inset(...)`, the main spotlight's
+  scrim covering the content and a second spotlight's scrim covering the rail,
+  so each region carries one hole. The rail cut-out jumps between steps; the
+  main one glides.
 - **Message box:** anchored to the target, placed on whichever side has room
   (below/above/beside), clamped inside the popup. Never covers its own target.
   It is the focusable, keyboard-reachable element: focus moves into it each

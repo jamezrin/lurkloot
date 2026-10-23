@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Les campagnes épinglées passent en premier, puis vos jeux favoris, puis tout le reste selon la stratégie choisie. Les campagnes des comptes non liés peuvent être farmées en dernier."
   },
-  "tourQueueControlsTitle": {
-    "message": "À votre goût"
-  },
-  "tourQueueControlsBody": {
-    "message": "Épinglez une campagne et faites glisser les épingles pour les réordonner. Sous Ensuite par, choisissez Se termine le plus tôt ou Faible disponibilité d’abord. Excluez une campagne : elle passe dans Ignorées, d'où vous pouvez la remettre."
-  },
   "tourCompletedTitle": {
     "message": "Terminées et expirées"
   },

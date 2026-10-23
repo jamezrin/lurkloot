@@ -5,6 +5,7 @@ import { cn, scrollIntoPanel } from "./primitives";
 import {
   clampTarget,
   placeCard,
+  placementFrame,
   type Rect,
   TOUR_STEPS,
   type TourAction,
@@ -54,19 +55,19 @@ function findTargets(main: HTMLElement, step: TourStep): Element[] {
     .filter((element): element is Element => element !== null);
 }
 
-function measureTargets(main: HTMLElement, targets: readonly Element[]): Rect | null {
+function relativeRect(main: HTMLElement, element: Element): Rect {
   const origin = main.getBoundingClientRect();
-  const union = unionRect(
-    targets.map((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        top: rect.top - origin.top,
-        left: rect.left - origin.left,
-        width: rect.width,
-        height: rect.height,
-      };
-    }),
-  );
+  const rect = element.getBoundingClientRect();
+  return {
+    top: rect.top - origin.top,
+    left: rect.left - origin.left,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function measureTargets(main: HTMLElement, targets: readonly Element[]): Rect | null {
+  const union = unionRect(targets.map((element) => relativeRect(main, element)));
   if (!union) return null;
   return clampTarget(
     {
@@ -79,13 +80,39 @@ function measureTargets(main: HTMLElement, targets: readonly Element[]): Rect | 
   );
 }
 
+// The step's main cut-out, plus the rail's own when the step lights its view's
+// rail entry. `railBounds` is the whole rail, which the rail cut-out's scrim
+// covers and the card stays out of.
+interface Spotlight {
+  target: Rect;
+  rail: { hole: Rect; bounds: Rect } | null;
+}
+
+function sameSpotlight(a: Spotlight | null, b: Spotlight | null): boolean {
+  if (!a || !b) return a === b;
+  if (!sameRect(a.target, b.target)) return false;
+  if (!a.rail || !b.rail) return a.rail === b.rail;
+  return sameRect(a.rail.hole, b.rail.hole) && sameRect(a.rail.bounds, b.rail.bounds);
+}
+
+// The rail entry for the step's view, looked up inside the rail alone: the
+// frame itself also carries `data-view`.
+function measureRail(main: HTMLElement, step: TourStep): Spotlight["rail"] {
+  if (!step.railView) return null;
+  const nav = main.querySelector('[data-tour="rail"]');
+  const button = nav?.querySelector(`button[data-view="${step.railView}"]`);
+  if (!nav || !button) return null;
+  const hole = measureTargets(main, [button]);
+  return hole ? { hole, bounds: relativeRect(main, nav) } : null;
+}
+
 // Finds the current step's targets in the frame and keeps their rect current.
 // Returns null while there is no step, or when the targets never turned up.
 function useSpotlight(
   rootRef: React.RefObject<HTMLDivElement | null>,
   step: TourStep | undefined,
-): { target: Rect | null; frame: Size } {
-  const [target, setTarget] = useState<Rect | null>(null);
+): { spotlight: Spotlight | null; frame: Size } {
+  const [target, setTarget] = useState<Spotlight | null>(null);
   const [frame, setFrame] = useState<Size>(FALLBACK_FRAME);
   const updateFrame = (main: HTMLElement) => {
     const next = frameSize(main);
@@ -108,13 +135,14 @@ function useSpotlight(
     let handle = 0;
     let cancelled = false;
     let found: Element[] = [];
-    let last: Rect | null = null;
+    let last: Spotlight | null = null;
 
     const measure = () => {
       if (cancelled || found.length === 0) return;
-      const next = measureTargets(main, found);
+      const rect = measureTargets(main, found);
+      const next = rect ? { target: rect, rail: measureRail(main, step) } : null;
       updateFrame(main);
-      setTarget((current) => (sameRect(current, next) ? current : next));
+      setTarget((current) => (sameSpotlight(current, next) ? current : next));
       last = next;
     };
 
@@ -125,7 +153,7 @@ function useSpotlight(
         if (cancelled) return;
         const before = last;
         measure();
-        const nextStill = sameRect(before, last) ? still + 1 : 0;
+        const nextStill = sameSpotlight(before, last) ? still + 1 : 0;
         if (nextStill < 2 && frames < SETTLE_FRAMES) settle(frames + 1, nextStill);
       });
     };
@@ -169,7 +197,24 @@ function useSpotlight(
     };
   }, [rootRef, step]);
 
-  return { target, frame };
+  return { spotlight: target, frame };
+}
+
+// A clip-path that keeps only `rect` of the frame.
+function insetTo(rect: Rect, frame: Size): string {
+  const right = Math.max(0, frame.width - (rect.left + rect.width));
+  const bottom = Math.max(0, frame.height - (rect.top + rect.height));
+  return `inset(${rect.top}px ${right}px ${bottom}px ${rect.left}px)`;
+}
+
+function spotlightStyle(rect: Rect): React.CSSProperties {
+  return {
+    top: rect.top,
+    left: rect.left,
+    width: rect.width,
+    height: rect.height,
+    boxShadow: `0 0 0 2px var(--accent), 0 0 0 9999px ${SCRIM}`,
+  };
 }
 
 const secondaryButton =
@@ -177,9 +222,15 @@ const secondaryButton =
 const primaryButton =
   "rounded-lg px-3 py-1 text-[11px] font-semibold text-[var(--accent-contrast)] outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)]";
 
-/** The onboarding tour drawn over the popup frame: a scrim with one cut-out
- * around the step's target, and the message card beside it. It only reads the
- * frame's DOM; every decision goes back through `onAction`. */
+/** The onboarding tour drawn over the popup frame: a scrim with a cut-out
+ * around the step's target, a second one around the rail entry of the step's
+ * view when it has one, and the message card beside them. It only reads the
+ * frame's DOM; every decision goes back through `onAction`.
+ *
+ * A box-shadow scrim has room for one hole, so a lit rail splits the frame in
+ * two: the main spotlight's scrim is clipped to the content beside the rail,
+ * and the rail gets its own spotlight clipped to the rail. The two regions
+ * meet at the rail's edge, so the scrim reads as one. */
 export function OnboardingOverlay({
   phase,
   onAction,
@@ -195,7 +246,10 @@ export function OnboardingOverlay({
   const bodyId = useId();
   const index = phase.kind === "step" ? phase.index : -1;
   const step = index >= 0 ? TOUR_STEPS[index] : undefined;
-  const { target, frame } = useSpotlight(rootRef, step);
+  const { spotlight, frame } = useSpotlight(rootRef, step);
+  const target = spotlight?.target ?? null;
+  const rail = step?.railView ? (spotlight?.rail ?? null) : null;
+  const content = rail ? placementFrame(frame, rail.bounds) : null;
   const [card, setCard] = useState<Size>(FALLBACK_CARD);
 
   // The card's height follows its copy, so it is measured after every render.
@@ -245,7 +299,11 @@ export function OnboardingOverlay({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [dir, onAction, phase]);
 
-  const placement = placeCard(step ? target : null, card, frame);
+  const placement = placeCard(
+    step ? target : null,
+    card,
+    step && target && content ? content : frame,
+  );
   const title =
     phase.kind === "welcome"
       ? "tourWelcomeTitle"
@@ -262,18 +320,45 @@ export function OnboardingOverlay({
   return (
     <div ref={rootRef} data-onboarding-tour className="absolute inset-0 z-50">
       {step && target ? (
-        <div
-          data-tour-spotlight
-          aria-hidden="true"
-          className="pointer-events-none absolute rounded-[10px] motion-safe:transition-all motion-safe:duration-300"
-          style={{
-            top: target.top,
-            left: target.left,
-            width: target.width,
-            height: target.height,
-            boxShadow: `0 0 0 2px var(--accent), 0 0 0 9999px ${SCRIM}`,
-          }}
-        />
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+            style={content ? { clipPath: insetTo({ ...content, top: 0 }, frame) } : undefined}
+          >
+            <div
+              data-tour-spotlight
+              className="absolute rounded-[10px] motion-safe:transition-all motion-safe:duration-300"
+              style={spotlightStyle(target)}
+            />
+          </div>
+          {rail && content ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 overflow-hidden"
+              style={{
+                clipPath: insetTo(
+                  content.left > 0
+                    ? { top: 0, left: 0, width: content.left, height: frame.height }
+                    : {
+                        top: 0,
+                        left: content.width,
+                        width: frame.width - content.width,
+                        height: frame.height,
+                      },
+                  frame,
+                ),
+              }}
+            >
+              <div
+                data-tour-rail-spotlight
+                data-rail-view={step.railView}
+                className="absolute rounded-[10px]"
+                style={spotlightStyle(rail.hole)}
+              />
+            </div>
+          ) : null}
+        </>
       ) : (
         <div
           data-tour-scrim

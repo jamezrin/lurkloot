@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "As campanhas fixadas vêm primeiro, depois os seus jogos favoritos e, por fim, todo o resto pela estratégia escolhida. Campanhas de contas sem vínculo podem ser farmadas por último."
   },
-  "tourQueueControlsTitle": {
-    "message": "Do seu jeito"
-  },
-  "tourQueueControlsBody": {
-    "message": "Fixe uma campanha e arraste as fixadas para reordená-las. Escolha \"Termina primeiro\" ou \"Baixa disponibilidade primeiro\" em \"Depois por\". Exclua uma campanha e ela vai para Ignoradas, de onde você pode trazê-la de volta."
-  },
   "tourCompletedTitle": {
     "message": "Concluídas e expiradas"
   },

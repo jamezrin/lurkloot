@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Önce sabitlenen kampanyalar, sonra favori oyunların kampanyaları, ardından seçtiğin stratejiye göre diğer her şey gelir. Bağlantısız hesapların kampanyaları en sona bırakılabilir."
   },
-  "tourQueueControlsTitle": {
-    "message": "Kendine göre ayarla"
-  },
-  "tourQueueControlsBody": {
-    "message": "Bir kampanyayı sabitle ve sabitlemeleri sürükleyerek yeniden sırala. \"Sonra şuna göre\" altından \"Önce süresi bitmek üzere olanlar\" ya da \"Önce nadir/süreli olanlar\" seç. Bir kampanyayı hariç tutarsan \"Atlanan\" bölümüne geçer ve oradan geri alabilirsin."
-  },
   "tourCompletedTitle": {
     "message": "Tamamlanan ve süresi dolan"
   },

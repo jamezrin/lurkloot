@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Nejprve jdou připnuté kampaně, potom vaše oblíbené hry a zbytek podle zvolené strategie. Kampaně pro nepropojené účty se mohou farmit naposledy."
   },
-  "tourQueueControlsTitle": {
-    "message": "Upravte si to podle sebe"
-  },
-  "tourQueueControlsBody": {
-    "message": "Připněte kampaň a přetažením pinů změňte pořadí. V části Poté podle vyberte Nejdříve končící nebo Nejdříve s nízkou dostupností. Vyloučená kampaň se přesune do Přeskočených, odkud ji můžete vrátit."
-  },
   "tourCompletedTitle": {
     "message": "Dokončené a vypršelé"
   },

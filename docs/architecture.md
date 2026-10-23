@@ -1030,7 +1030,12 @@ frame mounts fresh. The wrapper also wraps `resetExtension` so that a reset
 inside the popup brings the tour back immediately. The overlay is
 `onboardingTour.tsx`; the steps, reducer and placement maths are
 `onboardingTour.logic.ts`, and the frame elements the tour points at carry
-`data-tour` attributes.
+`data-tour` attributes. A step about a view names it as `railView`, and the
+overlay then lights that view's rail entry (`[data-tour="rail"]
+button[data-view=…]`) beside the main target: the frame is split at the rail's
+measured edge, each side drawing its own one-hole scrim, and the card is
+placed in `placementFrame`, the part of the frame beside the rail, so it never
+covers the rail's cut-out.
 
 `tests/onboarding.test.ts` and `tests/storageMigration.test.ts` guard the flag,
 `tests/onboardingTourLogic.test.ts` the steps and reducer,

@@ -3,6 +3,7 @@ import {
   clampTarget,
   dismissesForGood,
   placeCard,
+  placementFrame,
   TOUR_STEPS,
   type TourAction,
   type TourPhase,
@@ -39,9 +40,27 @@ describe("TOUR_STEPS", () => {
     });
   });
 
-  it("frames the strategy group header alone on the queue controls step", () => {
-    const controls = TOUR_STEPS.find((s) => s.id === "queueControls");
-    expect(controls?.targets).toEqual(['[data-tour="queue-strategy"]']);
+  it("frames the rewards filter button alone on step 4", () => {
+    expect(TOUR_STEPS[3]?.id).toBe("rewardFilter");
+    expect(TOUR_STEPS[3]?.view).toBe("queue");
+    expect(TOUR_STEPS[3]?.targets).toEqual(['[data-tour="reward-filter"]']);
+  });
+
+  it("lights the rail entry of the view each view step is about", () => {
+    expect(Object.fromEntries(TOUR_STEPS.map((s) => [s.id, s.railView]))).toEqual({
+      statusStrip: undefined,
+      platformSwitch: undefined,
+      queueOrder: "queue",
+      rewardFilter: "queue",
+      completed: "completed",
+      games: "games",
+      watchlist: "watchlist",
+      extensions: undefined,
+      kickProgress: undefined,
+      kickChallenges: "settings",
+      activity: "activity",
+      settings: "settings",
+    });
   });
 
   it("never targets diagnostics", () => {
@@ -181,5 +200,48 @@ describe("placeCard", () => {
   it("centres without a target", () => {
     const p = placeCard(null, card, frame);
     expect(p).toEqual({ top: 225, left: 210, side: "center" });
+  });
+
+  it("keeps the card inside an offset frame", () => {
+    const content = { left: 176, width: 544, height: 600 };
+    for (const target of [
+      { top: 10, left: 200, width: 200, height: 40 },
+      { top: 20, left: 190, width: 120, height: 560 },
+      { top: 0, left: 176, width: 544, height: 600 },
+    ]) {
+      const p = placeCard(target, card, content);
+      expect(p.left).toBeGreaterThanOrEqual(176 + 8);
+      expect(p.left + card.width).toBeLessThanOrEqual(720 - 8);
+    }
+  });
+});
+
+describe("placementFrame", () => {
+  const overlaps = (left: number, rail: { left: number; width: number }) =>
+    left < rail.left + rail.width && left + card.width > rail.left;
+
+  it("is the whole frame without a lit rail", () => {
+    expect(placementFrame(frame, null)).toEqual({ left: 0, width: 720, height: 600 });
+  });
+
+  it("starts at the right edge of a left-hand rail", () => {
+    const rail = { top: 0, left: 0, width: 176, height: 600 };
+    expect(placementFrame(frame, rail)).toEqual({ left: 176, width: 544, height: 600 });
+    // A tall target hugging the rail would put the card on the rail in the
+    // full frame; in the placement frame it stays beside it.
+    const target = { top: 0, left: 330, width: 380, height: 600 };
+    expect(overlaps(placeCard(target, card, frame).left, rail)).toBe(true);
+    expect(overlaps(placeCard(target, card, placementFrame(frame, rail)).left, rail)).toBe(false);
+  });
+
+  it("ends at the left edge of a right-hand rail, as in a right-to-left locale", () => {
+    const rail = { top: 0, left: 660, width: 60, height: 600 };
+    expect(placementFrame(frame, rail)).toEqual({ left: 0, width: 660, height: 600 });
+    const p = placeCard(
+      { top: 0, left: 240, width: 400, height: 600 },
+      card,
+      placementFrame(frame, rail),
+    );
+    expect(overlaps(p.left, rail)).toBe(false);
   });
 });

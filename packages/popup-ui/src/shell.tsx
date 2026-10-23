@@ -138,6 +138,7 @@ export function WorkspaceRail({
   return (
     <nav
       aria-label={t("navWorkspace")}
+      data-tour="rail"
       className="rail @[560px]:w-[176px] flex w-[60px] shrink-0 flex-col gap-3 border-e border-[var(--rail-edge)] px-2 py-3 text-zinc-400"
     >
       <div className="flex items-center gap-2 px-1 pt-0.5">

@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "先是已置顶的活动，然后是收藏的游戏，其余活动按你选择的策略排列。未关联账号的活动可以放在最后挂机。"
   },
-  "tourQueueControlsTitle": {
-    "message": "按你的喜好设置"
-  },
-  "tourQueueControlsBody": {
-    "message": "置顶活动，并拖动置顶项来调整顺序。在“然后按”中选择“即将结束的优先”或“可用频道较少的优先”。排除某个活动后，它会移到“已跳过”，你可以随时将其恢复。"
-  },
   "tourCompletedTitle": {
     "message": "已完成与已过期"
   },

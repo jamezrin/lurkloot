@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Najpierw idą przypięte kampanie, potem ulubione gry, a reszta według wybranej strategii. Kampanie dla niepołączonych kont mogą być farmione na końcu."
   },
-  "tourQueueControlsTitle": {
-    "message": "Dostosuj po swojemu"
-  },
-  "tourQueueControlsBody": {
-    "message": "Przypnij kampanię i przeciągaj przypięte, aby zmienić ich kolejność. W sekcji „Następnie według” wybierz „Najwcześniejszy koniec” lub „Najpierw niska dostępność”. Wykluczona kampania trafia do Pominięte, skąd możesz ją przywrócić."
-  },
   "tourCompletedTitle": {
     "message": "Ukończone i wygasłe"
   },

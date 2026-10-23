@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Angeheftete Kampagnen kommen zuerst, dann deine Lieblingsspiele und alles Übrige nach der gewählten Strategie. Kampagnen für nicht verknüpfte Konten können zuletzt gefarmt werden."
   },
-  "tourQueueControlsTitle": {
-    "message": "Richte es nach dir aus"
-  },
-  "tourQueueControlsBody": {
-    "message": "Hefte eine Kampagne an und ziehe die Pins, um sie neu zu ordnen. Wähle unter Danach nach entweder Endet am frühesten oder Geringe Verfügbarkeit zuerst. Schließt du eine Kampagne aus, wandert sie nach Übersprungen, von wo du sie zurückholen kannst."
-  },
   "tourCompletedTitle": {
     "message": "Abgeschlossen und abgelaufen"
   },

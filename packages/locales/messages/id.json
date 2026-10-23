@@ -350,12 +350,6 @@
   "tourQueueOrderBody": {
     "message": "Kampanye yang disematkan tampil pertama, lalu game favorit, lalu sisanya sesuai strategi yang Anda pilih. Kampanye untuk akun tanpa tautan bisa di-farm paling akhir."
   },
-  "tourQueueControlsTitle": {
-    "message": "Sesuaikan sendiri"
-  },
-  "tourQueueControlsBody": {
-    "message": "Sematkan kampanye dan seret sematan untuk mengurutkan ulang. Di bawah Lalu menurut, pilih Paling cepat berakhir atau Ketersediaan rendah dulu. Kecualikan kampanye dan ia pindah ke Dilewati, tempat Anda bisa mengembalikannya."
-  },
   "tourCompletedTitle": {
     "message": "Selesai dan kedaluwarsa"
   },

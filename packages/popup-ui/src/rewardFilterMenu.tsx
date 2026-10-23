@@ -351,6 +351,7 @@ export function RewardFilterMenu({
       <Popover.Trigger
         ref={portalRef}
         data-reward-filter=""
+        data-tour="reward-filter"
         // The visible label names only the narrowing; the name says what it is.
         aria-label={`${t("rewardFilterTitle")}: ${label}`}
         {...(narrowed ? { "data-narrowed": "" } : {})}
