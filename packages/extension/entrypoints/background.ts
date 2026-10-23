@@ -45,6 +45,7 @@ import {
 } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
+import { armOnboardingForInstall } from "../src/core/onboarding";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
 import {
   appendActivityEvents,
@@ -556,6 +557,7 @@ export default defineBackground(() => {
     // Set-if-missing (rather than gating on reason === "install") also backfills
     // a sane date for users upgrading from a pre-nudge version.
     await controller.ensureInstalledAt();
+    await armOnboardingForInstall(details.reason);
 
     // On a meaningful update (major/minor — not a patch bugfix, not a fresh
     // install), queue a popup notice so returning users can choose to see

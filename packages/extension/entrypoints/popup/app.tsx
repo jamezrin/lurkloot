@@ -15,6 +15,7 @@ import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { SupportedLocale } from "@lurkloot/shared/models";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
+import { dismissPendingOnboarding, loadPendingOnboarding } from "../../src/core/onboarding";
 import {
   changelogUrl,
   dismissPendingChangelogVersion,
@@ -58,6 +59,8 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     getPendingChangelogVersion: loadPendingChangelogVersion,
     dismissPendingChangelogVersion,
     changelogUrl,
+    getPendingOnboarding: loadPendingOnboarding,
+    dismissPendingOnboarding,
     exportCredentials: (blob) => {
       // Download the credential blob the CLI's `login --import` consumes. The
       // popup is a normal extension page, so a Blob URL + anchor works without

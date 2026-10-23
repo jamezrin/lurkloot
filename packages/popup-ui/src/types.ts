@@ -231,6 +231,10 @@ export interface PopupAdapter {
   getPendingChangelogVersion?(): Promise<string | undefined>;
   dismissPendingChangelogVersion?(): Promise<void>;
   changelogUrl?(version: string): string;
+  // Optional first-run tour hooks. Demo/site hosts and the in-page panel omit
+  // these, which keeps the tour out of them.
+  getPendingOnboarding?(): Promise<boolean>;
+  dismissPendingOnboarding?(): Promise<void>;
   // Optional: download/persist an exported credential blob for the headless CLI.
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;

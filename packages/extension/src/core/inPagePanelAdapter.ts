@@ -21,6 +21,8 @@ import { createRuntimeRequestSender } from "./runtimeRequests";
 //   writeClipboard     Avoids a clipboard write reachable from a page surface.
 //   getPendingChangelogVersion / dismissPendingChangelogVersion / changelogUrl
 //                      Update notices belong to the toolbar popup.
+//   getPendingOnboarding / dismissPendingOnboarding
+//                      The first-run tour belongs to the toolbar popup.
 //   compatibilityRegistry / resolveCompatibility
 //                      Only the settings view needs these, and the panel is
 //                      read-mostly. Leaving them out keeps @lurkloot/core out
