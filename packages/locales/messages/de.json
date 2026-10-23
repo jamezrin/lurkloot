@@ -348,7 +348,13 @@
     "message": "So ist die Warteschlange sortiert"
   },
   "tourQueueOrderBody": {
-    "message": "Angeheftete Kampagnen kommen zuerst, dann deine Lieblingsspiele und alles Übrige nach der gewählten Strategie. Kampagnen für nicht verknüpfte Konten können zuletzt gefarmt werden."
+    "message": "Angeheftete Kampagnen kommen zuerst, dann deine Lieblingsspiele und der Rest in der Reihenfolge, die du unter Danach nach wählst. Klicke auf eine Kampagne, um sie aufzuklappen und Belohnungen und Fortschritt zu sehen oder sie anzuheften bzw. auszuschließen."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Wähle, was gefarmt wird"
+  },
+  "tourRewardFilterBody": {
+    "message": "Öffne Alle Belohnungen, um Belohnungstypen auszuwählen, festzulegen, was mit Kampagnen ohne verknüpftes Konto passiert, und ob nur angeheftete Kampagnen gefarmt werden."
   },
   "tourCompletedTitle": {
     "message": "Abgeschlossen und abgelaufen"
@@ -360,13 +366,13 @@
     "message": "Wähle deine Spiele"
   },
   "tourGamesBody": {
-    "message": "Wähle Alle Kategorien, um jedes Spiel außer den blockierten zu farmen, oder Nur ausgewählte, um nur die angekreuzten Spiele zu farmen. Markiere ein Spiel mit einem Stern, damit seine Kampagnen zuerst kommen."
+    "message": "Wähle Alle Kategorien, um jedes Spiel außer den blockierten zu farmen, oder Nur ausgewählte, um nur die angekreuzten Spiele zu farmen. Markiere ein Spiel mit einem Stern, damit seine Kampagnen zuerst kommen, oder blockiere es, damit es nie gefarmt wird."
   },
   "tourWatchlistTitle": {
     "message": "Ersatzliste"
   },
   "tourWatchlistBody": {
-    "message": "Wenn es keine Drops zu farmen gibt, schaut Lurkloot diese Kanäle, damit du weiter Kanalpunkte sammelst, die für dich eingelöst werden. Die Quellenpriorität in den Einstellungen bestimmt, wann sie geschaut werden."
+    "message": "Wenn es keine Drops zu farmen gibt, schaut Lurkloot diese Kanäle, damit du weiter Kanalpunkte auf Twitch und tägliche Belohnungen und Watch-Serie auf Kick sammelst. Die Quellenpriorität in den Einstellungen bestimmt, wann sie geschaut werden."
   },
   "tourExtensionsTitle": {
     "message": "Twitch-Erweiterungen"
@@ -396,13 +402,13 @@
     "message": "Nützliche Einstellungen"
   },
   "tourSettingsBody": {
-    "message": "Die Gruppe Drops enthält deine Strategie, das automatische Abholen und das Überspringen von Drops, die nicht rechtzeitig fertig werden. Darunter folgen Farming-Tabs, darüber Benachrichtigungen."
+    "message": "Lurkloot ist sehr anpassbar. Die Gruppe Drops enthält deine Strategie, das automatische Abholen und das Überspringen von Drops, die nicht rechtzeitig fertig werden, und die Suchleiste findet jede Einstellung schnell."
   },
   "tourDoneTitle": {
     "message": "Alles bereit! Los geht’s mit dem Farmen dieser Drops!"
   },
   "tourDoneBody": {
-    "message": "Melde dich in diesem Browser auf den offiziellen Websites bei Twitch oder Kick an. Lurkloot fragt nie nach deinen Zugangsdaten. Schalte dann die Plattform ein, auf der du farmen möchtest."
+    "message": "Melde dich in diesem Browser auf den offiziellen Websites bei Twitch oder Kick an. Lurkloot fragt nie nach deinen Zugangsdaten. Schalte dann die Plattform ein, auf der du farmen möchtest (oder beide)."
   },
   "tourFinish": {
     "message": "Los geht’s!"

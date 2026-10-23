@@ -348,7 +348,13 @@
     "message": "Sıra nasıl belirlenir"
   },
   "tourQueueOrderBody": {
-    "message": "Önce sabitlenen kampanyalar, sonra favori oyunların kampanyaları, ardından seçtiğin stratejiye göre diğer her şey gelir. Bağlantısız hesapların kampanyaları en sona bırakılabilir."
+    "message": "Önce sabitlenen kampanyalar, sonra favori oyunlar, ardından \"Sonra şuna göre\" altında seçtiğin sırayla diğer her şey gelir. Bir kampanyayı açıp ödüllerini ve ilerlemesini görebilir, sabitleyebilir veya dışarıda bırakabilirsin."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Neyi farmlayacağını seç"
+  },
+  "tourRewardFilterBody": {
+    "message": "\"Tüm ödüller\"i açarak hangi ödül türlerini farmlayacağını, hesap bağlantısı olmayan kampanyalarla ne yapılacağını ve yalnızca sabitlenmiş kampanyaların farmlanıp farmlanmayacağını seçebilirsin."
   },
   "tourCompletedTitle": {
     "message": "Tamamlanan ve süresi dolan"
@@ -360,13 +366,13 @@
     "message": "Oyunlarını seç"
   },
   "tourGamesBody": {
-    "message": "\"Tüm kategoriler\" seçersen engellediğin oyunlar dışındaki her oyun farmlanır, \"Yalnızca seçilenler\" seçersen yalnızca işaretlediğin oyunlar farmlanır. Bir oyunu yıldızlarsan kampanyaları öne geçer."
+    "message": "\"Tüm kategoriler\" seçersen engellediğin oyunlar dışındaki her oyun farmlanır, \"Yalnızca seçilenler\" seçersen yalnızca işaretlediğin oyunlar farmlanır. Bir oyunu yıldızlarsan kampanyaları öne geçer, engellersen hiç farmlanmaz."
   },
   "tourWatchlistTitle": {
     "message": "Yedek izleme listesi"
   },
   "tourWatchlistBody": {
-    "message": "Farmlanacak drop yokken Lurkloot bu kanalları izler; böylece kanal puanları kazanmaya devam edersin ve bunlar senin adına toplanır. Ayarlardaki izleme kaynağı önceliği, bunların ne zaman izleneceğini belirler."
+    "message": "Farmlanacak drop yokken Lurkloot bu kanalları izler; böylece Twitch'te kanal puanlarını, Kick'te ise günlük ödüllerini ve izleme serini kazanmaya devam edersin. Ayarlardaki izleme kaynağı önceliği, bunların ne zaman izleneceğini belirler."
   },
   "tourExtensionsTitle": {
     "message": "Twitch Eklentileri"
@@ -396,13 +402,13 @@
     "message": "Kullanışlı ayarlar"
   },
   "tourSettingsBody": {
-    "message": "Droplar grubunda stratejin, otomatik alma ve zamanında bitmeyecek dropları atlama ayarları var. Hemen altında Sekme Yönetimi, hemen üstünde Bildirimler yer alır."
+    "message": "Lurkloot oldukça yapılandırılabilir. Droplar grubunda stratejin, otomatik alma ve zamanında bitemeyecek dropları atlama ayarları var; arama çubuğu ise her ayarı hızlıca bulur."
   },
   "tourDoneTitle": {
     "message": "Hazırsın! Hadi bu dropları farmlayalım!"
   },
   "tourDoneBody": {
-    "message": "Bu tarayıcıda Twitch veya Kick'e resmi sitelerinden giriş yap. Lurkloot hiçbir zaman kimlik bilgilerini istemez. Ardından farmlamak istediğin platformu aç."
+    "message": "Bu tarayıcıda Twitch veya Kick'e resmi sitelerinden giriş yap. Lurkloot hiçbir zaman kimlik bilgilerini istemez. Ardından farmlamak istediğin platformu (veya ikisini) aç."
   },
   "tourFinish": {
     "message": "Hadi gidelim!"

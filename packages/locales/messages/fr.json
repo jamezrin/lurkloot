@@ -348,7 +348,13 @@
     "message": "Comment la file est ordonnée"
   },
   "tourQueueOrderBody": {
-    "message": "Les campagnes épinglées passent en premier, puis vos jeux favoris, puis tout le reste selon la stratégie choisie. Les campagnes des comptes non liés peuvent être farmées en dernier."
+    "message": "Les campagnes épinglées passent en premier, puis vos jeux favoris, puis le reste selon l'ordre choisi dans « Ensuite par ». Cliquez sur une campagne pour la développer et voir ses récompenses et sa progression, ou pour l'épingler ou l'exclure."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Choisissez ce que vous farmez"
+  },
+  "tourRewardFilterBody": {
+    "message": "Ouvrez « Toutes les récompenses » pour choisir les types de récompenses à farmer, ce qu'il faut faire des campagnes sans compte lié, et si vous voulez farmer uniquement les campagnes épinglées."
   },
   "tourCompletedTitle": {
     "message": "Terminées et expirées"
@@ -360,13 +366,13 @@
     "message": "Choisissez vos jeux"
   },
   "tourGamesBody": {
-    "message": "Choisissez Toutes les catégories pour farmer tous les jeux sauf ceux que vous bloquez, ou Uniquement les sélectionnées pour farmer seulement les jeux cochés. Mettez un jeu en favori pour placer ses campagnes en premier."
+    "message": "Choisissez « Toutes les catégories » pour farmer tous les jeux sauf ceux que vous bloquez, ou « Uniquement les sélectionnées » pour farmer seulement les jeux cochés. Mettez un jeu en favori pour placer ses campagnes en premier, ou bloquez-le pour qu'il ne soit jamais farmé."
   },
   "tourWatchlistTitle": {
     "message": "Liste d'attente"
   },
   "tourWatchlistBody": {
-    "message": "Quand il n'y a aucun drop à farmer, Lurkloot regarde ces chaînes pour que vous continuiez à gagner des points de chaîne, réclamés pour vous. La priorité des sources dans les Paramètres décide quand elles sont regardées."
+    "message": "Quand il n'y a aucun drop à farmer, Lurkloot regarde ces chaînes pour que vous continuiez à gagner des points de chaîne sur Twitch, ainsi que vos récompenses quotidiennes et votre série de visionnage sur Kick. La priorité des sources dans les Paramètres décide quand elles sont regardées."
   },
   "tourExtensionsTitle": {
     "message": "Extensions Twitch"
@@ -396,13 +402,13 @@
     "message": "Paramètres utiles"
   },
   "tourSettingsBody": {
-    "message": "Le groupe Drops regroupe votre stratégie, la réclamation automatique et l'ignorance des drops impossibles à finir à temps. Les onglets de farm sont juste en dessous, et les Notifications juste au-dessus."
+    "message": "Lurkloot est très configurable. Le groupe Drops regroupe votre stratégie, la réclamation automatique et l'ignorance des drops qui ne peuvent pas se terminer à temps, et la barre de recherche trouve rapidement n'importe quel paramètre."
   },
   "tourDoneTitle": {
     "message": "C'est parti ! Farmons ces drops !"
   },
   "tourDoneBody": {
-    "message": "Connectez-vous à Twitch ou Kick sur leurs sites officiels dans ce navigateur. Lurkloot ne vous demande jamais vos identifiants. Activez ensuite la plateforme que vous voulez farmer."
+    "message": "Connectez-vous à Twitch ou Kick sur leurs sites officiels dans ce navigateur. Lurkloot ne vous demande jamais vos identifiants. Activez ensuite la plateforme que vous voulez farmer (ou les deux)."
   },
   "tourFinish": {
     "message": "Allons-y !"

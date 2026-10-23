@@ -348,7 +348,13 @@
     "message": "Come è ordinata la coda"
   },
   "tourQueueOrderBody": {
-    "message": "Prima le campagne fissate, poi i giochi preferiti, poi tutto il resto secondo la strategia scelta. Le campagne per account non collegati possono essere farmate per ultime."
+    "message": "Prima le campagne fissate, poi i giochi preferiti, poi tutto il resto nell'ordine scelto in «Poi per». Fai clic su una campagna per espanderla e vedere ricompense e progressi, oppure per fissarla o escluderla."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Scegli cosa farmare"
+  },
+  "tourRewardFilterBody": {
+    "message": "Apri «Tutte le ricompense» per scegliere quali tipi di ricompensa farmare, cosa fare delle campagne senza account collegato e se farmare solo le campagne fissate."
   },
   "tourCompletedTitle": {
     "message": "Completate e scadute"
@@ -360,13 +366,13 @@
     "message": "Scegli i tuoi giochi"
   },
   "tourGamesBody": {
-    "message": "Scegli Tutte le categorie per farmare tutti i giochi tranne quelli che blocchi, oppure Solo le selezionate per farmare solo i giochi che spunti. Metti una stella a un gioco per portarne in alto le campagne."
+    "message": "Scegli «Tutte le categorie» per farmare tutti i giochi tranne quelli che blocchi, oppure «Solo le selezionate» per farmare solo i giochi che spunti. Metti una stella a un gioco per portarne in alto le campagne, o bloccalo per non farmarlo mai."
   },
   "tourWatchlistTitle": {
     "message": "Lista di riserva"
   },
   "tourWatchlistBody": {
-    "message": "Quando non ci sono drop da farmare, Lurkloot guarda questi canali così continui a guadagnare punti canale, riscossi per te. La priorità delle fonti nelle Impostazioni decide quando vengono guardati."
+    "message": "Quando non ci sono drop da farmare, Lurkloot guarda questi canali così continui a guadagnare punti canale su Twitch e ricompense giornaliere e serie di visione su Kick. La priorità delle fonti nelle Impostazioni decide quando vengono guardati."
   },
   "tourExtensionsTitle": {
     "message": "Estensioni Twitch"
@@ -396,13 +402,13 @@
     "message": "Impostazioni utili"
   },
   "tourSettingsBody": {
-    "message": "Il gruppo Drop contiene la strategia, il riscatto automatico e il salto dei drop che non possono finire in tempo. Subito sotto ci sono le Schede di farming, e subito sopra le Notifiche."
+    "message": "Lurkloot è molto configurabile. Il gruppo Drop contiene la strategia, il riscatto automatico e il salto dei drop che non possono finire in tempo, e la barra di ricerca trova rapidamente qualsiasi impostazione."
   },
   "tourDoneTitle": {
     "message": "Sei pronto! Farmiamo questi drop!"
   },
   "tourDoneBody": {
-    "message": "Accedi a Twitch o Kick sui loro siti ufficiali in questo browser. Lurkloot non ti chiede mai le credenziali. Poi attiva la piattaforma su cui vuoi farmare."
+    "message": "Accedi a Twitch o Kick sui loro siti ufficiali in questo browser. Lurkloot non ti chiede mai le credenziali. Poi attiva la piattaforma su cui vuoi farmare (o entrambe)."
   },
   "tourFinish": {
     "message": "Andiamo!"

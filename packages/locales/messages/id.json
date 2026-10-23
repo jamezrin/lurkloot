@@ -348,7 +348,13 @@
     "message": "Cara antrean diurutkan"
   },
   "tourQueueOrderBody": {
-    "message": "Kampanye yang disematkan tampil pertama, lalu game favorit, lalu sisanya sesuai strategi yang Anda pilih. Kampanye untuk akun tanpa tautan bisa di-farm paling akhir."
+    "message": "Kampanye yang disematkan tampil pertama, lalu game favorit, lalu sisanya sesuai urutan yang Anda pilih di bawah \"Lalu menurut\". Klik sebuah kampanye untuk membukanya dan melihat hadiah serta progresnya, atau untuk menyematkan atau mengecualikannya."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Pilih yang akan di-farm"
+  },
+  "tourRewardFilterBody": {
+    "message": "Buka \"Semua hadiah\" untuk memilih jenis hadiah yang di-farm, apa yang dilakukan pada kampanye tanpa akun tertaut, dan apakah hanya kampanye yang disematkan yang di-farm."
   },
   "tourCompletedTitle": {
     "message": "Selesai dan kedaluwarsa"
@@ -360,13 +366,13 @@
     "message": "Pilih game Anda"
   },
   "tourGamesBody": {
-    "message": "Pilih Semua kategori untuk memfarm setiap game kecuali yang Anda blokir, atau Hanya yang dipilih untuk memfarm hanya game yang Anda centang. Beri bintang pada game agar kampanyenya tampil lebih dulu."
+    "message": "Pilih \"Semua kategori\" untuk memfarm setiap game kecuali yang Anda blokir, atau \"Hanya yang dipilih\" untuk memfarm hanya game yang Anda centang. Beri bintang pada game agar kampanyenya tampil lebih dulu, atau blokir agar tidak pernah di-farm."
   },
   "tourWatchlistTitle": {
     "message": "Idle Watchlist"
   },
   "tourWatchlistBody": {
-    "message": "Saat tidak ada drop untuk di-farm, Lurkloot menonton saluran ini agar Anda tetap mendapat poin saluran, yang diklaim untuk Anda. Prioritas sumber tontonan di Pengaturan menentukan kapan saluran ditonton."
+    "message": "Saat tidak ada drop untuk di-farm, Lurkloot menonton saluran ini agar Anda terus mendapat poin saluran di Twitch, serta hadiah harian dan streak tonton di Kick. Prioritas sumber tontonan di Pengaturan menentukan kapan saluran ditonton."
   },
   "tourExtensionsTitle": {
     "message": "Ekstensi Twitch"
@@ -396,13 +402,13 @@
     "message": "Pengaturan yang berguna"
   },
   "tourSettingsBody": {
-    "message": "Grup Drops memuat strategi, klaim otomatis, dan melewati drop yang tidak bisa selesai tepat waktu. Tepat di bawahnya ada Tab farming, dan tepat di atasnya Notifikasi."
+    "message": "Lurkloot sangat bisa dikonfigurasi. Grup Drops memuat strategi, klaim otomatis, dan melewati drop yang tidak bisa selesai tepat waktu, serta kolom pencarian menemukan pengaturan apa pun dengan cepat."
   },
   "tourDoneTitle": {
     "message": "Siap! Mari farm drop ini!"
   },
   "tourDoneBody": {
-    "message": "Masuk ke Twitch atau Kick lewat situs resminya di browser ini. Lurkloot tidak pernah meminta kredensial Anda. Lalu aktifkan platform yang ingin Anda farm."
+    "message": "Masuk ke Twitch atau Kick lewat situs resminya di browser ini. Lurkloot tidak pernah meminta kredensial Anda. Lalu aktifkan platform yang ingin Anda farm (atau keduanya)."
   },
   "tourFinish": {
     "message": "Ayo mulai!"

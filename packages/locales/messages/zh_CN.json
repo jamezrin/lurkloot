@@ -348,7 +348,13 @@
     "message": "队列的排序方式"
   },
   "tourQueueOrderBody": {
-    "message": "先是已置顶的活动，然后是收藏的游戏，其余活动按你选择的策略排列。未关联账号的活动可以放在最后挂机。"
+    "message": "先是已置顶的活动，然后是收藏的游戏，其余活动按你在“然后按”下选择的顺序排列。点击某个活动可展开查看其奖励和进度，或将其置顶或排除。"
+  },
+  "tourRewardFilterTitle": {
+    "message": "选择要挂机的内容"
+  },
+  "tourRewardFilterBody": {
+    "message": "打开“所有奖励”，可选择要挂机的奖励类型、如何处理未关联账号的活动，以及是否只挂机已置顶的活动。"
   },
   "tourCompletedTitle": {
     "message": "已完成与已过期"
@@ -360,13 +366,13 @@
     "message": "选择游戏"
   },
   "tourGamesBody": {
-    "message": "选择“所有分类”会挂机你屏蔽之外的所有游戏，选择“仅所选分类”则只挂机你勾选的游戏。收藏某个游戏，可将其活动排在最前。"
+    "message": "选择“所有分类”会挂机你屏蔽之外的所有游戏，选择“仅所选分类”则只挂机你勾选的游戏。收藏某个游戏可将其活动排在最前，屏蔽则让它永远不会被挂机。"
   },
   "tourWatchlistTitle": {
     "message": "空闲观看列表"
   },
   "tourWatchlistBody": {
-    "message": "没有可挂机的掉宝时，Lurkloot 会观看这些频道，让你继续赚取频道点数，并由它为你领取。设置中的观看来源优先级决定何时观看它们。"
+    "message": "没有可挂机的掉宝时，Lurkloot 会观看这些频道，让你在 Twitch 上继续赚取频道点数，在 Kick 上继续获得每日奖励和观看连续天数。设置中的观看来源优先级决定何时观看它们。"
   },
   "tourExtensionsTitle": {
     "message": "Twitch 扩展"
@@ -396,13 +402,13 @@
     "message": "实用设置"
   },
   "tourSettingsBody": {
-    "message": "“掉宝”分组包含你的策略、自动领取，以及跳过无法及时完成的掉宝。“挂机标签页”在它的正下方，“通知”在它的正上方。"
+    "message": "Lurkloot 高度可配置。“掉宝”分组包含你的策略、自动领取，以及跳过无法及时完成的掉宝；搜索栏可以快速找到任何设置。"
   },
   "tourDoneTitle": {
     "message": "准备就绪！开始挂这些掉宝吧！"
   },
   "tourDoneBody": {
-    "message": "请在此浏览器中通过 Twitch 或 Kick 官网登录。Lurkloot 从不索要你的凭据。然后开启你想挂机的平台。"
+    "message": "请在此浏览器中通过 Twitch 或 Kick 官网登录。Lurkloot 从不索要你的凭据。然后开启你想挂机的平台（或两者都开）。"
   },
   "tourFinish": {
     "message": "出发！"

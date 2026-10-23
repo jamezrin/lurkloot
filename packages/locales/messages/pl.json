@@ -348,7 +348,13 @@
     "message": "Jak uporządkowana jest kolejka"
   },
   "tourQueueOrderBody": {
-    "message": "Najpierw idą przypięte kampanie, potem ulubione gry, a reszta według wybranej strategii. Kampanie dla niepołączonych kont mogą być farmione na końcu."
+    "message": "Najpierw idą przypięte kampanie, potem ulubione gry, a reszta w kolejności wybranej w „Następnie według”. Kliknij kampanię, aby ją rozwinąć i zobaczyć nagrody oraz postęp, albo aby ją przypiąć lub wykluczyć."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Wybierz, co farmić"
+  },
+  "tourRewardFilterBody": {
+    "message": "Otwórz „Wszystkie nagrody”, aby wybrać typy nagród do farmienia, sposób postępowania z kampaniami bez połączonego konta oraz to, czy farmić wyłącznie przypięte kampanie."
   },
   "tourCompletedTitle": {
     "message": "Ukończone i wygasłe"
@@ -360,13 +366,13 @@
     "message": "Wybierz swoje gry"
   },
   "tourGamesBody": {
-    "message": "Wybierz „Wszystkie kategorie”, aby farmić każdą grę oprócz zablokowanych, lub „Tylko wybrane”, aby farmić wyłącznie zaznaczone gry. Oznacz grę gwiazdką, aby jej kampanie były na początku."
+    "message": "Wybierz „Wszystkie kategorie”, aby farmić każdą grę oprócz zablokowanych, lub „Tylko wybrane”, aby farmić wyłącznie zaznaczone gry. Oznacz grę gwiazdką, aby jej kampanie były na początku, albo ją zablokuj, aby nigdy nie była farmiona."
   },
   "tourWatchlistTitle": {
     "message": "Lista zapasowa"
   },
   "tourWatchlistBody": {
-    "message": "Gdy nie ma dropów do farmienia, Lurkloot ogląda te kanały, abyś nadal zdobywał punkty kanału, które zostaną odebrane za Ciebie. O tym, kiedy są oglądane, decyduje priorytet źródeł oglądania w Ustawieniach."
+    "message": "Gdy nie ma dropów do farmienia, Lurkloot ogląda te kanały, abyś nadal zdobywał punkty kanału na Twitchu oraz codzienne nagrody i serię oglądania na Kicku. O tym, kiedy są oglądane, decyduje priorytet źródeł oglądania w Ustawieniach."
   },
   "tourExtensionsTitle": {
     "message": "Rozszerzenia Twitcha"
@@ -396,13 +402,13 @@
     "message": "Przydatne ustawienia"
   },
   "tourSettingsBody": {
-    "message": "Grupa Drops zawiera strategię, automatyczne odbieranie oraz pomijanie dropów, których nie da się ukończyć na czas. Tuż pod nią są Karty farmienia, a tuż nad nią Powiadomienia."
+    "message": "Lurkloot można bardzo dokładnie dostosować. Grupa Drops zawiera strategię, automatyczne odbieranie oraz pomijanie dropów, których nie da się ukończyć na czas, a pasek wyszukiwania znajdzie każde ustawienie w mgnieniu oka."
   },
   "tourDoneTitle": {
     "message": "Gotowe! Zabierajmy się za farmienie tych dropów!"
   },
   "tourDoneBody": {
-    "message": "Zaloguj się do Twitcha lub Kicka na ich oficjalnych stronach w tej przeglądarce. Lurkloot nigdy nie prosi o dane logowania. Następnie włącz platformę, na której chcesz farmić."
+    "message": "Zaloguj się do Twitcha lub Kicka na ich oficjalnych stronach w tej przeglądarce. Lurkloot nigdy nie prosi o dane logowania. Następnie włącz platformę, na której chcesz farmić (lub obie)."
   },
   "tourFinish": {
     "message": "Jazda!"

@@ -348,7 +348,13 @@
     "message": "Como a fila é ordenada"
   },
   "tourQueueOrderBody": {
-    "message": "As campanhas fixadas vêm primeiro, depois os seus jogos favoritos e, por fim, todo o resto pela estratégia escolhida. Campanhas de contas sem vínculo podem ser farmadas por último."
+    "message": "As campanhas fixadas vêm primeiro, depois os seus jogos favoritos e, por fim, todo o resto na ordem que você escolher em \"Depois por\". Clique em uma campanha para expandi-la e ver as recompensas e o progresso, ou para fixá-la ou excluí-la."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Escolha o que farmar"
+  },
+  "tourRewardFilterBody": {
+    "message": "Abra \"Todas as recompensas\" para escolher quais tipos de recompensa farmar, o que fazer com campanhas sem conta vinculada e se deve farmar apenas as campanhas fixadas."
   },
   "tourCompletedTitle": {
     "message": "Concluídas e expiradas"
@@ -360,13 +366,13 @@
     "message": "Escolha seus jogos"
   },
   "tourGamesBody": {
-    "message": "Escolha \"Todas as categorias\" para farmar todos os jogos, exceto os que você bloqueia, ou \"Apenas as selecionadas\" para farmar só os jogos que você marcar. Marque um jogo com estrela para colocar as campanhas dele primeiro."
+    "message": "Escolha \"Todas as categorias\" para farmar todos os jogos, exceto os que você bloqueia, ou \"Apenas as selecionadas\" para farmar só os jogos que você marcar. Marque um jogo com estrela para colocar as campanhas dele primeiro, ou bloqueie-o para que nunca seja farmado."
   },
   "tourWatchlistTitle": {
     "message": "Lista de reserva"
   },
   "tourWatchlistBody": {
-    "message": "Quando não há drops para farmar, o Lurkloot assiste a estes canais para você continuar ganhando pontos de canal, resgatados por ele. A prioridade das fontes de visualização nas Configurações define quando eles são assistidos."
+    "message": "Quando não há drops para farmar, o Lurkloot assiste a estes canais para você continuar ganhando pontos de canal na Twitch e recompensas diárias e sequência de visualização na Kick. A prioridade das fontes de visualização nas Configurações define quando eles são assistidos."
   },
   "tourExtensionsTitle": {
     "message": "Extensões da Twitch"
@@ -396,13 +402,13 @@
     "message": "Configurações úteis"
   },
   "tourSettingsBody": {
-    "message": "O grupo Drops reúne sua estratégia, o resgate automático e o pulo de drops que não dá para concluir a tempo. Logo abaixo dele ficam as Abas de farming, e logo acima, as Notificações."
+    "message": "O Lurkloot é altamente configurável. O grupo Drops reúne sua estratégia, o resgate automático e o pulo de drops que não dá para concluir a tempo, e a barra de pesquisa encontra qualquer configuração rapidamente."
   },
   "tourDoneTitle": {
     "message": "Tudo pronto! Vamos farmar esses drops!"
   },
   "tourDoneBody": {
-    "message": "Entre na Twitch ou na Kick pelos sites oficiais neste navegador. O Lurkloot nunca pede suas credenciais. Depois, ative a plataforma que você quer farmar."
+    "message": "Entre na Twitch ou na Kick pelos sites oficiais neste navegador. O Lurkloot nunca pede suas credenciais. Depois, ative a plataforma que você quer farmar (ou as duas)."
   },
   "tourFinish": {
     "message": "Vamos lá!"

@@ -348,7 +348,13 @@
     "message": "Jak je fronta seřazena"
   },
   "tourQueueOrderBody": {
-    "message": "Nejprve jdou připnuté kampaně, potom vaše oblíbené hry a zbytek podle zvolené strategie. Kampaně pro nepropojené účty se mohou farmit naposledy."
+    "message": "Nejprve jdou připnuté kampaně, potom vaše oblíbené hry a zbytek v pořadí, které zvolíte pod položkou Poté podle. Kliknutím na kampaň ji rozbalíte a zobrazíte odměny a postup, nebo ji připnete či vyloučíte."
+  },
+  "tourRewardFilterTitle": {
+    "message": "Vyberte, co farmit"
+  },
+  "tourRewardFilterBody": {
+    "message": "Otevřete Všechny odměny a vyberte, které typy odměn farmit, co dělat s kampaněmi bez propojeného účtu a zda farmit jen připnuté kampaně."
   },
   "tourCompletedTitle": {
     "message": "Dokončené a vypršelé"
@@ -360,13 +366,13 @@
     "message": "Vyberte si hry"
   },
   "tourGamesBody": {
-    "message": "Vyberte Všechny kategorie a farmí se každá hra kromě těch, které zablokujete, nebo Jen vybrané a farmí se jen hry, které zaškrtnete. Hvězdičkou označte hru, aby se její kampaně zařadily nahoru."
+    "message": "Vyberte Všechny kategorie a farmí se každá hra kromě těch, které zablokujete, nebo Jen vybrané a farmí se jen hry, které zaškrtnete. Hvězdičkou označte hru, aby se její kampaně zařadily nahoru, nebo ji zablokujte, aby se nikdy nefarmila."
   },
   "tourWatchlistTitle": {
     "message": "Záložní seznam"
   },
   "tourWatchlistBody": {
-    "message": "Když nejsou žádné drops k farmení, Lurkloot sleduje tyto kanály, abyste dál získávali body kanálu, které se za vás vyzvednou. Priorita zdrojů sledování v Nastavení určuje, kdy se sledují."
+    "message": "Když nejsou žádné drops k farmení, Lurkloot sleduje tyto kanály, takže na Twitchi dál získáváte body kanálu a na Kicku denní odměny a sérii sledování. Priorita zdrojů sledování v Nastavení určuje, kdy se sledují."
   },
   "tourExtensionsTitle": {
     "message": "Twitch Extensions"
@@ -396,13 +402,13 @@
     "message": "Užitečná nastavení"
   },
   "tourSettingsBody": {
-    "message": "Skupina Drops obsahuje vaši strategii, automatické vyzvedávání a přeskakování drops, které nestihnou skončit včas. Hned pod ní jsou Záložky pro farmení a nad ní Oznámení."
+    "message": "Lurklootu lze hodně přizpůsobit. Skupina Drops obsahuje vaši strategii, automatické vyzvedávání a přeskakování drops, které nestihnou skončit včas, a vyhledávací pole najde jakékoli nastavení rychle."
   },
   "tourDoneTitle": {
     "message": "Hotovo! Pojďme farmit tyto drops!"
   },
   "tourDoneBody": {
-    "message": "Přihlaste se na Twitch nebo Kick na jejich oficiálních webech v tomto prohlížeči. Lurkloot nikdy nežádá o přihlašovací údaje. Pak zapněte platformu, na které chcete farmit."
+    "message": "Přihlaste se na Twitch nebo Kick na jejich oficiálních webech v tomto prohlížeči. Lurkloot nikdy nežádá o přihlašovací údaje. Pak zapněte platformu, na které chcete farmit (nebo obě)."
   },
   "tourFinish": {
     "message": "Jdeme na to!"

@@ -348,7 +348,13 @@
     "message": "대기열 정렬 방식"
   },
   "tourQueueOrderBody": {
-    "message": "고정된 캠페인이 가장 먼저 오고, 그다음 즐겨찾는 게임, 나머지는 선택한 기준에 따라 정렬됩니다. 연결되지 않은 계정의 캠페인은 맨 마지막에 파밍할 수 있습니다."
+    "message": "고정된 캠페인이 가장 먼저 오고, 그다음 즐겨찾는 게임, 나머지는 \"그다음 기준\"에서 고른 순서대로 정렬됩니다. 캠페인을 클릭하면 펼쳐서 보상과 진행 상황을 보거나, 고정 또는 제외할 수 있습니다."
+  },
+  "tourRewardFilterTitle": {
+    "message": "파밍할 항목 선택"
+  },
+  "tourRewardFilterBody": {
+    "message": "\"모든 보상\"을 열어 파밍할 보상 유형, 연결되지 않은 계정의 캠페인 처리 방식, 고정된 캠페인만 파밍할지 여부를 선택하세요."
   },
   "tourCompletedTitle": {
     "message": "완료 및 만료"
@@ -360,13 +366,13 @@
     "message": "게임 고르기"
   },
   "tourGamesBody": {
-    "message": "\"모든 카테고리\"를 고르면 차단한 게임을 제외한 모든 게임을 파밍하고, \"선택한 항목만\"을 고르면 체크한 게임만 파밍합니다. 게임에 별표를 누르면 그 캠페인이 먼저 옵니다."
+    "message": "\"모든 카테고리\"를 고르면 차단한 게임을 제외한 모든 게임을 파밍하고, \"선택한 항목만\"을 고르면 체크한 게임만 파밍합니다. 게임에 별표를 누르면 그 캠페인이 먼저 오고, 차단하면 해당 게임은 절대 파밍하지 않습니다."
   },
   "tourWatchlistTitle": {
     "message": "Idle Watchlist"
   },
   "tourWatchlistBody": {
-    "message": "파밍할 Drops가 없을 때 Lurkloot은 이 채널들을 시청해 채널 포인트를 계속 적립하며, 그 포인트는 대신 받아집니다. 언제 시청할지는 설정의 시청 소스 우선순위에 따라 정해집니다."
+    "message": "파밍할 Drops가 없을 때 Lurkloot은 이 채널들을 시청해 Twitch에서는 채널 포인트를, Kick에서는 일일 보상과 시청 연속 기록을 계속 쌓습니다. 언제 시청할지는 설정의 시청 소스 우선순위에 따라 정해집니다."
   },
   "tourExtensionsTitle": {
     "message": "Twitch 익스텐션"
@@ -396,13 +402,13 @@
     "message": "유용한 설정"
   },
   "tourSettingsBody": {
-    "message": "Drops 그룹에는 전략, 자동 수령, 제때 끝낼 수 없는 Drops 건너뛰기 설정이 있습니다. 그 바로 아래에 파밍 탭이 있고, 바로 위에 알림이 있습니다."
+    "message": "Lurkloot은 세부 설정이 가능합니다. Drops 그룹에는 전략, 자동 수령, 제때 끝낼 수 없는 Drops 건너뛰기 설정이 있고, 검색창에서 어떤 설정이든 빠르게 찾을 수 있습니다."
   },
   "tourDoneTitle": {
     "message": "준비 완료! 이제 Drops를 파밍해 볼까요!"
   },
   "tourDoneBody": {
-    "message": "이 브라우저에서 Twitch 또는 Kick 공식 웹사이트에 로그인하세요. Lurkloot은 절대 자격 증명을 요구하지 않습니다. 그다음 파밍하고 싶은 플랫폼을 켜세요."
+    "message": "이 브라우저에서 Twitch 또는 Kick 공식 웹사이트에 로그인하세요. Lurkloot은 절대 자격 증명을 요구하지 않습니다. 그다음 파밍하고 싶은 플랫폼(또는 둘 다)을 켜세요."
   },
   "tourFinish": {
     "message": "시작하자!"
