@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "Leggi la guida alle traduzioni"
   },
+  "tourWelcomeTitle": {
+    "message": "Benvenuto in Lurkloot"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot farma i drop di Twitch e Kick per te in background. Vuoi una rapida panoramica su come funziona?"
+  },
+  "tourStart": {
+    "message": "Mostrami come funziona"
+  },
+  "tourSkip": {
+    "message": "Salta"
+  },
+  "tourNext": {
+    "message": "Avanti"
+  },
+  "tourBack": {
+    "message": "Indietro"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "Sempre in vista"
+  },
+  "tourStatusStripBody": {
+    "message": "Questa barra mostra cosa viene farmato in questo momento e su quale canale. L'interruttore avvia o ferma il farming su questa piattaforma."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch e Kick"
+  },
+  "tourPlatformBody": {
+    "message": "Cambia piattaforma qui. Ognuna ha la propria coda, i giochi e la lista di riserva."
+  },
+  "tourQueueOrderTitle": {
+    "message": "Come è ordinata la coda"
+  },
+  "tourQueueOrderBody": {
+    "message": "Prima le campagne fissate, poi i giochi preferiti, poi tutto il resto secondo la strategia scelta. Le campagne per account non collegati possono essere farmate per ultime."
+  },
+  "tourQueueControlsTitle": {
+    "message": "Personalizzala"
+  },
+  "tourQueueControlsBody": {
+    "message": "Fissa una campagna e trascina i pin per riordinarli. Sotto Poi per scegli Scadenza più vicina o Bassa disponibilità prima. Escludi una campagna: passa in Saltate, dove puoi rimetterla."
+  },
+  "tourCompletedTitle": {
+    "message": "Completate e scadute"
+  },
+  "tourCompletedBody": {
+    "message": "Le campagne completate hanno tutte le ricompense riscosse. Quelle scadute sono finite prima di essere completate."
+  },
+  "tourGamesTitle": {
+    "message": "Scegli i tuoi giochi"
+  },
+  "tourGamesBody": {
+    "message": "Scegli Tutte le categorie per farmare tutti i giochi tranne quelli che blocchi, oppure Solo le selezionate per farmare solo i giochi che spunti. Metti una stella a un gioco per portarne in alto le campagne."
+  },
+  "tourWatchlistTitle": {
+    "message": "Lista di riserva"
+  },
+  "tourWatchlistBody": {
+    "message": "Quando non ci sono drop da farmare, Lurkloot guarda questi canali così continui a guadagnare punti canale, riscossi per te. La priorità delle fonti nelle Impostazioni decide quando vengono guardati."
+  },
+  "tourExtensionsTitle": {
+    "message": "Estensioni Twitch"
+  },
+  "tourExtensionsBody": {
+    "message": "Alcuni giochi distribuiscono ricompense tramite le Estensioni Twitch, come NoPixel e Fortnite. Attiva ciascuna per farmare anche quelle."
+  },
+  "tourKickProgressTitle": {
+    "message": "Il tuo livello Kick"
+  },
+  "tourKickProgressBody": {
+    "message": "Su Kick, questa pillola mostra il tuo livello spettatore, quanto manchi al successivo e la tua serie di visione giornaliera."
+  },
+  "tourKickChallengesTitle": {
+    "message": "Sfide giornaliere"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot può riscuotere per te le ricompense delle sfide giornaliere di Kick. Attivale o disattivale qui."
+  },
+  "tourActivityTitle": {
+    "message": "Cosa ha fatto Lurkloot"
+  },
+  "tourActivityBody": {
+    "message": "Attività elenca ogni riscossione, cambio di canale e campagna completata, così puoi vedere cosa è successo mentre eri via."
+  },
+  "tourSettingsTitle": {
+    "message": "Impostazioni utili"
+  },
+  "tourSettingsBody": {
+    "message": "Il gruppo Drop contiene la strategia, il riscatto automatico e il salto dei drop che non possono finire in tempo. Schede di farming e Notifiche sono subito sotto."
+  },
+  "tourDoneTitle": {
+    "message": "Sei pronto! Farmiamo questi drop!"
+  },
+  "tourDoneBody": {
+    "message": "Accedi a Twitch o Kick sui loro siti ufficiali in questo browser. Lurkloot non ti chiede mai le credenziali. Poi attiva la piattaforma su cui vuoi farmare."
+  },
+  "tourFinish": {
+    "message": "Andiamo!"
+  },
   "noCampaigns": {
     "message": "Nessuna campagna scoperta finora."
   },

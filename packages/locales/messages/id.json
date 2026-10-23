@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "Baca panduan terjemahan"
   },
+  "tourWelcomeTitle": {
+    "message": "Selamat datang di Lurkloot"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot memfarm drop Twitch dan Kick untuk Anda di latar belakang. Mau lihat sekilas cara kerjanya?"
+  },
+  "tourStart": {
+    "message": "Tunjukkan"
+  },
+  "tourSkip": {
+    "message": "Lewati"
+  },
+  "tourNext": {
+    "message": "Berikutnya"
+  },
+  "tourBack": {
+    "message": "Kembali"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "Selalu terlihat"
+  },
+  "tourStatusStripBody": {
+    "message": "Bilah ini menampilkan apa yang sedang di-farm dan di saluran mana. Sakelar memulai atau menghentikan farming di platform ini."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch dan Kick"
+  },
+  "tourPlatformBody": {
+    "message": "Ganti platform di sini. Masing-masing punya antrean, game, dan watchlist sendiri."
+  },
+  "tourQueueOrderTitle": {
+    "message": "Cara antrean diurutkan"
+  },
+  "tourQueueOrderBody": {
+    "message": "Kampanye yang disematkan tampil pertama, lalu game favorit, lalu sisanya sesuai strategi yang Anda pilih. Kampanye untuk akun tanpa tautan bisa di-farm paling akhir."
+  },
+  "tourQueueControlsTitle": {
+    "message": "Sesuaikan sendiri"
+  },
+  "tourQueueControlsBody": {
+    "message": "Sematkan kampanye dan seret sematan untuk mengurutkan ulang. Di bawah Lalu menurut, pilih Paling cepat berakhir atau Ketersediaan rendah dulu. Kecualikan kampanye dan ia pindah ke Dilewati, tempat Anda bisa mengembalikannya."
+  },
+  "tourCompletedTitle": {
+    "message": "Selesai dan kedaluwarsa"
+  },
+  "tourCompletedBody": {
+    "message": "Kampanye yang selesai sudah mengklaim semua hadiahnya. Yang kedaluwarsa berakhir sebelum sempat diselesaikan."
+  },
+  "tourGamesTitle": {
+    "message": "Pilih game Anda"
+  },
+  "tourGamesBody": {
+    "message": "Pilih Semua kategori untuk memfarm setiap game kecuali yang Anda blokir, atau Hanya yang dipilih untuk memfarm hanya game yang Anda centang. Beri bintang pada game agar kampanyenya tampil lebih dulu."
+  },
+  "tourWatchlistTitle": {
+    "message": "Idle Watchlist"
+  },
+  "tourWatchlistBody": {
+    "message": "Saat tidak ada drop untuk di-farm, Lurkloot menonton saluran ini agar Anda tetap mendapat poin saluran, yang diklaim untuk Anda. Prioritas sumber tontonan di Pengaturan menentukan kapan saluran ditonton."
+  },
+  "tourExtensionsTitle": {
+    "message": "Ekstensi Twitch"
+  },
+  "tourExtensionsBody": {
+    "message": "Beberapa game membagikan hadiah lewat Ekstensi Twitch, seperti NoPixel dan Fortnite. Aktifkan masing-masing untuk memfarm hadiah itu juga."
+  },
+  "tourKickProgressTitle": {
+    "message": "Level Kick Anda"
+  },
+  "tourKickProgressBody": {
+    "message": "Di Kick, pil ini menampilkan level penonton Anda, seberapa dekat ke level berikutnya, dan rentetan tontonan harian Anda."
+  },
+  "tourKickChallengesTitle": {
+    "message": "Tantangan harian"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot bisa mengklaim hadiah tantangan harian Kick untuk Anda. Aktifkan atau nonaktifkan di sini."
+  },
+  "tourActivityTitle": {
+    "message": "Apa yang dilakukan Lurkloot"
+  },
+  "tourActivityBody": {
+    "message": "Aktivitas mencatat setiap klaim, pergantian saluran, dan kampanye yang selesai, supaya Anda bisa melihat apa yang terjadi saat Anda pergi."
+  },
+  "tourSettingsTitle": {
+    "message": "Pengaturan yang berguna"
+  },
+  "tourSettingsBody": {
+    "message": "Grup Drops memuat strategi, klaim otomatis, dan melewati drop yang tidak bisa selesai tepat waktu. Tab farming dan Notifikasi ada tepat di bawahnya."
+  },
+  "tourDoneTitle": {
+    "message": "Siap! Mari farm drop ini!"
+  },
+  "tourDoneBody": {
+    "message": "Masuk ke Twitch atau Kick lewat situs resminya di browser ini. Lurkloot tidak pernah meminta kredensial Anda. Lalu aktifkan platform yang ingin Anda farm."
+  },
+  "tourFinish": {
+    "message": "Ayo mulai!"
+  },
   "noCampaigns": {
     "message": "Belum ada kampanye yang ditemukan."
   },

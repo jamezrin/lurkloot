@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "اقرأ دليل الترجمة"
   },
+  "tourWelcomeTitle": {
+    "message": "مرحبًا بك في Lurkloot"
+  },
+  "tourWelcomeBody": {
+    "message": "يفارم Lurkloot جوائز Twitch وKick لك في الخلفية. هل تريد نظرة سريعة على طريقة عمله؟"
+  },
+  "tourStart": {
+    "message": "أرني كيف يعمل"
+  },
+  "tourSkip": {
+    "message": "تخطّي"
+  },
+  "tourNext": {
+    "message": "التالي"
+  },
+  "tourBack": {
+    "message": "السابق"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "دائمًا في الواجهة"
+  },
+  "tourStatusStripBody": {
+    "message": "يعرض هذا الشريط ما يُفارَم الآن وعلى أي قناة. ويبدأ المفتاح الفارم على هذه المنصة أو يوقفه."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch وKick"
+  },
+  "tourPlatformBody": {
+    "message": "بدّل بين المنصات من هنا. لكل منصة قائمة انتظار وألعاب وقائمة مشاهدة خاصة بها."
+  },
+  "tourQueueOrderTitle": {
+    "message": "كيف تُرتَّب قائمة الانتظار"
+  },
+  "tourQueueOrderBody": {
+    "message": "تأتي الحملات المثبتة أولًا، ثم ألعابك المفضلة، ثم بقية الحملات حسب الاستراتيجية التي تختارها. ويمكن أن تُفارَم حملات الحسابات غير المرتبطة في النهاية."
+  },
+  "tourQueueControlsTitle": {
+    "message": "اجعلها على هواك"
+  },
+  "tourQueueControlsBody": {
+    "message": "ثبّت حملة، واسحب الدبابيس لإعادة ترتيبها. اختر «ينتهي أولًا» أو «الأقل توفرًا أولًا» ضمن «ثم حسب». واستبعد حملة لتنتقل إلى «متجاوَزة»، حيث يمكنك إعادتها."
+  },
+  "tourCompletedTitle": {
+    "message": "المنتهية والمنتهية الصلاحية"
+  },
+  "tourCompletedBody": {
+    "message": "الحملات المنتهية حصلت على كل مكافآتها. أما المنتهية الصلاحية فقد انتهت قبل أن تكتمل."
+  },
+  "tourGamesTitle": {
+    "message": "اختر ألعابك"
+  },
+  "tourGamesBody": {
+    "message": "اختر «كل الفئات» لتُفارَم كل لعبة ما عدا التي تحظرها، أو «المحددة فقط» لتُفارَم الألعاب التي تحددها فقط. نجِّم لعبة لتقديم حملاتها أولًا."
+  },
+  "tourWatchlistTitle": {
+    "message": "قائمة الانتظار للمشاهدة"
+  },
+  "tourWatchlistBody": {
+    "message": "عندما لا تكون هناك جوائز لتُفارَم، يشاهد Lurkloot هذه القنوات لتواصل كسب نقاط القناة، ويُطالَب بها لك. ويحدد ترتيب أولوية المصادر في الإعدادات متى تُشاهَد."
+  },
+  "tourExtensionsTitle": {
+    "message": "إضافات Twitch"
+  },
+  "tourExtensionsBody": {
+    "message": "تمنح بعض الألعاب مكافآت عبر إضافات Twitch، مثل NoPixel وFortnite. فعّل كل إضافة لتُفارَم هذه المكافآت أيضًا."
+  },
+  "tourKickProgressTitle": {
+    "message": "مستواك في Kick"
+  },
+  "tourKickProgressBody": {
+    "message": "على Kick، تعرض هذه الكبسولة مستواك كمشاهد، ومدى قربك من المستوى التالي، وسلسلة مشاهدتك اليومية."
+  },
+  "tourKickChallengesTitle": {
+    "message": "التحديات اليومية"
+  },
+  "tourKickChallengesBody": {
+    "message": "يستطيع Lurkloot أن يطالب بمكافآت تحديات Kick اليومية لك. شغّلها أو أوقفها من هنا."
+  },
+  "tourActivityTitle": {
+    "message": "ما الذي فعله Lurkloot"
+  },
+  "tourActivityBody": {
+    "message": "يسرد النشاط كل مطالبة وتبديل للقنوات وكل حملة منتهية، لترى ما حدث أثناء غيابك."
+  },
+  "tourSettingsTitle": {
+    "message": "إعدادات مفيدة"
+  },
+  "tourSettingsBody": {
+    "message": "تضم مجموعة Drops استراتيجيتك والمطالبة التلقائية وتخطي الجوائز التي لا يمكن إنهاؤها في الوقت المحدد. ستجد علامات تبويب الفارم والإشعارات أسفلها مباشرة."
+  },
+  "tourDoneTitle": {
+    "message": "أنت جاهز! هيا نفارم هذه الجوائز!"
+  },
+  "tourDoneBody": {
+    "message": "سجّل الدخول إلى Twitch أو Kick عبر موقعيهما الرسميين في هذا المتصفح. لن يطلب Lurkloot بيانات اعتمادك أبدًا. ثم فعّل المنصة التي تريد فارمها."
+  },
+  "tourFinish": {
+    "message": "هيا بنا!"
+  },
   "noCampaigns": {
     "message": "لم يتم اكتشاف أي حملات بعد."
   },

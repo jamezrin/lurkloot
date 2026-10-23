@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "Çeviri rehberini okuyun"
   },
+  "tourWelcomeTitle": {
+    "message": "Lurkloot'a hoş geldin"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot, Twitch ve Kick droplarını arka planda senin yerine farmlar. Nasıl çalıştığına kısaca bakmak ister misin?"
+  },
+  "tourStart": {
+    "message": "Bana göster"
+  },
+  "tourSkip": {
+    "message": "Atla"
+  },
+  "tourNext": {
+    "message": "İleri"
+  },
+  "tourBack": {
+    "message": "Geri"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "Her zaman görünür"
+  },
+  "tourStatusStripBody": {
+    "message": "Bu şerit, şu anda neyin hangi kanalda farmlandığını gösterir. Anahtar, bu platformda farmı başlatır veya durdurur."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch ve Kick"
+  },
+  "tourPlatformBody": {
+    "message": "Platformlar arasında buradan geçiş yap. Her birinin kendi sırası, oyunları ve yedek izleme listesi var."
+  },
+  "tourQueueOrderTitle": {
+    "message": "Sıra nasıl belirlenir"
+  },
+  "tourQueueOrderBody": {
+    "message": "Önce sabitlenen kampanyalar, sonra favori oyunların kampanyaları, ardından seçtiğin stratejiye göre diğer her şey gelir. Bağlantısız hesapların kampanyaları en sona bırakılabilir."
+  },
+  "tourQueueControlsTitle": {
+    "message": "Kendine göre ayarla"
+  },
+  "tourQueueControlsBody": {
+    "message": "Bir kampanyayı sabitle ve sabitlemeleri sürükleyerek yeniden sırala. \"Sonra şuna göre\" altından \"Önce süresi bitmek üzere olanlar\" ya da \"Önce nadir/süreli olanlar\" seç. Bir kampanyayı hariç tutarsan \"Atlanan\" bölümüne geçer ve oradan geri alabilirsin."
+  },
+  "tourCompletedTitle": {
+    "message": "Tamamlanan ve süresi dolan"
+  },
+  "tourCompletedBody": {
+    "message": "Tamamlanan kampanyalarda tüm ödüller alınmış olur. Süresi dolanlar ise tamamlanmadan bitti."
+  },
+  "tourGamesTitle": {
+    "message": "Oyunlarını seç"
+  },
+  "tourGamesBody": {
+    "message": "\"Tüm kategoriler\" seçersen engellediğin oyunlar dışındaki her oyun farmlanır, \"Yalnızca seçilenler\" seçersen yalnızca işaretlediğin oyunlar farmlanır. Bir oyunu yıldızlarsan kampanyaları öne geçer."
+  },
+  "tourWatchlistTitle": {
+    "message": "Yedek izleme listesi"
+  },
+  "tourWatchlistBody": {
+    "message": "Farmlanacak drop yokken Lurkloot bu kanalları izler; böylece kanal puanları kazanmaya devam edersin ve bunlar senin adına toplanır. Ayarlardaki izleme kaynağı önceliği, bunların ne zaman izleneceğini belirler."
+  },
+  "tourExtensionsTitle": {
+    "message": "Twitch Eklentileri"
+  },
+  "tourExtensionsBody": {
+    "message": "Bazı oyunlar ödülleri Twitch Eklentileri üzerinden dağıtır; NoPixel ve Fortnite gibi. Bunları da farmlamak için her birini aç."
+  },
+  "tourKickProgressTitle": {
+    "message": "Kick seviyen"
+  },
+  "tourKickProgressBody": {
+    "message": "Kick'te bu hap; izleyici seviyeni, bir sonrakine ne kadar kaldığını ve günlük izleme serini gösterir."
+  },
+  "tourKickChallengesTitle": {
+    "message": "Günlük görevler"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot, Kick'in günlük görev ödüllerini senin yerine alabilir. Bunu buradan açıp kapatabilirsin."
+  },
+  "tourActivityTitle": {
+    "message": "Lurkloot neler yaptı"
+  },
+  "tourActivityBody": {
+    "message": "Etkinlik; her ödül alımını, kanal değişikliğini ve biten kampanyayı listeler; böylece yokken neler olduğunu görebilirsin."
+  },
+  "tourSettingsTitle": {
+    "message": "Kullanışlı ayarlar"
+  },
+  "tourSettingsBody": {
+    "message": "Droplar grubunda stratejin, otomatik alma ve zamanında bitmeyecek dropları atlama ayarları var. Hemen altında Sekme Yönetimi ve Bildirimler yer alır."
+  },
+  "tourDoneTitle": {
+    "message": "Hazırsın! Hadi bu dropları farmlayalım!"
+  },
+  "tourDoneBody": {
+    "message": "Bu tarayıcıda Twitch veya Kick'e resmi sitelerinden giriş yap. Lurkloot hiçbir zaman kimlik bilgilerini istemez. Ardından farmlamak istediğin platformu aç."
+  },
+  "tourFinish": {
+    "message": "Hadi gidelim!"
+  },
   "noCampaigns": {
     "message": "Aktif kampanya yok."
   },

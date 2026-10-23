@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "अनुवाद गाइड पढ़ें"
   },
+  "tourWelcomeTitle": {
+    "message": "Lurkloot में आपका स्वागत है"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot बैकग्राउंड में आपके लिए Twitch और Kick drops फ़ार्म करता है। क्या आप जानना चाहेंगे कि यह कैसे काम करता है?"
+  },
+  "tourStart": {
+    "message": "मुझे दिखाओ"
+  },
+  "tourSkip": {
+    "message": "छोड़ें"
+  },
+  "tourNext": {
+    "message": "आगे"
+  },
+  "tourBack": {
+    "message": "पीछे"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "हमेशा दिखेगा"
+  },
+  "tourStatusStripBody": {
+    "message": "यह पट्टी दिखाती है कि अभी क्या फ़ार्म हो रहा है और किस चैनल पर। स्विच इस प्लेटफ़ॉर्म पर फ़ार्मिंग शुरू या बंद करता है।"
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch और Kick"
+  },
+  "tourPlatformBody": {
+    "message": "यहाँ प्लेटफ़ॉर्म बदलें। हर एक की अपनी क़तार, गेम्स और वॉचलिस्ट है।"
+  },
+  "tourQueueOrderTitle": {
+    "message": "क़तार कैसे क्रमबद्ध होती है"
+  },
+  "tourQueueOrderBody": {
+    "message": "पिन किए गए कैंपेन सबसे पहले आते हैं, फिर आपके पसंदीदा गेम्स, फिर बाक़ी सब आपकी चुनी रणनीति के अनुसार। बिना लिंक वाले अकाउंट के कैंपेन सबसे आख़िर में फ़ार्म हो सकते हैं।"
+  },
+  "tourQueueControlsTitle": {
+    "message": "अपने हिसाब से बनाएँ"
+  },
+  "tourQueueControlsBody": {
+    "message": "कैंपेन पिन करें और पिन खींचकर क्रम बदलें। “फिर इसके अनुसार” के नीचे “सबसे पहले समाप्त” या “कम उपलब्धता पहले” चुनें। कोई कैंपेन बाहर करें तो वह “छोड़े गए” में चला जाता है, जहाँ से आप उसे वापस ला सकते हैं।"
+  },
+  "tourCompletedTitle": {
+    "message": "पूर्ण और समाप्त"
+  },
+  "tourCompletedBody": {
+    "message": "पूर्ण कैंपेन में सभी इनाम क्लेम हो चुके हैं। समाप्त कैंपेन पूरे होने से पहले ख़त्म हो गए।"
+  },
+  "tourGamesTitle": {
+    "message": "अपने गेम्स चुनें"
+  },
+  "tourGamesBody": {
+    "message": "“सभी श्रेणियाँ” चुनें तो आपके ब्लॉक किए गए गेम्स को छोड़कर सभी गेम्स फ़ार्म होंगे, या “केवल चयनित” चुनें तो सिर्फ़ टिक किए गए गेम्स फ़ार्म होंगे। किसी गेम को स्टार करें ताकि उसके कैंपेन सबसे ऊपर रहें।"
+  },
+  "tourWatchlistTitle": {
+    "message": "आइडल वॉचलिस्ट"
+  },
+  "tourWatchlistBody": {
+    "message": "जब फ़ार्म करने को कोई drop न हो, तब Lurkloot इन चैनलों को देखता है ताकि आपके चैनल पॉइंट्स मिलते रहें, और वे आपके लिए क्लेम होते हैं। सेटिंग्स में स्रोत प्राथमिकता तय करती है कि इन्हें कब देखा जाए।"
+  },
+  "tourExtensionsTitle": {
+    "message": "Twitch एक्सटेंशन"
+  },
+  "tourExtensionsBody": {
+    "message": "कुछ गेम्स, जैसे NoPixel और Fortnite, Twitch एक्सटेंशन के ज़रिए इनाम देते हैं। उनके इनाम भी फ़ार्म करने के लिए हर एक को चालू करें।"
+  },
+  "tourKickProgressTitle": {
+    "message": "आपका Kick लेवल"
+  },
+  "tourKickProgressBody": {
+    "message": "Kick पर यह पिल आपका व्यूअर लेवल, अगले लेवल तक की प्रगति और आपकी दैनिक वॉच स्ट्रीक दिखाता है।"
+  },
+  "tourKickChallengesTitle": {
+    "message": "दैनिक चुनौतियाँ"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot आपके लिए Kick की दैनिक चुनौतियों के इनाम क्लेम कर सकता है। इसे यहाँ चालू या बंद करें।"
+  },
+  "tourActivityTitle": {
+    "message": "Lurkloot ने क्या किया"
+  },
+  "tourActivityBody": {
+    "message": "गतिविधि में हर क्लेम, चैनल स्विच और पूरा हुआ कैंपेन दर्ज होता है, ताकि आप देख सकें कि आपके बाहर रहते समय क्या हुआ।"
+  },
+  "tourSettingsTitle": {
+    "message": "उपयोगी सेटिंग्स"
+  },
+  "tourSettingsBody": {
+    "message": "ड्रॉप्स समूह में आपकी रणनीति, ऑटो-क्लेम और वे drops हैं जो समय पर पूरे नहीं हो सकते और छोड़ दिए जाते हैं। फ़ार्मिंग टैब और सूचनाएँ ठीक नीचे हैं।"
+  },
+  "tourDoneTitle": {
+    "message": "तैयार हैं! चलिए ये drops फ़ार्म करते हैं!"
+  },
+  "tourDoneBody": {
+    "message": "इस ब्राउज़र में Twitch या Kick की आधिकारिक वेबसाइट पर साइन इन करें। Lurkloot कभी आपके क्रेडेंशियल नहीं माँगता। फिर वह प्लेटफ़ॉर्म चालू करें जिसे आप फ़ार्म करना चाहते हैं।"
+  },
+  "tourFinish": {
+    "message": "चलो शुरू करें!"
+  },
   "noCampaigns": {
     "message": "अभी कोई अभियान नहीं मिला।"
   },

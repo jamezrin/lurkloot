@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "阅读翻译指南"
   },
+  "tourWelcomeTitle": {
+    "message": "欢迎使用 Lurkloot"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot 会在后台为你挂机获取 Twitch 和 Kick 掉宝。想快速了解它的工作方式吗？"
+  },
+  "tourStart": {
+    "message": "带我看看"
+  },
+  "tourSkip": {
+    "message": "跳过"
+  },
+  "tourNext": {
+    "message": "下一步"
+  },
+  "tourBack": {
+    "message": "上一步"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "始终可见"
+  },
+  "tourStatusStripBody": {
+    "message": "此栏显示当前正在挂机的内容及所在频道。开关用于开始或停止该平台的挂机。"
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch 和 Kick"
+  },
+  "tourPlatformBody": {
+    "message": "在这里切换平台。每个平台都有自己的队列、游戏和空闲观看列表。"
+  },
+  "tourQueueOrderTitle": {
+    "message": "队列的排序方式"
+  },
+  "tourQueueOrderBody": {
+    "message": "先是已置顶的活动，然后是收藏的游戏，其余活动按你选择的策略排列。未关联账号的活动可以放在最后挂机。"
+  },
+  "tourQueueControlsTitle": {
+    "message": "按你的喜好设置"
+  },
+  "tourQueueControlsBody": {
+    "message": "置顶活动，并拖动置顶项来调整顺序。在“然后按”中选择“即将结束的优先”或“可用频道较少的优先”。排除某个活动后，它会移到“已跳过”，你可以随时将其恢复。"
+  },
+  "tourCompletedTitle": {
+    "message": "已完成与已过期"
+  },
+  "tourCompletedBody": {
+    "message": "已完成的活动所有奖励都已领取。已过期的活动则在完成前就已结束。"
+  },
+  "tourGamesTitle": {
+    "message": "选择游戏"
+  },
+  "tourGamesBody": {
+    "message": "选择“所有分类”会挂机你屏蔽之外的所有游戏，选择“仅所选分类”则只挂机你勾选的游戏。收藏某个游戏，可将其活动排在最前。"
+  },
+  "tourWatchlistTitle": {
+    "message": "空闲观看列表"
+  },
+  "tourWatchlistBody": {
+    "message": "没有可挂机的掉宝时，Lurkloot 会观看这些频道，让你继续赚取频道点数，并由它为你领取。设置中的观看来源优先级决定何时观看它们。"
+  },
+  "tourExtensionsTitle": {
+    "message": "Twitch 扩展"
+  },
+  "tourExtensionsBody": {
+    "message": "一些游戏通过 Twitch 扩展发放奖励，例如 NoPixel 和 Fortnite。开启每一项，即可也挂机获取这些奖励。"
+  },
+  "tourKickProgressTitle": {
+    "message": "你的 Kick 等级"
+  },
+  "tourKickProgressBody": {
+    "message": "在 Kick 上，这个标签会显示你的观众等级、距离下一级的进度以及每日观看连续天数。"
+  },
+  "tourKickChallengesTitle": {
+    "message": "每日挑战"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot 可以替你领取 Kick 每日挑战的奖励。可在此开启或关闭。"
+  },
+  "tourActivityTitle": {
+    "message": "Lurkloot 做了什么"
+  },
+  "tourActivityBody": {
+    "message": "活动会列出每次领取、频道切换和已完成的活动，让你了解离开期间发生了什么。"
+  },
+  "tourSettingsTitle": {
+    "message": "实用设置"
+  },
+  "tourSettingsBody": {
+    "message": "“掉宝”分组包含你的策略、自动领取，以及跳过无法及时完成的掉宝。“挂机标签页”和“通知”就在下方。"
+  },
+  "tourDoneTitle": {
+    "message": "准备就绪！开始挂这些掉宝吧！"
+  },
+  "tourDoneBody": {
+    "message": "请在此浏览器中通过 Twitch 或 Kick 官网登录。Lurkloot 从不索要你的凭据。然后开启你想挂机的平台。"
+  },
+  "tourFinish": {
+    "message": "出发！"
+  },
   "noCampaigns": {
     "message": "尚未发现掉宝活动。"
   },

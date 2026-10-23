@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "Přečíst průvodce překlady"
   },
+  "tourWelcomeTitle": {
+    "message": "Vítejte v Lurklootu"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot na pozadí farmí drops na Twitchi a Kicku za vás. Chcete rychlý přehled, jak to funguje?"
+  },
+  "tourStart": {
+    "message": "Ukaž mi to"
+  },
+  "tourSkip": {
+    "message": "Přeskočit"
+  },
+  "tourNext": {
+    "message": "Další"
+  },
+  "tourBack": {
+    "message": "Zpět"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "Vždy na očích"
+  },
+  "tourStatusStripBody": {
+    "message": "Tento pruh ukazuje, co se právě farmí a na kterém kanálu. Přepínač spouští nebo zastavuje farmení na této platformě."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch a Kick"
+  },
+  "tourPlatformBody": {
+    "message": "Přepínejte platformy zde. Každá má vlastní frontu, hry a Záložní seznam."
+  },
+  "tourQueueOrderTitle": {
+    "message": "Jak je fronta seřazena"
+  },
+  "tourQueueOrderBody": {
+    "message": "Nejprve jdou připnuté kampaně, potom vaše oblíbené hry a zbytek podle zvolené strategie. Kampaně pro nepropojené účty se mohou farmit naposledy."
+  },
+  "tourQueueControlsTitle": {
+    "message": "Upravte si to podle sebe"
+  },
+  "tourQueueControlsBody": {
+    "message": "Připněte kampaň a přetažením pinů změňte pořadí. V části Poté podle vyberte Nejdříve končící nebo Nejdříve s nízkou dostupností. Vyloučená kampaň se přesune do Přeskočených, odkud ji můžete vrátit."
+  },
+  "tourCompletedTitle": {
+    "message": "Dokončené a vypršelé"
+  },
+  "tourCompletedBody": {
+    "message": "Dokončené kampaně mají vyzvednuté všechny odměny. Vypršelé skončily dřív, než byly hotové."
+  },
+  "tourGamesTitle": {
+    "message": "Vyberte si hry"
+  },
+  "tourGamesBody": {
+    "message": "Vyberte Všechny kategorie a farmí se každá hra kromě těch, které zablokujete, nebo Jen vybrané a farmí se jen hry, které zaškrtnete. Hvězdičkou označte hru, aby se její kampaně zařadily nahoru."
+  },
+  "tourWatchlistTitle": {
+    "message": "Záložní seznam"
+  },
+  "tourWatchlistBody": {
+    "message": "Když nejsou žádné drops k farmení, Lurkloot sleduje tyto kanály, abyste dál získávali body kanálu, které se za vás vyzvednou. Priorita zdrojů sledování v Nastavení určuje, kdy se sledují."
+  },
+  "tourExtensionsTitle": {
+    "message": "Twitch Extensions"
+  },
+  "tourExtensionsBody": {
+    "message": "Některé hry rozdávají odměny přes Twitch Extensions, například NoPixel a Fortnite. Zapněte každou z nich, aby se farmily i tyto odměny."
+  },
+  "tourKickProgressTitle": {
+    "message": "Vaše úroveň na Kicku"
+  },
+  "tourKickProgressBody": {
+    "message": "Na Kicku tato pilulka ukazuje vaši úroveň diváka, jak blízko jste k další a vaši denní sérii sledování."
+  },
+  "tourKickChallengesTitle": {
+    "message": "Denní výzvy"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot může za vás vyzvedávat denní odměny za výzvy na Kicku. Zapněte nebo vypněte je zde."
+  },
+  "tourActivityTitle": {
+    "message": "Co Lurkloot udělal"
+  },
+  "tourActivityBody": {
+    "message": "Aktivita vypisuje každé vyzvednutí, přepnutí kanálu i dokončenou kampaň, abyste viděli, co se dělo, když jste byli pryč."
+  },
+  "tourSettingsTitle": {
+    "message": "Užitečná nastavení"
+  },
+  "tourSettingsBody": {
+    "message": "Skupina Drops obsahuje vaši strategii, automatické vyzvedávání a přeskakování drops, které nestihnou skončit včas. Záložky pro farmení a Oznámení jsou hned pod ní."
+  },
+  "tourDoneTitle": {
+    "message": "Hotovo! Pojďme farmit tyto drops!"
+  },
+  "tourDoneBody": {
+    "message": "Přihlaste se na Twitch nebo Kick na jejich oficiálních webech v tomto prohlížeči. Lurkloot nikdy nežádá o přihlašovací údaje. Pak zapněte platformu, na které chcete farmit."
+  },
+  "tourFinish": {
+    "message": "Jdeme na to!"
+  },
   "noCampaigns": {
     "message": "Zatím nebyly nalezeny žádné kampaně."
   },

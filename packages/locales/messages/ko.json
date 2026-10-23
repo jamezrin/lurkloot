@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "번역 가이드 읽기"
   },
+  "tourWelcomeTitle": {
+    "message": "Lurkloot에 오신 것을 환영합니다"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot이 Twitch와 Kick의 Drops를 백그라운드에서 파밍해 드립니다. 어떻게 작동하는지 간단히 둘러보시겠어요?"
+  },
+  "tourStart": {
+    "message": "둘러보기"
+  },
+  "tourSkip": {
+    "message": "건너뛰기"
+  },
+  "tourNext": {
+    "message": "다음"
+  },
+  "tourBack": {
+    "message": "뒤로"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "항상 보이는 영역"
+  },
+  "tourStatusStripBody": {
+    "message": "이 띠에는 지금 파밍 중인 항목과 채널이 표시됩니다. 스위치로 이 플랫폼의 파밍을 시작하거나 멈출 수 있습니다."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch와 Kick"
+  },
+  "tourPlatformBody": {
+    "message": "여기에서 플랫폼을 전환하세요. 각 플랫폼에는 고유한 대기열, 게임, Idle Watchlist가 있습니다."
+  },
+  "tourQueueOrderTitle": {
+    "message": "대기열 정렬 방식"
+  },
+  "tourQueueOrderBody": {
+    "message": "고정된 캠페인이 가장 먼저 오고, 그다음 즐겨찾는 게임, 나머지는 선택한 기준에 따라 정렬됩니다. 연결되지 않은 계정의 캠페인은 맨 마지막에 파밍할 수 있습니다."
+  },
+  "tourQueueControlsTitle": {
+    "message": "내 입맛대로"
+  },
+  "tourQueueControlsBody": {
+    "message": "캠페인을 고정하고 고정 항목을 끌어서 순서를 바꿀 수 있습니다. \"그다음 기준\"에서 \"곧 종료 순\" 또는 \"채널 적음 우선\"을 고르세요. 캠페인을 제외하면 \"건너뜀\"으로 옮겨지며, 거기서 다시 되돌릴 수 있습니다."
+  },
+  "tourCompletedTitle": {
+    "message": "완료 및 만료"
+  },
+  "tourCompletedBody": {
+    "message": "완료된 캠페인은 모든 보상을 받은 상태입니다. 만료된 캠페인은 끝나기 전에 종료된 캠페인입니다."
+  },
+  "tourGamesTitle": {
+    "message": "게임 고르기"
+  },
+  "tourGamesBody": {
+    "message": "\"모든 카테고리\"를 고르면 차단한 게임을 제외한 모든 게임을 파밍하고, \"선택한 항목만\"을 고르면 체크한 게임만 파밍합니다. 게임에 별표를 누르면 그 캠페인이 먼저 옵니다."
+  },
+  "tourWatchlistTitle": {
+    "message": "Idle Watchlist"
+  },
+  "tourWatchlistBody": {
+    "message": "파밍할 Drops가 없을 때 Lurkloot은 이 채널들을 시청해 채널 포인트를 계속 적립하며, 그 포인트는 대신 받아집니다. 언제 시청할지는 설정의 시청 소스 우선순위에 따라 정해집니다."
+  },
+  "tourExtensionsTitle": {
+    "message": "Twitch 익스텐션"
+  },
+  "tourExtensionsBody": {
+    "message": "NoPixel이나 Fortnite처럼 일부 게임은 Twitch 익스텐션을 통해 보상을 줍니다. 각각을 켜면 이런 보상도 파밍할 수 있습니다."
+  },
+  "tourKickProgressTitle": {
+    "message": "Kick 레벨"
+  },
+  "tourKickProgressBody": {
+    "message": "Kick에서 이 알약에는 시청 레벨, 다음 레벨까지의 진행도, 일일 시청 연속 기록이 표시됩니다."
+  },
+  "tourKickChallengesTitle": {
+    "message": "일일 챌린지"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot은 Kick의 일일 챌린지 보상을 대신 받을 수 있습니다. 여기서 켜거나 끌 수 있습니다."
+  },
+  "tourActivityTitle": {
+    "message": "Lurkloot이 한 일"
+  },
+  "tourActivityBody": {
+    "message": "활동에서는 모든 보상 수령, 채널 전환, 완료된 캠페인이 기록되므로 자리를 비운 사이 무슨 일이 있었는지 확인할 수 있습니다."
+  },
+  "tourSettingsTitle": {
+    "message": "유용한 설정"
+  },
+  "tourSettingsBody": {
+    "message": "Drops 그룹에는 전략, 자동 수령, 제때 끝낼 수 없는 Drops 건너뛰기 설정이 있습니다. 파밍 탭과 알림은 바로 아래에 있습니다."
+  },
+  "tourDoneTitle": {
+    "message": "준비 완료! 이제 Drops를 파밍해 볼까요!"
+  },
+  "tourDoneBody": {
+    "message": "이 브라우저에서 Twitch 또는 Kick 공식 웹사이트에 로그인하세요. Lurkloot은 절대 자격 증명을 요구하지 않습니다. 그다음 파밍하고 싶은 플랫폼을 켜세요."
+  },
+  "tourFinish": {
+    "message": "시작하자!"
+  },
   "noCampaigns": {
     "message": "아직 발견된 캠페인이 없습니다."
   },

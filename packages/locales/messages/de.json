@@ -311,6 +311,108 @@
   "tipTranslationsAction": {
     "message": "Übersetzungsleitfaden lesen"
   },
+  "tourWelcomeTitle": {
+    "message": "Willkommen bei Lurkloot"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot farmt im Hintergrund Drops für dich auf Twitch und Kick. Möchtest du einen kurzen Überblick, wie es funktioniert?"
+  },
+  "tourStart": {
+    "message": "Zeig mir alles"
+  },
+  "tourSkip": {
+    "message": "Überspringen"
+  },
+  "tourNext": {
+    "message": "Weiter"
+  },
+  "tourBack": {
+    "message": "Zurück"
+  },
+  "tourProgress": {
+    "message": "$1 / $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "Immer im Blick"
+  },
+  "tourStatusStripBody": {
+    "message": "Dieser Streifen zeigt, was gerade gefarmt wird und auf welchem Kanal. Der Schalter startet oder stoppt das Farmen auf dieser Plattform."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch und Kick"
+  },
+  "tourPlatformBody": {
+    "message": "Wechsle hier die Plattform. Jede hat ihre eigene Warteschlange, Spiele und Ersatzliste."
+  },
+  "tourQueueOrderTitle": {
+    "message": "So ist die Warteschlange sortiert"
+  },
+  "tourQueueOrderBody": {
+    "message": "Angeheftete Kampagnen kommen zuerst, dann deine Lieblingsspiele und alles Übrige nach der gewählten Strategie. Kampagnen für nicht verknüpfte Konten können zuletzt gefarmt werden."
+  },
+  "tourQueueControlsTitle": {
+    "message": "Richte es nach dir aus"
+  },
+  "tourQueueControlsBody": {
+    "message": "Hefte eine Kampagne an und ziehe die Pins, um sie neu zu ordnen. Wähle unter Danach nach entweder Endet am frühesten oder Geringe Verfügbarkeit zuerst. Schließt du eine Kampagne aus, wandert sie nach Übersprungen, von wo du sie zurückholen kannst."
+  },
+  "tourCompletedTitle": {
+    "message": "Abgeschlossen und abgelaufen"
+  },
+  "tourCompletedBody": {
+    "message": "Abgeschlossene Kampagnen haben alle Belohnungen eingesammelt. Abgelaufene endeten, bevor sie fertig waren."
+  },
+  "tourGamesTitle": {
+    "message": "Wähle deine Spiele"
+  },
+  "tourGamesBody": {
+    "message": "Wähle Alle Kategorien, um jedes Spiel außer den blockierten zu farmen, oder Nur ausgewählte, um nur die angekreuzten Spiele zu farmen. Markiere ein Spiel mit einem Stern, damit seine Kampagnen zuerst kommen."
+  },
+  "tourWatchlistTitle": {
+    "message": "Ersatzliste"
+  },
+  "tourWatchlistBody": {
+    "message": "Wenn es keine Drops zu farmen gibt, schaut Lurkloot diese Kanäle, damit du weiter Kanalpunkte sammelst, die für dich eingelöst werden. Die Quellenpriorität in den Einstellungen bestimmt, wann sie geschaut werden."
+  },
+  "tourExtensionsTitle": {
+    "message": "Twitch-Erweiterungen"
+  },
+  "tourExtensionsBody": {
+    "message": "Manche Spiele verteilen Belohnungen über Twitch-Erweiterungen, etwa NoPixel und Fortnite. Aktiviere eine davon, um auch diese Belohnungen zu farmen."
+  },
+  "tourKickProgressTitle": {
+    "message": "Dein Kick-Level"
+  },
+  "tourKickProgressBody": {
+    "message": "Auf Kick zeigt diese Pille dein Zuschauer-Level, wie nah du dem nächsten bist und deine tägliche Watch-Serie."
+  },
+  "tourKickChallengesTitle": {
+    "message": "Tägliche Herausforderungen"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot kann die täglichen Herausforderungs-Belohnungen von Kick für dich abholen. Hier schaltest du das ein oder aus."
+  },
+  "tourActivityTitle": {
+    "message": "Was Lurkloot getan hat"
+  },
+  "tourActivityBody": {
+    "message": "Die Aktivität listet jede Abholung, jeden Kanalwechsel und jede abgeschlossene Kampagne auf, damit du siehst, was passiert ist, während du weg warst."
+  },
+  "tourSettingsTitle": {
+    "message": "Nützliche Einstellungen"
+  },
+  "tourSettingsBody": {
+    "message": "Die Gruppe Drops enthält deine Strategie, das automatische Abholen und das Überspringen von Drops, die nicht rechtzeitig fertig werden. Farming-Tabs und Benachrichtigungen findest du direkt darunter."
+  },
+  "tourDoneTitle": {
+    "message": "Alles bereit! Los geht’s mit dem Farmen dieser Drops!"
+  },
+  "tourDoneBody": {
+    "message": "Melde dich in diesem Browser auf den offiziellen Websites bei Twitch oder Kick an. Lurkloot fragt nie nach deinen Zugangsdaten. Schalte dann die Plattform ein, auf der du farmen möchtest."
+  },
+  "tourFinish": {
+    "message": "Los geht’s!"
+  },
   "noCampaigns": {
     "message": "Noch keine Kampagnen gefunden."
   },

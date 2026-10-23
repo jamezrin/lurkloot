@@ -312,10 +312,10 @@
     "message": "Read the translation guide"
   },
   "tourWelcomeTitle": {
-    "message": "Welcome to LurkLoot"
+    "message": "Welcome to Lurkloot"
   },
   "tourWelcomeBody": {
-    "message": "LurkLoot farms Twitch and Kick drops for you in the background. Want a quick look at how it works?"
+    "message": "Lurkloot farms Twitch and Kick drops for you in the background. Want a quick look at how it works?"
   },
   "tourStart": {
     "message": "Show me around"
@@ -354,7 +354,7 @@
     "message": "Make it yours"
   },
   "tourQueueControlsBody": {
-    "message": "Pin a campaign and drag pins to reorder them. Pick Ending soonest or Lowest availability under Then by. Exclude a campaign and it moves to Skipped, where you can bring it back."
+    "message": "Pin a campaign and drag pins to reorder them. Pick Ending soonest or Low availability first under Then by. Exclude a campaign and it moves to Skipped, where you can bring it back."
   },
   "tourCompletedTitle": {
     "message": "Finished and expired"
@@ -366,13 +366,13 @@
     "message": "Choose your games"
   },
   "tourGamesBody": {
-    "message": "All farms every game except the ones you block. Include farms only the games you tick. Star a game to put its campaigns first."
+    "message": "Pick All categories to farm every game except the ones you block, or Only selected to farm just the games you tick. Star a game to put its campaigns first."
   },
   "tourWatchlistTitle": {
     "message": "Idle Watchlist"
   },
   "tourWatchlistBody": {
-    "message": "When there are no drops to farm, LurkLoot watches these channels so you keep earning channel points, claimed for you. Watch-source priority in Settings decides when they are watched."
+    "message": "When there are no drops to farm, Lurkloot watches these channels so you keep earning channel points, claimed for you. Watch-source priority in Settings decides when they are watched."
   },
   "tourExtensionsTitle": {
     "message": "Twitch Extensions"
@@ -390,10 +390,10 @@
     "message": "Daily challenges"
   },
   "tourKickChallengesBody": {
-    "message": "LurkLoot can claim Kick's daily challenge rewards for you. Turn it on or off here."
+    "message": "Lurkloot can claim Kick's daily challenge rewards for you. Turn it on or off here."
   },
   "tourActivityTitle": {
-    "message": "What LurkLoot did"
+    "message": "What Lurkloot did"
   },
   "tourActivityBody": {
     "message": "Activity lists every claim, channel switch and finished campaign, so you can see what happened while you were away."
@@ -408,7 +408,7 @@
     "message": "You're set! Let's get farming these drops!"
   },
   "tourDoneBody": {
-    "message": "Sign in to Twitch or Kick on their official websites in this browser. LurkLoot never asks for your credentials. Then switch on the platform you want to farm."
+    "message": "Sign in to Twitch or Kick on their official websites in this browser. Lurkloot never asks for your credentials. Then switch on the platform you want to farm."
   },
   "tourFinish": {
     "message": "Let's go!"

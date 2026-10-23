@@ -140,7 +140,7 @@ describe("onboarding tour host", () => {
     const { adapter } = fakeAdapter();
     const container = await mount(adapter);
     const card = dialog(container);
-    expect(card?.textContent).toContain("Welcome to LurkLoot");
+    expect(card?.textContent).toContain("Welcome to Lurkloot");
     expect(card?.getAttribute("aria-modal")).toBe("true");
     expect(card?.getAttribute("data-side")).toBe("center");
     expect(container.querySelector("[inert] nav")).not.toBeNull();
@@ -274,7 +274,7 @@ describe("onboarding tour host", () => {
     await act(async () => byText(container, "Reset everything").click());
     await settle();
     expect(fake.resetExtension).toHaveBeenCalledOnce();
-    expect(dialog(container)?.textContent).toContain("Welcome to LurkLoot");
+    expect(dialog(container)?.textContent).toContain("Welcome to Lurkloot");
     // The wrapped reset armed the tour; nothing asked storage again.
     expect(fake.getPendingOnboarding).toHaveBeenCalledOnce();
   });

@@ -343,6 +343,8 @@ describe("i18n", () => {
       // the same in Turkish, and "Extensions" the same in French.
       "navGroupDrops",
       "navPlatform",
+      // The tour's step counter is only numbers and a slash.
+      "tourProgress",
       "navExtensions",
       // "Badge" is the French and Italian word too.
       "rewardBadge",
@@ -375,6 +377,13 @@ describe("i18n", () => {
       es: new Set(["rewardKindEmote"]),
       pt_BR: new Set(["rewardKindEmote"]),
       fr: new Set(["rewardKindBadge"]),
+      // Czech keeps Twitch's "Extensions" product name, as navExtensions does.
+      cs: new Set(["tourExtensionsTitle"]),
+      // These catalogs keep "Idle Watchlist" as the rail's feature name, so the
+      // tour step names it the way the rail does.
+      id: new Set(["tourWatchlistTitle"]),
+      ko: new Set(["tourWatchlistTitle"]),
+      uk: new Set(["tourWatchlistTitle"]),
     };
 
     // Case-insensitive, so a title-cased copy of the English ("Idle Watchlist"
