@@ -289,7 +289,7 @@ export function OnboardingOverlay({
         aria-labelledby={titleId}
         aria-describedby={bodyId}
         data-side={placement.side}
-        className="surface absolute w-[300px] max-w-[calc(100%-16px)] rounded-xl p-3.5 motion-safe:transition-all motion-safe:duration-300"
+        className="surface absolute w-[300px] ring-1 ring-black/5 dark:ring-white/15 max-w-[calc(100%-16px)] rounded-xl p-3.5 motion-safe:transition-all motion-safe:duration-300"
         style={{ top: placement.top, left: placement.left }}
       >
         {phase.kind === "step" ? (

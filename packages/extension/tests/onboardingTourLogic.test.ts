@@ -39,6 +39,11 @@ describe("TOUR_STEPS", () => {
     });
   });
 
+  it("frames the strategy group header alone on the queue controls step", () => {
+    const controls = TOUR_STEPS.find((s) => s.id === "queueControls");
+    expect(controls?.targets).toEqual(['[data-tour="queue-strategy"]']);
+  });
+
   it("never targets diagnostics", () => {
     for (const s of TOUR_STEPS) {
       for (const t of s.targets) expect(t).not.toContain("diagnostic");

@@ -381,6 +381,7 @@ export function QueuePanel({
               <div key={tier} data-queue-group={tier} className="space-y-1">
                 <GroupDivider
                   label={t(TIER_LABEL_KEYS[tier])}
+                  tourTarget={tier === strategyTier ? "queue-strategy" : undefined}
                   hint={
                     tier === strategyTier ? (
                       // The strategy lives where it acts: it ranks exactly
@@ -391,7 +392,7 @@ export function QueuePanel({
                         value={strategy}
                         options={strategyOptions}
                         onChange={(value) => void onStrategyChange(value as PriorityMode)}
-                        attributes={{ "data-queue-strategy": "", "data-tour": "queue-strategy" }}
+                        attributes={{ "data-queue-strategy": "" }}
                         className="rounded-md px-1 py-0.5 text-[10.5px] font-semibold text-zinc-700 hover:bg-[var(--ink-soft)] focus-visible:ring-1 focus-visible:ring-[var(--accent-ring)] aria-expanded:bg-[var(--ink-soft)] dark:text-zinc-200"
                       />
                     ) : pinned ? (
@@ -752,13 +753,18 @@ function GroupDivider({
   label,
   hint,
   action,
+  tourTarget,
 }: {
   label: string;
   hint?: React.ReactNode;
   action?: { label: string; onClick(): void; attribute?: string };
+  tourTarget?: string;
 }): React.ReactElement {
   return (
-    <div className="flex items-center gap-2 pt-2">
+    <div
+      className="flex items-center gap-2 pt-2"
+      {...(tourTarget ? { "data-tour": tourTarget } : {})}
+    >
       <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</span>
       {typeof hint === "string" ? (
         <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span>

@@ -152,6 +152,20 @@ describe("onboarding tour host", () => {
     expectRealFrame(await mount(adapter));
   });
 
+  it("renders the loading shell while the pending check is unresolved", async () => {
+    const fake = fakeAdapter();
+    fake.getPendingOnboarding.mockImplementation(() => new Promise<boolean>(() => undefined));
+    const container = stubDom();
+    await act(async () => {
+      root = createRoot(container);
+      root.render(<Popup adapter={fake.adapter} />);
+    });
+    await settle();
+    expect(container.querySelector("main")).not.toBeNull();
+    expect(container.querySelector("main nav")).toBeNull();
+    expect(dialog(container)).toBeNull();
+  });
+
   it("never asks a host without the hook", async () => {
     const { adapter, getPendingOnboarding } = fakeAdapter({ withHook: false });
     expectRealFrame(await mount(adapter));

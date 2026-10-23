@@ -402,7 +402,7 @@
     "message": "Useful settings"
   },
   "tourSettingsBody": {
-    "message": "The Drops group holds your strategy, auto-claim and skipping drops that cannot finish in time. Farming tabs and Notifications are right below."
+    "message": "The Drops group holds your strategy, auto-claim and skipping drops that cannot finish in time. Farming tabs is right below, and Notifications just above."
   },
   "tourDoneTitle": {
     "message": "You're set! Let's get farming these drops!"

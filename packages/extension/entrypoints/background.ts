@@ -552,12 +552,12 @@ export default defineBackground(() => {
   void reconcileExtensions();
 
   browser.runtime.onInstalled.addListener(async (details) => {
+    await armOnboardingForInstall(details.reason);
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills
     // a sane date for users upgrading from a pre-nudge version.
     await controller.ensureInstalledAt();
-    await armOnboardingForInstall(details.reason);
 
     // On a meaningful update (major/minor — not a patch bugfix, not a fresh
     // install), queue a popup notice so returning users can choose to see

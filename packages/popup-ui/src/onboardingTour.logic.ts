@@ -38,7 +38,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     "queueControls",
     "twitch",
     "queue",
-    ['[data-tour="queue-strategy"]', '[data-tour="queue-list"] [data-campaign-id]'],
+    ['[data-tour="queue-strategy"]'],
     "tourQueueControlsTitle",
   ),
   step("completed", "twitch", "completed", ['[data-tour="completed-list"]'], "tourCompletedTitle"),

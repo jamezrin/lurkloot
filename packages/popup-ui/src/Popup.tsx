@@ -158,13 +158,19 @@ export function Popup({
   if (initialState?.preview || !adapter.getPendingOnboarding) {
     return <PopupFrame adapter={adapter} initialState={initialState} />;
   }
-  return <OnboardingTourHost adapter={adapter} />;
+  return <OnboardingTourHost adapter={adapter} initialState={initialState} />;
 }
 
 // Decides whether the tour shows, and swaps the frame for a demo one while it
 // does. The tour frame talks only to its own demo adapter, so the tour never
 // reads or writes the user's real state; the real frame mounts once it closes.
-function OnboardingTourHost({ adapter }: { adapter: PopupAdapter }): React.ReactElement | null {
+function OnboardingTourHost({
+  adapter,
+  initialState,
+}: {
+  adapter: PopupAdapter;
+  initialState?: PopupInitialState;
+}): React.ReactElement {
   const [phase, dispatch] = useReducer(tourReducer, { kind: "loading" });
   // Asked once per popup: a later identity change must not re-arm a tour the
   // user has just dismissed while the dismissal is still being stored.
@@ -215,10 +221,17 @@ function OnboardingTourHost({ adapter }: { adapter: PopupAdapter }): React.React
     [adapter.version],
   );
 
-  if (phase.kind === "loading") return null;
-  if (phase.kind === "hidden") return <PopupFrame key="real" adapter={wrappedAdapter} />;
+  // The loading shell, not the real frame: the real frame would flash the
+  // user's data before a tour, and rendering nothing sizes the popup to zero.
+  if (phase.kind === "loading")
+    return <PopupLoadingShell dir="ltr">{adapter.getMessage("loading")}</PopupLoadingShell>;
+  if (phase.kind === "hidden") {
+    return <PopupFrame key="real" adapter={wrappedAdapter} initialState={initialState} />;
+  }
 
   const step = phase.kind === "step" ? TOUR_STEPS[phase.index] : undefined;
+  // Correct without the override: the flag is only armed on a fresh install or
+  // a reset, when languageOverride is still the default.
   const locale = effectiveLocale("browser", adapter.getUiLanguage());
   return (
     <PopupFrame
@@ -232,6 +245,26 @@ function OnboardingTourHost({ adapter }: { adapter: PopupAdapter }): React.React
         overlay: <OnboardingOverlay phase={phase} onAction={onAction} />,
       }}
     />
+  );
+}
+
+// The popup's size and surface before there is anything to show: the frame's
+// own loading state, and the tour host's while it asks whether a tour is due.
+function PopupLoadingShell({
+  dir,
+  children,
+}: {
+  dir: "ltr" | "rtl";
+  children?: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <main
+      dir={dir}
+      className="grid h-[600px] w-[720px] max-w-full place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+      data-platform="twitch"
+    >
+      {children}
+    </main>
   );
 }
 
@@ -1011,13 +1044,7 @@ export function PopupFrame({
     return (
       <PopupRuntimeContext.Provider value={runtimeValue}>
         <I18nContext.Provider value={i18nValue}>
-          <main
-            dir={dir}
-            className="grid h-[600px] w-[720px] max-w-full place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
-            data-platform="twitch"
-          >
-            {t("loading")}
-          </main>
+          <PopupLoadingShell dir={dir}>{t("loading")}</PopupLoadingShell>
         </I18nContext.Provider>
       </PopupRuntimeContext.Provider>
     );
