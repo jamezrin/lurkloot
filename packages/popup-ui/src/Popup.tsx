@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Clock3, RotateCcw, Settings as SettingsIcon } from "lucide-react";
 import type {
@@ -105,6 +105,9 @@ import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExten
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 import { TooltipScope } from "./tooltip";
+import { createDemoPopupAdapter } from "./demo";
+import { OnboardingOverlay } from "./onboardingTour";
+import { dismissesForGood, TOUR_STEPS, type TourAction, tourReducer } from "./onboardingTour.logic";
 
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
   return SCREENSHOT_VARIANTS[id ?? "drops"] ?? SCREENSHOT_VARIANTS.drops;
@@ -142,12 +145,94 @@ export interface PopupTourFrame {
   overlay: React.ReactNode;
 }
 
-// Task 5 rewrites this as the host that decides whether the tour shows.
-export function Popup(props: {
+/** The popup. A host that can say whether onboarding is pending (only the
+ * extension's toolbar popup) gets the onboarding tour on top of it; previews
+ * and every other host get the frame alone, exactly as before. */
+export function Popup({
+  adapter,
+  initialState,
+}: {
   adapter: PopupAdapter;
   initialState?: PopupInitialState;
 }): React.ReactElement {
-  return <PopupFrame {...props} />;
+  if (initialState?.preview || !adapter.getPendingOnboarding) {
+    return <PopupFrame adapter={adapter} initialState={initialState} />;
+  }
+  return <OnboardingTourHost adapter={adapter} />;
+}
+
+// Decides whether the tour shows, and swaps the frame for a demo one while it
+// does. The tour frame talks only to its own demo adapter, so the tour never
+// reads or writes the user's real state; the real frame mounts once it closes.
+function OnboardingTourHost({ adapter }: { adapter: PopupAdapter }): React.ReactElement | null {
+  const [phase, dispatch] = useReducer(tourReducer, { kind: "loading" });
+  // Asked once per popup: a later identity change must not re-arm a tour the
+  // user has just dismissed while the dismissal is still being stored.
+  const pendingAdapterRef = useRef(adapter);
+  useEffect(() => {
+    let cancelled = false;
+    const answer = (pending: boolean) => {
+      if (!cancelled) dispatch(pending ? "arm" : "disarm");
+    };
+    Promise.resolve()
+      .then(() => pendingAdapterRef.current.getPendingOnboarding!())
+      .then(answer, () => answer(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onAction = useCallback(
+    (action: TourAction) => {
+      dispatch(action);
+      if (!dismissesForGood(action)) return;
+      // The tour closes whether or not the dismissal is stored.
+      Promise.resolve()
+        .then(() => adapter.dismissPendingOnboarding?.())
+        .catch(() => undefined);
+    },
+    [adapter],
+  );
+
+  // A factory reset brings a fresh install's tour back, in the same popup.
+  const wrappedAdapter = useMemo<PopupAdapter>(() => {
+    const reset = adapter.resetExtension;
+    if (!reset) return adapter;
+    return {
+      ...adapter,
+      resetExtension: async () => {
+        const snapshot = await reset.call(adapter);
+        dispatch("arm");
+        return snapshot;
+      },
+    };
+  }, [adapter]);
+
+  // One demo adapter for the whole tour: a new one would re-run the frame's
+  // snapshot load and send it back to Twitch mid-step.
+  const tourAdapter = useMemo(
+    () => createDemoPopupAdapter({ scenario: "tour", version: adapter.version }),
+    [adapter.version],
+  );
+
+  if (phase.kind === "loading") return null;
+  if (phase.kind === "hidden") return <PopupFrame key="real" adapter={wrappedAdapter} />;
+
+  const step = phase.kind === "step" ? TOUR_STEPS[phase.index] : undefined;
+  const locale = effectiveLocale("browser", adapter.getUiLanguage());
+  return (
+    <PopupFrame
+      key="tour"
+      adapter={tourAdapter}
+      initialState={{ preview: true, locale }}
+      tour={{
+        view: step?.view ?? "queue",
+        platform: step?.platform ?? "twitch",
+        ...(step?.settingsFocus ? { settingsFocus: step.settingsFocus } : {}),
+        overlay: <OnboardingOverlay phase={phase} onAction={onAction} />,
+      }}
+    />
+  );
 }
 
 export function PopupFrame({

@@ -9,6 +9,7 @@ import {
   tourReducer,
   unionRect,
 } from "../../popup-ui/src/onboardingTour.logic";
+import english from "../../locales/messages/en.json";
 
 const frame = { width: 720, height: 600 };
 const card = { width: 300, height: 150 };
@@ -19,8 +20,12 @@ describe("TOUR_STEPS", () => {
     expect(new Set(TOUR_STEPS.map((s) => s.id)).size).toBe(12);
   });
 
-  // Turn on once Task 5 adds the tour* keys to en.json.
-  it.todo("only references title and body keys that exist in en.json");
+  it("only references title and body keys that exist in en.json", () => {
+    for (const s of TOUR_STEPS) {
+      expect(english, s.titleKey).toHaveProperty(s.titleKey);
+      expect(english, s.bodyKey).toHaveProperty(s.bodyKey);
+    }
+  });
 
   it("derives each body key from its title key", () => {
     for (const s of TOUR_STEPS) {
