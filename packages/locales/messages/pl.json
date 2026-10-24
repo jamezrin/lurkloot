@@ -1460,6 +1460,12 @@
   "activityChallengeClaimed": {
     "message": "Odebrano kartę $1 z wyzwania $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch potwierdził serię oglądania na $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Seria oglądania na $1 nie została potwierdzona na czas; przechodzę dalej"
+  },
   "activityAuthHealthChanged": {
     "message": "Uwierzytelnianie $1 zmieniło się z $2 na $3."
   },
@@ -2152,6 +2158,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "oglądany jest pierwszy kanał na żywo"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Wiersze serii są na górze, każdy aż Twitch potwierdzi serię lub miną $1 minut."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Utrzymuj serię oglądania na $1"
+  },
+  "watchStreakPending": {
+    "message": "Seria oczekuje"
+  },
+  "watchStreakWatching": {
+    "message": "Utrzymywanie serii"
+  },
+  "watchStreakCredited": {
+    "message": "Seria potwierdzona"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Niepotwierdzona"
+  },
+  "watchStreakUnavailable": {
+    "message": "Seria niedostępna"
   },
   "gamesModeAllDescription": {
     "message": "Każda gra z aktywnymi dropami jest farmiona, oprócz zablokowanych."

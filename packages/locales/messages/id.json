@@ -1460,6 +1460,12 @@
   "activityChallengeClaimed": {
     "message": "Mengklaim kartu $1 dari tantangan $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch mengonfirmasi streak menonton di $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Streak menonton di $1 belum dikonfirmasi tepat waktu; lanjut ke berikutnya"
+  },
   "activityAuthHealthChanged": {
     "message": "Autentikasi $1 berubah dari $2 ke $3."
   },
@@ -2152,6 +2158,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "saluran live pertama yang ditonton"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Baris streak didahulukan, masing-masing sampai Twitch mengonfirmasi streak atau $1 menit berlalu."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Pertahankan streak menonton di $1"
+  },
+  "watchStreakPending": {
+    "message": "Streak menunggu"
+  },
+  "watchStreakWatching": {
+    "message": "Mempertahankan streak"
+  },
+  "watchStreakCredited": {
+    "message": "Streak dikonfirmasi"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Belum dikonfirmasi"
+  },
+  "watchStreakUnavailable": {
+    "message": "Streak tidak tersedia"
   },
   "gamesModeAllDescription": {
     "message": "Setiap game dengan drop live di-farm, kecuali yang diblokir."

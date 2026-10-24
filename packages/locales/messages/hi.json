@@ -1460,6 +1460,12 @@
   "activityChallengeClaimed": {
     "message": "$2 चैलेंज से $1 कार्ड प्राप्त किया"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch ने $1 पर वॉच स्ट्रीक की पुष्टि की"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "समय पर $1 की वॉच स्ट्रीक की पुष्टि नहीं हुई; आगे बढ़ा गया"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 प्रमाणीकरण $2 से $3 में बदल गया।"
   },
@@ -2152,6 +2158,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "पहला लाइव चैनल देखा जाता है"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "स्ट्रीक वाली पंक्तियाँ पहले आती हैं, हर एक तब तक जब तक Twitch स्ट्रीक की पुष्टि न करे या $1 मिनट न बीत जाएँ।"
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "$1 पर वॉच स्ट्रीक बनाए रखें"
+  },
+  "watchStreakPending": {
+    "message": "स्ट्रीक लंबित"
+  },
+  "watchStreakWatching": {
+    "message": "स्ट्रीक जारी"
+  },
+  "watchStreakCredited": {
+    "message": "स्ट्रीक की पुष्टि"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "पुष्टि नहीं हुई"
+  },
+  "watchStreakUnavailable": {
+    "message": "स्ट्रीक उपलब्ध नहीं"
   },
   "gamesModeAllDescription": {
     "message": "सक्रिय ड्रॉप्स वाला हर गेम फ़ार्म होता है, ब्लॉक किए गए को छोड़कर।"

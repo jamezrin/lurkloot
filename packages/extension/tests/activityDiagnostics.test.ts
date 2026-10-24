@@ -53,6 +53,13 @@ const EVENTS = {
     platform: "kick",
     data: { challengeId: "challenge-7", rarity: "rare", recurrence: "daily" },
   },
+  watch_streak_ended: {
+    category: "activity",
+    code: "watch_streak_ended",
+    level: "info",
+    platform: "twitch",
+    data: { channel: "streamer", outcome: "credited" },
+  },
   page_context_opened: {
     category: "activity",
     code: "page_context_opened",
@@ -109,6 +116,15 @@ describe("activity diagnostics", () => {
     expect(activityDiagnostic(EVENTS.challenge_claimed).message).toBe(
       "Claimed rare daily challenge challenge-7",
     );
+    expect(activityDiagnostic(EVENTS.watch_streak_ended).message).toBe(
+      "Twitch reported the watch-streak payout on streamer",
+    );
+    expect(
+      activityDiagnostic({
+        ...EVENTS.watch_streak_ended,
+        data: { channel: "streamer", outcome: "not_confirmed" },
+      } as ActivityEvent).message,
+    ).toBe("Watch streak on streamer not confirmed within the watch budget; moving on");
     expect(activityDiagnostic(EVENTS.page_context_opened).message).toBe(
       "Opened managed page context on kick.com: reason=background_rejected",
     );

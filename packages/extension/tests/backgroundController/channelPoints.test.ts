@@ -822,7 +822,7 @@ describe("background controller", () => {
     it("skips the alarm lookup while the observer is subscribed", async () => {
       const env = harness(pushSettings());
       await startObserver(env);
-      env.channelPointsPushController.subscribed = true;
+      env.channelPointsPushController.claimsSubscribed = true;
       env.twitch.claimChannelPoints = vi.fn(async () => true);
 
       await env.controller.runTwitchChannelPointsClaim();
@@ -836,13 +836,142 @@ describe("background controller", () => {
       env.twitch.claimChannelPoints = vi.fn(async () => true);
       await env.controller.ensureAlarm();
       await env.rawController.settleBackgroundWork();
-      env.channelPointsPushController.subscribed = false;
+      env.channelPointsPushController.claimsSubscribed = false;
 
       await env.controller.runTwitchChannelPointsClaim();
 
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(eligible, {
         signal: expect.any(AbortSignal),
+      });
+    });
+
+    // #897: the same topic carries watch-streak payouts, followed on its own.
+    describe("watch-streak observation", () => {
+      const ACCOUNT = "78020132";
+
+      function streakSettings(
+        patch: Partial<ExtensionSettings["platform"]["twitch"]> = {},
+      ): ExtensionSettings {
+        return pushSettings({
+          idleWatchlistChannels: ["twitch-creator"],
+          idleWatchlistStreakChannels: ["twitch-creator"],
+          ...patch,
+        });
+      }
+
+      async function observingStreaks(settings: ExtensionSettings) {
+        const env = harness(settings);
+        const eligible = configureEligibleChannel(env, {
+          channelId: "119415848",
+          broadcastId: "b1",
+        });
+        env.state.authHealth = {
+          ...env.state.authHealth,
+          twitch: { status: "healthy", checkedAt: new Date().toISOString(), accountId: ACCOUNT },
+        };
+        env.twitch.claimChannelPoints = vi.fn(async () => true);
+        await env.controller.ensureAlarm();
+        await env.rawController.settleBackgroundWork();
+        return { env, eligible };
+      }
+
+      it.each([
+        { autoClaimChannelPoints: true, channelPointsPushClaim: true, polls: false },
+        { autoClaimChannelPoints: true, channelPointsPushClaim: false, polls: true },
+        { autoClaimChannelPoints: false, channelPointsPushClaim: true, polls: false },
+        { autoClaimChannelPoints: false, channelPointsPushClaim: false, polls: false },
+      ])(
+        "observes streaks independently of claiming (claims $autoClaimChannelPoints, push $channelPointsPushClaim)",
+        async ({ autoClaimChannelPoints, channelPointsPushClaim, polls }) => {
+          const { env } = await observingStreaks(
+            streakSettings({ autoClaimChannelPoints, channelPointsPushClaim }),
+          );
+          const push = env.channelPointsPushController;
+          expect(push.starts).toBe(1);
+          expect(push.onWatchStreakEarned).toBeDefined();
+          // Observing never turns claim delivery on.
+          expect(push.claimsFollowed).toBe(autoClaimChannelPoints && channelPointsPushClaim);
+          push.claimsSubscribed = push.claimsFollowed;
+
+          await env.controller.runTwitchChannelPointsClaim();
+
+          if (polls) expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+          else expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
+        },
+      );
+
+      it("does not follow streaks without a maintained row", async () => {
+        const { env } = await observingStreaks(
+          streakSettings({ idleWatchlistStreakChannels: [], channelPointsPushClaim: false }),
+        );
+        expect(env.channelPointsPushController.onWatchStreakEarned).toBeUndefined();
+      });
+
+      function pendingAttempt(env: ReturnType<typeof harness>) {
+        const now = new Date().toISOString();
+        // What the auth probe records for the signed-in viewer.
+        env.state.authHealth = {
+          ...env.state.authHealth,
+          twitch: { status: "healthy", checkedAt: now, accountId: ACCOUNT },
+        };
+        env.state.watchStreaks = {
+          twitch: {
+            attempts: [
+              {
+                accountId: ACCOUNT,
+                channelId: "119415848",
+                broadcastId: "b1",
+                username: "twitch-creator",
+                outcome: "pending",
+                watchedMs: 60_000,
+                unhealthyChecks: 0,
+                startedAt: now,
+                updatedAt: now,
+              },
+            ],
+          },
+        };
+      }
+
+      it("records a payout for the signed-in account and reports it", async () => {
+        const { env } = await observingStreaks(streakSettings());
+        pendingAttempt(env);
+
+        env.channelPointsPushController.onWatchStreakEarned?.({
+          userId: ACCOUNT,
+          channelId: "119415848",
+          at: Date.now(),
+        });
+        await env.rawController.settleBackgroundWork();
+
+        expect(env.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("credited");
+        const reported = env.reportEvents.mock.calls.flatMap(([events]) => events);
+        expect(reported).toContainEqual(
+          expect.objectContaining({
+            code: "watch_streak_ended",
+            data: { channel: "twitch-creator", outcome: "credited" },
+          }),
+        );
+      });
+
+      it("ignores a payout for another account or an unknown channel", async () => {
+        const { env } = await observingStreaks(streakSettings());
+        pendingAttempt(env);
+
+        env.channelPointsPushController.onWatchStreakEarned?.({
+          userId: "1",
+          channelId: "119415848",
+          at: Date.now(),
+        });
+        env.channelPointsPushController.onWatchStreakEarned?.({
+          userId: ACCOUNT,
+          channelId: "999",
+          at: Date.now(),
+        });
+        await env.rawController.settleBackgroundWork();
+
+        expect(env.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("pending");
       });
     });
 
