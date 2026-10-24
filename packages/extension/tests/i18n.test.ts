@@ -379,11 +379,6 @@ describe("i18n", () => {
       fr: new Set(["rewardKindBadge"]),
       // Czech keeps Twitch's "Extensions" product name, as navExtensions does.
       cs: new Set(["tourExtensionsTitle"]),
-      // These catalogs keep "Idle Watchlist" as the rail's feature name, so the
-      // tour step names it the way the rail does.
-      id: new Set(["tourWatchlistTitle"]),
-      ko: new Set(["tourWatchlistTitle"]),
-      uk: new Set(["tourWatchlistTitle"]),
     };
 
     // Case-insensitive, so a title-cased copy of the English ("Idle Watchlist"

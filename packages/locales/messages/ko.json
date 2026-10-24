@@ -375,7 +375,7 @@
     "message": "\"모든 카테고리\"를 고르면 차단한 게임을 제외한 모든 게임을 파밍하고, \"선택한 항목만\"을 고르면 체크한 게임만 파밍합니다. 게임에 별표를 누르면 그 캠페인이 먼저 오고, 차단하면 해당 게임은 절대 파밍하지 않습니다."
   },
   "tourWatchlistTitle": {
-    "message": "Idle Watchlist"
+    "message": "대기 시청 목록"
   },
   "tourWatchlistBody": {
     "message": "파밍할 Drops가 없을 때 Lurkloot은 이 채널들을 시청해 Twitch에서는 채널 포인트를, Kick에서는 일일 보상과 시청 연속 기록을 계속 쌓습니다. 언제 시청할지는 설정의 시청 소스 우선순위에 따라 정해집니다."
