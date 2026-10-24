@@ -448,7 +448,15 @@ describe("deadline feasibility setting", () => {
     expect(onSettingsChange).toHaveBeenCalledWith(
       {
         platform: {
-          twitch: { watchSourcePriority: ["nopixel", "drops", "fortnite", "idle_watchlist"] },
+          twitch: {
+            watchSourcePriority: [
+              "nopixel",
+              "drops",
+              "fortnite",
+              "watch_streaks",
+              "idle_watchlist",
+            ],
+          },
         },
       },
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },

@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Серии просмотра"
+  },
   "gamesStarHint": {
     "message": "★ ставит игру выше стратегии"
   },
@@ -2184,7 +2187,7 @@
     "message": "смотрится первый канал в эфире"
   },
   "idleWatchlistStreakHint": {
-    "message": "Каналы с серией идут первыми, каждый до подтверждения серии Twitch или $1 минут."
+    "message": "Строки с серией обрабатываются на месте «Серии просмотра» в порядке просмотра, каждая до подтверждения серии Twitch или $1 минут."
   },
   "idleWatchlistStreakToggle": {
     "message": "Поддерживать серию просмотров на $1"

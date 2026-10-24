@@ -149,6 +149,16 @@ export function IdleWatchlistPanel({
           source="idle_watchlist"
           order={watchOrder}
           onChangeOrder={onChangeOrder}
+          named={Boolean(streaks && streaks.enabled.size > 0)}
+        />
+      ) : null}
+
+      {watchOrder && onChangeOrder && streaks && streaks.enabled.size > 0 ? (
+        <WatchSourcePlace
+          source="watch_streaks"
+          order={watchOrder}
+          onChangeOrder={onChangeOrder}
+          named
         />
       ) : null}
 

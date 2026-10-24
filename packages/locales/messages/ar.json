@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "سلاسل المشاهدة"
+  },
   "gamesStarHint": {
     "message": "★ ترفع اللعبة فوق الاستراتيجية"
   },
@@ -2184,7 +2187,7 @@
     "message": "تُشاهَد أول قناة تبث مباشرة"
   },
   "idleWatchlistStreakHint": {
-    "message": "تأتي صفوف السلاسل أولاً، ويستمر كل صف حتى يؤكد Twitch السلسلة أو تمر $1 دقيقة."
+    "message": "تُشاهد صفوف السلاسل في موضع سلاسل المشاهدة ضمن ترتيب المشاهدة، كل صف حتى يؤكد Twitch السلسلة أو تمر $1 دقيقة."
   },
   "idleWatchlistStreakToggle": {
     "message": "الحفاظ على سلسلة المشاهدة في $1"

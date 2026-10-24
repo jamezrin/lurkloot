@@ -81,6 +81,8 @@ export const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
   drops: "queue",
   nopixel: "nopixel",
   fortnite: "fortnite",
+  // Watch streaks are rows of the watchlist, so they share its view.
+  watch_streaks: "watchlist",
   idle_watchlist: "watchlist",
 };
 
@@ -133,6 +135,8 @@ export function WorkspaceRail({
   const liveView = liveSource ? WATCH_SOURCE_VIEWS[liveSource] : undefined;
   const inWatchOrder = (items: NavItem[]): NavItem[] =>
     sourceOrder
+      // Watch streaks share the watchlist's view; the rail follows the watchlist.
+      .filter((source) => source !== "watch_streaks")
       .map((source) => items.find((item) => item.view === WATCH_SOURCE_VIEWS[source]))
       .filter((item): item is NavItem => Boolean(item));
   return (

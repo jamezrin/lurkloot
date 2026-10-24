@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Série sledování"
+  },
   "gamesStarHint": {
     "message": "★ zařadí hru nad strategii"
   },
@@ -2184,7 +2187,7 @@
     "message": "sleduje se první live kanál"
   },
   "idleWatchlistStreakHint": {
-    "message": "Řádky sérií jsou první, každý běží, dokud Twitch sérii nepotvrdí nebo neuplyne $1 minut."
+    "message": "Řádky sérií se sledují na místě Série sledování v pořadí sledování, každý, dokud Twitch sérii nepotvrdí nebo neuplyne $1 minut."
   },
   "idleWatchlistStreakToggle": {
     "message": "Udržovat sérii sledování u $1"

@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Rachas de visualización"
+  },
   "gamesStarHint": {
     "message": "★ pone un juego por encima de la estrategia"
   },
@@ -2184,7 +2187,7 @@
     "message": "se ve el primer canal en directo"
   },
   "idleWatchlistStreakHint": {
-    "message": "Las filas de racha van primero, cada una hasta que Twitch confirme la racha o pasen $1 minutos."
+    "message": "Las filas de racha se atienden en el lugar de Rachas de visualización dentro del orden de visualización, cada una hasta que Twitch confirme la racha o pasen $1 minutos."
   },
   "idleWatchlistStreakToggle": {
     "message": "Mantener racha de visualización en $1"

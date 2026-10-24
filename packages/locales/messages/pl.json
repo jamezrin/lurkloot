@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Serie oglądania"
+  },
   "gamesStarHint": {
     "message": "★ ustawia grę powyżej strategii"
   },
@@ -2184,7 +2187,7 @@
     "message": "oglądany jest pierwszy kanał na żywo"
   },
   "idleWatchlistStreakHint": {
-    "message": "Wiersze serii są na górze, każdy aż Twitch potwierdzi serię lub miną $1 minut."
+    "message": "Wiersze serii są oglądane w miejscu Serie oglądania w kolejności oglądania, każdy aż Twitch potwierdzi serię lub miną $1 minut."
   },
   "idleWatchlistStreakToggle": {
     "message": "Utrzymuj serię oglądania na $1"

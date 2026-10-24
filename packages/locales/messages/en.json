@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Watch streaks"
+  },
   "gamesStarHint": {
     "message": "★ ranks a game above the strategy"
   },
@@ -2184,7 +2187,7 @@
     "message": "the first live channel is watched"
   },
   "idleWatchlistStreakHint": {
-    "message": "Streak rows go first, each until Twitch confirms the streak or $1 minutes pass."
+    "message": "Streak rows are watched at the Watch streaks place in the watch order, each until Twitch confirms the streak or $1 minutes pass."
   },
   "idleWatchlistStreakToggle": {
     "message": "Maintain watch streak on $1"

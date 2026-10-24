@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "İzleme serileri"
+  },
   "gamesStarHint": {
     "message": "★ oyunu stratejinin üstüne koyar"
   },
@@ -2184,7 +2187,7 @@
     "message": "ilk canlı kanal izlenir"
   },
   "idleWatchlistStreakHint": {
-    "message": "Seri kayıtları önce gelir; her biri Twitch seriyi onaylayana ya da $1 dakika geçene kadar sürer."
+    "message": "Seri kayıtları izleme sırasındaki İzleme serileri yerinde işlenir; her biri Twitch seriyi onaylayana ya da $1 dakika geçene kadar sürer."
   },
   "idleWatchlistStreakToggle": {
     "message": "$1 kanalında izleme serisini sürdür"

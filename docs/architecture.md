@@ -992,16 +992,17 @@ claims to know the user's streak count.
   not reset it. A new broadcast gets a new attempt.
 - **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
   prepared selection builds the same plan from its state (`SnapshotSelectionInput.watchStreaks`).
-  It is passed to every `chooseIdleWatchlistDecision` call. Maintained rows are tried first in the
-  user's order, then the ordinary rows. Only rows the plan can attribute go first
-  (`prioritized`): without an observer or an account id, maintained rows keep their ordinary
-  place. A maintained row whose attempt is terminal is skipped outright, so it never becomes an
-  ordinary row for the same broadcast; one whose broadcast is unattributable is watched as an
-  ordinary row. Retention goes
+  It is passed to every watchlist chooser. Maintained rows are their own watch source,
+  `watch_streaks`, ordered by the user in watch-source priority (default: just ahead of the Idle
+  Watchlist, so above Drops only when the user moves it there). `chooseWatchStreakDecision` tries
+  the rows the plan can attribute (`prioritized`) in the user's order; without an observer or an
+  account id that list is empty, and maintained rows keep their ordinary place. In the Idle
+  Watchlist source a maintained row whose attempt is terminal is skipped outright, so it never
+  becomes an ordinary row for the same broadcast; one whose broadcast is unattributable is
+  watched as an ordinary row. See [watch-source priority](watch-source-priority.md). Retention goes
   through the same chooser, so a finished row is switched away from on the next tick. Discovery
-  observes Idle rows in the same order (`orderIdleWatchlist`), and the selection cache key
-  includes the attempts. Watch-source priority is untouched: the plan only orders rows inside the
-  Idle Watchlist source.
+  observes maintained rows first (`orderIdleWatchlist`), and the selection cache key
+  includes the attempts.
 - **Observation.** The existing Hermes connection follows `community-points-user-v1.<id>`
   whenever a maintained row exists, whatever the claim settings say. `points-earned` with reason
   `WATCH_STREAK` becomes a `TwitchWatchStreakNotice`. The channel id must be consistent, and a

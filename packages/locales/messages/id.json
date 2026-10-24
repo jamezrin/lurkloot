@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Streak menonton"
+  },
   "gamesStarHint": {
     "message": "★ menaikkan game di atas strategi"
   },
@@ -2184,7 +2187,7 @@
     "message": "saluran live pertama yang ditonton"
   },
   "idleWatchlistStreakHint": {
-    "message": "Baris streak didahulukan, masing-masing sampai Twitch mengonfirmasi streak atau $1 menit berlalu."
+    "message": "Baris streak ditonton di posisi Streak menonton dalam urutan tonton, masing-masing sampai Twitch mengonfirmasi streak atau $1 menit berlalu."
   },
   "idleWatchlistStreakToggle": {
     "message": "Pertahankan streak menonton di $1"

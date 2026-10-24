@@ -2,7 +2,7 @@ import type { CriticalHealthState } from "./criticalHealth";
 
 export type Platform = "twitch" | "kick";
 
-export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "idle_watchlist";
+export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "watch_streaks" | "idle_watchlist";
 
 export type PlatformAuthStatus =
   | "checking"

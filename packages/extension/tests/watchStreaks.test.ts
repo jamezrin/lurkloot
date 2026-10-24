@@ -29,6 +29,8 @@ import type {
   WatchSession,
   WatchStreakState,
 } from "@lurkloot/shared/models";
+import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
+import type { IdleWatchlistStreakPlan, WatchStreakVerdict } from "@lurkloot/core/watchStreaks";
 import {
   runSchedulerTick,
   type SchedulerTestAdapter,
@@ -678,5 +680,155 @@ describe("watch-streak scheduling", () => {
     for (let minute = 0; minute < 25; minute += 1) await s.tick();
     expect(new Set(s.watched)).toEqual(new Set(["dropper"]));
     expect(s.state.watchStreaks?.twitch?.rows).toEqual({ streaky: "pending" });
+  });
+
+  it("puts only the streak rows ahead of Drops when Watch streaks is ordered there", async () => {
+    const s = setup({
+      drop: true,
+      order: ["watch_streaks", "drops", "nopixel", "fortnite", "idle_watchlist"],
+    });
+    for (let minute = 0; minute < 25; minute += 1) await s.tick();
+    const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
+    expect(order).toEqual(["streaky", "dropper"]);
+    expect(s.state.watchStreaks?.twitch?.rows).toEqual({ streaky: "not_confirmed" });
+  });
+
+  it("interrupts a running drop for a streak ordered above Drops, then resumes it", async () => {
+    const s = setup({
+      drop: true,
+      live: ["ordinary"],
+      order: ["watch_streaks", "drops", "nopixel", "fortnite", "idle_watchlist"],
+    });
+    await s.tick();
+    expect(s.state.sessions.twitch.channel?.username).toBe("dropper");
+    s.live.add("streaky");
+    for (let minute = 0; minute < 25; minute += 1) await s.tick();
+    const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
+    expect(order).toEqual(["dropper", "streaky", "dropper"]);
+  });
+
+  it("keeps streak rows in their watchlist place when Watch streaks is ordered below it", async () => {
+    const s = setup({
+      channels: ["ordinary", "streaky"],
+      order: ["drops", "nopixel", "fortnite", "idle_watchlist", "watch_streaks"],
+    });
+    for (let minute = 0; minute < 5; minute += 1) await s.tick();
+    expect(new Set(s.watched)).toEqual(new Set(["ordinary"]));
+    // Reached in its ordinary place, the row still runs and ends its attempt.
+    s.live.delete("ordinary");
+    for (let minute = 0; minute < 25; minute += 1) await s.tick();
+    expect(s.state.watchStreaks?.twitch?.attempts[0]).toMatchObject({
+      username: "streaky",
+      outcome: "not_confirmed",
+    });
+    expect(s.state.sessions.twitch.status).toBe("idle");
+  });
+
+  it("slots Watch streaks in just ahead of the watchlist in an order saved before it", () => {
+    expect(
+      mergeSettings({
+        platform: {
+          twitch: { watchSourcePriority: ["idle_watchlist", "drops", "nopixel", "fortnite"] },
+          kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
+        },
+      } as never).platform,
+    ).toMatchObject({
+      twitch: {
+        watchSourcePriority: ["watch_streaks", "idle_watchlist", "drops", "nopixel", "fortnite"],
+      },
+      kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
+    });
+  });
+});
+
+describe("watch-streak source in a selection that resolves Drops itself", () => {
+  const ORDER: WatchSourceId[] = [
+    "watch_streaks",
+    "drops",
+    "nopixel",
+    "fortnite",
+    "idle_watchlist",
+  ];
+
+  function decide(options: { verdict: WatchStreakVerdict; drop: boolean; subscription?: boolean }) {
+    const settings = applySettingsPatch(DEFAULT_SETTINGS, {
+      platform: {
+        twitch: {
+          enabled: true,
+          watchSourcePriority: ORDER,
+          idleWatchlistChannels: ["streaky", "ordinary"],
+          idleWatchlistStreakChannels: ["streaky"],
+        },
+      },
+    });
+    const campaign: DropCampaign = {
+      id: "drop",
+      platform: "twitch",
+      name: "Drop",
+      categoryId: "game",
+      gameName: "Game",
+      status: "active",
+      startsAt: new Date(T0 - 3_600_000).toISOString(),
+      endsAt: new Date(T0 + 7 * 86_400_000).toISOString(),
+      accountLinked: true,
+      eligibility: "eligible",
+      priority: 1,
+      rewards: [
+        {
+          id: "reward",
+          name: "Reward",
+          requiredMinutes: options.subscription ? 0 : 6000,
+          watchedMinutes: 0,
+          status: "in_progress",
+          ...(options.subscription ? { requiredSubs: 1 } : {}),
+        },
+      ],
+    };
+    const plan: IdleWatchlistStreakPlan = {
+      maintained: ["streaky"],
+      prioritized: ["streaky"],
+      verdict: () => options.verdict,
+    };
+    return chooseCampaignDecision(
+      "twitch",
+      options.drop || options.subscription ? [campaign] : [],
+      settings,
+      {
+        listCandidateChannels: async () =>
+          options.drop ? [{ ...channel("dropper"), isAclMatch: true }] : [],
+        checkChannel: async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate: { ...channel(candidate.username.toLowerCase()), url: candidate.url },
+        }),
+      },
+      undefined,
+      undefined,
+      undefined,
+      true,
+      plan,
+    );
+  }
+
+  it("takes a pending streak row ahead of a farmable drop", async () => {
+    const decision = await decide({ verdict: "pending", drop: true });
+    expect(decision.channel?.username).toBe("streaky");
+  });
+
+  it("takes the drop once the streak is credited", async () => {
+    const decision = await decide({ verdict: "credited", drop: true });
+    expect(decision).toMatchObject({ action: "watch", channel: { username: "dropper" } });
+  });
+
+  it("falls to the ordinary row, not the finished streak row, without a drop", async () => {
+    const decision = await decide({ verdict: "not_confirmed", drop: false });
+    expect(decision.channel?.username).toBe("ordinary");
+  });
+
+  it("keeps an opted-in streak but not the plain watchlist when only subscriptions remain", async () => {
+    const sub = { drop: false, subscription: true } as const;
+    expect((await decide({ ...sub, verdict: "pending" })).channel?.username).toBe("streaky");
+    const finished = await decide({ ...sub, verdict: "credited" });
+    expect(finished).toMatchObject({ action: "idle", reasonCode: "campaign_ineligible" });
   });
 });

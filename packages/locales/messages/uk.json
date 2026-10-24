@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Серії перегляду"
+  },
   "gamesStarHint": {
     "message": "★ ставить гру вище стратегії"
   },
@@ -2184,7 +2187,7 @@
     "message": "дивиться перший канал у ефірі"
   },
   "idleWatchlistStreakHint": {
-    "message": "Рядки з серіями йдуть першими, кожен доки Twitch не підтвердить серію або не минуть $1 хвилин."
+    "message": "Рядки із серіями обробляються на місці «Серії перегляду» в порядку перегляду, кожен доки Twitch не підтвердить серію або не минуть $1 хвилин."
   },
   "idleWatchlistStreakToggle": {
     "message": "Підтримувати серію перегляду на $1"

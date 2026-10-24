@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "वॉच स्ट्रीक्स"
+  },
   "gamesStarHint": {
     "message": "★ गेम को रणनीति से ऊपर रखता है"
   },
@@ -2184,7 +2187,7 @@
     "message": "पहला लाइव चैनल देखा जाता है"
   },
   "idleWatchlistStreakHint": {
-    "message": "स्ट्रीक वाली पंक्तियाँ पहले आती हैं, हर एक तब तक जब तक Twitch स्ट्रीक की पुष्टि न करे या $1 मिनट न बीत जाएँ।"
+    "message": "स्ट्रीक वाली पंक्तियाँ देखने के क्रम में वॉच स्ट्रीक्स के स्थान पर देखी जाती हैं, हर एक तब तक जब तक Twitch स्ट्रीक की पुष्टि न करे या $1 मिनट न बीत जाएँ।"
   },
   "idleWatchlistStreakToggle": {
     "message": "$1 पर वॉच स्ट्रीक बनाए रखें"

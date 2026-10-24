@@ -4,19 +4,23 @@ Issue [#548](https://github.com/jamezrin/lurkloot/issues/548) covers priority be
 
 Implemented in [PR #556](https://github.com/jamezrin/lurkloot/pull/556).
 
-Each platform has `platform[platform].watchSourcePriority`. Twitch defaults to Drops → NoPixelV → Fortnite → Idle Watchlist. Kick defaults to Drops → Idle Watchlist. Settings offers source-named up/down buttons and a per-platform reset. Disabled or ungranted providers remain orderable and yield at selection time. Saving an order requests a tick for that platform.
+Each platform has `platform[platform].watchSourcePriority`. Twitch defaults to Drops → NoPixelV → Fortnite → Watch streaks → Idle Watchlist. Kick defaults to Drops → Idle Watchlist. Settings offers source-named up/down buttons and a per-platform reset. Disabled or ungranted providers remain orderable and yield at selection time. Saving an order requests a tick for that platform.
 
 ## Decisions made autonomously
 
 1. **Build on #541.** This implementation depends on its supplemental watch lane. #541 was merged into `develop` before this PR was retargeted to `develop`.
 2. **Priority takes effect on the next tick.** The first eligible source wins even during an active session. A newly eligible higher source can interrupt an in-progress drop or earning provider. No additional switching delay is introduced: normal polling, five-minute provider discovery caching, channel-health retries and provider cooldowns bound the checks. Within Drops, existing reward-progress retention and explicit campaign ranking still apply.
 3. **Replace the fallback-only control.** Schema 6 materializes missing orders. The deprecated serialized `idleWatchlistFallbackOnly` field remains accepted for old settings/configs. A missing platform order with that field `false` becomes Idle Watchlist first. This strengthens the previous sticky-Idle behavior: Idle can now win the initial selection as well. An explicit order always wins, including an empty or malformed order that normalizes to defaults.
-4. **New sources append.** Normalization discards unknown/wrong-platform IDs and duplicates, preserves valid relative order and appends missing supported sources in registry order. A future source therefore starts after all existing user preferences, including Idle if it is already last; users can promote it. Future-schema settings imports retain the existing explicit rejection.
+4. **New sources append.** Normalization discards unknown/wrong-platform IDs and duplicates, preserves valid relative order and appends missing supported sources in registry order. A future source therefore starts after all existing user preferences, including Idle if it is already last; users can promote it. Future-schema settings imports retain the existing explicit rejection. The one exception is Watch streaks (#897), which goes in just ahead of the Idle Watchlist (`INSERT_MISSING_BEFORE`): its rows used to be the head of that source, so an order saved before it existed keeps behaving the same.
 5. **Completion reprobes use configured priority.** Known-complete providers yield for a 30-minute budget, capped at the next UTC day for NoPixelV. Once due, they compete at their configured position on the next tick. Incidental work on a lower source must not renew that budget. Failed due reprobes consume their turn; provider channel failures retry after five minutes. This preserves bounded probes without a holder-first exception that contradicts user order.
 
 Authentication, manual-watch/manual-close pauses, campaign/category eligibility, exclusions and host capabilities remain authoritative. Automatic Drops and supplemental provider selection honor excluded channels; explicitly listed Idle channels retain the existing exception. The default subscription-only fallback restriction is preserved; putting Idle ahead of Drops makes Idle an explicit preferred source.
 
 Supplemental targets retain the existing tabless-only contract and never fall back to a video tab. The CLI carries the same source-order setting but currently has no NoPixelV or Fortnite implementation, so those sources yield. No permissions, credential storage or dependencies are added.
+
+## Watch streaks
+
+Twitch's `watch_streaks` source (#897) picks from the same Idle Watchlist rows as `idle_watchlist`: the first live row with streak maintenance on whose attempt for this broadcast is still running. It has no rows of its own and yields when none qualify, including on hosts that cannot observe the payout (the CLI). Ordering it above Drops makes streaks win over drop progress; each one costs at most the 15-minute budget per broadcast before the drop resumes. Selection paths that resolve Drops themselves (prepared snapshot selection, `chooseCampaignDecision`) split the two watchlist sources around Drops with `watchlistSourcesAroundDrops`. The subscription-only restriction applies to `idle_watchlist` only, never to an opted-in streak. Ordered below `idle_watchlist`, a streak row is watched in its ordinary place and its attempt still runs.
 
 ## Adding a future Kick source
 

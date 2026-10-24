@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "观看连续记录"
+  },
   "gamesStarHint": {
     "message": "★ 让游戏排在策略之上"
   },
@@ -2184,7 +2187,7 @@
     "message": "观看第一个正在直播的频道"
   },
   "idleWatchlistStreakHint": {
-    "message": "连续观看的频道优先，每个直到 Twitch 确认连续记录或过去 $1 分钟。"
+    "message": "连续记录行会在观看顺序中的“观看连续记录”位置处理，每行直到 Twitch 确认连续记录或过去 $1 分钟。"
   },
   "idleWatchlistStreakToggle": {
     "message": "维持 $1 的观看连续记录"

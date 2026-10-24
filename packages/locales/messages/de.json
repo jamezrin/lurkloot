@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Watch-Streaks"
+  },
   "gamesStarHint": {
     "message": "★ setzt ein Spiel über die Strategie"
   },
@@ -2184,7 +2187,7 @@
     "message": "der erste Live-Kanal wird geschaut"
   },
   "idleWatchlistStreakHint": {
-    "message": "Serienzeilen kommen zuerst, jede bleibt, bis Twitch die Serie bestätigt oder $1 Minuten vergangen sind."
+    "message": "Serienzeilen werden an der Stelle Watch-Streaks in der Reihenfolge abgearbeitet, jede bis Twitch die Serie bestätigt oder $1 Minuten vergangen sind."
   },
   "idleWatchlistStreakToggle": {
     "message": "Watch-Streak bei $1 aufrechterhalten"

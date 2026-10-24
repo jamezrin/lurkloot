@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Séries de visionnage"
+  },
   "gamesStarHint": {
     "message": "★ classe un jeu au-dessus de la stratégie"
   },
@@ -2184,7 +2187,7 @@
     "message": "la première chaîne en direct est regardée"
   },
   "idleWatchlistStreakHint": {
-    "message": "Les lignes de série passent en premier, chacune jusqu'à ce que Twitch confirme la série ou que $1 minutes s'écoulent."
+    "message": "Les lignes de série sont traitées à la place « Séries de visionnage » dans l’ordre de visionnage, chacune jusqu'à ce que Twitch confirme la série ou que $1 minutes s'écoulent."
   },
   "idleWatchlistStreakToggle": {
     "message": "Maintenir la série de visionnage sur $1"

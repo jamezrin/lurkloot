@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "連続視聴"
+  },
   "gamesStarHint": {
     "message": "★ でゲームを戦略より上位に並べます"
   },
@@ -2184,7 +2187,7 @@
     "message": "最初のライブチャンネルが視聴されます"
   },
   "idleWatchlistStreakHint": {
-    "message": "連続視聴の行が先に並び、各行はTwitchが連続視聴を確認するか$1分経過するまで優先されます。"
+    "message": "連続視聴の行は視聴順序の「連続視聴」の位置で視聴され、各行はTwitchが連続視聴を確認するか$1分経過するまで続きます。"
   },
   "idleWatchlistStreakToggle": {
     "message": "$1 の連続視聴を維持"

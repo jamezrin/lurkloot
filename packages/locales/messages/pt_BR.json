@@ -1961,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Sequências de visualização"
+  },
   "gamesStarHint": {
     "message": "★ coloca um jogo acima da estratégia"
   },
@@ -2184,7 +2187,7 @@
     "message": "o primeiro canal ao vivo é assistido"
   },
   "idleWatchlistStreakHint": {
-    "message": "As linhas de sequência vêm primeiro, cada uma até que a Twitch confirme a sequência ou passem $1 minutos."
+    "message": "As linhas de sequência são assistidas na posição Sequências de visualização na ordem de exibição, cada uma até que a Twitch confirme a sequência ou passem $1 minutos."
   },
   "idleWatchlistStreakToggle": {
     "message": "Manter sequência de visualização em $1"

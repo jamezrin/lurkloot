@@ -308,7 +308,7 @@ describe("popup workspace shell", () => {
     go(container, "fortnite");
 
     const place = container.querySelector("[data-watch-source-place='fortnite']");
-    expect(place?.textContent).toContain("3 of 4");
+    expect(place?.textContent).toContain("3 of 5");
     expect(place?.textContent).toContain("Drops, NoPixelV");
 
     act(() => place!.querySelector<HTMLButtonElement>("button")!.click());
@@ -340,7 +340,7 @@ describe("workspace rail sources", () => {
           view="queue"
           platform="twitch"
           counts={{}}
-          sourceOrder={["drops", "nopixel", "fortnite", "idle_watchlist"]}
+          sourceOrder={["drops", "nopixel", "fortnite", "watch_streaks", "idle_watchlist"]}
           presentation={{ twitch: idle, kick: idle }}
           version="0.0.0"
           onViewChange={() => undefined}
@@ -367,7 +367,7 @@ describe("workspace rail sources", () => {
 
   it("groups the Twitch extensions apart from the other sources, each in watch order", () => {
     const container = mountRail({
-      sourceOrder: ["idle_watchlist", "drops", "fortnite", "nopixel"],
+      sourceOrder: ["watch_streaks", "idle_watchlist", "drops", "fortnite", "nopixel"],
     });
     expect(group(container, "navExtensions")).toEqual(["fortnite", "nopixel"]);
     expect(group(container, "navGroupOthers")).toEqual(["watchlist"]);
