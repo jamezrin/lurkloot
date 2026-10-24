@@ -131,11 +131,13 @@ describe("legacy activity migration", () => {
 
     expect(mocks.clear).toHaveBeenCalledOnce();
     expect(Object.keys(mocks.values).sort()).toEqual([
+      "onboardingOffered",
       "pendingOnboarding",
       "schedulerState",
       "settings",
     ]);
-    expect(mocks.values.pendingOnboarding).toBe(true);
+    expect(mocks.values.pendingOnboarding).toBe("new");
+    expect(mocks.values.onboardingOffered).toBe(true);
     expect(mocks.values.schedulerState).toEqual(DEFAULT_STATE);
     expect(mocks.values.settings).toEqual(withSchemaVersion(DEFAULT_SETTINGS));
   });

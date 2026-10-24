@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot farms Twitch and Kick drops for you in the background. Want a quick look at how it works? Tip: use the arrow keys to move through the tour."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "New in Lurkloot: a quick tour"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "See what's new and what you might have missed in under a minute. Tip: use the arrow keys to move through the tour."
+  },
   "tourStart": {
     "message": "Show me around"
   },

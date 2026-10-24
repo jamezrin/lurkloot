@@ -2,6 +2,7 @@ import type React from "react";
 import { useContext, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { I18nContext } from "./context";
 import { cn, scrollIntoPanel } from "./primitives";
+import type { OnboardingAudience } from "./types";
 import {
   clampTarget,
   placeCard,
@@ -233,9 +234,11 @@ const primaryButton =
  * meet at the rail's edge, so the scrim reads as one. */
 export function OnboardingOverlay({
   phase,
+  audience = "new",
   onAction,
 }: {
   phase: VisibleTourPhase;
+  audience?: OnboardingAudience;
   onAction(action: TourAction): void;
 }): React.ReactElement {
   const { t, dir } = useContext(I18nContext);
@@ -306,13 +309,17 @@ export function OnboardingOverlay({
   );
   const title =
     phase.kind === "welcome"
-      ? "tourWelcomeTitle"
+      ? audience === "returning"
+        ? "tourWelcomeReturningTitle"
+        : "tourWelcomeTitle"
       : phase.kind === "done"
         ? "tourDoneTitle"
         : step!.titleKey;
   const body =
     phase.kind === "welcome"
-      ? "tourWelcomeBody"
+      ? audience === "returning"
+        ? "tourWelcomeReturningBody"
+        : "tourWelcomeBody"
       : phase.kind === "done"
         ? "tourDoneBody"
         : step!.bodyKey;

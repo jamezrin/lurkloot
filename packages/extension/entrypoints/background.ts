@@ -45,7 +45,7 @@ import {
 } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
-import { armOnboardingForInstall } from "../src/core/onboarding";
+import { armOnboardingForLifecycle } from "../src/core/onboarding";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
 import {
   appendActivityEvents,
@@ -552,7 +552,7 @@ export default defineBackground(() => {
   void reconcileExtensions();
 
   browser.runtime.onInstalled.addListener(async (details) => {
-    await armOnboardingForInstall(details.reason);
+    await armOnboardingForLifecycle(details.reason);
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills

@@ -1000,20 +1000,26 @@ target can request a targeted tick for the affected platform.
 
 ### Onboarding tour
 
-A fresh install shows a guided tour over the toolbar popup. Whether it is still
-owed is one `pendingOnboarding` flag in `storage.local`, owned by
-`packages/extension/src/core/onboarding.ts`. `armOnboardingForInstall(reason)`
-sets it only for reason `install`, from the `onInstalled` handler in
-`entrypoints/background.ts`, so an update never starts a tour for someone who
-already uses the extension. `resetStorage` writes the flag in the same
-`storage.local.set` as the defaults, so a factory reset re-arms the tour
-together with the state it resets. Finishing or skipping the tour removes the
-key.
+A fresh install, and a first update for someone who was never offered it, shows
+a guided tour over the toolbar popup. Whether it is still owed is one
+`pendingOnboarding` value in `storage.local` (`"new"` or `"returning"`, the
+`OnboardingAudience` type from `@lurkloot/popup-ui`; anything else reads as
+none), owned by `packages/extension/src/core/onboarding.ts`. A second key,
+`onboardingOffered`, records that the tour has been armed for this profile.
+`armOnboardingForLifecycle(reason)` runs first in the `onInstalled` handler in
+`entrypoints/background.ts`: `install` sets `"new"` and the marker; `update`
+sets `"returning"` and the marker only when the marker is absent; every other
+reason (`chrome_update`, `shared_module_update`) does nothing. Both keys go in
+one `storage.local.set`. `resetStorage` writes `"new"` and the marker in the
+same `set` as the defaults, so a factory reset re-arms the tour as a new
+install and is never followed by a "returning" offer. Finishing or skipping
+the tour removes only `pendingOnboarding`; the marker stays, so an upgrader is
+offered the tour once. The returning audience differs only in the welcome
+card copy (`tourWelcomeReturning*`); steps and the done card are shared.
 
-The flag is deliberately not an `ExtensionSettings` field. Settings are
-exported, imported and shared with the CLI, and "absent means done for
-upgraders, pending for new installs" does not fit settings normalization, which
-fills a missing field with its default.
+The value is deliberately not an `ExtensionSettings` field. Settings are
+exported, imported and shared with the CLI, and settings normalization fills a
+missing field with its default, which does not fit a one-time offer.
 
 `PopupAdapter` exposes the flag through two optional hooks,
 `getPendingOnboarding` and `dismissPendingOnboarding`. Only the toolbar popup

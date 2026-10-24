@@ -17,9 +17,9 @@ vi.mock("wxt/browser", () => ({
 }));
 
 import {
+  ONBOARDING_OFFERED_KEY,
   PENDING_ONBOARDING_KEY,
-  armOnboardingForInstall,
-  armPendingOnboarding,
+  armOnboardingForLifecycle,
   dismissPendingOnboarding,
   loadPendingOnboarding,
 } from "../src/core/onboarding";
@@ -27,30 +27,55 @@ import {
 describe("pending onboarding flag", () => {
   beforeEach(() => {
     for (const key of Object.keys(mocks.values)) delete mocks.values[key];
+    mocks.set.mockClear();
   });
 
-  it("arms on a fresh install", async () => {
-    await armOnboardingForInstall("install");
-    expect(await loadPendingOnboarding()).toBe(true);
+  it("arms a new user on a fresh install", async () => {
+    await armOnboardingForLifecycle("install");
+    expect(await loadPendingOnboarding()).toBe("new");
+    expect(mocks.values[ONBOARDING_OFFERED_KEY]).toBe(true);
+    expect(mocks.set).toHaveBeenCalledOnce();
   });
 
-  it.each(["update", "chrome_update", "shared_module_update"])(
-    "does not arm on %s",
-    async (reason) => {
-      await armOnboardingForInstall(reason);
-      expect(await loadPendingOnboarding()).toBe(false);
-    },
-  );
+  it("arms a returning user on the first update, in one write", async () => {
+    await armOnboardingForLifecycle("update");
+    expect(await loadPendingOnboarding()).toBe("returning");
+    expect(mocks.values[ONBOARDING_OFFERED_KEY]).toBe(true);
+    expect(mocks.set).toHaveBeenCalledOnce();
+  });
 
-  it("removes the key when dismissed", async () => {
-    await armPendingOnboarding();
+  it("does not offer again on a second update after dismissal", async () => {
+    await armOnboardingForLifecycle("update");
     await dismissPendingOnboarding();
-    expect(await loadPendingOnboarding()).toBe(false);
-    expect(PENDING_ONBOARDING_KEY in mocks.values).toBe(false);
+    await armOnboardingForLifecycle("update");
+    expect(await loadPendingOnboarding()).toBeNull();
   });
 
-  it("treats a non-boolean stored value as unarmed", async () => {
+  it("does nothing on update when already offered", async () => {
+    mocks.values[ONBOARDING_OFFERED_KEY] = true;
+    await armOnboardingForLifecycle("update");
+    expect(await loadPendingOnboarding()).toBeNull();
+    expect(mocks.set).not.toHaveBeenCalled();
+  });
+
+  it.each(["chrome_update", "shared_module_update"])("does nothing on %s", async (reason) => {
+    await armOnboardingForLifecycle(reason);
+    expect(await loadPendingOnboarding()).toBeNull();
+    expect(ONBOARDING_OFFERED_KEY in mocks.values).toBe(false);
+  });
+
+  it("keeps the offered marker when dismissed", async () => {
+    await armOnboardingForLifecycle("install");
+    await dismissPendingOnboarding();
+    expect(await loadPendingOnboarding()).toBeNull();
+    expect(PENDING_ONBOARDING_KEY in mocks.values).toBe(false);
+    expect(mocks.values[ONBOARDING_OFFERED_KEY]).toBe(true);
+  });
+
+  it("treats a non-audience stored value as unarmed", async () => {
     mocks.values[PENDING_ONBOARDING_KEY] = "yes";
-    expect(await loadPendingOnboarding()).toBe(false);
+    expect(await loadPendingOnboarding()).toBeNull();
+    mocks.values[PENDING_ONBOARDING_KEY] = true;
+    expect(await loadPendingOnboarding()).toBeNull();
   });
 });

@@ -5,7 +5,7 @@ import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import { migrateSettings, withSchemaVersion } from "@lurkloot/shared/settingsSchema";
-import { PENDING_ONBOARDING_KEY } from "./onboarding";
+import { ONBOARDING_OFFERED_KEY, PENDING_ONBOARDING_KEY } from "./onboarding";
 import { clearActivityEvents, importLegacyActivityEvents } from "./activityStorage";
 
 export { DEFAULT_STATE };
@@ -131,7 +131,8 @@ export async function resetStorage(): Promise<void> {
       await browser.storage.local.set({
         [SETTINGS_KEY]: withSchemaVersion(DEFAULT_SETTINGS),
         [STATE_KEY]: DEFAULT_STATE,
-        [PENDING_ONBOARDING_KEY]: true,
+        [PENDING_ONBOARDING_KEY]: "new",
+        [ONBOARDING_OFFERED_KEY]: true,
       });
     });
   });

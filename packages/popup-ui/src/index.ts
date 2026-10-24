@@ -32,7 +32,12 @@ export type {
   ActivityCardTone,
   DiagnosticsExportRequest,
 } from "./activity.logic";
-export type { PopupAdapter, PopupInitialState, ScreenshotVariant } from "./types";
+export type {
+  OnboardingAudience,
+  PopupAdapter,
+  PopupInitialState,
+  ScreenshotVariant,
+} from "./types";
 export type { PopupView } from "./shell";
 export { variantShowsPopup } from "./types";
 export { SCREENSHOT_VARIANTS } from "./constants";

@@ -30,7 +30,8 @@ cut-out, and a message box beside it explains it.
 
 - No replay button anywhere (Settings, About, rail). The only way to see it
   again is a reset.
-- Not shown to users upgrading from an earlier version.
+- Upgraders are offered the tour once, after their first update, with different
+  welcome copy; there is still no replay entry point.
 - Not shown on the landing site demo, store screenshots, or the in-page panel.
 - No diagnostics step or callout. The Activity view's diagnostics toggle simply
   remains visible as part of the normal view.
@@ -51,8 +52,11 @@ cut-out, and a message box beside it explains it.
 A single storage flag, owned by the extension background, mirroring the
 existing pending-changelog-notice pattern (`src/core/updateNotice.ts`):
 
-- `runtime.onInstalled` with `reason === "install"` sets the flag. `update`,
-  `chrome_update` etc. never set it.
+- `runtime.onInstalled` with `reason === "install"` sets `pendingOnboarding`
+  to `"new"` and `onboardingOffered` to true. The first `update` on a profile
+  without `onboardingOffered` sets `"returning"` and the marker; later updates,
+  `chrome_update` etc. never set it. Dismissing removes only the pending value.
+  A reset writes `"new"` plus the marker, so it never yields a returning offer.
 - `resetExtension` in `background.ts` sets the flag after `resetStorage()`
   (which clears `storage.local`), so a reset re-arms the tour.
 - `PopupAdapter` gains optional hooks, e.g. `getPendingOnboarding?()` and

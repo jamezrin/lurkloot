@@ -53,7 +53,7 @@ import type {
   ScreenshotVariant,
   TFunction,
 } from "./types";
-import { variantShowsPopup } from "./types";
+import { type OnboardingAudience, variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
   rewardKindCounts as countRewardKinds,
@@ -172,17 +172,20 @@ function OnboardingTourHost({
   initialState?: PopupInitialState;
 }): React.ReactElement {
   const [phase, dispatch] = useReducer(tourReducer, { kind: "loading" });
+  const [audience, setAudience] = useState<OnboardingAudience>("new");
   // Asked once per popup: a later identity change must not re-arm a tour the
   // user has just dismissed while the dismissal is still being stored.
   const pendingAdapterRef = useRef(adapter);
   useEffect(() => {
     let cancelled = false;
-    const answer = (pending: boolean) => {
-      if (!cancelled) dispatch(pending ? "arm" : "disarm");
+    const answer = (pending: OnboardingAudience | null) => {
+      if (cancelled) return;
+      if (pending) setAudience(pending);
+      dispatch(pending ? "arm" : "disarm");
     };
     Promise.resolve()
       .then(() => pendingAdapterRef.current.getPendingOnboarding!())
-      .then(answer, () => answer(false));
+      .then(answer, () => answer(null));
     return () => {
       cancelled = true;
     };
@@ -208,6 +211,7 @@ function OnboardingTourHost({
       ...adapter,
       resetExtension: async () => {
         const snapshot = await reset.call(adapter);
+        setAudience("new");
         dispatch("arm");
         return snapshot;
       },
@@ -242,7 +246,7 @@ function OnboardingTourHost({
         view: step?.view ?? "queue",
         platform: step?.platform ?? "twitch",
         ...(step?.settingsFocus ? { settingsFocus: step.settingsFocus } : {}),
-        overlay: <OnboardingOverlay phase={phase} onAction={onAction} />,
+        overlay: <OnboardingOverlay phase={phase} audience={audience} onAction={onAction} />,
       }}
     />
   );

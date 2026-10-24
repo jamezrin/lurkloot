@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popup-ui";
-import type { PopupInitialState } from "@lurkloot/popup-ui";
+import type { OnboardingAudience, PopupInitialState } from "@lurkloot/popup-ui";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { TOUR_STEPS } from "../../popup-ui/src/onboardingTour.logic";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
@@ -51,12 +51,12 @@ async function settle(turns = 12): Promise<void> {
 }
 
 interface FakeOptions {
-  pending?: boolean | "reject";
+  pending?: OnboardingAudience | null | "reject";
   withHook?: boolean;
   uiLanguage?: string;
 }
 
-function fakeAdapter({ pending = true, withHook = true, uiLanguage = "en" }: FakeOptions = {}) {
+function fakeAdapter({ pending = "new", withHook = true, uiLanguage = "en" }: FakeOptions = {}) {
   const demo = createDemoPopupAdapter();
   const send = vi.fn((message: RuntimeMessage) => demo.send(message));
   const getPendingOnboarding = vi.fn(() =>
@@ -147,14 +147,28 @@ describe("onboarding tour host", () => {
     expect(container.querySelector("[inert] [role='dialog']")).toBeNull();
   });
 
+  it("offers returning users their own welcome copy and the same twelve steps", async () => {
+    const { adapter } = fakeAdapter({ pending: "returning" });
+    const container = await mount(adapter);
+    const card = dialog(container);
+    expect(card?.textContent).toContain("New in Lurkloot: a quick tour");
+    expect(card?.textContent).toContain("See what's new and what you might have missed");
+    expect(card?.textContent).not.toContain("Welcome to Lurkloot");
+    await press(container, "start");
+    expect(progress(container)).toBe(`1 / ${TOUR_STEPS.length}`);
+    expect(TOUR_STEPS).toHaveLength(12);
+  });
+
   it("renders the real frame when onboarding is not pending", async () => {
-    const { adapter } = fakeAdapter({ pending: false });
+    const { adapter } = fakeAdapter({ pending: null });
     expectRealFrame(await mount(adapter));
   });
 
   it("renders the loading shell while the pending check is unresolved", async () => {
     const fake = fakeAdapter();
-    fake.getPendingOnboarding.mockImplementation(() => new Promise<boolean>(() => undefined));
+    fake.getPendingOnboarding.mockImplementation(
+      () => new Promise<OnboardingAudience | null>(() => undefined),
+    );
     const container = stubDom();
     await act(async () => {
       root = createRoot(container);
@@ -286,7 +300,7 @@ describe("onboarding tour host", () => {
   });
 
   it("shows the welcome card again after a factory reset", async () => {
-    const fake = fakeAdapter({ pending: false });
+    const fake = fakeAdapter({ pending: null });
     const container = await mount(fake.adapter);
     expectRealFrame(container);
     await act(async () =>
