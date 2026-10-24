@@ -465,7 +465,7 @@ async function chooseIdleWatchlistDecision(
   const channels = settings.platform[platform].idleWatchlistChannels
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean);
-  if (streaks.maintained.length === 0) {
+  if (streaks.prioritized.length === 0) {
     const fallback = await firstValidCandidate(
       channels.map((username) => fallbackChannel(platform, username)),
       undefined,
@@ -483,19 +483,21 @@ async function chooseIdleWatchlistDecision(
     };
   }
   // Maintained rows come first, so an ordinary row that is always live cannot
-  // starve them. A maintained row whose attempt for this broadcast has ended,
-  // or that cannot be attributed, is skipped outright: it never falls back to
-  // ordinary watching for the same broadcast.
-  const maintained = new Set(streaks.maintained);
-  for (const username of orderIdleWatchlist(channels, streaks.maintained)) {
+  // starve them. A maintained row whose attempt for this broadcast has ended is
+  // skipped outright: it never falls back to ordinary watching for the same
+  // broadcast. One whose broadcast cannot be attributed is watched as an
+  // ordinary row instead.
+  const prioritized = new Set(streaks.prioritized);
+  for (const username of orderIdleWatchlist(channels, streaks.prioritized)) {
     signal?.throwIfAborted();
     onCheck?.();
     const candidate = fallbackChannel(platform, username);
     const check = await adapter.checkChannel(candidate, { signal });
     if (!check.live || !check.categoryMatches || check.campaignMatches === false) continue;
     const channel = channelFromCheck(candidate, check);
-    const streak = maintained.has(username);
-    if (streak && streaks.verdict(channel) !== "pending") continue;
+    const verdict = prioritized.has(username) ? streaks.verdict(channel) : "unavailable";
+    if (verdict === "credited" || verdict === "not_confirmed") continue;
+    const streak = verdict === "pending";
     return {
       platform,
       action: "fallback",

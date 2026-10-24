@@ -937,7 +937,7 @@ claims to know the user's streak count.
   exported, pruned to 7 days and 200 attempts). The account is `authHealth.accountId`, which only
   the auth probe writes, on a healthy check. The channel and broadcast are the checked candidate's
   `channelId` and `broadcastId`. A row whose identity is unknown reads as unavailable and is
-  skipped. It is never opened under an invented identity.
+  watched as an ordinary row. No attempt is ever made under an invented identity.
 - **Accrual is observed healthy watching only.** At the start of each tick that reaches selection,
   the previous session's watch accrues to its attempt if it is maintained and healthy now. The
   time counted runs from the attempt's `observing` stamp and is capped at two minutes per step.
@@ -952,8 +952,11 @@ claims to know the user's streak count.
 - **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
   prepared selection builds the same plan from its state (`SnapshotSelectionInput.watchStreaks`).
   It is passed to every `chooseIdleWatchlistDecision` call. Maintained rows are tried first in the
-  user's order, then the ordinary rows. A maintained row whose attempt is terminal or unavailable
-  is skipped outright, so it never becomes an ordinary row for the same broadcast. Retention goes
+  user's order, then the ordinary rows. Only rows the plan can attribute go first
+  (`prioritized`): without an observer or an account id, maintained rows keep their ordinary
+  place. A maintained row whose attempt is terminal is skipped outright, so it never becomes an
+  ordinary row for the same broadcast; one whose broadcast is unattributable is watched as an
+  ordinary row. Retention goes
   through the same chooser, so a finished row is switched away from on the next tick. Discovery
   observes Idle rows in the same order (`orderIdleWatchlist`), and the selection cache key
   includes the attempts. Watch-source priority is untouched: the plan only orders rows inside the
@@ -970,8 +973,8 @@ claims to know the user's streak count.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
 - **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's
-  push factory. Without it (the CLI), maintained rows are unavailable and skipped, and ordinary
-  rows and lower sources go on as before.
+  push factory. Without it (the CLI), maintained rows read as unavailable and are watched in
+  their ordinary place, so the toggle never takes a channel out of rotation.
 
 ## Tabless Watch
 

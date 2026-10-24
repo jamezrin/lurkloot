@@ -243,12 +243,16 @@ export type WatchStreakVerdict = "pending" | "credited" | "not_confirmed" | "una
 export interface IdleWatchlistStreakPlan {
   // Maintained rows, lowercased, in watchlist order.
   readonly maintained: readonly string[];
+  // The maintained rows tried ahead of the rest. Empty when the payout cannot
+  // be observed or attributed, so those rows keep their ordinary place.
+  readonly prioritized: readonly string[];
   // The checked candidate's attempt for its current broadcast.
   verdict(candidate: ChannelCandidate): WatchStreakVerdict;
 }
 
 export const NO_WATCH_STREAKS: IdleWatchlistStreakPlan = {
   maintained: [],
+  prioritized: [],
   verdict: () => "unavailable",
 };
 
@@ -265,6 +269,7 @@ export function watchStreakPlan(
   const accountId = health.status === "healthy" ? health.accountId : undefined;
   return {
     maintained,
+    prioritized: observerAvailable && isValidPlatformId(accountId) ? maintained : [],
     verdict(candidate) {
       if (!observerAvailable || !isValidPlatformId(accountId)) return "unavailable";
       if (!isValidPlatformId(candidate.channelId) || !isValidPlatformId(candidate.broadcastId))

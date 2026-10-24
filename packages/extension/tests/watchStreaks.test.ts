@@ -572,12 +572,28 @@ describe("watch-streak scheduling", () => {
     expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
   });
 
-  it("skips maintained rows on a host that cannot observe payouts", async () => {
+  it("keeps maintained rows in their ordinary place on a host that cannot observe payouts", async () => {
     const s = setup({ observer: false });
     await s.tick();
     expect(s.state.sessions.twitch.channel?.username).toBe("ordinary");
     expect(s.state.watchStreaks?.twitch?.rows).toEqual({ streaky: "unavailable" });
     expect(s.state.watchStreaks?.twitch?.attempts ?? []).toEqual([]);
+
+    const only = setup({ observer: false, live: ["streaky"] });
+    for (let minute = 0; minute < 30; minute += 1) await only.tick();
+    expect(only.state.sessions.twitch.channel?.username).toBe("streaky");
+    expect(only.state.watchStreaks?.twitch?.attempts ?? []).toEqual([]);
+  });
+
+  it("watches a maintained row as an ordinary one without a known account", async () => {
+    const s = setup({ channels: ["ordinary", "streaky"], live: ["streaky"] });
+    s.state = {
+      ...s.state,
+      authHealth: { ...s.state.authHealth, twitch: { status: "healthy" } },
+    };
+    await s.tick();
+    expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
+    expect(s.state.watchStreaks?.twitch?.rows).toEqual({ streaky: "unavailable" });
   });
 
   it("does not count ticks the platform skipped", async () => {
