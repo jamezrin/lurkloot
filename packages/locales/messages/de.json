@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot farmt im Hintergrund Drops für dich auf Twitch und Kick. Möchtest du einen kurzen Überblick, wie es funktioniert? Tipp: Mit den Pfeiltasten bewegst du dich durch die Tour."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Neu in Lurkloot: eine kurze Tour"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "Erfahre in weniger als einer Minute, was es Neues gibt und was du vielleicht verpasst hast. Tipp: Mit den Pfeiltasten bewegst du dich durch die Tour."
+  },
   "tourStart": {
     "message": "Zeig mir alles"
   },

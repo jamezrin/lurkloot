@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot memfarm drop Twitch dan Kick untuk Anda di latar belakang. Mau lihat sekilas cara kerjanya? Tips: gunakan tombol panah untuk berpindah di tur ini."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Baru di Lurkloot: tur singkat"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "Lihat dalam waktu kurang dari semenit apa yang baru dan mungkin terlewat. Tips: gunakan tombol panah untuk berpindah di tur ini."
+  },
   "tourStart": {
     "message": "Tunjukkan"
   },

@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot が Twitch と Kick の Drops をバックグラウンドでファームします。仕組みを簡単にご覧になりますか？ ヒント：矢印キーでツアーを移動できます。"
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Lurkloot の新機能: クイックツアー"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "1分足らずで、新しい機能と見逃したかもしれない変更点をご確認いただけます。ヒント：矢印キーでツアーを移動できます。"
+  },
   "tourStart": {
     "message": "使い方を見る"
   },

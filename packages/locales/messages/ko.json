@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot이 Twitch와 Kick의 Drops를 백그라운드에서 파밍해 드립니다. 어떻게 작동하는지 간단히 둘러보시겠어요? 팁: 방향키로 투어를 이동할 수 있습니다."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Lurkloot의 새 소식: 간단한 투어"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "1분도 안 되는 시간에 새로운 기능과 놓쳤을 수 있는 변경 사항을 살펴보세요. 팁: 방향키로 투어를 이동할 수 있습니다."
+  },
   "tourStart": {
     "message": "둘러보기"
   },

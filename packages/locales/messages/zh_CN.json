@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot 会在后台为你挂机获取 Twitch 和 Kick 掉宝。想快速了解它的工作方式吗？提示：使用方向键可以浏览导览。"
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Lurkloot 新功能：快速导览"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "一分钟内了解有哪些新内容，以及你可能错过的更新。提示：使用方向键可以浏览导览。"
+  },
   "tourStart": {
     "message": "带我看看"
   },

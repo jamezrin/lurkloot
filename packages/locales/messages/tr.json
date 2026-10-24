@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot, Twitch ve Kick droplarını arka planda senin yerine farmlar. Nasıl çalıştığına kısaca bakmak ister misin? İpucu: turda ilerlemek için ok tuşlarını kullanabilirsin."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Lurkloot'ta yenilikler: hızlı bir tur"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "Bir dakikadan kısa sürede neler yeni olduğunu ve neleri kaçırmış olabileceğini gör. İpucu: turda ilerlemek için ok tuşlarını kullanabilirsin."
+  },
   "tourStart": {
     "message": "Bana göster"
   },

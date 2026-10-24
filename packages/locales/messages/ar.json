@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "يفارم Lurkloot جوائز Twitch وKick لك في الخلفية. هل تريد جولة سريعة لمعرفة طريقة عمله؟ نصيحة: استخدم مفاتيح الأسهم للتنقل خلال الجولة."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Lurkloot الجديد: جولة سريعة"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "اكتشف ما الجديد وما قد يكون فاتك في أقل من دقيقة. نصيحة: استخدم مفاتيح الأسهم للتنقل خلال الجولة."
+  },
   "tourStart": {
     "message": "أرني كيف يعمل"
   },

@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot farmea drops de Twitch y Kick por ti en segundo plano. ¿Quieres ver rápidamente cómo funciona? Consejo: usa las teclas de flecha para moverte por el recorrido."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Novedades en Lurkloot: un recorrido rápido"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "Descubre en menos de un minuto qué hay de nuevo y qué te podrías haber perdido. Consejo: usa las teclas de flecha para moverte por el recorrido."
+  },
   "tourStart": {
     "message": "Enséñame"
   },

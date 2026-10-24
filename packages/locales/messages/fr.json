@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot farme les drops Twitch et Kick pour vous en arrière-plan. Voulez-vous un aperçu rapide de son fonctionnement ? Astuce : utilisez les touches fléchées pour parcourir la visite."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Nouveautés de Lurkloot : une visite rapide"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "Découvrez en moins d'une minute les nouveautés et ce que vous auriez pu manquer. Astuce : utilisez les touches fléchées pour parcourir la visite."
+  },
   "tourStart": {
     "message": "Faites le tour"
   },

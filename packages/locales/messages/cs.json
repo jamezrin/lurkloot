@@ -317,6 +317,12 @@
   "tourWelcomeBody": {
     "message": "Lurkloot na pozadí farmí drops na Twitchi a Kicku za vás. Chcete rychlý přehled, jak to funguje? Tip: šipkami se můžete v prohlídce pohybovat."
   },
+  "tourWelcomeReturningTitle": {
+    "message": "Co je nového v Lurklootu: rychlá prohlídka"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "Podívejte se za méně než minutu, co je nového a co jste možná přehlédli. Tip: šipkami se můžete v prohlídce pohybovat."
+  },
   "tourStart": {
     "message": "Ukaž mi to"
   },
