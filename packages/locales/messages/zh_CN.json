@@ -315,7 +315,7 @@
     "message": "欢迎使用 Lurkloot"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot 会在后台为你挂机获取 Twitch 和 Kick 掉宝。想快速了解它的工作方式吗？"
+    "message": "Lurkloot 会在后台为你挂机获取 Twitch 和 Kick 掉宝。想快速了解它的工作方式吗？提示：使用方向键可以浏览导览。"
   },
   "tourStart": {
     "message": "带我看看"
@@ -402,7 +402,7 @@
     "message": "实用设置"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot 高度可配置。“掉宝”分组包含你的策略、自动领取，以及跳过无法及时完成的掉宝；搜索栏可以快速找到任何设置。"
+    "message": "Lurkloot 高度可配置，并提供 17 种语言。使用搜索栏可以快速找到特定设置。这里还可以重置 Lurkloot，或导出和导入设置，以便在不同电脑和浏览器之间共享。"
   },
   "tourDoneTitle": {
     "message": "准备就绪！开始挂这些掉宝吧！"

@@ -315,7 +315,7 @@
     "message": "Lurkloot へようこそ"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot が Twitch と Kick の Drops をバックグラウンドでファームします。仕組みを簡単にご覧になりますか？"
+    "message": "Lurkloot が Twitch と Kick の Drops をバックグラウンドでファームします。仕組みを簡単にご覧になりますか？ ヒント：矢印キーでツアーを移動できます。"
   },
   "tourStart": {
     "message": "使い方を見る"
@@ -402,7 +402,7 @@
     "message": "便利な設定"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot は細かく設定できます。Drops グループには戦略、自動受け取り、期限内に完了できない Drops のスキップがあり、設定検索バーでどの設定もすぐに見つけられます。"
+    "message": "Lurkloot は細かく設定でき、17 の言語に対応しています。検索バーを使うと特定の設定をすぐに見つけられます。ここでは Lurkloot のリセットや、設定のエクスポートとインポートも行えるため、パソコンやブラウザ間で設定を共有できます。"
   },
   "tourDoneTitle": {
     "message": "準備完了です！さあ、Drops をファームしましょう！"

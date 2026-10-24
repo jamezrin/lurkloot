@@ -59,8 +59,14 @@ describe("TOUR_STEPS", () => {
       kickProgress: undefined,
       kickChallenges: "settings",
       activity: "activity",
-      settings: "settings",
+      settings: undefined,
     });
+  });
+
+  it("ends on the Settings rail entry", () => {
+    expect(TOUR_STEPS[11]?.view).toBe("settings");
+    expect(TOUR_STEPS[11]?.targets).toEqual(['button[data-view="settings"]']);
+    expect(TOUR_STEPS[11]?.settingsFocus).toBeUndefined();
   });
 
   it("never targets diagnostics", () => {

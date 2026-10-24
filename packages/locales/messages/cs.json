@@ -315,7 +315,7 @@
     "message": "Vítejte v Lurklootu"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot na pozadí farmí drops na Twitchi a Kicku za vás. Chcete rychlý přehled, jak to funguje?"
+    "message": "Lurkloot na pozadí farmí drops na Twitchi a Kicku za vás. Chcete rychlý přehled, jak to funguje? Tip: šipkami se můžete v prohlídce pohybovat."
   },
   "tourStart": {
     "message": "Ukaž mi to"
@@ -402,7 +402,7 @@
     "message": "Užitečná nastavení"
   },
   "tourSettingsBody": {
-    "message": "Lurklootu lze hodně přizpůsobit. Skupina Drops obsahuje vaši strategii, automatické vyzvedávání a přeskakování drops, které nestihnou skončit včas, a vyhledávací pole najde jakékoli nastavení rychle."
+    "message": "Lurklootu lze velmi dobře nastavit a je dostupný ve 17 jazycích. Vyhledávacím polem najdete konkrétní nastavení. Zde také můžete Lurkloot resetovat, nebo exportovat a importovat nastavení a sdílet je mezi počítači a prohlížeči."
   },
   "tourDoneTitle": {
     "message": "Hotovo! Pojďme farmit tyto drops!"

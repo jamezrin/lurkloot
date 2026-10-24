@@ -315,7 +315,7 @@
     "message": "Selamat datang di Lurkloot"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot memfarm drop Twitch dan Kick untuk Anda di latar belakang. Mau lihat sekilas cara kerjanya?"
+    "message": "Lurkloot memfarm drop Twitch dan Kick untuk Anda di latar belakang. Mau lihat sekilas cara kerjanya? Tips: gunakan tombol panah untuk berpindah di tur ini."
   },
   "tourStart": {
     "message": "Tunjukkan"
@@ -402,7 +402,7 @@
     "message": "Pengaturan yang berguna"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot sangat bisa dikonfigurasi. Grup Drops memuat strategi, klaim otomatis, dan melewati drop yang tidak bisa selesai tepat waktu, serta kolom pencarian menemukan pengaturan apa pun dengan cepat."
+    "message": "Lurkloot sangat bisa dikonfigurasi dan tersedia dalam 17 bahasa. Gunakan kolom pencarian untuk menemukan pengaturan tertentu. Di sini juga Anda bisa mereset Lurkloot, atau mengekspor dan mengimpor pengaturan untuk dibagikan antarkomputer dan browser."
   },
   "tourDoneTitle": {
     "message": "Siap! Mari farm drop ini!"

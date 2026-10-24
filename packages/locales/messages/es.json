@@ -315,7 +315,7 @@
     "message": "Bienvenido a Lurkloot"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot farmea drops de Twitch y Kick por ti en segundo plano. ¿Quieres ver rápidamente cómo funciona?"
+    "message": "Lurkloot farmea drops de Twitch y Kick por ti en segundo plano. ¿Quieres ver rápidamente cómo funciona? Consejo: usa las teclas de flecha para moverte por el recorrido."
   },
   "tourStart": {
     "message": "Enséñame"
@@ -402,7 +402,7 @@
     "message": "Ajustes útiles"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot es muy configurable. El grupo Drops guarda tu estrategia, el reclamo automático y la omisión de drops que no pueden terminarse a tiempo, y la barra de búsqueda encuentra cualquier ajuste rápido."
+    "message": "Lurkloot es muy configurable y está disponible en 17 idiomas. Usa la barra de búsqueda para encontrar un ajuste concreto. Aquí también puedes restablecer Lurkloot, o exportar e importar tus ajustes para compartirlos entre ordenadores y navegadores."
   },
   "tourDoneTitle": {
     "message": "¡Listo! ¡Vamos a farmear estos drops!"

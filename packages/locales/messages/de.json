@@ -315,7 +315,7 @@
     "message": "Willkommen bei Lurkloot"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot farmt im Hintergrund Drops für dich auf Twitch und Kick. Möchtest du einen kurzen Überblick, wie es funktioniert?"
+    "message": "Lurkloot farmt im Hintergrund Drops für dich auf Twitch und Kick. Möchtest du einen kurzen Überblick, wie es funktioniert? Tipp: Mit den Pfeiltasten bewegst du dich durch die Tour."
   },
   "tourStart": {
     "message": "Zeig mir alles"
@@ -402,7 +402,7 @@
     "message": "Nützliche Einstellungen"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot ist sehr anpassbar. Die Gruppe Drops enthält deine Strategie, das automatische Abholen und das Überspringen von Drops, die nicht rechtzeitig fertig werden, und die Suchleiste findet jede Einstellung schnell."
+    "message": "Lurkloot ist sehr anpassbar und in 17 Sprachen verfügbar. Mit der Suchleiste findest du eine bestimmte Einstellung. Hier kannst du Lurkloot außerdem zurücksetzen oder deine Einstellungen exportieren und importieren, um sie zwischen Computern und Browsern zu teilen."
   },
   "tourDoneTitle": {
     "message": "Alles bereit! Los geht’s mit dem Farmen dieser Drops!"

@@ -76,14 +76,9 @@ export const TOUR_STEPS: readonly TourStep[] = [
   step("activity", "kick", "activity", ['[data-tour="activity-list"]'], "tourActivityTitle", {
     railView: "activity",
   }),
-  step(
-    "settings",
-    "kick",
-    "settings",
-    ['[id="settings-section-general.drops"]'],
-    "tourSettingsTitle",
-    { settingsFocus: "general.drops", railView: "settings" },
-  ),
+  // The last step points at Settings itself rather than one group in it: the
+  // copy is about everything Settings offers, so the rail entry is the target.
+  step("settings", "kick", "settings", ['button[data-view="settings"]'], "tourSettingsTitle"),
 ];
 
 export type TourPhase =

@@ -315,7 +315,7 @@
     "message": "Lurkloot에 오신 것을 환영합니다"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot이 Twitch와 Kick의 Drops를 백그라운드에서 파밍해 드립니다. 어떻게 작동하는지 간단히 둘러보시겠어요?"
+    "message": "Lurkloot이 Twitch와 Kick의 Drops를 백그라운드에서 파밍해 드립니다. 어떻게 작동하는지 간단히 둘러보시겠어요? 팁: 방향키로 투어를 이동할 수 있습니다."
   },
   "tourStart": {
     "message": "둘러보기"
@@ -402,7 +402,7 @@
     "message": "유용한 설정"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot은 세부 설정이 가능합니다. Drops 그룹에는 전략, 자동 수령, 제때 끝낼 수 없는 Drops 건너뛰기 설정이 있고, 검색창에서 어떤 설정이든 빠르게 찾을 수 있습니다."
+    "message": "Lurkloot은 세부 설정이 가능하며 17개 언어로 제공됩니다. 검색창을 사용하면 원하는 설정을 찾을 수 있습니다. 여기서 Lurkloot을 초기화하거나, 설정을 내보내고 가져와 컴퓨터와 브라우저 간에 공유할 수도 있습니다."
   },
   "tourDoneTitle": {
     "message": "준비 완료! 이제 Drops를 파밍해 볼까요!"

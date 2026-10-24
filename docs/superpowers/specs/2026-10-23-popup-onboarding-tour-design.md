@@ -76,7 +76,8 @@ Welcome card first, then 12 steps, then a done card. Every step shows a
 progress counter (e.g. `3 / 12`), **Back**, **Next** and **Skip**. Step 1 has
 no Back; the last step's Next reads **Done** (or leads to the done card).
 
-**Welcome card** (centred over the dimmed popup, no cut-out)
+**Welcome card** (centred over the dimmed popup, no cut-out; its copy tips
+that the arrow keys move through the tour)
 "Welcome to LurkLoot" — one line: it farms Twitch and Kick drops for you in
 the background. Buttons: **Show me around** / **Skip**.
 
@@ -114,9 +115,11 @@ Both:
 
 11. **Activity** (Activity view, event list) — what LurkLoot has done: claims,
     channel switches, campaigns finished.
-12. **Settings** (Settings view, the Drops group) — strategy, auto-claim, skip
-    unfinishable drops; also points at Farming tabs (tabless mode, muting) and
-    Notifications.
+12. **Settings** (Settings view open, spotlight on the rail's Settings entry)
+    — Lurkloot is highly configurable and available in 17 languages; the
+    search bar finds a specific setting; Settings is also where you reset
+    Lurkloot or export/import settings to share them between computers and
+    browsers.
 
 **Done card** (centred, no cut-out) — upbeat and fun, e.g. "You're set! Let's
 get farming these drops!" plus a short tip: sign in to Twitch and/or Kick on
@@ -131,7 +134,7 @@ selected before the tour.
 **One spotlight per step** *(my call)*. Each step has exactly one target
 rectangle. Where a step above names several things: step 8 opens an extension view first,
 then spotlights the rail's NoPixel/Fortnite entries; step 12 spotlights the
-Drops group only, and its copy mentions Farming tabs and Notifications. There
+rail's Settings entry, and its copy covers what Settings offers. There
 are no sub-steps, so the counter is always `n / 12`.
 
 **Left-menu highlight.** A step whose subject is a view also lights that

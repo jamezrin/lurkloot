@@ -315,7 +315,7 @@
     "message": "Welcome to Lurkloot"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot farms Twitch and Kick drops for you in the background. Want a quick look at how it works?"
+    "message": "Lurkloot farms Twitch and Kick drops for you in the background. Want a quick look at how it works? Tip: use the arrow keys to move through the tour."
   },
   "tourStart": {
     "message": "Show me around"
@@ -402,7 +402,7 @@
     "message": "Useful settings"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot is highly configurable. The Drops group holds your strategy, auto-claim and skipping drops that cannot finish in time, and the search bar finds any setting fast."
+    "message": "Lurkloot is highly configurable and available in 17 languages. Use the search bar to find a specific setting. This is also where you reset Lurkloot, or export and import your settings to share them between computers and browsers."
   },
   "tourDoneTitle": {
     "message": "You're set! Let's get farming these drops!"

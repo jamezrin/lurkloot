@@ -315,7 +315,7 @@
     "message": "Lurkloot'a hoş geldin"
   },
   "tourWelcomeBody": {
-    "message": "Lurkloot, Twitch ve Kick droplarını arka planda senin yerine farmlar. Nasıl çalıştığına kısaca bakmak ister misin?"
+    "message": "Lurkloot, Twitch ve Kick droplarını arka planda senin yerine farmlar. Nasıl çalıştığına kısaca bakmak ister misin? İpucu: turda ilerlemek için ok tuşlarını kullanabilirsin."
   },
   "tourStart": {
     "message": "Bana göster"
@@ -402,7 +402,7 @@
     "message": "Kullanışlı ayarlar"
   },
   "tourSettingsBody": {
-    "message": "Lurkloot oldukça yapılandırılabilir. Droplar grubunda stratejin, otomatik alma ve zamanında bitemeyecek dropları atlama ayarları var; arama çubuğu ise her ayarı hızlıca bulur."
+    "message": "Lurkloot oldukça yapılandırılabilir ve 17 dilde kullanılabilir. Belirli bir ayarı bulmak için arama çubuğunu kullan. Lurkloot'u sıfırlamak ya da ayarlarını dışa aktarıp içe aktararak bilgisayarlar ve tarayıcılar arasında paylaşmak için de burayı kullanabilirsin."
   },
   "tourDoneTitle": {
     "message": "Hazırsın! Hadi bu dropları farmlayalım!"
