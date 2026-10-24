@@ -58,6 +58,8 @@ export type TickTrigger =
   | "tabless_fallback"
   // The watched Twitch channel's playback topic said its stream ended (#759).
   | "stream_offline"
+  // A watch-streak payout ended the attempt being watched (#897).
+  | "watch_streak_credited"
   | "claim_handoff"
   | "discovery_signal"
   // Another writer committed while the tick ran its effects, so the tick's

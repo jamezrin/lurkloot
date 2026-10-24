@@ -112,6 +112,9 @@ export function defaultConfigJsonc(): string {
         // yield to the next source; the CLI currently skips NoPixelV and Fortnite.
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
         "idleWatchlistChannels": ${json(twitch.idleWatchlistChannels)},
+        // Idle Watchlist channels whose watch streak to maintain. The CLI has no
+        // Twitch push connection to see the payout, so it skips these rows.
+        "idleWatchlistStreakChannels": ${json(twitch.idleWatchlistStreakChannels ?? [])},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.

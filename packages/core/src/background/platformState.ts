@@ -1,4 +1,5 @@
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
+import { mergeWatchStreakState } from "../core/watchStreaks";
 
 function mergeOptionalEntry<T>(
   destination: Partial<Record<Platform, T>> | undefined,
@@ -33,6 +34,9 @@ function newestTimestamp(
 // - "optionalPlatform": the same, except that an entry missing from the source
 //   deletes the stored one.
 // - "newestTimestamp": the newer of the two ISO timestamps wins.
+// - "watchStreaks": like "optionalPlatform", except that the committing
+//   platform's attempts merge with the stored ones and only move forward
+//   (mergeWatchStreakState), so a payout recorded while a tick ran survives.
 // - "global": not owned by either platform, so the stored value is kept. Its
 //   writers save it with a whole-state commit.
 export const SCHEDULER_STATE_MERGE = {
@@ -49,13 +53,14 @@ export const SCHEDULER_STATE_MERGE = {
   accountProgress: "optionalPlatform",
   campaignSearchBackoffs: "optionalPlatform",
   deadlineInfeasibleRewardIds: "optionalPlatform",
+  watchStreaks: "watchStreaks",
   lastTickAt: "newestTimestamp",
   twitchExtensions: "global",
   chatPresence: "global",
   installedAt: "global",
 } as const satisfies Record<
   keyof SchedulerState,
-  "platform" | "optionalPlatform" | "newestTimestamp" | "global"
+  "platform" | "optionalPlatform" | "watchStreaks" | "newestTimestamp" | "global"
 >;
 
 export type SchedulerStateMergeKind = (typeof SCHEDULER_STATE_MERGE)[keyof SchedulerState];
@@ -80,6 +85,15 @@ export function mergePlatformState(
     } else if (kind === "optionalPlatform") {
       const field = key as KeysOfKind<"optionalPlatform">;
       merged[field] = mergeOptionalEntry<unknown>(destination[field], source[field], platform);
+    } else if (kind === "watchStreaks") {
+      const value = mergeWatchStreakState(
+        destination.watchStreaks?.[platform],
+        source.watchStreaks?.[platform],
+      );
+      const watchStreaks = { ...destination.watchStreaks };
+      if (value === undefined) delete watchStreaks[platform];
+      else watchStreaks[platform] = value;
+      merged.watchStreaks = watchStreaks;
     } else if (kind === "newestTimestamp") {
       const field = key as KeysOfKind<"newestTimestamp">;
       merged[field] = newestTimestamp(destination[field], source[field]);

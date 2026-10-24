@@ -28,6 +28,7 @@
     "./timestamps": "./src/core/timestamps.ts",
     "./heartbeatCadence": "./src/core/heartbeatCadence.ts",
     "./discoverySnapshot": "./src/core/discoverySnapshot.ts",
+    "./watchStreaks": "./src/core/watchStreaks.ts",
     "./adapter": "./src/platforms/adapter.ts",
     "./twitch": "./src/platforms/twitch/index.ts",
     "./twitch/channelPointsPush": "./src/platforms/twitch/channelPointsPush.ts",

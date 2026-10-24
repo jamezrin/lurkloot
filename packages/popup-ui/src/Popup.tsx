@@ -1535,6 +1535,35 @@ export function PopupFrame({
                               onChangeOrder={() =>
                                 changeView("settings", `${platform}.watchSourcePriority`)
                               }
+                              streaks={
+                                platform === "twitch"
+                                  ? {
+                                      enabled: new Set(
+                                        settings.platform.twitch.idleWatchlistStreakChannels,
+                                      ),
+                                      statuses: snapshot.state.watchStreaks?.twitch?.rows ?? {},
+                                      onToggle: (username, enabled) => {
+                                        const current =
+                                          settings.platform.twitch.idleWatchlistStreakChannels;
+                                        void updateSettings(
+                                          {
+                                            platform: {
+                                              twitch: {
+                                                idleWatchlistStreakChannels: enabled
+                                                  ? [...current, username]
+                                                  : current.filter((entry) => entry !== username),
+                                              },
+                                            },
+                                          },
+                                          {
+                                            tickAfterSave: true,
+                                            tickAfterSavePlatforms: ["twitch"],
+                                          },
+                                        );
+                                      },
+                                    }
+                                  : undefined
+                              }
                               onChange={(ordered) =>
                                 updateSettings(
                                   {

@@ -1460,6 +1460,12 @@
   "activityChallengeClaimed": {
     "message": "$1-Karte aus der $2-Challenge erhalten"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch hat die Watch-Streak bei $1 bestätigt"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Watch-Streak bei $1 wurde nicht rechtzeitig bestätigt; weiter zum nächsten Kanal"
+  },
   "activityAuthHealthChanged": {
     "message": "Die Authentifizierung von $1 wechselte von $2 zu $3."
   },
@@ -2152,6 +2158,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "der erste Live-Kanal wird geschaut"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Serienzeilen kommen zuerst, jede bleibt, bis Twitch die Serie bestätigt oder $1 Minuten vergangen sind."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Watch-Streak bei $1 aufrechterhalten"
+  },
+  "watchStreakPending": {
+    "message": "Serie ausstehend"
+  },
+  "watchStreakWatching": {
+    "message": "Serie wird gehalten"
+  },
+  "watchStreakCredited": {
+    "message": "Serie bestätigt"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Nicht bestätigt"
+  },
+  "watchStreakUnavailable": {
+    "message": "Serie nicht verfügbar"
   },
   "gamesModeAllDescription": {
     "message": "Jedes Spiel mit aktiven Drops wird gefarmt, außer blockierte."

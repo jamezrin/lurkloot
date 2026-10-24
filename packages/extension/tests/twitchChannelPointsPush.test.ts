@@ -190,7 +190,7 @@ describe("Twitch channel-points push", () => {
       type: "authenticate",
       authenticate: { token: "auth-token-value" },
     });
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
 
     socket.message({
       type: "authenticateResponse",
@@ -208,7 +208,7 @@ describe("Twitch channel-points push", () => {
         pubsub: { topic: "community-points-user-v1.78020132" },
       },
     });
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
 
     socket.message({
       type: "subscribeResponse",
@@ -217,7 +217,7 @@ describe("Twitch channel-points push", () => {
       id: "sub-ok",
       timestamp: "2026-09-11T16:09:08.200Z",
     });
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
     expect(JSON.stringify(controller.drainEvents())).not.toContain("auth-token-value");
   });
 
@@ -235,7 +235,7 @@ describe("Twitch channel-points push", () => {
 
     expect(createWebSocket).not.toHaveBeenCalled();
     expect(reconnect.scheduled).toHaveLength(1);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     const events = controller.drainEvents();
     expect(events).toContainEqual(
       expect.objectContaining({
@@ -273,7 +273,7 @@ describe("Twitch channel-points push", () => {
     });
 
     expect(parsedSent(socket).some((frame) => frame.type === "subscribe")).toBe(false);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(reconnect.scheduled).toHaveLength(1);
     const events = controller.drainEvents();
     expect(events).toContainEqual(
@@ -305,7 +305,7 @@ describe("Twitch channel-points push", () => {
 
     expect(createWebSocket).not.toHaveBeenCalled();
     expect(reconnect.scheduled).toHaveLength(1);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     const events = controller.drainEvents();
     expect(events).toContainEqual(
       expect.objectContaining({
@@ -344,7 +344,7 @@ describe("Twitch channel-points push", () => {
 
     expect(createWebSocket).not.toHaveBeenCalled();
     expect(reconnect.scheduled).toHaveLength(1);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     const events = controller.drainEvents();
     expect(events).toContainEqual(
       expect.objectContaining({
@@ -545,7 +545,7 @@ describe("keepalive, reconnect, and stop", () => {
 
     keepAlive.scheduled[0]!.callback();
     expect(socket.closed).toBe(true);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(reconnect.scheduled).toHaveLength(1);
     expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
   });
@@ -581,7 +581,7 @@ describe("keepalive, reconnect, and stop", () => {
 
     keepAlive.scheduled[2]!.callback();
     expect(firstSocket.closed).toBe(true);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(reconnect.scheduled).toHaveLength(1);
     expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
 
@@ -591,7 +591,7 @@ describe("keepalive, reconnect, and stop", () => {
     reconnect.scheduled[0]!.callback();
     await afterReconnect();
     completeHandshake(secondSocket);
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
     expect(sockets).toEqual([]);
   });
 
@@ -620,7 +620,7 @@ describe("keepalive, reconnect, and stop", () => {
     await afterReconnect();
     completeHandshake(secondSocket);
 
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
     expect(resolveUserId).toHaveBeenCalledTimes(2);
     expect(parsedSent(secondSocket)).toContainEqual(
       expect.objectContaining({
@@ -652,7 +652,7 @@ describe("keepalive, reconnect, and stop", () => {
 
     await controller.stop();
     expect(firstSocket.closed).toBe(true);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(keepAlive.scheduled[1]?.cancelled).toBe(true);
     expect(reconnect.scheduled).toHaveLength(0);
 
@@ -718,10 +718,10 @@ describe("keepalive, reconnect, and stop", () => {
       scheduleReconnect: reconnect.scheduleReconnect,
     });
     await handshake(firstSocket, controller, () => undefined);
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
 
     firstSocket.emit("close");
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
 
     reconnect.scheduled[0]!.callback();
@@ -732,10 +732,10 @@ describe("keepalive, reconnect, and stop", () => {
     reconnect.scheduled[1]!.callback();
     await afterReconnect();
     completeHandshake(thirdSocket);
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
 
     thirdSocket.emit("close");
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(reconnect.scheduled[2]?.delayMs).toBe(1000);
     expect(sockets).toEqual([]);
   });
@@ -764,7 +764,7 @@ describe("keepalive, reconnect, and stop", () => {
     });
 
     expect(parsedSent(socket).some((frame) => frame.type === "subscribe")).toBe(false);
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(socket.closed).toBe(true);
     expect(reconnect.scheduled).toHaveLength(1);
     expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
@@ -801,7 +801,7 @@ describe("keepalive, reconnect, and stop", () => {
       parentId: subscribe.id,
     });
 
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
     expect(socket.closed).toBe(true);
     expect(reconnect.scheduled).toHaveLength(1);
     expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
@@ -863,7 +863,7 @@ describe("Twitch playback push", () => {
       "video-playback-by-id.123",
     ]);
     confirm(socket, "community-points-user-v1.78020132");
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
   });
 
   it("follows playback alone without the claims topic", async () => {
@@ -872,7 +872,7 @@ describe("Twitch playback push", () => {
     });
     expect(topics(socket)).toEqual(["video-playback-by-id.123"]);
     confirm(socket, "video-playback-by-id.123");
-    expect(controller.subscribed).toBe(false);
+    expect(controller.claimsSubscribed).toBe(false);
   });
 
   it("reports stream-up and stream-down for the watched channel and drops the rest", async () => {
@@ -923,7 +923,7 @@ describe("Twitch playback push", () => {
       type: "unsubscribe",
       unsubscribe: { id: playback },
     });
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
     expect(socket.closed).toBe(false);
   });
 
@@ -936,7 +936,7 @@ describe("Twitch playback push", () => {
     confirm(socket, "video-playback-by-id.123", "error");
     expect(socket.closed).toBe(false);
     expect(reconnect.scheduled).toHaveLength(0);
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
     await controller.start({
       onClaimAvailable: () => undefined,
       playback: { channelId: "123", onNotice: () => undefined },
@@ -1012,7 +1012,7 @@ describe("Twitch playback push", () => {
     confirm(socket, NOPIXEL_TOPIC, "error");
     expect(socket.closed).toBe(false);
     expect(reconnect.scheduled).toHaveLength(0);
-    expect(controller.subscribed).toBe(true);
+    expect(controller.claimsSubscribed).toBe(true);
     await controller.start({
       onClaimAvailable: () => undefined,
       extensionBroadcast: broadcastOwner(() => undefined),
@@ -1172,5 +1172,133 @@ describe("Twitch channel-points push adapter factory", () => {
     });
     socket.message(pubsubNotification(subscribe.subscribe.id, { type: "stream-down" }));
     expect(discoveryState.streamDownReported("123")).toBe(true);
+  });
+});
+
+describe("Twitch watch-streak payouts (#897)", () => {
+  const streakEvent = (
+    overrides: Record<string, unknown> = {},
+    gain: Record<string, unknown> = {},
+  ) => ({
+    type: "points-earned",
+    data: {
+      timestamp: "2026-10-24T12:05:00.000Z",
+      channel_id: "119415848",
+      point_gain: {
+        user_id: "78020132",
+        channel_id: "119415848",
+        reason_code: "WATCH_STREAK",
+        total_points: 450,
+        ...gain,
+      },
+      ...overrides,
+    },
+  });
+
+  async function observing(owners: Parameters<TwitchChannelPointsPushController["start"]>[0]) {
+    const socket = new FakeSocket();
+    const controller = createPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "token",
+      resolveUserId: async () => "78020132",
+    });
+    await controller.start(owners);
+    completeHandshake(socket);
+    return { socket, controller, subscriptionId: currentSubscriptionId(socket) };
+  }
+
+  it("subscribes the points topic for streaks alone, without claiming", async () => {
+    const onStreak = vi.fn();
+    const { socket, controller, subscriptionId } = await observing({
+      onWatchStreakEarned: onStreak,
+    });
+    expect(parsedSent(socket).find((frame) => frame.type === "subscribe")).toMatchObject({
+      subscribe: { pubsub: { topic: "community-points-user-v1.78020132" } },
+    });
+    // Followed for streaks only: claim delivery is not on, so polling must stay.
+    expect(controller.claimsSubscribed).toBe(false);
+    socket.message(pubsubNotification(subscriptionId, streakEvent()));
+    expect(onStreak).toHaveBeenCalledWith({
+      userId: "78020132",
+      channelId: "119415848",
+      at: Date.parse("2026-10-24T12:05:00.000Z"),
+    });
+    socket.message(
+      pubsubNotification(subscriptionId, {
+        type: "claim-available",
+        data: { claim: { id: "claim", channel_id: "119415848" } },
+      }),
+    );
+    expect(onStreak).toHaveBeenCalledOnce();
+  });
+
+  it("delivers claims and streaks side by side", async () => {
+    const onStreak = vi.fn();
+    const onClaim = vi.fn();
+    const { socket, controller, subscriptionId } = await observing({
+      onClaimAvailable: onClaim,
+      onWatchStreakEarned: onStreak,
+    });
+    expect(controller.claimsSubscribed).toBe(true);
+    socket.message(pubsubNotification(subscriptionId, streakEvent()));
+    socket.message(
+      pubsubNotification(subscriptionId, {
+        type: "claim-available",
+        data: { claim: { id: "claim", channel_id: "119415848" } },
+      }),
+    );
+    expect(onStreak).toHaveBeenCalledOnce();
+    expect(onClaim).toHaveBeenCalledOnce();
+  });
+
+  it("ignores other reasons and payloads it cannot attribute", async () => {
+    const onStreak = vi.fn();
+    const { socket, subscriptionId } = await observing({ onWatchStreakEarned: onStreak });
+    const send = (event: unknown) => socket.message(pubsubNotification(subscriptionId, event));
+    send(streakEvent({}, { reason_code: "WATCH" }));
+    send(streakEvent({}, { user_id: "1" }));
+    send(streakEvent({ channel_id: "222" }));
+    send(streakEvent({ channel_id: "not-an-id" }, { channel_id: "not-an-id" }));
+    send(streakEvent({ channel_id: undefined }, { channel_id: undefined }));
+    send({ type: "points-earned", data: "nope" });
+    expect(onStreak).not.toHaveBeenCalled();
+  });
+
+  it("re-subscribes for streaks after a reconnect, still without claiming", async () => {
+    const first = new FakeSocket();
+    const second = new FakeSocket();
+    const sockets = [first, second];
+    const reconnect = reconnectScheduler();
+    const keepAlive = keepAliveScheduler();
+    const onStreak = vi.fn();
+    const controller = createPushController({
+      createWebSocket: () => sockets.shift()!,
+      getAuthToken: async () => "token",
+      resolveUserId: async () => "78020132",
+      scheduleReconnect: reconnect.scheduleReconnect,
+      scheduleKeepAlive: keepAlive.scheduleKeepAlive,
+      cancelKeepAlive: keepAlive.cancelKeepAlive,
+    });
+    await controller.start({ onWatchStreakEarned: onStreak });
+    completeHandshake(first);
+    first.emit("close");
+    reconnect.scheduled[0]!.callback();
+    await afterReconnect();
+    completeHandshake(second);
+
+    expect(parsedSent(second).find((frame) => frame.type === "subscribe")).toMatchObject({
+      subscribe: { pubsub: { topic: "community-points-user-v1.78020132" } },
+    });
+    expect(controller.claimsSubscribed).toBe(false);
+    second.message(pubsubNotification(currentSubscriptionId(second), streakEvent()));
+    expect(onStreak).toHaveBeenCalledOnce();
+  });
+
+  it("stamps a payout without a timestamp when it arrives", async () => {
+    const onStreak = vi.fn();
+    const { socket, subscriptionId } = await observing({ onWatchStreakEarned: onStreak });
+    const before = Date.now();
+    socket.message(pubsubNotification(subscriptionId, streakEvent({ timestamp: undefined })));
+    expect(onStreak.mock.calls[0]![0].at).toBeGreaterThanOrEqual(before);
   });
 });

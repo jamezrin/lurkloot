@@ -25,6 +25,17 @@ export interface TwitchChannelPointsClaimNotice {
   channelId: string;
 }
 
+// A watch-streak payout on the viewer's channel-points topic (#897): the
+// points-earned event Twitch sends with reason WATCH_STREAK. Evidence that a
+// payout happened, not the viewer's streak count.
+export interface TwitchWatchStreakNotice {
+  // The viewer the topic belongs to.
+  userId: string;
+  channelId: string;
+  // When Twitch says it paid out, or when it arrived when it says nothing.
+  at: number;
+}
+
 export type TwitchPlaybackNoticeType = "stream-up" | "stream-down";
 
 export interface TwitchPlaybackNotice {
@@ -37,6 +48,9 @@ export interface TwitchPlaybackNotice {
 export interface TwitchHermesOwners {
   // The viewer's channel-points topic (#590).
   onClaimAvailable?: (notice: TwitchChannelPointsClaimNotice) => void;
+  // Watch-streak payouts on the same topic (#897). Subscribes the topic on its
+  // own, so observing streaks never depends on claiming.
+  onWatchStreakEarned?: (notice: TwitchWatchStreakNotice) => void;
   // The watched channel's playback topic (#759).
   playback?: { channelId: string; onNotice: (notice: TwitchPlaybackNotice) => void };
   // A Twitch Extension's broadcast topic on the watched channel (#757). Only
@@ -118,10 +132,16 @@ export class TwitchChannelPointsPushController {
     this.cancelKeepAlive = deps.cancelKeepAlive ?? ((timer) => clearTimeout(timer));
   }
 
-  // Whether the channel-points topic is subscribed.
-  get subscribed(): boolean {
-    const topic = this.claimTopic();
-    return topic !== undefined && this.subscriptions.get(topic)?.confirmed === true;
+  // Whether claim notices are being delivered: the channel-points topic is
+  // subscribed for a claim owner. A topic followed only for watch streaks
+  // delivers no claims, so it must not stand in for claim polling.
+  get claimsSubscribed(): boolean {
+    const topic = this.pointsTopic();
+    return (
+      this.owners.onClaimAvailable !== undefined
+      && topic !== undefined
+      && this.subscriptions.get(topic)?.confirmed === true
+    );
   }
 
   // Starts the connection, or updates what a running one follows. A callback
@@ -193,10 +213,7 @@ export class TwitchChannelPointsPushController {
         `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`,
       );
       // Only the channel-points topic needs the id; the channel topics go on without it.
-      if (
-        this.owners.onClaimAvailable
-        || (!this.owners.playback && !this.owners.extensionBroadcast)
-      ) {
+      if (this.wantsPointsTopic() || (!this.owners.playback && !this.owners.extensionBroadcast)) {
         this.scheduleNextReconnect();
         return;
       }
@@ -308,7 +325,7 @@ export class TwitchChannelPointsPushController {
       return;
     }
 
-    if (this.owners.onClaimAvailable && !this.userId) {
+    if (this.wantsPointsTopic() && !this.userId) {
       this.log("debug", "Twitch channel-points push is missing a user id");
       this.closeCurrentSocket();
       this.scheduleNextReconnect();
@@ -318,16 +335,20 @@ export class TwitchChannelPointsPushController {
     this.syncTopics(ws);
   }
 
-  private claimTopic(): string | undefined {
-    return this.owners.onClaimAvailable && this.userId
+  private wantsPointsTopic(): boolean {
+    return Boolean(this.owners.onClaimAvailable || this.owners.onWatchStreakEarned);
+  }
+
+  private pointsTopic(): string | undefined {
+    return this.wantsPointsTopic() && this.userId
       ? `${TWITCH_CHANNEL_POINTS_TOPIC_PREFIX}${this.userId}`
       : undefined;
   }
 
   private wantedTopics(): string[] {
     const topics: string[] = [];
-    const claim = this.claimTopic();
-    if (claim) topics.push(claim);
+    const points = this.pointsTopic();
+    if (points) topics.push(points);
     const playback = this.owners.playback;
     if (playback && /^\d{1,20}$/.test(playback.channelId)) {
       const topic = `${TWITCH_PLAYBACK_TOPIC_PREFIX}${playback.channelId}`;
@@ -477,9 +498,21 @@ export class TwitchChannelPointsPushController {
       return;
     }
     const data = inner.data;
+    const userId = subscription.topic.slice(TWITCH_CHANNEL_POINTS_TOPIC_PREFIX.length);
+    const streak = watchStreakNotice(inner.type, data, userId);
+    if (streak) {
+      this.log("debug", `Twitch reported a watch-streak payout on channel ${streak.channelId}`);
+      try {
+        this.owners.onWatchStreakEarned?.(streak);
+      } catch (error) {
+        this.log("warn", `Twitch watch-streak callback failed: ${errorMessage(error)}`);
+      }
+      return;
+    }
     const claim = isRecord(data) ? data.claim : undefined;
     if (
-      inner.type !== "claim-available"
+      !this.owners.onClaimAvailable
+      || inner.type !== "claim-available"
       || !isRecord(claim)
       || typeof claim.id !== "string"
       || claim.id.length === 0
@@ -672,6 +705,33 @@ function extensionBroadcastEvents(pubsub: unknown): string[] {
       ? [message.event]
       : [],
   );
+}
+
+const TWITCH_ID = /^\d{1,20}$/;
+
+// A points-earned event for WATCH_STREAK on `userId`'s topic. The channel must
+// be a Twitch id, named consistently where the payload names it twice, and a
+// user id in the payload must be the topic's own; anything else is not a
+// payout this viewer can be credited with.
+function watchStreakNotice(
+  type: unknown,
+  data: unknown,
+  userId: string,
+): TwitchWatchStreakNotice | undefined {
+  if (type !== "points-earned" || !isRecord(data) || !TWITCH_ID.test(userId)) return undefined;
+  const gain = isRecord(data.point_gain) ? data.point_gain : undefined;
+  if (gain?.reason_code !== "WATCH_STREAK") return undefined;
+  const channels = [data.channel_id, gain.channel_id].filter((value) => value !== undefined);
+  const channelId = channels[0];
+  if (
+    typeof channelId !== "string"
+    || !TWITCH_ID.test(channelId)
+    || channels.some((value) => value !== channelId)
+  )
+    return undefined;
+  if (gain.user_id !== undefined && gain.user_id !== userId) return undefined;
+  const stamped = typeof data.timestamp === "string" ? Date.parse(data.timestamp) : Number.NaN;
+  return { userId, channelId, at: Number.isFinite(stamped) ? stamped : Date.now() };
 }
 
 // What a points event was, for the diagnostic log: points-earned names the

@@ -1460,6 +1460,12 @@
   "activityChallengeClaimed": {
     "message": "$1 카드를 $2 챌린지에서 수령했습니다"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch가 $1의 연속 시청을 확인했습니다"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "$1의 연속 시청이 제때 확인되지 않아 다음으로 넘어갔습니다"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 인증이 $2에서 $3(으)로 변경되었습니다."
   },
@@ -2152,6 +2158,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "첫 라이브 채널을 시청"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "연속 시청 행이 먼저 표시되며, 각 행은 Twitch가 연속 시청을 확인하거나 $1분이 지날 때까지 유지됩니다."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "$1 연속 시청 유지"
+  },
+  "watchStreakPending": {
+    "message": "연속 시청 대기 중"
+  },
+  "watchStreakWatching": {
+    "message": "연속 시청 유지 중"
+  },
+  "watchStreakCredited": {
+    "message": "연속 시청 확인됨"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "확인되지 않음"
+  },
+  "watchStreakUnavailable": {
+    "message": "연속 시청 불가"
   },
   "gamesModeAllDescription": {
     "message": "라이브 드롭이 있는 모든 게임을 차단된 것 제외하고 파밍합니다."

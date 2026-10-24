@@ -615,6 +615,7 @@ tested too (#598).
 | No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
+| Watch streaks: maintained rows first, terminal attempts never reselected, unhealthy and budget bounds end the opens, payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
 
 ## Runtime Messages
 
@@ -827,7 +828,7 @@ Each scheduler tick runs enabled platforms independently:
 1. Pause and clean up the platform if recent manual watch activity is detected, global automation is disabled, or that platform is disabled.
 2. Skip the platform while it is in exponential backoff after repeated platform errors.
 3. Take the campaigns from the committed discovery snapshot and merge progress. The tick never discovers campaigns itself.
-4. Auto-claim claimable rewards when enabled.
+4. Auto-claim claimable rewards when enabled, then accrue the last tick's watch to its watch-streak attempt (see [Watch-streak maintenance](#watch-streak-maintenance-897)).
 5. Select the first eligible source in the platform's normalized `watchSourcePriority`, preserving campaign and channel ranking within each source. See [watch-source selection policy](watch-source-priority.md).
 6. Decide whether to keep the current target by checking channel liveness/category and recent playback or heartbeat telemetry.
 7. Use tabless watching when enabled and supported, or open, reuse, retarget, or stop the watch tab through the adapter.
@@ -923,6 +924,57 @@ Stopping behavior depends on ownership and settings:
 
 - Extension-managed watch tabs are closed when `autoCloseFinishedDrops` allows it.
 - Reused user tabs are unmuted, unpinned, and left open.
+
+## Watch-streak maintenance (#897)
+
+A Twitch Idle Watchlist row can be opted in to **Maintain watch streak**
+(`platform.twitch.idleWatchlistStreakChannels`, always a subset of the watchlist: removing a
+row clears its opt-in, reordering keeps it, Kick has none). It is best effort. LurkLoot never
+claims to know the user's streak count.
+
+- **One attempt per account, channel and broadcast.** `packages/core/src/core/watchStreaks.ts`
+  owns the rules and `SchedulerState.watchStreaks` holds the attempts (runtime state, never
+  exported, pruned to 7 days and 200 attempts). The account is `authHealth.accountId`, which only
+  the auth probe writes, on a healthy check. The channel and broadcast are the checked candidate's
+  `channelId` and `broadcastId`. A row whose identity is unknown reads as unavailable and is
+  watched as an ordinary row. No attempt is ever made under an invented identity.
+- **Accrual is observed healthy watching only.** At the start of each tick that reaches selection,
+  the previous session's watch accrues to its attempt if it is maintained and healthy now. The
+  time counted runs from the attempt's `observing` stamp and is capped at two minutes per step.
+  Any watch of that broadcast counts, including Drops. A tick that exits early (pause, backoff,
+  signed out) drops the stamp, so skipped time never counts.
+- **Terminal outcomes.** An attempt ends as `not_confirmed` after 15 minutes of healthy watching
+  (`WATCH_STREAK_BUDGET_MS`), or after 10 unhealthy checks. A watch that is still settling (a tab
+  in its playback grace, a tabless watch with no heartbeat yet) counts as neither. The unhealthy
+  bound is what stops a row that never plays from reopening forever. An attempt ends as `credited` when Twitch reports
+  the payout. A terminal attempt is never reopened for that broadcast, and toggles and reorders do
+  not reset it. A new broadcast gets a new attempt.
+- **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
+  prepared selection builds the same plan from its state (`SnapshotSelectionInput.watchStreaks`).
+  It is passed to every `chooseIdleWatchlistDecision` call. Maintained rows are tried first in the
+  user's order, then the ordinary rows. Only rows the plan can attribute go first
+  (`prioritized`): without an observer or an account id, maintained rows keep their ordinary
+  place. A maintained row whose attempt is terminal is skipped outright, so it never becomes an
+  ordinary row for the same broadcast; one whose broadcast is unattributable is watched as an
+  ordinary row. Retention goes
+  through the same chooser, so a finished row is switched away from on the next tick. Discovery
+  observes Idle rows in the same order (`orderIdleWatchlist`), and the selection cache key
+  includes the attempts. Watch-source priority is untouched: the plan only orders rows inside the
+  Idle Watchlist source.
+- **Observation.** The existing Hermes connection follows `community-points-user-v1.<id>`
+  whenever a maintained row exists, whatever the claim settings say. `points-earned` with reason
+  `WATCH_STREAK` becomes a `TwitchWatchStreakNotice`. The channel id must be consistent, and a
+  payload `user_id` must be the topic's own. The channel-points service commits it through
+  `recordWatchStreakCredit` against the latest stored state, re-checking the signed-in account.
+  It then emits `watch_streak_ended` and requests a Twitch tick. The payout names no broadcast,
+  so it only credits the account's latest attempt on that channel, and only if that attempt was
+  observed within 10 minutes of the payout. `claimsSubscribed` is true only when a claim owner's
+  topic is confirmed, so a streak-only subscription never suppresses claim polling.
+- **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
+  key and only move forward, so a payout committed while a tick ran survives that tick's commit.
+- **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's
+  push factory. Without it (the CLI), maintained rows read as unavailable and are watched in
+  their ordinary place, so the toggle never takes a channel out of rotation.
 
 ## Tabless Watch
 

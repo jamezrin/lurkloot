@@ -8,6 +8,7 @@ import {
   normalizeCategoryMode,
   normalizeCategorySelections,
   normalizeChannelList,
+  normalizeWatchStreakChannels,
   normalizeIdList,
   normalizeSubscriptionMarks,
   POLL_INTERVAL_MAX_MINUTES,
@@ -161,6 +162,7 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "autoClaimChannelPoints",
     "strictCampaignAvailability",
     "channelPointsPushClaim",
+    "idleWatchlistStreakChannels",
     "alwaysEnterChat",
   ]),
   kick: new Set([
@@ -571,6 +573,10 @@ function normalizePlatform(
       channelPointsPushClaim: booleanOr(
         twitch.ps.channelPointsPushClaim,
         DEFAULT_CLI_SETTINGS.platform.twitch.channelPointsPushClaim,
+      ),
+      idleWatchlistStreakChannels: normalizeWatchStreakChannels(
+        twitch.ps.idleWatchlistStreakChannels,
+        twitch.base.idleWatchlistChannels,
       ),
     },
     kick: {

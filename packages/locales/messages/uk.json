@@ -1460,6 +1460,12 @@
   "activityChallengeClaimed": {
     "message": "Отримано карту $1 за виклик $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch підтвердив серію перегляду на $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Серію перегляду на $1 не підтверджено вчасно; перейшли далі"
+  },
   "activityAuthHealthChanged": {
     "message": "Стан автентифікації $1 змінився з $2 на $3."
   },
@@ -2152,6 +2158,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "дивиться перший канал у ефірі"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Рядки з серіями йдуть першими, кожен доки Twitch не підтвердить серію або не минуть $1 хвилин."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Підтримувати серію перегляду на $1"
+  },
+  "watchStreakPending": {
+    "message": "Серія очікується"
+  },
+  "watchStreakWatching": {
+    "message": "Серія триває"
+  },
+  "watchStreakCredited": {
+    "message": "Серію підтверджено"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Не підтверджено"
+  },
+  "watchStreakUnavailable": {
+    "message": "Серія недоступна"
   },
   "gamesModeAllDescription": {
     "message": "Фармляться всі ігри з активними дропами, крім заблокованих."

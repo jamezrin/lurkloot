@@ -40,6 +40,10 @@ export interface PlatformAuthHealth {
   checkedAt?: string;
   reasonCode?: PlatformAuthReasonCode;
   message?: PlatformAuthMessage;
+  // The signed-in account's stable platform id, read by the auth probe on a
+  // healthy check. Only a healthy health carries it; it keys per-account
+  // runtime records such as watch-streak attempts.
+  accountId?: string;
 }
 
 export type CampaignStatus = "active" | "upcoming" | "expired" | "completed";
@@ -485,6 +489,10 @@ export interface TwitchPlatformSettings extends PlatformSettings {
   // notification. On by default. Off restores the one-minute ChannelPointsContext
   // alarm as the only dedicated claim trigger. See #529.
   channelPointsPushClaim: boolean;
+  // Idle Watchlist channels whose watch streak Lurkloot maintains (#897).
+  // Always a subset of idleWatchlistChannels, in no meaningful order: the
+  // watchlist's own order decides. Empty by default.
+  idleWatchlistStreakChannels: string[];
 }
 
 export interface KickPlatformSettings extends PlatformSettings {
@@ -678,6 +686,9 @@ export interface SchedulerState {
   campaignSearchBackoffs?: Partial<Record<Platform, CampaignSearchBackoff>>;
   campaigns: Record<Platform, DropCampaign[]>;
   deadlineInfeasibleRewardIds?: Partial<Record<Platform, string[]>>;
+  // Watch-streak maintenance attempts (#897). Runtime only: never exported
+  // with the settings, pruned on every write.
+  watchStreaks?: Partial<Record<Platform, WatchStreakState>>;
   lastTickAt?: string;
   // ISO timestamp recorded once by the background on install; drives the
   // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).
@@ -723,4 +734,49 @@ export interface WatchDecision {
   channel?: ChannelCandidate;
   reason: string;
   reasonCode: WatchReasonCode;
+}
+
+// Watch-streak maintenance (#897, packages/core/src/core/watchStreaks.ts). One
+// attempt per signed-in account, channel and broadcast. A terminal outcome
+// stays terminal for that broadcast; a new broadcast gets a new attempt.
+// "credited": the platform reported the streak payout for this broadcast.
+// "not_confirmed": the watch budget or the failure bound ran out without that
+// report. Neither claims anything about the user's streak count.
+export type WatchStreakOutcome = "pending" | "credited" | "not_confirmed";
+
+export interface WatchStreakAttempt {
+  accountId: string;
+  channelId: string;
+  broadcastId: string;
+  // Lowercased login, for display only. Identity is the ids above.
+  username: string;
+  outcome: WatchStreakOutcome;
+  // Healthy watching observed by the engine, in milliseconds.
+  watchedMs: number;
+  // Ticks that found this attempt's channel selected but not healthy.
+  unhealthyChecks: number;
+  startedAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+// What the popup shows beside a maintained Idle Watchlist row.
+export type WatchStreakRowStatus =
+  | "pending"
+  | "watching"
+  | "credited"
+  | "not_confirmed"
+  | "unavailable";
+
+export interface WatchStreakState {
+  attempts: WatchStreakAttempt[];
+  // The attempt whose healthy watch was last observed, and when. Elapsed time
+  // is only counted from this stamp, so a suspended worker, a pause or a
+  // switch away never counts.
+  observing?: { key: string; at: string };
+  // Last status of each maintained row, written by the tick for the popup.
+  rows?: Record<string, WatchStreakRowStatus>;
+  // Whether this host can observe the streak payout at all, as of the last
+  // tick. Undefined until a tick has run.
+  observerAvailable?: boolean;
 }

@@ -112,6 +112,16 @@ export type ActivityEvent =
     }
   | {
       category: "activity";
+      // A maintained Idle Watchlist row's attempt for one broadcast ended
+      // (#897): Twitch reported the payout, or the watch budget ran out first.
+      code: "watch_streak_ended";
+      level: "info";
+      platform: Platform;
+      message?: never;
+      data: { channel: string; outcome: "credited" | "not_confirmed" };
+    }
+  | {
+      category: "activity";
       code: "page_context_opened";
       level: "info";
       platform: Platform;

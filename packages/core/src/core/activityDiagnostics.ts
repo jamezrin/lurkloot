@@ -43,6 +43,10 @@ function describe(event: ActivityEvent): string {
       return `Farming interrupted: reason=${event.data.reason}${event.data.detail ? ` (${event.data.detail})` : ""}`;
     case "challenge_claimed":
       return `Claimed ${event.data.rarity} ${event.data.recurrence} challenge ${event.data.challengeId}`;
+    case "watch_streak_ended":
+      return event.data.outcome === "credited"
+        ? `Twitch reported the watch-streak payout on ${event.data.channel}`
+        : `Watch streak on ${event.data.channel} not confirmed within the watch budget; moving on`;
     case "page_context_opened":
       return `Opened managed page context on ${event.data.host}: reason=${event.data.reason}`;
     case "page_context_closed":

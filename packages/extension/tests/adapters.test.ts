@@ -2186,6 +2186,17 @@ describe("TwitchAdapter", () => {
     expect(ensureIntegrity).not.toHaveBeenCalled();
   });
 
+  it("records the signed-in account's numeric id on a healthy probe (#897)", async () => {
+    const fetcher = jsonFetcher(() => ({ data: { currentUser: { id: "78020132" } } }));
+
+    await expect(twitchAdapter(fetcher).checkAuthHealth()).resolves.toEqual({
+      status: "healthy",
+      checkedAt: expect.any(String),
+      message: { key: "authHealthy" },
+      accountId: "78020132",
+    });
+  });
+
   it.each([
     { data: { currentUser: null } },
     { data: {} },
