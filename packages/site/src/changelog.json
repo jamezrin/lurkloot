@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.19.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Lurkloot now shows a short tour the first time you open it. It walks through the queue and how it picks what to farm, the Rewards to farm filter, Completed, Games, the Idle Watchlist, Twitch extensions, your Kick level and daily challenges, Activity and Settings, using sample data so nothing you have set up changes. Move through it with the buttons or the arrow keys, or skip it at any step. If you already use Lurkloot, it is offered once after this update, and Reset everything brings it back."
+      },
+      {
+        "kind": "fixed",
+        "text": "Some Ukrainian, Korean, Indonesian and Japanese text, such as the Idle watchlist and Twitch extension labels, was still in English. It is now translated."
+      }
+    ]
+  },
+  {
     "version": "1.18.1",
     "changes": [
       {
