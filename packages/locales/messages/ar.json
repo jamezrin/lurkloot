@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "تم استلام بطاقة $1 من تحدي $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "أكّد Twitch سلسلة المشاهدة في $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "لم تُؤكَّد سلسلة المشاهدة في $1 في الوقت المحدد؛ تم الانتقال إلى التالي"
+  },
   "activityAuthHealthChanged": {
     "message": "تغيّرت مصادقة $1 من $2 إلى $3."
   },
@@ -2176,6 +2182,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "تُشاهَد أول قناة تبث مباشرة"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "تأتي صفوف السلاسل أولاً، ويستمر كل صف حتى يؤكد Twitch السلسلة أو تمر $1 دقيقة."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "الحفاظ على سلسلة المشاهدة في $1"
+  },
+  "watchStreakPending": {
+    "message": "السلسلة معلّقة"
+  },
+  "watchStreakWatching": {
+    "message": "الحفاظ على السلسلة"
+  },
+  "watchStreakCredited": {
+    "message": "تم تأكيد السلسلة"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "لم تُؤكَّد"
+  },
+  "watchStreakUnavailable": {
+    "message": "السلسلة غير متاحة"
   },
   "gamesModeAllDescription": {
     "message": "تُجمع كل لعبة لديها دروبس نشطة، باستثناء المحظورة."

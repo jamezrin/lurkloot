@@ -302,6 +302,10 @@ function formatCurrentActivity(
     }
     case "challenge_claimed":
       return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
+    case "watch_streak_ended":
+      return event.data.outcome === "credited"
+        ? t("activityWatchStreakCredited", event.data.channel)
+        : t("activityWatchStreakNotConfirmed", event.data.channel);
     case "page_context_opened":
       return t("activityPageContextOpened", [
         event.data.host,
@@ -392,6 +396,10 @@ export function buildActivityCard(
         detail: event.data.detail,
         chips: [formatStopReason(event.data.reason, t)],
       };
+    case "watch_streak_ended":
+      return event.data.outcome === "credited"
+        ? { icon: "trophy", tone: "success", summary, chips: [event.data.channel] }
+        : { icon: "triangle", tone: "muted", summary, chips: [event.data.channel] };
     case "page_context_opened":
       return {
         icon: "monitor-up",

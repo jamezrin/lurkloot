@@ -99,6 +99,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       autoClaimChannelPoints: true,
       strictCampaignAvailability: false,
       channelPointsPushClaim: true,
+      idleWatchlistStreakChannels: [],
       alwaysEnterChat: false,
     },
     kick: {
@@ -250,6 +251,10 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         channelPointsPushClaim: booleanOr(
           platform?.twitch?.channelPointsPushClaim,
           DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim,
+        ),
+        idleWatchlistStreakChannels: normalizeWatchStreakChannels(
+          platform?.twitch?.idleWatchlistStreakChannels,
+          normalizeChannelList(platform?.twitch?.idleWatchlistChannels, IDLE_WATCHLIST_LIMIT),
         ),
       },
       kick: {
@@ -550,6 +555,27 @@ export function normalizeChannelList(value: string[] | undefined, limit?: number
     ),
   ];
   return limit === undefined ? channels : channels.slice(0, limit);
+}
+
+// The healthy watch time a watch-streak attempt gets before it ends as not
+// confirmed (#897). A safety budget, not Twitch's own credit threshold.
+export const WATCH_STREAK_BUDGET_MINUTES = 15;
+
+// Watch-streak opt-ins (#897) only name channels still on the watchlist, so
+// removing a row clears its opt-in and reordering keeps it. Kept in watchlist
+// order.
+export function normalizeWatchStreakChannels(
+  value: string[] | undefined,
+  watchlist: readonly string[],
+): string[] {
+  const optedIn = new Set(normalizeChannelList(value));
+  return watchlist.filter((channel) => optedIn.has(channel));
+}
+
+// Only Twitch maintains watch streaks; every other platform reads as none, so
+// the scheduler can ask without knowing which platform does.
+export function watchStreakChannelsFor(settings: EngineSettings, platform: Platform): string[] {
+  return platform === "twitch" ? (settings.platform.twitch.idleWatchlistStreakChannels ?? []) : [];
 }
 
 // The claim toggles are per-platform, so a scheduler loop holding `platform` as a

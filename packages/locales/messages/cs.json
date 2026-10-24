@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "Vyzvednuta karta $1 z výzvy $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch potvrdil sérii sledování u $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Série sledování u $1 nebyla včas potvrzena; přejde se dál"
+  },
   "activityAuthHealthChanged": {
     "message": "Autentizace $1 se změnila z $2 na $3."
   },
@@ -2176,6 +2182,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "sleduje se první live kanál"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Řádky sérií jsou první, každý běží, dokud Twitch sérii nepotvrdí nebo neuplyne $1 minut."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Udržovat sérii sledování u $1"
+  },
+  "watchStreakPending": {
+    "message": "Série čeká"
+  },
+  "watchStreakWatching": {
+    "message": "Udržuji sérii"
+  },
+  "watchStreakCredited": {
+    "message": "Série potvrzena"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Nepotvrzeno"
+  },
+  "watchStreakUnavailable": {
+    "message": "Série nedostupná"
   },
   "gamesModeAllDescription": {
     "message": "Farmí se každá hra s aktivními drops kromě blokovaných."

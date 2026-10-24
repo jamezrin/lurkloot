@@ -127,6 +127,10 @@ export function formatCliEvent(event: EngineEvent): string {
     }
     case "challenge_claimed":
       return `Claimed a ${event.data.rarity} ${event.data.recurrence} challenge`;
+    case "watch_streak_ended":
+      return event.data.outcome === "credited"
+        ? `Watch streak paid out on ${event.data.channel}`
+        : `Watch streak on ${event.data.channel} not confirmed; moving on`;
     case "page_context_opened":
       return `Opened background context on ${event.data.host}: ${formatPageContextOpenReason(event.data.reason)}`;
     case "page_context_closed":

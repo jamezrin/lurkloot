@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "$2 görevinden $1 alındı."
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch, $1 kanalındaki izleme serisini onayladı"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "$1 kanalındaki izleme serisi zamanında onaylanmadı; sıradakine geçildi"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 oturum durumu değişti: $2 → $3."
   },
@@ -2176,6 +2182,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "ilk canlı kanal izlenir"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Seri kayıtları önce gelir; her biri Twitch seriyi onaylayana ya da $1 dakika geçene kadar sürer."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "$1 kanalında izleme serisini sürdür"
+  },
+  "watchStreakPending": {
+    "message": "Seri bekleniyor"
+  },
+  "watchStreakWatching": {
+    "message": "Seri sürüyor"
+  },
+  "watchStreakCredited": {
+    "message": "Seri onaylandı"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Onaylanmadı"
+  },
+  "watchStreakUnavailable": {
+    "message": "Seri kullanılamıyor"
   },
   "gamesModeAllDescription": {
     "message": "Etkin drop'u olan her oyun farmlanır, engellenenler hariç."

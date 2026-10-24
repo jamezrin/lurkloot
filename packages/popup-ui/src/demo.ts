@@ -139,6 +139,7 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         excludedChannels: ["spoilerboss"],
         strictCampaignAvailability: false,
         channelPointsPushClaim: true,
+        idleWatchlistStreakChannels: [],
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
         farmPinnedOnly: false,
