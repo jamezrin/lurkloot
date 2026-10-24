@@ -54,9 +54,15 @@ interface FakeOptions {
   pending?: OnboardingAudience | null | "reject";
   withHook?: boolean;
   uiLanguage?: string;
+  storedSettings?: Record<string, unknown>;
 }
 
-function fakeAdapter({ pending = "new", withHook = true, uiLanguage = "en" }: FakeOptions = {}) {
+function fakeAdapter({
+  pending = "new",
+  withHook = true,
+  uiLanguage = "en",
+  storedSettings,
+}: FakeOptions = {}) {
   const demo = createDemoPopupAdapter();
   const send = vi.fn((message: RuntimeMessage) => demo.send(message));
   const getPendingOnboarding = vi.fn(() =>
@@ -68,6 +74,7 @@ function fakeAdapter({ pending = "new", withHook = true, uiLanguage = "en" }: Fa
     ...demo,
     send: send as PopupAdapter["send"],
     getUiLanguage: () => uiLanguage,
+    ...(storedSettings ? { getStorage: async () => ({ settings: storedSettings }) } : {}),
     ...(withHook ? { getPendingOnboarding, dismissPendingOnboarding } : {}),
     resetExtension,
   };
@@ -157,6 +164,15 @@ describe("onboarding tour host", () => {
     await press(container, "start");
     expect(progress(container)).toBe(`1 / ${TOUR_STEPS.length}`);
     expect(TOUR_STEPS).toHaveLength(12);
+  });
+
+  it("speaks a returning user's chosen language", async () => {
+    const { adapter } = fakeAdapter({
+      pending: "returning",
+      storedSettings: { languageOverride: "es" },
+    });
+    const container = await mount(adapter);
+    expect(dialog(container)?.textContent).toContain("Novedades en Lurkloot: un recorrido rápido");
   });
 
   it("renders the real frame when onboarding is not pending", async () => {

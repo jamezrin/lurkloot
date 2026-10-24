@@ -1,5 +1,9 @@
 # Popup Onboarding Tour Implementation Plan
 
+> **Status:** Historical implementation plan. Shipped behaviour differs in places
+> (the returning-user offer, the rewards-filter step); see `docs/architecture.md`
+> and the design spec for what was built.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A skippable, click-to-advance spotlight tour of the popup, on demo data, shown once to fresh installs and again after a reset.

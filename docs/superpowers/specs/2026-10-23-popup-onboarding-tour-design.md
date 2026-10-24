@@ -15,7 +15,8 @@ cut-out, and a message box beside it explains it.
 
 ## Goals
 
-- Shown once, automatically, to **fresh installs only**.
+- Shown once, automatically, to **fresh installs**, and offered once to
+  existing users after their first update.
 - Shown again (as if new) after the user **resets LurkLoot** from Settings.
 - Starts with a welcome card offering **Show me around** or **Skip**.
 - Step based; the user advances **only by clicking** (no timers, no auto-advance).

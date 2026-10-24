@@ -13,6 +13,7 @@ import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type {
   CategorySelection,
   ExtensionSettings,
+  LanguageOverride,
   Platform,
   RewardKind,
   TwitchExtensionProviderId,
@@ -173,19 +174,36 @@ function OnboardingTourHost({
 }): React.ReactElement {
   const [phase, dispatch] = useReducer(tourReducer, { kind: "loading" });
   const [audience, setAudience] = useState<OnboardingAudience>("new");
+  // A returning user may already have picked a language; the tour speaks it.
+  const [languageOverride, setLanguageOverride] = useState<LanguageOverride>("browser");
   // Asked once per popup: a later identity change must not re-arm a tour the
   // user has just dismissed while the dismissal is still being stored.
   const pendingAdapterRef = useRef(adapter);
   useEffect(() => {
     let cancelled = false;
-    const answer = (pending: OnboardingAudience | null) => {
+    const answer = (pending: OnboardingAudience | null, override?: LanguageOverride) => {
       if (cancelled) return;
-      if (pending) setAudience(pending);
+      if (pending) {
+        setAudience(pending);
+        setLanguageOverride(override ?? "browser");
+      }
       dispatch(pending ? "arm" : "disarm");
     };
+    const storedOverride = () =>
+      Promise.resolve()
+        .then(() => pendingAdapterRef.current.getStorage("settings"))
+        .then(
+          (stored) =>
+            mergeSettings(stored.settings as Partial<ExtensionSettings> | undefined)
+              .languageOverride,
+          () => undefined,
+        );
     Promise.resolve()
       .then(() => pendingAdapterRef.current.getPendingOnboarding!())
-      .then(answer, () => answer(null));
+      .then(
+        async (pending) => answer(pending, pending ? await storedOverride() : undefined),
+        () => answer(null),
+      );
     return () => {
       cancelled = true;
     };
@@ -212,6 +230,7 @@ function OnboardingTourHost({
       resetExtension: async () => {
         const snapshot = await reset.call(adapter);
         setAudience("new");
+        setLanguageOverride("browser");
         dispatch("arm");
         return snapshot;
       },
@@ -234,9 +253,7 @@ function OnboardingTourHost({
   }
 
   const step = phase.kind === "step" ? TOUR_STEPS[phase.index] : undefined;
-  // Correct without the override: the flag is only armed on a fresh install or
-  // a reset, when languageOverride is still the default.
-  const locale = effectiveLocale("browser", adapter.getUiLanguage());
+  const locale = effectiveLocale(languageOverride, adapter.getUiLanguage());
   return (
     <PopupFrame
       key="tour"

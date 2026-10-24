@@ -552,7 +552,8 @@ export default defineBackground(() => {
   void reconcileExtensions();
 
   browser.runtime.onInstalled.addListener(async (details) => {
-    await armOnboardingForLifecycle(details.reason);
+    // A failed onboarding write must not skip the install setup below.
+    await armOnboardingForLifecycle(details.reason).catch(() => undefined);
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills

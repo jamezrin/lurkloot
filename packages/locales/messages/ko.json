@@ -348,7 +348,7 @@
     "message": "Twitch와 Kick"
   },
   "tourPlatformBody": {
-    "message": "여기에서 플랫폼을 전환하세요. 각 플랫폼에는 고유한 대기열, 게임, Idle Watchlist가 있습니다."
+    "message": "여기에서 플랫폼을 전환하세요. 각 플랫폼에는 고유한 대기열, 게임, 대기 시청 목록이 있습니다."
   },
   "tourQueueOrderTitle": {
     "message": "대기열 정렬 방식"

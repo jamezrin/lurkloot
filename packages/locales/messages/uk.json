@@ -348,7 +348,7 @@
     "message": "Twitch і Kick"
   },
   "tourPlatformBody": {
-    "message": "Перемикайте платформи тут. Кожна має власну чергу, ігри та Idle Watchlist."
+    "message": "Перемикайте платформи тут. Кожна має власну чергу, ігри та резервний список."
   },
   "tourQueueOrderTitle": {
     "message": "Як упорядковано чергу"
