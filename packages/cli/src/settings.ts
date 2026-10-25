@@ -28,7 +28,11 @@ import {
   UNLINKED_CAMPAIGN_MODES,
   normalizeUnlinkedCampaignMode,
 } from "@lurkloot/shared/unlinkedCampaigns";
-import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
+import {
+  SETTINGS_EXPORT_KIND,
+  settingsWithEnvelopeVersion,
+  type SettingsExportEnvelope,
+} from "@lurkloot/shared/settingsExport";
 import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type {
   CompatibilitySettings,
@@ -272,7 +276,7 @@ function withoutTablessMode(
   diagnostics.push({
     code: "deprecated_property",
     path: "tablessMode",
-    message: '"tablessMode" is ignored: the CLI has no browser tabs, so it always watches tabless',
+    message: "tablessMode is ignored: the CLI has no browser tabs, so it always watches tabless",
   });
   return rest;
 }
@@ -314,10 +318,7 @@ export function parseCliSettingsImportPayload(raw: unknown): CliSettingsParseRes
   ) {
     throw new Error('Not a lurkloot settings file: missing "settings"');
   }
-  return parseCliSettingsWithDiagnostics({
-    ...(envelope.settings as Record<string, unknown>),
-    schemaVersion: envelope.schemaVersion,
-  });
+  return parseCliSettingsWithDiagnostics(settingsWithEnvelopeVersion(envelope));
 }
 
 // A kind the platform does not support is accepted on purpose: the v8 migration
@@ -408,7 +409,8 @@ function parseMigratedCliSettings(
             const path = `platform.${name}.unlinkedCampaigns`;
             const movedFrom = diagnostics.find(
               (diagnostic) =>
-                diagnostic.code !== "limit_exceeded" && diagnostic.replacement === path,
+                diagnostic.code !== "limit_exceeded"
+                && (diagnostic.replacement === path || diagnostic.replacements?.includes(path)),
             )?.path;
             const subject = movedFrom ? `"${movedFrom}" (now "${path}")` : `"${path}"`;
             offenders.push(`${subject} must be one of: ${UNLINKED_CAMPAIGN_MODES.join(", ")}`);
