@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "دراپ‌های Twitch و Kick را با نشست عادی مرورگر و تب‌های بی‌صدا فارم کنید؛ حالت کم‌مصرف هم اختیاری است."
   },
+  "toolbarTitleOff": {
+    "message": "فارم خاموش است"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: در حال فارم"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: فعلاً چیزی برای فارم نیست"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: مکث‌شده"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: نیاز به ورود"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: دسترسی مسدود است"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: پیشرفتی حاصل نمی‌شود"
+  },
   "promoTagline": {
     "message": "دراپ‌های Twitch و Kick را خودکار فارم کنید."
   },
