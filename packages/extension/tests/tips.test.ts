@@ -181,6 +181,7 @@ describe("TipsBanner", () => {
       "ko",
       "uk",
       "cs",
+      "fa",
     ];
 
     for (const locale of locales) {

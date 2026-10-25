@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farmez les drops Twitch et Kick avec des sessions normales du navigateur, des onglets visibles et muets, et un mode basse consommation optionnel."
   },
+  "toolbarTitleOff": {
+    "message": "Farm désactivé"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1 : farm en cours"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1 : rien à farmer pour l'instant"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1 : en pause"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1 : déconnecté"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1 : accès bloqué"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1 : aucune progression"
+  },
   "promoTagline": {
     "message": "Farmez les drops Twitch et Kick en pilote automatique."
   },
@@ -64,6 +85,9 @@
   },
   "languageCzech": {
     "message": "Tchèque"
+  },
+  "languagePersian": {
+    "message": "persan"
   },
   "settingsLanguageTitle": {
     "message": "Langue"

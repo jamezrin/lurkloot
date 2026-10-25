@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "فارم Drops على Twitch وKick عبر جلسات المتصفح العادية، وعلامات تبويب مرئية مكتومة، ووضع اختياري منخفض الموارد."
   },
+  "toolbarTitleOff": {
+    "message": "الفارم متوقف"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: جارٍ الفارم"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: لا يوجد ما يُفارَم الآن"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: متوقف مؤقتًا"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: غير مسجل الدخول"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: الوصول محظور"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: لا يوجد تقدم"
+  },
   "promoTagline": {
     "message": "فارم Drops على Twitch وKick تلقائيًا."
   },
@@ -64,6 +85,9 @@
   },
   "languageCzech": {
     "message": "التشيكية"
+  },
+  "languagePersian": {
+    "message": "الفارسية"
   },
   "settingsLanguageTitle": {
     "message": "اللغة"

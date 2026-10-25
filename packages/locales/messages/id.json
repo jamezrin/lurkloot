@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farm drop Twitch dan Kick lewat sesi browser biasa, tab bisu yang terlihat, dan mode hemat sumber daya opsional."
   },
+  "toolbarTitleOff": {
+    "message": "Farm sedang nonaktif"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: sedang farm"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: tidak ada yang bisa di-farm saat ini"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: dijeda"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: belum login"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: akses diblokir"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: tidak ada kemajuan"
+  },
   "promoTagline": {
     "message": "Farm drop Twitch & Kick otomatis."
   },
@@ -64,6 +85,9 @@
   },
   "languageCzech": {
     "message": "Ceko"
+  },
+  "languagePersian": {
+    "message": "bahasa Persia"
   },
   "settingsLanguageTitle": {
     "message": "Bahasa"

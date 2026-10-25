@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Фарміть дропи Twitch і Kick через звичайні сесії браузера, видимі вкладки без звуку та необов’язковий режим низького споживання ресурсів."
   },
+  "toolbarTitleOff": {
+    "message": "Фарм вимкнено"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: фармиться"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: зараз нічого фармити"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: на паузі"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: виконано вихід"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: доступ заблоковано"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: без прогресу"
+  },
   "promoTagline": {
     "message": "Фарміть дропи Twitch і Kick на автопілоті."
   },
@@ -64,6 +85,9 @@
   },
   "languageCzech": {
     "message": "чеська"
+  },
+  "languagePersian": {
+    "message": "перська"
   },
   "settingsLanguageTitle": {
     "message": "Мова"

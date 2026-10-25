@@ -1022,6 +1022,32 @@ The scheduler treats playback as healthy when recent telemetry shows at least on
 
 Repeated offline, category mismatch, unhealthy playback checks, or unhealthy tabless heartbeats cause the scheduler to switch channels or fall back according to `offlineRetryLimit`. An offline check that a Twitch `stream-down` push agrees with (`ChannelCheck.offlineConfirmed`) switches at once.
 
+## Toolbar Status
+
+The toolbar icon and its tooltip summarise the whole extension (#900).
+`deriveToolbarView` in `packages/extension/src/core/toolbarStatus.ts` is a pure
+function of settings and `SchedulerState`, with no platform branches. It ranks
+problem > paused > watching > idle > off across the enabled platforms:
+
+- **problem:** auth is `missing_credentials`, `invalid_credentials` or `blocked`, or `criticalHealth` is `flagged`.
+- **paused:** a manual-close pause, or a session that is `paused`.
+- **watching:** a session that is `watching`.
+- **off:** no platform is enabled.
+
+Auth `checking`/`unavailable` and session `error` are not problems. They are
+transient or per-channel backoff, so they would make the icon flap.
+
+The icon follows the controller's accepted commits through one `onCommit` hook
+in `entrypoints/background.ts`. It is re-applied from storage on every worker
+wake, because the browser restores the manifest icon on restart, and after a
+reset, which bypasses commits. Nothing else calls `setIcon` or `setTitle`.
+`toolbarStatus.test.ts` asserts the ranking, guards that no other module writes
+the icon, and checks that every status ships its icons. The variants in `public/icon/status/` are rendered from
+`public/icon/source.svg` by `scripts/render-status-icons.mjs`.
+
+A browser-disabled extension runs no code, so the icon cannot report that case.
+The browser greys out the icon itself.
+
 ## Popup and Manual Actions
 
 The popup is a controller UI, not a platform client. It requests snapshots and sends setting/action messages to the background controller. Manual reward claims are routed through the platform adapter so state updates, notifications, and event logging stay consistent with automated claims.

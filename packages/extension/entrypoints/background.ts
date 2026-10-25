@@ -75,6 +75,7 @@ import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob } from "../src/core/cliCredentialExport";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
+import { createToolbarStatusApplier } from "../src/core/toolbarStatus";
 import {
   installPlatformOriginRules,
   type DynamicRulesApi,
@@ -449,6 +450,28 @@ const extensionCommits = createTwitchExtensionCommitHook(extensionHost, () => {
 controller.onCommit(extensionCommits.onCommit);
 const reconcileExtensions = extensionCommits.reconcile;
 
+// The toolbar icon follows accepted commits only (#900). Firefox MV2 exposes
+// the same API as browserAction. Never awaited: it must not hold commit locks.
+const toolbarStatus = createToolbarStatusApplier(
+  browser.action ?? browser.browserAction,
+  translate,
+);
+controller.onCommit((change) => {
+  void (async () => {
+    if (change.kind === "state") await toolbarStatus.apply(await loadSettings(), change.state);
+    else await toolbarStatus.apply(change.settings, await loadState());
+  })().catch(() => undefined);
+});
+
+// Re-applies from storage: on every worker wake (the browser restores the
+// manifest icon on restart) and after a reset, which bypasses commits.
+function refreshToolbarStatus(): void {
+  toolbarStatus.invalidate();
+  void (async () => toolbarStatus.apply(await loadSettings(), await loadState()))().catch(
+    () => undefined,
+  );
+}
+
 function withExtensionSnapshot(value: unknown): unknown {
   if (value && typeof value === "object" && "state" in value && "settings" in value) {
     const snapshot = value as RuntimeSnapshot<ExtensionSettings>;
@@ -477,6 +500,7 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
       kickClaimState.clear();
       await resetStorage();
     });
+    refreshToolbarStatus();
     return (await controller.handleMessage({
       type: "getSnapshot",
     })) as RuntimeSnapshot<ExtensionSettings>;
@@ -550,6 +574,7 @@ export default defineBackground(() => {
   // Runs on every MV3 wake/MV2 background start. Stored grants are verified;
   // provider credentials/resources are reacquired rather than restored.
   void reconcileExtensions();
+  refreshToolbarStatus();
 
   browser.runtime.onInstalled.addListener(async (details) => {
     // A failed onboarding write must not skip the install setup below.

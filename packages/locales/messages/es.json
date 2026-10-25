@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farmea drops de Twitch y Kick con sesiones normales del navegador, pestañas silenciadas visibles y un modo opcional de bajo consumo."
   },
+  "toolbarTitleOff": {
+    "message": "Farmeo desactivado"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farmeando"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: nada que farmear ahora"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: en pausa"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: sesión cerrada"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: acceso bloqueado"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: sin progreso"
+  },
   "promoTagline": {
     "message": "Farmea drops de Twitch y Kick en piloto automático."
   },
@@ -64,6 +85,9 @@
   },
   "languageCzech": {
     "message": "Checo"
+  },
+  "languagePersian": {
+    "message": "persa"
   },
   "settingsLanguageTitle": {
     "message": "Idioma"

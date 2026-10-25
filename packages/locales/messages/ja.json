@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "通常のブラウザセッション、表示されたミュートタブ、オプションの低リソースモードで Twitch と Kick のドロップをファームします。"
   },
+  "toolbarTitleOff": {
+    "message": "ファームはオフ"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: ファーム中"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: 今はファームするものがありません"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: 一時停止中"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: サインアウト中"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: アクセスがブロックされています"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: 進行していません"
+  },
   "promoTagline": {
     "message": "Twitch と Kick のドロップを自動でファーム。"
   },
@@ -64,6 +85,9 @@
   },
   "languageCzech": {
     "message": "チェコ語"
+  },
+  "languagePersian": {
+    "message": "ペルシア語"
   },
   "settingsLanguageTitle": {
     "message": "言語"

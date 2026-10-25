@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Tarayıcı ile oturumu açın ve düşük kaynak modunu kullanarak Twitch ile Kick droplarını otomatik olarak toplayın."
   },
+  "toolbarTitleOff": {
+    "message": "Farmlama kapalı"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farmlanıyor"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: şu an farmlanacak bir şey yok"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: duraklatıldı"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: oturum kapalı"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: erişim engellendi"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: ilerleme yok"
+  },
   "promoTagline": {
     "message": "Twitch ve Kick droplarını otomatik olarak toplayın"
   },
@@ -64,6 +85,9 @@
   },
   "languageCzech": {
     "message": "Çekçe"
+  },
+  "languagePersian": {
+    "message": "Farsça"
   },
   "settingsLanguageTitle": {
     "message": "Dil"

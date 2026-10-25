@@ -30,6 +30,7 @@ export const LOCALES = Object.freeze([
   "ko",
   "uk",
   "cs",
+  "fa",
 ]);
 
 // One screenshot per popup story, uploaded in this order.

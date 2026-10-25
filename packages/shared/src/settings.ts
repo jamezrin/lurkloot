@@ -46,6 +46,7 @@ export const SUPPORTED_LOCALES: SupportedLocale[] = [
   "ko",
   "uk",
   "cs",
+  "fa",
 ];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 

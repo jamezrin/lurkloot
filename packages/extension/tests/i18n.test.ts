@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { loadCatalog } from "@lurkloot/locales";
 import {
   effectiveLocale,
   isRtlLocale,
@@ -39,14 +40,19 @@ describe("i18n", () => {
     expect(normalizeBrowserLocale("ko-KR")).toBe("ko");
     expect(normalizeBrowserLocale("uk-UA")).toBe("uk");
     expect(normalizeBrowserLocale("cs-CZ")).toBe("cs");
+    expect(normalizeBrowserLocale("fa-IR")).toBe("fa");
+    expect(normalizeBrowserLocale("fa_IR")).toBe("fa");
     expect(normalizeBrowserLocale("unknown")).toBe("en");
   });
 
-  it("resolves explicit overrides and Arabic RTL", () => {
+  it("resolves explicit overrides and RTL languages", () => {
     expect(effectiveLocale("browser", "de-DE")).toBe("de");
     expect(effectiveLocale("ar", "de-DE")).toBe("ar");
     expect(effectiveLocale("tr", "en-US")).toBe("tr");
+    expect(effectiveLocale("browser", "fa-IR")).toBe("fa");
+    expect(effectiveLocale("fa", "en-US")).toBe("fa");
     expect(isRtlLocale("ar")).toBe(true);
+    expect(isRtlLocale("fa")).toBe(true);
     expect(isRtlLocale("en")).toBe(false);
   });
 
@@ -86,6 +92,24 @@ describe("i18n", () => {
       labelKey: "languageCzech",
       nativeName: "Čeština",
     });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "fa",
+      labelKey: "languagePersian",
+      nativeName: "فارسی",
+    });
+  });
+
+  it("loads the Persian catalog with every message and its substitutions intact", async () => {
+    const catalog = await loadCatalog("fa");
+    const english = readCatalog("en");
+
+    expect(catalog?.languagePersian?.message).toBe("فارسی");
+    expect(Object.keys(catalog ?? {}).sort()).toEqual(Object.keys(english).sort());
+    for (const [key, { message }] of Object.entries(english)) {
+      const translated = catalog?.[key]?.message;
+      expect(translated?.trim(), key).toBeTruthy();
+      expect(translated?.match(/\$\d+/g) ?? [], key).toEqual(message.match(/\$\d+/g) ?? []);
+    }
   });
 
   it("translates with substitutions and falls back to English", () => {
@@ -118,6 +142,7 @@ describe("i18n", () => {
 
     expect(locales).toContain("ar");
     expect(locales).toContain("tr");
+    expect(locales).toContain("fa");
     for (const locale of locales) {
       const catalog = readCatalog(locale);
       expect(Object.keys(catalog).sort(), locale).toEqual(englishKeys);
@@ -177,6 +202,7 @@ describe("i18n", () => {
       ko: "구독 캠페인",
       uk: "Кампанії за підпискою",
       cs: "Kampaně s předplatným",
+      fa: "کمپین‌های اشتراکی",
     };
 
     for (const locale of localeCodes()) {
