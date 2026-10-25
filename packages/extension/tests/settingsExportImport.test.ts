@@ -97,6 +97,16 @@ describe("settings export/import", () => {
     expect(diagnostics.length).toBeGreaterThan(0);
   });
 
+  it("reads a file without a schemaVersion as an unversioned document", () => {
+    const { settings, diagnostics } = parseSettingsImportPayload({
+      kind: SETTINGS_EXPORT_KIND,
+      settings: { autoClaim: false, verboseLogging: false },
+    });
+    expect(settings.autoClaim).toBe(false);
+    expect(settings.diagnosticLogging).toBe(false);
+    expect(diagnostics).toContainEqual(expect.objectContaining({ path: "verboseLogging" }));
+  });
+
   it("drops a non-https category imageUrl from a crafted import instead of rendering it as <img src>", () => {
     const payload = buildSettingsExportPayload(DEFAULT_SETTINGS);
     const tampered = {
