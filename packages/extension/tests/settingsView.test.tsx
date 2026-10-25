@@ -50,7 +50,7 @@ const labels: Record<string, string> = {
   autoClaimDescription: "Claim earned drop rewards automatically when they become available.",
   campaignPriorityTitle: "Campaign priority",
   campaignPriorityDescription: "How campaigns are chosen to farm.",
-  preferKnownChannelsTitle: "Prefer followed and Idle Watchlist channels",
+  preferKnownChannelsTitle: "Prefer followed and Watchlist channels",
   preferKnownChannelsDescription: "Picks a channel you know over an unfamiliar one.",
   watchSourcePriorityTitle: "Watch-source priority",
   watchSourcePriorityDescription:
@@ -61,7 +61,7 @@ const labels: Record<string, string> = {
   watchSourceDrops: "Drops",
   watchSourceNoPixel: "NoPixelV",
   watchSourceFortnite: "Fortnite",
-  watchSourceIdleWatchlist: "Idle Watchlist",
+  watchSourceWatchlist: "Watchlist",
   unlinkedCampaignsTitle: "Campaigns without a linked account",
   unlinkedCampaignsDescription:
     "Farm, skip or farm last the campaigns that need you to link your game account.",
@@ -449,13 +449,7 @@ describe("deadline feasibility setting", () => {
       {
         platform: {
           twitch: {
-            watchSourcePriority: [
-              "nopixel",
-              "drops",
-              "fortnite",
-              "watch_streaks",
-              "idle_watchlist",
-            ],
+            watchSourcePriority: ["nopixel", "drops", "fortnite", "watch_streaks", "watchlist"],
           },
         },
       },

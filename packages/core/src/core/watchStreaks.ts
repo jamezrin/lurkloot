@@ -14,7 +14,7 @@ import { isRecord } from "@lurkloot/shared/records";
 
 // Watch-streak maintenance (#897). The rules for one attempt per signed-in
 // account, channel and broadcast: how healthy watching accrues, when an attempt
-// ends, and which maintained Idle Watchlist rows the scheduler may still pick.
+// ends, and which maintained Watchlist rows the scheduler may still pick.
 // Platform-free: the platform reports a payout as an observation, and the tick
 // reports the session it watched.
 
@@ -237,7 +237,7 @@ export function recordWatchStreakCredit(
 
 export type WatchStreakVerdict = "pending" | "credited" | "not_confirmed" | "unavailable";
 
-// What the scheduler reads for a maintained Idle Watchlist row. One plan is
+// What the scheduler reads for a maintained Watchlist row. One plan is
 // built per selection from the same state, so every path that picks or keeps
 // an Idle row agrees on it.
 export interface IdleWatchlistStreakPlan {
@@ -287,7 +287,7 @@ export function watchStreakPlan(
   };
 }
 
-// The Idle Watchlist in the order its rows are tried: maintained rows first,
+// The Watchlist in the order its rows are tried: maintained rows first,
 // then the rest, each group in the user's order. Discovery observes the rows in
 // this order too, so a long ordinary list never hides a maintained row.
 export function orderIdleWatchlist(

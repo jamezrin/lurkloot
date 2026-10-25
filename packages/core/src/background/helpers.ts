@@ -47,7 +47,7 @@ export const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   watch_unhealthy: true,
   no_progress: true,
   higher_priority_reward: true,
-  higher_priority_idle_watchlist: true,
+  higher_priority_watchlist: true,
   watch_requirement_completed: true,
   runtime_restart: true,
   target_changed: true,

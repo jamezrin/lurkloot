@@ -38,7 +38,7 @@ export const twitchFaqItems: FaqItem[] = [
   },
   {
     q: "Can I choose which Twitch campaigns it farms first?",
-    a: "Yes. Pin campaigns in the queue and reorder them, rank your favourite games, or choose a strategy for the remaining campaigns. You can also farm pinned campaigns only. You can exclude individual campaigns and channels, restrict it to chosen games, and decide whether campaigns that need an account link or an active channel subscription are farmed at all. A per-platform Idle Watchlist covers the hours when nothing is droppable.",
+    a: "Yes. Pin campaigns in the queue and reorder them, rank your favourite games, or choose a strategy for the remaining campaigns. You can also farm pinned campaigns only. You can exclude individual campaigns and channels, restrict it to chosen games, and decide whether campaigns that need an account link or an active channel subscription are farmed at all. A per-platform Watchlist covers the hours when nothing is droppable.",
   },
 ];
 

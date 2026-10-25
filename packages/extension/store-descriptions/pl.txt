@@ -4,6 +4,6 @@ Domyślnie uruchamia lekki tryb bez kart, który w tle wysyła sygnały oglądan
 
 Twoje dane zostają Twoje: bez haseł, bez eksportu plików cookie ani tokenów — wszystko zostaje na Twoim urządzeniu.
 
-W oknie popup możesz włączać każdą platformę, ustawiać priorytety kampanii i gier, które Ci zależą, zarządzać listami bezczynnego oglądania i wykluczonymi kanałami dla każdej platformy oraz włączać auto-odbiór i powiadomienia.
+W oknie popup możesz włączać każdą platformę, ustawiać priorytety kampanii i gier, które Ci zależą, zarządzać Watchlist i wykluczonymi kanałami dla każdej platformy oraz włączać auto-odbiór i powiadomienia.
 
-Lurkloot może też farmić czas oglądania na Kick, gdy żaden drop nie jest aktywny. Dodaj ulubione kanały do listy bezczynnej, a rozszerzenie automatycznie wybierze ten, który jest na żywo. Oglądanie bez kart utrzymuje niskie zużycie zasobów, a zwykły fallback z przypiętą kartą utrzymuje sesję odporną na problemy.
+Lurkloot może też farmić czas oglądania na Kick, gdy żaden drop nie jest aktywny. Dodaj ulubione kanały do Watchlist, a rozszerzenie automatycznie wybierze ten, który jest na żywo. Oglądanie bez kart utrzymuje niskie zużycie zasobów, a zwykły fallback z przypiętą kartą utrzymuje sesję odporną na problemy.

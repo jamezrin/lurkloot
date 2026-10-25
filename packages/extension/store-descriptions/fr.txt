@@ -4,6 +4,6 @@ Par défaut, il utilise un mode léger sans onglet qui envoie des signaux de vis
 
 Vos données restent les vôtres : aucun mot de passe, aucun cookie ni token exporté, et tout reste sur votre appareil.
 
-Depuis le popup, vous pouvez activer chaque plateforme, prioriser les campagnes et les jeux qui vous intéressent, gérer les listes de veille inactives et les chaînes exclues par plateforme, et activer la réclamation automatique et les notifications.
+Depuis le popup, vous pouvez activer chaque plateforme, prioriser les campagnes et les jeux qui vous intéressent, gérer les listes de visionnage et les chaînes exclues par plateforme, et activer la réclamation automatique et les notifications.
 
-Lurkloot peut aussi farmer du temps de visionnage sur Kick lorsqu'aucun drop n'est actif. Ajoutez vos chaînes préférées à la liste de veille inactive : il choisit automatiquement celle qui est en direct. Le visionnage sans onglet limite l'utilisation des ressources, tandis que le repli sur un onglet épinglé préserve la fiabilité de la session.
+Lurkloot peut aussi farmer du temps de visionnage sur Kick lorsqu'aucun drop n'est actif. Ajoutez vos chaînes préférées à la liste de visionnage : il choisit automatiquement celle qui est en direct. Le visionnage sans onglet limite l'utilisation des ressources, tandis que le repli sur un onglet épinglé préserve la fiabilité de la session.

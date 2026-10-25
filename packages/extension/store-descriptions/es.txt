@@ -4,6 +4,6 @@ De forma predeterminada usa un modo ligero sin pestañas que envía señales de 
 
 Tus datos son tuyos: sin contraseñas, sin exportar cookies ni tokens, y todo se queda en tu dispositivo.
 
-Desde el popup puedes activar cada plataforma, priorizar las campañas y los juegos que te interesan, gestionar las listas de visualización inactivas y los canales excluidos de cada plataforma, y activar la reclamación automática y las notificaciones.
+Desde el popup puedes activar cada plataforma, priorizar las campañas y los juegos que te interesan, gestionar las listas de visualización y los canales excluidos de cada plataforma, y activar la reclamación automática y las notificaciones.
 
-Lurkloot también puede farmear tiempo de visualización en Kick cuando no hay ningún drop activo. Añade tus canales favoritos a la lista de visualización inactiva y elegirá automáticamente uno que esté en directo. La visualización sin pestañas reduce el uso de recursos, mientras que la alternativa de pestaña fijada mantiene la sesión estable.
+Lurkloot también puede farmear tiempo de visualización en Kick cuando no hay ningún drop activo. Añade tus canales favoritos a la lista de visualización y elegirá automáticamente uno que esté en directo. La visualización sin pestañas reduce el uso de recursos, mientras que la alternativa de pestaña fijada mantiene la sesión estable.

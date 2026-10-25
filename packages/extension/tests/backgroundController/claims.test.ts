@@ -754,7 +754,7 @@ describe("background controller", () => {
           platform: {
             ...DEFAULT_SETTINGS.platform,
             twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-            kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+            kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
           },
           ...overrides,
         },
@@ -1037,7 +1037,7 @@ describe("background controller", () => {
         postClaimHandoffMaxSeconds: 15,
         platform: {
           twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, watchlistChannels: [] },
         },
       });
       env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);

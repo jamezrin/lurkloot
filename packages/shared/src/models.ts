@@ -2,7 +2,7 @@ import type { CriticalHealthState } from "./criticalHealth";
 
 export type Platform = "twitch" | "kick";
 
-export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "watch_streaks" | "idle_watchlist";
+export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "watch_streaks" | "watchlist";
 
 export type PlatformAuthStatus =
   | "checking"
@@ -244,7 +244,7 @@ export interface TablessHeartbeatCadence {
 export type WatchReasonCode =
   | "supplemental_watch"
   | "eligible_campaign"
-  | "idle_watchlist_selected"
+  | "watchlist_selected"
   | "no_eligible_channel"
   | "no_existing_session"
   | "manual_watch"
@@ -261,9 +261,9 @@ export type WatchReasonCode =
   | "watch_unhealthy"
   | "no_progress"
   | "higher_priority_reward"
-  | "higher_priority_idle_watchlist"
+  | "higher_priority_watchlist"
   | "keeping_current_watch"
-  | "keeping_idle_watchlist"
+  | "keeping_watchlist"
   | "watch_requirement_completed"
   | "runtime_restart"
   | "target_changed"
@@ -447,7 +447,7 @@ export interface ChatPresenceStatus {
 export interface PlatformSettings {
   enabled: boolean;
   watchSourcePriority: WatchSourceId[];
-  idleWatchlistChannels: string[];
+  watchlistChannels: string[];
   excludedChannels?: string[];
   categoryMode: CategoryMode;
   // Eligibility, like categoryMode: a campaign with no reward the filter allows
@@ -490,10 +490,10 @@ export interface TwitchPlatformSettings extends PlatformSettings {
   // notification. On by default. Off restores the one-minute ChannelPointsContext
   // alarm as the only dedicated claim trigger. See #529.
   channelPointsPushClaim: boolean;
-  // Idle Watchlist channels whose watch streak Lurkloot maintains (#897).
-  // Always a subset of idleWatchlistChannels, in no meaningful order: the
+  // Watchlist channels whose watch streak Lurkloot maintains (#897).
+  // Always a subset of watchlistChannels, in no meaningful order: the
   // watchlist's own order decides. Empty by default.
-  idleWatchlistStreakChannels: string[];
+  watchlistStreakChannels: string[];
 }
 
 export interface KickPlatformSettings extends PlatformSettings {
@@ -544,7 +544,7 @@ export interface EngineSettings {
   autoStartDropFarming: boolean;
   /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
-  // Ranks Idle Watchlist and followed channels ahead of anonymous directory
+  // Ranks Watchlist and followed channels ahead of anonymous directory
   // channels when picking who to farm a campaign on (see chooseCampaignDecision
   // in the scheduler). Off reverts to viewer-count-only ordering and skips the
   // adapter's followed-channel lookup entirely, so a platform/account that never
@@ -761,7 +761,7 @@ export interface WatchStreakAttempt {
   completedAt?: string;
 }
 
-// What the popup shows beside a maintained Idle Watchlist row.
+// What the popup shows beside a maintained Watchlist row.
 export type WatchStreakRowStatus =
   | "pending"
   | "watching"

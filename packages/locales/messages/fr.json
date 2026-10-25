@@ -113,8 +113,8 @@
   "navGames": {
     "message": "Jeux"
   },
-  "navIdleWatchlist": {
-    "message": "Liste d'attente"
+  "navWatchlist": {
+    "message": "Liste de visionnage"
   },
   "navActivity": {
     "message": "Activité"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Liste de veille inactive"
+  "watchlistTab": {
+    "message": "Liste de visionnage"
   },
   "automationTitle": {
     "message": "Automatisation $1"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "La vue Jeux décide quels jeux sont farmés, lesquels passent en premier et lesquels ne le sont jamais."
   },
-  "tipIdleWatchlist": {
-    "message": "Choisissez quand regarder les chaînes de la liste de veille grâce à la priorité des sources dans les paramètres de la plateforme."
+  "tipWatchlist": {
+    "message": "Choisissez quand regarder les chaînes de la liste de visionnage grâce à la priorité des sources dans les paramètres de la plateforme."
   },
   "tipTablessMode": {
     "message": "Le mode sans onglet utilise moins de ressources et ouvre un onglet muet si nécessaire."
@@ -372,7 +372,7 @@
     "message": "Twitch et Kick"
   },
   "tourPlatformBody": {
-    "message": "Changez de plateforme ici. Chacune a sa propre file, ses jeux et sa liste d'attente."
+    "message": "Changez de plateforme ici. Chacune a sa propre file, ses jeux et sa liste de visionnage."
   },
   "tourQueueOrderTitle": {
     "message": "Comment la file est ordonnée"
@@ -399,7 +399,7 @@
     "message": "Choisissez « Toutes les catégories » pour farmer tous les jeux sauf ceux que vous bloquez, ou « Uniquement les sélectionnées » pour farmer seulement les jeux cochés. Mettez un jeu en favori pour placer ses campagnes en premier, ou bloquez-le pour qu'il ne soit jamais farmé."
   },
   "tourWatchlistTitle": {
-    "message": "Liste d'attente"
+    "message": "Liste de visionnage"
   },
   "tourWatchlistBody": {
     "message": "Quand il n'y a aucun drop à farmer, Lurkloot regarde ces chaînes pour que vous continuiez à gagner des points de chaîne sur Twitch, ainsi que vos récompenses quotidiennes et votre série de visionnage sur Kick. La priorité des sources dans les Paramètres décide quand elles sont regardées."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Exclure du farm"
   },
-  "noIdleWatchlist": {
-    "message": "Aucune chaîne configurée dans la liste."
+  "noWatchlist": {
+    "message": "Aucune chaîne configurée dans la liste de visionnage."
   },
   "channelPlaceholder": {
     "message": "chaîne"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "Ajouter une chaîne"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Hors ligne"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Faible disponibilité d’abord"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Liste de veille inactive"
+  "watchlistSettingsTitle": {
+    "message": "Liste de visionnage"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Comportement partagé de la liste de secours."
   },
   "preferKnownChannelsTitle": {
-    "message": "Préférer les chaînes suivies et celles de la Liste de veille inactive"
+    "message": "Préférer les chaînes suivies et celles de la Liste de visionnage"
   },
   "preferKnownChannelsDescription": {
-    "message": "Lorsqu’un drop est disponible sur plusieurs chaînes, choisit une chaîne que vous suivez ou qui figure dans votre Liste de veille inactive plutôt qu’une chaîne inconnue."
+    "message": "Lorsqu’un drop est disponible sur plusieurs chaînes, choisit une chaîne que vous suivez ou qui figure dans votre Liste de visionnage plutôt qu’une chaîne inconnue."
   },
   "platformSettingsTitle": {
     "message": "Paramètres de plateforme"
@@ -783,7 +783,7 @@
     "message": "Mettre les onglets de farm en sourdine"
   },
   "muteTabsDescription": {
-    "message": "Garde les onglets Drops et liste de veille inactive en sourdine pendant le farm."
+    "message": "Garde les onglets Drops et liste de visionnage en sourdine pendant le farm."
   },
   "keepVideosUnmutedTitle": {
     "message": "Garder les vidéos de farm non muettes"
@@ -954,13 +954,13 @@
     "message": "Automatisation"
   },
   "farmOnPlatform": {
-    "message": "Farme les drops et regarde la file sur $1."
+    "message": "Farme les drops et regarde la liste de visionnage sur $1."
   },
   "enabled": {
     "message": "Activé"
   },
-  "idleWatchlistEditHint": {
-    "message": "Modifiez-la depuis l’onglet Liste de veille inactive après avoir sélectionné $1."
+  "watchlistEditHint": {
+    "message": "Modifiez-la depuis l’onglet Liste de visionnage après avoir sélectionné $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Réclamer automatiquement les points de chaîne"
@@ -1236,7 +1236,7 @@
     "message": "Plus que des drops."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Points de chaîne, défis Kick et drops de 2 minutes, aussi réclamés pour vous. Une liste de veille quand il n'y a plus rien à farmer."
+    "message": "Points de chaîne, défis Kick et drops de 2 minutes, aussi réclamés pour vous. Une liste de visionnage quand il n'y a plus rien à farmer."
   },
   "screenshotExtrasPointsName": {
     "message": "Points de chaîne"
@@ -1251,7 +1251,7 @@
     "message": "Kick · aussi réclamés pour vous"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Liste de veille"
+    "message": "Liste de visionnage"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Regarde vos streamers entre les campagnes"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "une récompense prioritaire a pris le relais"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "la liste de veille inactive est devenue prioritaire"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "la liste de visionnage est devenue prioritaire"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "la durée de visionnage requise est atteinte"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Liste de veille"
+  "watchSourceWatchlist": {
+    "message": "Liste de visionnage"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Ouvrir Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Ajouter $1 à la liste d'attente"
+    "message": "Ajouter $1 à la liste de visionnage"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Retirer $1 de la liste d'attente"
+    "message": "Retirer $1 de la liste de visionnage"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "Ouvrir Jeux"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Nom ou lien de la chaîne"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "La liste est pleine ($1 chaînes). Retirez-en une pour en ajouter une autre."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Saisissez un nom ou un lien de chaîne."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 est déjà dans la liste."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Ordre de visionnage"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "la première chaîne en direct est regardée"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "Les lignes de série sont traitées à la place « Séries de visionnage » dans l’ordre de visionnage, chacune jusqu'à ce que Twitch confirme la série ou que $1 minutes s'écoulent."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "Maintenir la série de visionnage sur $1"
   },
   "watchStreakPending": {

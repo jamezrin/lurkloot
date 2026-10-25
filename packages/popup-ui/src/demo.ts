@@ -135,11 +135,11 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
       twitch: {
         enabled: true,
         watchSourcePriority: [...DEFAULT_SETTINGS.platform.twitch.watchSourcePriority],
-        idleWatchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
+        watchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
         strictCampaignAvailability: false,
         channelPointsPushClaim: true,
-        idleWatchlistStreakChannels: [],
+        watchlistStreakChannels: [],
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
         farmPinnedOnly: false,
@@ -159,7 +159,7 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
       kick: {
         enabled: true,
         watchSourcePriority: [...DEFAULT_SETTINGS.platform.kick.watchSourcePriority],
-        idleWatchlistChannels: ["greenroomgg", "pixelboost"],
+        watchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
         categoryMode: "all",
         rewardFilter: defaultRewardFilter("kick"),

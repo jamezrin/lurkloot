@@ -854,8 +854,8 @@ describe("background controller", () => {
         patch: Partial<ExtensionSettings["platform"]["twitch"]> = {},
       ): ExtensionSettings {
         return pushSettings({
-          idleWatchlistChannels: ["twitch-creator"],
-          idleWatchlistStreakChannels: ["twitch-creator"],
+          watchlistChannels: ["twitch-creator"],
+          watchlistStreakChannels: ["twitch-creator"],
           ...patch,
         });
       }
@@ -903,7 +903,7 @@ describe("background controller", () => {
 
       it("does not follow streaks without a maintained row", async () => {
         const { env } = await observingStreaks(
-          streakSettings({ idleWatchlistStreakChannels: [], channelPointsPushClaim: false }),
+          streakSettings({ watchlistStreakChannels: [], channelPointsPushClaim: false }),
         );
         expect(env.channelPointsPushController.onWatchStreakEarned).toBeUndefined();
       });

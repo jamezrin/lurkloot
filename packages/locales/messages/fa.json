@@ -113,8 +113,8 @@
   "navGames": {
     "message": "بازی‌ها"
   },
-  "navIdleWatchlist": {
-    "message": "فهرست تماشای جایگزین"
+  "navWatchlist": {
+    "message": "فهرست تماشا"
   },
   "navActivity": {
     "message": "فعالیت"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "دراپ‌ها"
   },
-  "idleWatchlistTab": {
-    "message": "فهرست تماشای جایگزین"
+  "watchlistTab": {
+    "message": "فهرست تماشا"
   },
   "automationTitle": {
     "message": "خودکارسازی $1"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "در نمای بازی‌ها تعیین می‌کنید کدام بازی‌ها فارم شوند، کدام اولویت بگیرند و کدام هرگز فارم نشوند."
   },
-  "tipIdleWatchlist": {
-    "message": "در تنظیمات پلتفرم، اولویت منبع تماشا را تغییر دهید تا مشخص کنید چه زمانی کانال‌های فهرست تماشای جایگزین تماشا شوند."
+  "tipWatchlist": {
+    "message": "در تنظیمات پلتفرم، اولویت منبع تماشا را تغییر دهید تا مشخص کنید چه زمانی کانال‌های فهرست تماشا تماشا شوند."
   },
   "tipTablessMode": {
     "message": "حالت بدون تب منابع کمتری مصرف می‌کند و در صورت نیاز به تبِ بی‌صدا برمی‌گردد."
@@ -399,7 +399,7 @@
     "message": "«همهٔ دسته‌ها» را انتخاب کنید تا همهٔ بازی‌ها جز موارد مسدودشده فارم شوند؛ یا «فقط انتخاب‌شده» را بزنید تا فقط بازی‌های علامت‌خورده فارم شوند. بازی را ستاره‌دار کنید تا کمپین‌هایش اول بیایند، یا مسدودش کنید تا هرگز فارم نشود."
   },
   "tourWatchlistTitle": {
-    "message": "فهرست تماشای جایگزین"
+    "message": "فهرست تماشا"
   },
   "tourWatchlistBody": {
     "message": "وقتی دراپی برای فارم نیست، Lurkloot این کانال‌ها را تماشا می‌کند تا در Twitch امتیاز کانال و در Kick پاداش روزانه و زنجیرهٔ تماشا بگیرید. اولویت منبع تماشا در تنظیمات تعیین می‌کند چه زمانی سراغشان برود."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "حذف از فارم"
   },
-  "noIdleWatchlist": {
-    "message": "هنوز کانالی به فهرست تماشای جایگزین اضافه نشده است."
+  "noWatchlist": {
+    "message": "هنوز کانالی به فهرست تماشا اضافه نشده است."
   },
   "channelPlaceholder": {
     "message": "کانال"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "افزودن کانال"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "آفلاین"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "اول آن‌هایی با کانال کمتر"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "فهرست تماشای جایگزین"
+  "watchlistSettingsTitle": {
+    "message": "فهرست تماشا"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "کانال‌های جایگزین برای زمان‌هایی که دراپ واجد شرایطی نیست."
   },
   "preferKnownChannelsTitle": {
-    "message": "ترجیح کانال‌های دنبال‌شده و فهرست تماشای جایگزین"
+    "message": "ترجیح کانال‌های دنبال‌شده و فهرست تماشا"
   },
   "preferKnownChannelsDescription": {
-    "message": "اگر دراپ در چند کانال باشد، کانالی را که دنبال می‌کنید یا در فهرست تماشای جایگزین است به کانال ناآشنا ترجیح می‌دهد."
+    "message": "اگر دراپ در چند کانال باشد، کانالی را که دنبال می‌کنید یا در فهرست تماشا است به کانال ناآشنا ترجیح می‌دهد."
   },
   "platformSettingsTitle": {
     "message": "تنظیمات پلتفرم"
@@ -783,7 +783,7 @@
     "message": "بی‌صدا کردن تب‌های فارم"
   },
   "muteTabsDescription": {
-    "message": "هنگام فارم، تب‌های دراپ و فهرست تماشای جایگزین را بی‌صدا نگه دار."
+    "message": "هنگام فارم، تب‌های دراپ و فهرست تماشا را بی‌صدا نگه دار."
   },
   "keepVideosUnmutedTitle": {
     "message": "ویدیوهای فارم بی‌صدا نشوند"
@@ -954,13 +954,13 @@
     "message": "خودکارسازی"
   },
   "farmOnPlatform": {
-    "message": "دراپ‌ها را فارم کن و کانال‌های فهرست تماشای جایگزین را در $1 تماشا کن."
+    "message": "دراپ‌ها را فارم کن و کانال‌های فهرست تماشا را در $1 تماشا کن."
   },
   "enabled": {
     "message": "فعال"
   },
-  "idleWatchlistEditHint": {
-    "message": "پس از انتخاب $1، آن را از تبِ فهرست تماشای جایگزین ویرایش کنید."
+  "watchlistEditHint": {
+    "message": "پس از انتخاب $1، آن را از تبِ فهرست تماشا ویرایش کنید."
   },
   "autoClaimChannelPointsTitle": {
     "message": "دریافت خودکار امتیاز کانال"
@@ -1236,7 +1236,7 @@
     "message": "بیش از دراپ."
   },
   "screenshotExtrasSubcopy": {
-    "message": "امتیاز کانال، چالش‌های Kick و دراپ‌های ۲دقیقه‌ای — آن‌ها هم برایت دریافت می‌شوند. وقتی چیزی برای فارم نمانده، فهرست تماشای جایگزین آماده است."
+    "message": "امتیاز کانال، چالش‌های Kick و دراپ‌های ۲دقیقه‌ای — آن‌ها هم برایت دریافت می‌شوند. وقتی چیزی برای فارم نمانده، یک فهرست تماشا از کانال‌های خودت آماده است."
   },
   "screenshotExtrasPointsName": {
     "message": "امتیاز کانال"
@@ -1251,7 +1251,7 @@
     "message": "Kick · برایت دریافت می‌شود"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "فهرست تماشای جایگزین"
+    "message": "فهرست تماشا"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "بین کمپین‌ها استریمرهایت را تماشا می‌کند"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "جایزه‌ای با اولویت بالاتر جای آن را گرفت"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "کانالی با اولویت بالاتر از فهرست تماشای جایگزین در دسترس قرار گرفت"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "کانالی با اولویت بالاتر از فهرست تماشا در دسترس قرار گرفت"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "شرط تماشا کامل شد"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "دراپ‌ها"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "فهرست تماشای جایگزین"
+  "watchSourceWatchlist": {
+    "message": "فهرست تماشا"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "باز کردن Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "افزودن $1 به فهرست تماشای جایگزین"
+    "message": "افزودن $1 به فهرست تماشا"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "حذف $1 از فهرست تماشای جایگزین"
+    "message": "حذف $1 از فهرست تماشا"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "باز کردن بازی‌ها"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "نام کانال یا پیوند"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "فهرست پر است ($1 کانال). برای افزودن کانال دیگری، یکی را حذف کنید."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "نام کانال یا پیوند آن را وارد کنید."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 از قبل در فهرست است."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "ترتیب تماشا"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "اولین کانال زنده تماشا می‌شود"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "ردیف‌های تداوم در جایگاه «تداوم‌های تماشا» در ترتیب تماشا می‌شوند؛ هرکدام تا وقتی Twitch تداوم را تأیید کند یا $1 دقیقه بگذرد."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "حفظ تداوم تماشا در $1"
   },
   "watchStreakPending": {

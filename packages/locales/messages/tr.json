@@ -113,8 +113,8 @@
   "navGames": {
     "message": "Oyunlar"
   },
-  "navIdleWatchlist": {
-    "message": "Yedek izleme listesi"
+  "navWatchlist": {
+    "message": "İzleme listesi"
   },
   "navActivity": {
     "message": "Etkinlik"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Droplar"
   },
-  "idleWatchlistTab": {
-    "message": "Yedek Kanallar"
+  "watchlistTab": {
+    "message": "İzleme Listesi"
   },
   "automationTitle": {
     "message": "$1 Otomasyonu"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "Oyunlar görünümü hangi oyunların farmlanacağını, hangilerinin önce geleceğini ve hangilerinin hiç farmlanmayacağını belirler."
   },
-  "tipIdleWatchlist": {
-    "message": "Boşta İzleme Listesi kanallarının ne zaman izleneceğini platform ayarlarındaki kaynak önceliğiyle seçin."
+  "tipWatchlist": {
+    "message": "İzleme Listesi kanallarının ne zaman izleneceğini platform ayarlarındaki kaynak önceliğiyle seçin."
   },
   "tipTablessMode": {
     "message": "Sekmesiz mod daha az sistem kaynağı kullanır."
@@ -372,7 +372,7 @@
     "message": "Twitch ve Kick"
   },
   "tourPlatformBody": {
-    "message": "Platformlar arasında buradan geçiş yap. Her birinin kendi sırası, oyunları ve yedek izleme listesi var."
+    "message": "Platformlar arasında buradan geçiş yap. Her birinin kendi sırası, oyunları ve izleme listesi var."
   },
   "tourQueueOrderTitle": {
     "message": "Sıra nasıl belirlenir"
@@ -399,7 +399,7 @@
     "message": "\"Tüm kategoriler\" seçersen engellediğin oyunlar dışındaki her oyun farmlanır, \"Yalnızca seçilenler\" seçersen yalnızca işaretlediğin oyunlar farmlanır. Bir oyunu yıldızlarsan kampanyaları öne geçer, engellersen hiç farmlanmaz."
   },
   "tourWatchlistTitle": {
-    "message": "Yedek izleme listesi"
+    "message": "İzleme listesi"
   },
   "tourWatchlistBody": {
     "message": "Farmlanacak drop yokken Lurkloot bu kanalları izler; böylece Twitch'te kanal puanlarını, Kick'te ise günlük ödüllerini ve izleme serini kazanmaya devam edersin. Ayarlardaki izleme kaynağı önceliği, bunların ne zaman izleneceğini belirler."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Listeden çıkar"
   },
-  "noIdleWatchlist": {
-    "message": "Yedek izleme listenize henüz kanal eklemediniz."
+  "noWatchlist": {
+    "message": "İzleme listenize henüz kanal eklemediniz."
   },
   "channelPlaceholder": {
     "message": "Kanal adı"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "Kanal ekle"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Çevrim dışı"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Önce nadir/süreli olanlar"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Yedek Kanallar"
+  "watchlistSettingsTitle": {
+    "message": "İzleme Listesi"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Drop yokken izlenecek kanallar."
   },
   "preferKnownChannelsTitle": {
-    "message": "Takip edilen ve yedek kanalları tercih et"
+    "message": "Takip edilen ve izleme listesi kanallarını tercih et"
   },
   "preferKnownChannelsDescription": {
-    "message": "Bir drop birden fazla kanalda mevcut olduğunda, tanımadığınız bir kanal yerine takip ettiğiniz veya yedek kanallarınızdan birini seçer."
+    "message": "Bir drop birden fazla kanalda mevcut olduğunda, tanımadığınız bir kanal yerine takip ettiğiniz veya izleme listesi kanallarınızdan birini seçer."
   },
   "platformSettingsTitle": {
     "message": "Platform Ayarları"
@@ -959,8 +959,8 @@
   "enabled": {
     "message": "Açık"
   },
-  "idleWatchlistEditHint": {
-    "message": "$1 seçeneğini açtıktan sonra Yedek Kanallar sekmesinden düzenleyin."
+  "watchlistEditHint": {
+    "message": "$1 seçeneğini açtıktan sonra İzleme Listesi sekmesinden düzenleyin."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Kanal puanlarını otomatik al"
@@ -1236,7 +1236,7 @@
     "message": "Sadece drop değil."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Kanal puanları, Kick görevleri ve 2 dakikalık droplar da senin için teslim. Kasacak bir şey kalmayınca idle izleme listesi."
+    "message": "Kanal puanları, Kick görevleri ve 2 dakikalık droplar da senin için teslim. Kasacak bir şey kalmayınca izleme listesi."
   },
   "screenshotExtrasPointsName": {
     "message": "Kanal puanları"
@@ -1251,7 +1251,7 @@
     "message": "Kick · senin için de teslim"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Idle izleme listesi"
+    "message": "İzleme listesi"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Kampanyalar arasında yayıncılarını izler"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "Daha yüksek öncelikli drop geldi"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "Daha yüksek öncelikli yedek kanal açıldı"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "Daha yüksek öncelikli izleme listesi kanalı açıldı"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "İzleme süresi tamamlandı"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drop’lar"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Boşta İzleme Listesi"
+  "watchSourceWatchlist": {
+    "message": "İzleme Listesi"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Lurkloot'u aç"
   },
   "inPageAddToWatchlist": {
-    "message": "$1 kanalını yedek listeye ekle"
+    "message": "$1 kanalını izleme listesine ekle"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "$1 kanalını yedek listeden çıkar"
+    "message": "$1 kanalını izleme listesinden çıkar"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "Oyunları aç"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Kanal adı veya bağlantısı"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "Liste dolu ($1 kanal). Başka birini eklemek için birini kaldırın."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Bir kanal adı veya kanal bağlantısı girin."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 zaten listede."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "İzleme sırası"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "ilk canlı kanal izlenir"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "Seri kayıtları izleme sırasındaki İzleme serileri yerinde işlenir; her biri Twitch seriyi onaylayana ya da $1 dakika geçene kadar sürer."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "$1 kanalında izleme serisini sürdür"
   },
   "watchStreakPending": {

@@ -171,7 +171,7 @@ function WatchingLines({
   const stats = campaign ? campaignStats(campaign) : undefined;
   const reward = stats && !stats.complete ? stats.nextReward : undefined;
   const rewardProgress = reward?.requirement === "watch" ? (reward.progress ?? 0) : undefined;
-  const title = campaign?.title ?? supplementalName ?? t("idleWatchlistTab");
+  const title = campaign?.title ?? supplementalName ?? t("watchlistTab");
 
   return (
     <div data-automation-state="running" className="min-w-0">

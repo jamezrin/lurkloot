@@ -4,6 +4,6 @@ Secara default berjalan mode tanpa tab yang ringan: mengirim sinyal tonton di la
 
 Data tetap milik Anda: tanpa kata sandi, tanpa mengekspor cookie atau token, dan semuanya tinggal di perangkat Anda.
 
-Dari popup Anda bisa mengaktifkan setiap platform, mengutamakan kampanye dan game yang Anda pedulikan, mengelola daftar cadangan dan saluran dikecualikan per platform, serta mengaktifkan klaim otomatis dan notifikasi.
+Dari popup Anda bisa mengaktifkan setiap platform, mengutamakan kampanye dan game yang Anda pedulikan, mengelola daftar pantau dan saluran dikecualikan per platform, serta mengaktifkan klaim otomatis dan notifikasi.
 
-Lurkloot juga bisa farm waktu tonton Kick saat tidak ada drop aktif. Tambahkan saluran pilihan ke daftar cadangan dan otomatis memilih yang sedang live. Menonton tanpa tab menjaga pemakaian sumber daya rendah, sementara fallback tab disematkan menjaga sesi tetap tangguh.
+Lurkloot juga bisa farm waktu tonton Kick saat tidak ada drop aktif. Tambahkan saluran pilihan ke daftar pantau dan otomatis memilih yang sedang live. Menonton tanpa tab menjaga pemakaian sumber daya rendah, sementara fallback tab disematkan menjaga sesi tetap tangguh.

@@ -4,6 +4,6 @@ Ve výchozím nastavení běží úsporný režim bez záložek, který na pozad
 
 Vaše data zůstávají vaše: žádná hesla, žádný export cookies ani tokenů a vše zůstává ve vašem zařízení.
 
-Z vyskakovacího okna můžete zapnout jednotlivé platformy, upřednostnit kampaně a hry, na kterých vám záleží, spravovat záložní seznam a vyloučené kanály pro každou platformu a přepínat automatické vyzvedávání a oznámení.
+Z vyskakovacího okna můžete zapnout jednotlivé platformy, upřednostnit kampaně a hry, na kterých vám záleží, spravovat seznam sledování a vyloučené kanály pro každou platformu a přepínat automatické vyzvedávání a oznámení.
 
-Lurkloot umí farmit i čas sledování na Kicku, když není aktivní žádný drop. Přidejte preferované kanály do záložního seznamu a automaticky vybere ten, který právě vysílá. Sledování bez záložek drží spotřebu nízko, zatímco běžný návrat na připnutou záložku udrží relaci spolehlivou.
+Lurkloot umí farmit i čas sledování na Kicku, když není aktivní žádný drop. Přidejte preferované kanály do seznamu sledování a automaticky vybere ten, který právě vysílá. Sledování bez záložek drží spotřebu nízko, zatímco běžný návrat na připnutou záložku udrží relaci spolehlivou.

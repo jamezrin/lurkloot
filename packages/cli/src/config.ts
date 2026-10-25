@@ -65,7 +65,7 @@ export function defaultConfigJsonc(): string {
     "campaignPins": ${json(defaults.campaignPins)},
     "excludedCampaignIds": ${json(defaults.excludedCampaignIds)},
 
-    // Prefer an Idle Watchlist or followed channel over a bigger anonymous one
+    // Prefer an Watchlist or followed channel over a bigger anonymous one
     // when picking who to farm a campaign on.
     "preferKnownChannels": ${json(defaults.preferKnownChannels)},
     "offlineRetryLimit": ${json(defaults.offlineRetryLimit)},
@@ -111,10 +111,10 @@ export function defaultConfigJsonc(): string {
         // First eligible source wins. Providers without a host implementation
         // yield to the next source; the CLI currently skips NoPixelV and Fortnite.
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
-        "idleWatchlistChannels": ${json(twitch.idleWatchlistChannels)},
-        // Idle Watchlist channels whose watch streak to maintain. The CLI has no
+        "watchlistChannels": ${json(twitch.watchlistChannels)},
+        // Watchlist channels whose watch streak to maintain. The CLI has no
         // Twitch push connection to see the payout, so it skips these rows.
-        "idleWatchlistStreakChannels": ${json(twitch.idleWatchlistStreakChannels ?? [])},
+        "watchlistStreakChannels": ${json(twitch.watchlistStreakChannels ?? [])},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
@@ -161,7 +161,7 @@ export function defaultConfigJsonc(): string {
       "kick": {
         "enabled": ${json(kick.enabled)},
         "watchSourcePriority": ${json(kick.watchSourcePriority)},
-        "idleWatchlistChannels": ${json(kick.idleWatchlistChannels)},
+        "watchlistChannels": ${json(kick.watchlistChannels)},
         "excludedChannels": ${json(kick.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.

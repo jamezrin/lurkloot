@@ -113,8 +113,8 @@
   "navGames": {
     "message": "Games"
   },
-  "navIdleWatchlist": {
-    "message": "Idle watchlist"
+  "navWatchlist": {
+    "message": "Watchlist"
   },
   "navActivity": {
     "message": "Activity"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Idle Watchlist"
+  "watchlistTab": {
+    "message": "Watchlist"
   },
   "automationTitle": {
     "message": "$1 automation"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "The Games view decides which games are farmed, which rank first, and which are never farmed at all."
   },
-  "tipIdleWatchlist": {
-    "message": "Choose when Idle Watchlist channels are watched by changing watch-source priority in platform settings."
+  "tipWatchlist": {
+    "message": "Choose when Watchlist channels are watched by changing watch-source priority in platform settings."
   },
   "tipTablessMode": {
     "message": "Tabless mode uses fewer resources and falls back to a muted tab when needed."
@@ -399,7 +399,7 @@
     "message": "Pick All categories to farm every game except the ones you block, or Only selected to farm just the games you tick. Star a game to put its campaigns first, or block it so it is never farmed."
   },
   "tourWatchlistTitle": {
-    "message": "Idle Watchlist"
+    "message": "Watchlist"
   },
   "tourWatchlistBody": {
     "message": "When there are no drops to farm, Lurkloot watches these channels, so you keep earning channel points on Twitch and your daily rewards and watch streak on Kick. Watch-source priority in Settings decides when they are watched."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Exclude from farming"
   },
-  "noIdleWatchlist": {
-    "message": "No idle watchlist channels configured."
+  "noWatchlist": {
+    "message": "No Watchlist channels configured."
   },
   "channelPlaceholder": {
     "message": "channel"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "Add channel"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Offline"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Low availability first"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Idle Watchlist"
+  "watchlistSettingsTitle": {
+    "message": "Watchlist"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Fallback channels used when no eligible drops are available."
   },
   "preferKnownChannelsTitle": {
-    "message": "Prefer followed and Idle Watchlist channels"
+    "message": "Prefer followed and Watchlist channels"
   },
   "preferKnownChannelsDescription": {
-    "message": "When a drop is available on several channels, picks one you follow or listed in your Idle Watchlist over an unfamiliar one."
+    "message": "When a drop is available on several channels, picks one you follow or listed in your Watchlist over an unfamiliar one."
   },
   "platformSettingsTitle": {
     "message": "Platform settings"
@@ -783,7 +783,7 @@
     "message": "Mute farming tabs"
   },
   "muteTabsDescription": {
-    "message": "Keep drop and Idle Watchlist tabs muted while farming."
+    "message": "Keep drop and Watchlist tabs muted while farming."
   },
   "keepVideosUnmutedTitle": {
     "message": "Keep farming videos unmuted"
@@ -954,13 +954,13 @@
     "message": "Automation"
   },
   "farmOnPlatform": {
-    "message": "Farm drops and watch Idle Watchlist channels on $1."
+    "message": "Farm drops and watch Watchlist channels on $1."
   },
   "enabled": {
     "message": "Enabled"
   },
-  "idleWatchlistEditHint": {
-    "message": "Edit it from the Idle Watchlist tab after selecting $1."
+  "watchlistEditHint": {
+    "message": "Edit it from the Watchlist tab after selecting $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Auto-claim channel points"
@@ -1236,7 +1236,7 @@
     "message": "More than drops."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Channel points, Kick challenges, and 2-minute drops — also claimed for you. An idle watchlist when nothing is left to farm."
+    "message": "Channel points, Kick challenges, and 2-minute drops — also claimed for you. A watchlist of your own channels when nothing is left to farm."
   },
   "screenshotExtrasPointsName": {
     "message": "Channel points"
@@ -1251,7 +1251,7 @@
     "message": "Kick · also claimed for you"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Idle watchlist"
+    "message": "Watchlist"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Watches your streamers between campaigns"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "a higher-priority reward took over"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "a higher-priority Idle Watchlist channel became available"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "a higher-priority Watchlist channel became available"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "the watch requirement was completed"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Idle Watchlist"
+  "watchSourceWatchlist": {
+    "message": "Watchlist"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Open Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Add $1 to the idle watchlist"
+    "message": "Add $1 to the Watchlist"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Remove $1 from the idle watchlist"
+    "message": "Remove $1 from the Watchlist"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "Open Games"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Channel name or link"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "The list is full ($1 channels). Remove one to add another."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Enter a channel name or a channel link."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 is already on the list."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Watch order"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "the first live channel is watched"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "Streak rows are watched at the Watch streaks place in the watch order, each until Twitch confirms the streak or $1 minutes pass."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "Maintain watch streak on $1"
   },
   "watchStreakPending": {

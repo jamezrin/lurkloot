@@ -36,7 +36,7 @@ carousel, and does not open them at full size. The images therefore carry no log
    all-or-selected switch and the games list, enlarged.
 3. Much more than drops: what Lurkloot supports on both platforms, listed once, then what
    each platform adds.
-4. Idle watchlist: the feature's name (each catalog's `navIdleWatchlist`), how it works in three
+4. Watchlist: the feature's name (each catalog's `navWatchlist`), how it works in three
    short steps, and what it keeps earning (Twitch channel points, Kick daily rewards and level
    XP), beside three real watchlist rows whose ranks show the watch order.
 5. Farm everything, watch nothing: a larger closing statement, noting it is free and open

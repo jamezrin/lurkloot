@@ -192,7 +192,7 @@ const ACCRUAL_PRECONDITION_BREAK_REASONS = new Set<WatchReasonCode>([
   "manual_watch",
   "target_changed",
   "higher_priority_reward",
-  "higher_priority_idle_watchlist",
+  "higher_priority_watchlist",
 ]);
 
 function preconditionBreakObservation(): CriticalHealthObservation {
@@ -250,7 +250,7 @@ function isPinned(campaign: DropCampaign, settings: EngineSettings): boolean {
 }
 
 // Ranks candidates the user has a relationship with above anonymous directory
-// channels: an explicit Idle Watchlist entry first, then a followed channel.
+// channels: an explicit Watchlist entry first, then a followed channel.
 // Purely a tie-break among channels that already qualify for the campaign, so it
 // never changes *what* is farmed, only *where* it is farmed.
 function channelPreferenceScore(
@@ -296,7 +296,7 @@ export async function chooseCampaignDecision(
   const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
   const idleWatchlist = settings.preferKnownChannels
     ? new Set(
-        settings.platform[platform].idleWatchlistChannels
+        settings.platform[platform].watchlistChannels
           .map((username) => username.trim().toLowerCase())
           .filter(Boolean),
       )
@@ -454,7 +454,7 @@ export async function chooseCampaignDecision(
   return finish({
     platform,
     action: "idle",
-    reason: `${noCampaignReason} and no Idle Watchlist channels`,
+    reason: `${noCampaignReason} and no Watchlist channels`,
     reasonCode: waitingForSubscription ? "campaign_ineligible" : "no_eligible_channel",
   });
 }
@@ -516,7 +516,7 @@ async function chooseWatchStreakDecision(
 }
 
 function idleWatchlistUsernames(platform: Platform, settings: EngineSettings): string[] {
-  return settings.platform[platform].idleWatchlistChannels
+  return settings.platform[platform].watchlistChannels
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean);
 }
@@ -546,16 +546,16 @@ function idleWatchlistDecision(
     action: "fallback",
     channel,
     reason: streak
-      ? "Idle Watchlist channel selected to maintain its watch streak"
-      : "Idle Watchlist channel selected by watch-source priority",
-    reasonCode: "idle_watchlist_selected",
+      ? "Watchlist channel selected to maintain its watch streak"
+      : "Watchlist channel selected by watch-source priority",
+    reasonCode: "watchlist_selected",
   };
 }
 
-// The sources that pick from the Idle Watchlist rows, split around Drops in the
+// The sources that pick from the Watchlist rows, split around Drops in the
 // user's watch-source order. Selection paths that resolve Drops themselves try
 // the first group ahead of it and the second after it.
-type WatchlistSource = "watch_streaks" | "idle_watchlist";
+type WatchlistSource = "watch_streaks" | "watchlist";
 
 function watchlistSourcesAroundDrops(
   platform: Platform,
@@ -568,8 +568,7 @@ function watchlistSourcesAroundDrops(
   const drops = order.indexOf("drops");
   const watchlist = (sources: WatchSourceId[]) =>
     sources.filter(
-      (source): source is WatchlistSource =>
-        source === "watch_streaks" || source === "idle_watchlist",
+      (source): source is WatchlistSource => source === "watch_streaks" || source === "watchlist",
     );
   return { before: watchlist(order.slice(0, drops)), after: watchlist(order.slice(drops + 1)) };
 }
@@ -1048,7 +1047,7 @@ async function* selectWatchSources(
               && streaks.prioritized.includes(previous.channel.username.toLowerCase())
               && streaks.verdict(previous.channel) === "pending"
             ? "watch_streaks"
-            : "idle_watchlist"));
+            : "watchlist"));
   let pastDrops = false;
   for (const source of normalizeWatchSourcePriority(
     platform,
@@ -1057,7 +1056,7 @@ async function* selectWatchSources(
     signal?.throwIfAborted();
     if (pastDrops && dropsUndecided && source !== currentSource) continue;
     if (source === "drops") pastDrops = true;
-    if (source === "drops" || source === "idle_watchlist" || source === "watch_streaks") {
+    if (source === "drops" || source === "watchlist" || source === "watch_streaks") {
       try {
         const resolved = await resolveOrdinary(source);
         // A watchlist source resolves to a fallback only for a row it chose.
@@ -1067,7 +1066,7 @@ async function* selectWatchSources(
             : resolved.decision.action === "fallback"
               ? source === "watch_streaks"
                 ? "watch_streaks"
-                : "idle_watchlist"
+                : "watchlist"
               : undefined;
         if (resolvedSource === source) return { selection: resolved };
         // An empty Watch streaks source does not explain the idle state; the
@@ -1459,7 +1458,7 @@ export interface PlatformTickCapabilities {
   claimChallenges: boolean;
   claimChannelPoints: boolean;
   // The host can observe a watch-streak payout (#897). Without it maintained
-  // Idle Watchlist rows are skipped as unavailable.
+  // Watchlist rows are skipped as unavailable.
   observeWatchStreaks?: boolean;
 }
 
@@ -2112,11 +2111,11 @@ export async function* decidePlatformTick(
         }
 
         // Keep the established subscription-only fallback suppression when
-        // Drops precedes Idle. An explicit Idle-first order remains eligible.
+        // Drops precedes Idle. An explicit Watchlist-first order remains eligible.
         // An opted-in watch streak is never suppressed.
         const idleSuppressed =
-          source === "idle_watchlist"
-          && sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist")
+          source === "watchlist"
+          && sourceOrder.indexOf("drops") < sourceOrder.indexOf("watchlist")
           && onlySubscriptionCampaigns(campaigns, settings);
         let candidatesChecked = 0;
         const idle = idleSuppressed
@@ -2137,7 +2136,7 @@ export async function* decidePlatformTick(
           action: "idle",
           reason: idleSuppressed
             ? noEligibleCampaignReason(campaigns, settings)
-            : `${noEligibleCampaignReason(campaigns, settings)} and no Idle Watchlist channels`,
+            : `${noEligibleCampaignReason(campaigns, settings)} and no Watchlist channels`,
           reasonCode:
             idleSuppressed || onlyWaitingSubscriptionCampaigns(campaigns, settings)
               ? "campaign_ineligible"
@@ -2814,16 +2813,13 @@ async function shouldKeepWatching(
     return stopWatching("Higher priority eligible campaign available", "higher_priority_reward");
   }
 
-  // When watching an Idle Watchlist fallback, a different selection means a
-  // higher-priority idle watchlist channel is now live (e.g. after reordering the
+  // When watching an Watchlist fallback, a different selection means a
+  // higher-priority watchlist channel is now live (e.g. after reordering the
   // watchlist or one coming online), so switch to it instead of staying put.
   const differentFallbackAvailable =
     changedTarget && nextDecision.action === "fallback" && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return stopWatching(
-      "Higher priority Idle Watchlist channel available",
-      "higher_priority_idle_watchlist",
-    );
+    return stopWatching("Higher priority Watchlist channel available", "higher_priority_watchlist");
   }
 
   const check = await adapter.checkChannel(previous.channel, {
@@ -3008,11 +3004,8 @@ function normalizedPreviousReasonCode(
   ) {
     return "keeping_current_watch";
   }
-  if (
-    decision.reasonCode === "keeping_idle_watchlist"
-    && previous.reasonCode === "idle_watchlist_selected"
-  ) {
-    return "keeping_idle_watchlist";
+  if (decision.reasonCode === "keeping_watchlist" && previous.reasonCode === "watchlist_selected") {
+    return "keeping_watchlist";
   }
   return previous.reasonCode;
 }

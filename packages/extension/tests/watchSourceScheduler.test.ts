@@ -14,7 +14,7 @@ import type {
 function setup(platform: Platform = "twitch") {
   const settings = structuredClone(DEFAULT_SETTINGS);
   settings.platform[platform].enabled = true;
-  settings.platform[platform].idleWatchlistChannels = ["idlefirst", "idlesecond"];
+  settings.platform[platform].watchlistChannels = ["idlefirst", "idlesecond"];
   const state = structuredClone(DEFAULT_STATE);
   state.authHealth[platform] = { status: "healthy" };
   const channel = (username: string) => ({
@@ -91,8 +91,8 @@ describe("watch-source scheduler policy", () => {
       const s = setup(platform);
       s.settings.platform[platform].watchSourcePriority =
         platform === "twitch"
-          ? ["idle_watchlist", "drops", "nopixel", "fortnite"]
-          : ["idle_watchlist", "drops"];
+          ? ["watchlist", "drops", "nopixel", "fortnite"]
+          : ["watchlist", "drops"];
       const result = await s.tick();
       expect(result.state.sessions[platform]).toMatchObject({
         status: "watching",
@@ -110,7 +110,7 @@ describe("watch-source scheduler policy", () => {
         source,
         "drops",
         source === "nopixel" ? "fortnite" : "nopixel",
-        "idle_watchlist",
+        "watchlist",
       ];
       const result = await s.tick(s.state, async (_platform, _state, _signal, requested) =>
         requested === source ? s.target(source) : undefined,
@@ -126,12 +126,7 @@ describe("watch-source scheduler policy", () => {
 
   it("skips an unavailable provider and routes each source independently", async () => {
     const s = setup();
-    s.settings.platform.twitch.watchSourcePriority = [
-      "fortnite",
-      "nopixel",
-      "drops",
-      "idle_watchlist",
-    ];
+    s.settings.platform.twitch.watchSourcePriority = ["fortnite", "nopixel", "drops", "watchlist"];
     const result = await s.tick(s.state, async (_platform, _state, _signal, source) =>
       source === "nopixel" ? s.target("nopixel") : undefined,
     );
@@ -146,14 +141,14 @@ describe("watch-source scheduler policy", () => {
       expect(drops.state.sessions[platform].campaignId).toBe("drop");
       s.settings.platform[platform].watchSourcePriority =
         platform === "twitch"
-          ? ["idle_watchlist", "drops", "nopixel", "fortnite"]
-          : ["idle_watchlist", "drops"];
+          ? ["watchlist", "drops", "nopixel", "fortnite"]
+          : ["watchlist", "drops"];
       const idle = await s.tick(drops.state);
       expect(idle.state.sessions[platform].channel?.username).toBe("idlefirst");
       s.settings.platform[platform].watchSourcePriority =
         platform === "twitch"
-          ? ["drops", "nopixel", "fortnite", "idle_watchlist"]
-          : ["drops", "idle_watchlist"];
+          ? ["drops", "nopixel", "fortnite", "watchlist"]
+          : ["drops", "watchlist"];
       const resumed = await s.tick(idle.state);
       expect(resumed.state.sessions[platform].campaignId).toBe("drop");
       expect(resumed.state.campaigns[platform][0].rewards[0].watchedMinutes).toBe(10);
@@ -162,12 +157,7 @@ describe("watch-source scheduler policy", () => {
 
   it("preempts a retained in-progress drop when a higher source becomes eligible", async () => {
     const s = setup();
-    s.settings.platform.twitch.watchSourcePriority = [
-      "nopixel",
-      "drops",
-      "fortnite",
-      "idle_watchlist",
-    ];
+    s.settings.platform.twitch.watchSourcePriority = ["nopixel", "drops", "fortnite", "watchlist"];
     const drops = await s.tick(s.state, async () => undefined);
     const next = await s.tick(drops.state, async (_platform, _state, _signal, source) =>
       source === "nopixel" ? s.target("nopixel") : undefined,
@@ -201,14 +191,14 @@ describe("watch-source scheduler policy", () => {
       },
     ]),
   )(
-    "preserves within-source retention with Idle-first snapshots on $platform (Idle live: $idleLive, explicit campaign priority: $explicitPriority)",
+    "preserves within-source retention with Watchlist-first snapshots on $platform (Idle live: $idleLive, explicit campaign priority: $explicitPriority)",
     async ({ platform, idleLive, explicitPriority, expectedCampaign, expectedChannel }) => {
       const s = setup(platform);
       const active = await s.tick();
       s.settings.platform[platform].watchSourcePriority =
         platform === "twitch"
-          ? ["idle_watchlist", "drops", "nopixel", "fortnite"]
-          : ["idle_watchlist", "drops"];
+          ? ["watchlist", "drops", "nopixel", "fortnite"]
+          : ["watchlist", "drops"];
       const replacement: DropCampaign = {
         ...s.campaign,
         id: "replacement",
@@ -241,7 +231,7 @@ describe("watch-source scheduler policy", () => {
             },
           ],
         })),
-        idleCandidates: s.settings.platform[platform].idleWatchlistChannels.map((username) => ({
+        idleCandidates: s.settings.platform[platform].watchlistChannels.map((username) => ({
           candidate: s.target(username).channel,
           live: idleLive,
           categoryMatches: true,
@@ -293,12 +283,7 @@ describe("watch-source scheduler policy", () => {
 
   it("rejects an excluded or wrong-source provider and yields to drops", async () => {
     const s = setup();
-    s.settings.platform.twitch.watchSourcePriority = [
-      "fortnite",
-      "nopixel",
-      "drops",
-      "idle_watchlist",
-    ];
+    s.settings.platform.twitch.watchSourcePriority = ["fortnite", "nopixel", "drops", "watchlist"];
     const mismatch = await s.tick(s.state, async () => s.target("nopixel"));
     expect(mismatch.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
     s.settings.platform.twitch.excludedChannels = ["nopixel"];
@@ -308,12 +293,7 @@ describe("watch-source scheduler policy", () => {
 
   it("does not use a provider on a host without tabless support", async () => {
     const s = setup();
-    s.settings.platform.twitch.watchSourcePriority = [
-      "fortnite",
-      "drops",
-      "nopixel",
-      "idle_watchlist",
-    ];
+    s.settings.platform.twitch.watchSourcePriority = ["fortnite", "drops", "nopixel", "watchlist"];
     s.adapter.supportsTabless = false;
     const result = await s.tick(s.state, async () => s.target("fortnite"));
     expect(result.state.sessions.twitch.campaignId).toBe("drop");
@@ -321,12 +301,7 @@ describe("watch-source scheduler policy", () => {
 
   it("isolates a failed higher-priority provider and continues with drops", async () => {
     const s = setup();
-    s.settings.platform.twitch.watchSourcePriority = [
-      "fortnite",
-      "drops",
-      "nopixel",
-      "idle_watchlist",
-    ];
+    s.settings.platform.twitch.watchSourcePriority = ["fortnite", "drops", "nopixel", "watchlist"];
     const result = await s.tick(s.state, async () => {
       throw new Error("private vendor body");
     });
@@ -336,13 +311,8 @@ describe("watch-source scheduler policy", () => {
 
   it("keeps provider discovery available when drop discovery fails without a watchlist", async () => {
     const s = setup();
-    s.settings.platform.twitch.watchSourcePriority = [
-      "fortnite",
-      "drops",
-      "nopixel",
-      "idle_watchlist",
-    ];
-    s.settings.platform.twitch.idleWatchlistChannels = [];
+    s.settings.platform.twitch.watchSourcePriority = ["fortnite", "drops", "nopixel", "watchlist"];
+    s.settings.platform.twitch.watchlistChannels = [];
     s.adapter.refreshCampaigns = async () => {
       throw new Error("Drop discovery unavailable");
     };
@@ -360,7 +330,7 @@ describe("watch-source scheduler policy", () => {
         source,
         "drops",
         source === "nopixel" ? "fortnite" : "nopixel",
-        "idle_watchlist",
+        "watchlist",
       ];
       s.adapter.listCandidateChannels = async () => {
         throw new Error("Lower source unavailable");
@@ -385,13 +355,13 @@ describe("watch-source scheduler policy", () => {
   });
 
   it.each(["twitch", "kick"] as const)(
-    "yields a failing Idle-first source to eligible Drops on %s",
+    "yields a failing Watchlist-first source to eligible Drops on %s",
     async (platform) => {
       const s = setup(platform);
       s.settings.platform[platform].watchSourcePriority =
         platform === "twitch"
-          ? ["idle_watchlist", "drops", "nopixel", "fortnite"]
-          : ["idle_watchlist", "drops"];
+          ? ["watchlist", "drops", "nopixel", "fortnite"]
+          : ["watchlist", "drops"];
       s.adapter.checkChannel = async (candidate) => {
         if (candidate.username.startsWith("idle"))
           throw new Error("Idle channel lookup unavailable");
@@ -412,7 +382,7 @@ describe("watch-source scheduler policy", () => {
       const s = setup();
       s.settings.platform.twitch.watchSourcePriority = [
         source,
-        "idle_watchlist",
+        "watchlist",
         "drops",
         source === "nopixel" ? "fortnite" : "nopixel",
       ];
@@ -437,7 +407,7 @@ describe("watch-source scheduler policy", () => {
       const idle = await s.tick();
       idle.state.sessions[platform].lastHeartbeatOk = true;
       idle.state.sessions[platform].lastHeartbeatAt = new Date().toISOString();
-      s.settings.platform[platform].idleWatchlistChannels = ["idlesecond"];
+      s.settings.platform[platform].watchlistChannels = ["idlesecond"];
       const result = await runSchedulerTick(
         idle.state,
         s.settings,
@@ -460,7 +430,7 @@ describe("watch-source scheduler policy", () => {
       const idle = await s.tick();
       idle.state.sessions[platform].lastHeartbeatOk = true;
       idle.state.sessions[platform].lastHeartbeatAt = new Date().toISOString();
-      s.settings.platform[platform].idleWatchlistChannels = ["idlesecond", "idlefirst"];
+      s.settings.platform[platform].watchlistChannels = ["idlesecond", "idlefirst"];
       const result = await runSchedulerTick(
         idle.state,
         s.settings,
@@ -504,17 +474,12 @@ describe("watch-source scheduler policy", () => {
     },
   );
 
-  it("applies Idle-first even when incomplete discovery would retain a healthy drop", async () => {
+  it("applies Watchlist-first even when incomplete discovery would retain a healthy drop", async () => {
     const s = setup();
     const drops = await s.tick();
     drops.state.sessions.twitch.lastHeartbeatOk = true;
     drops.state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
-    s.settings.platform.twitch.watchSourcePriority = [
-      "idle_watchlist",
-      "drops",
-      "nopixel",
-      "fortnite",
-    ];
+    s.settings.platform.twitch.watchSourcePriority = ["watchlist", "drops", "nopixel", "fortnite"];
     const result = await runSchedulerTick(
       drops.state,
       s.settings,
@@ -595,7 +560,7 @@ describe("watch-source policy while discovery was discarded", () => {
 
   it("keeps a healthy drop watch instead of starting a lower source", async () => {
     const s = setup();
-    s.settings.platform.twitch.idleWatchlistChannels = [];
+    s.settings.platform.twitch.watchlistChannels = [];
     const drops = await s.tick(s.state, async () => undefined);
     expect(drops.state.sessions.twitch.campaignId).toBe("drop");
 
@@ -607,7 +572,7 @@ describe("watch-source policy while discovery was discarded", () => {
 
   it("waits rather than switching to a lower source when the save made the campaign ineligible", async () => {
     const s = setup();
-    s.settings.platform.twitch.idleWatchlistChannels = [];
+    s.settings.platform.twitch.watchlistChannels = [];
     const drops = await s.tick(s.state, async () => undefined);
     s.settings.excludedCampaignIds = ["drop"];
 
@@ -626,7 +591,7 @@ describe("watch-source policy while discovery was discarded", () => {
   // after a watch was armed and before its first heartbeat.
   it("keeps a drop watch that has not had its first heartbeat yet", async () => {
     const s = setup();
-    s.settings.platform.twitch.idleWatchlistChannels = [];
+    s.settings.platform.twitch.watchlistChannels = [];
     const drops = await s.tick(s.state, async () => undefined);
     expect(drops.state.sessions.twitch.lastHeartbeatAt).toBeUndefined();
 
@@ -638,9 +603,9 @@ describe("watch-source policy while discovery was discarded", () => {
 
   // Kick has no Twitch extensions; the source below Drops is the Idle
   // Watchlist, and a discarded refresh must not hand the watch to it either.
-  it("keeps a Kick drop watch instead of starting the Idle Watchlist", async () => {
+  it("keeps a Kick drop watch instead of starting the Watchlist", async () => {
     const s = setup("kick");
-    s.settings.platform.kick.watchSourcePriority = ["drops", "idle_watchlist"];
+    s.settings.platform.kick.watchSourcePriority = ["drops", "watchlist"];
     // A campaign ranked above the current one, with no channel live for it:
     // the current watch is then not the top of the ranking, so keeping it
     // takes the discarded-discovery hold rather than the plain fast path.
@@ -683,7 +648,7 @@ describe("watch-source policy while discovery was discarded", () => {
 
   it("keeps a supplemental watch it was already on", async () => {
     const s = setup();
-    s.settings.platform.twitch.idleWatchlistChannels = [];
+    s.settings.platform.twitch.watchlistChannels = [];
     s.settings.excludedCampaignIds = ["drop"];
     const nopixel = await s.tick(s.state, nopixelLive(s));
     expect(nopixel.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");

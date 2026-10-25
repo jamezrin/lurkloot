@@ -21,7 +21,7 @@ export type CoreRuntimeMessage =
       tickAfterSave?: boolean;
       tickAfterSavePlatforms?: Platform[];
     }
-  // One channel added to or removed from an Idle Watchlist, applied to the
+  // One channel added to or removed from an Watchlist, applied to the
   // stored list at save time. A surface that sent its copy of the whole list
   // would undo any change made elsewhere since it last read it.
   | { type: "updateIdleWatchlist"; platform: Platform; channel: string; action: "add" | "remove" }

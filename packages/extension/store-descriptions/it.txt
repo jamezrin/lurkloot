@@ -4,6 +4,6 @@ Per impostazione predefinita usa una leggera modalità senza schede che invia se
 
 I tuoi dati restano tuoi: niente password, nessun cookie o token esportato, e tutto rimane sul tuo dispositivo.
 
-Dal popup puoi attivare ogni piattaforma, dare priorità alle campagne e ai giochi che ti interessano, gestire le liste di visione inattive e i canali esclusi per ogni piattaforma, e attivare il riscatto automatico e le notifiche.
+Dal popup puoi attivare ogni piattaforma, dare priorità alle campagne e ai giochi che ti interessano, gestire le liste di visione e i canali esclusi per ogni piattaforma, e attivare il riscatto automatico e le notifiche.
 
-Lurkloot può anche farmare il tempo di visione su Kick quando non ci sono drop attivi. Aggiungi i tuoi canali preferiti alla lista di visione inattiva e sceglierà automaticamente quello in diretta. La visione senza schede riduce l'uso delle risorse, mentre il ripiego su una scheda fissata mantiene stabile la sessione.
+Lurkloot può anche farmare il tempo di visione su Kick quando non ci sono drop attivi. Aggiungi i tuoi canali preferiti alla lista di visione e sceglierà automaticamente quello in diretta. La visione senza schede riduce l'uso delle risorse, mentre il ripiego su una scheda fissata mantiene stabile la sessione.

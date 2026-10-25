@@ -3,22 +3,27 @@ import type { Platform, WatchSourceId } from "./models";
 // This registry describes supported sources, independently of provider enablement,
 // permissions or host capabilities. Missing sources append in this default order.
 export const DEFAULT_WATCH_SOURCE_PRIORITY: Record<Platform, readonly WatchSourceId[]> = {
-  twitch: ["drops", "nopixel", "fortnite", "watch_streaks", "idle_watchlist"],
-  kick: ["drops", "idle_watchlist"],
+  twitch: ["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"],
+  kick: ["drops", "watchlist"],
 };
 
 // A missing source that goes in front of another instead of at the end. Watch
 // streaks (#897) used to be the head of the Idle Watchlist, so an order saved
 // before it existed keeps them just ahead of the watchlist.
 const INSERT_MISSING_BEFORE: Partial<Record<WatchSourceId, WatchSourceId>> = {
-  watch_streaks: "idle_watchlist",
+  watch_streaks: "watchlist",
 };
+
+// The watchlist source's id before schema 10. Migration rewrites stored orders;
+// reading it here too keeps an unmigrated order's place for the watchlist.
+const LEGACY_WATCHLIST_SOURCE_ID = "idle_watchlist";
 
 export function normalizeWatchSourcePriority(platform: Platform, value: unknown): WatchSourceId[] {
   const supported = DEFAULT_WATCH_SOURCE_PRIORITY[platform];
   const result: WatchSourceId[] = [];
   if (Array.isArray(value)) {
-    for (const source of value) {
+    for (const entry of value) {
+      const source = entry === LEGACY_WATCHLIST_SOURCE_ID ? "watchlist" : entry;
       if (supported.includes(source) && !result.includes(source)) result.push(source);
     }
   }
@@ -47,7 +52,7 @@ export function normalizePlatformWatchSourcePriority(
     block && Object.hasOwn(block, "watchSourcePriority")
       ? block.watchSourcePriority
       : legacyFallbackOnly === false
-        ? ["idle_watchlist"]
+        ? ["watchlist"]
         : undefined;
   return normalizeWatchSourcePriority(platform, priority);
 }

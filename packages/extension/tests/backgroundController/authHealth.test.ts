@@ -720,7 +720,7 @@ describe("background controller", () => {
       platform: {
         ...DEFAULT_SETTINGS.platform,
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
       },
     });
     // The probe resolves healthy, but reconciling the tabless watcher (which

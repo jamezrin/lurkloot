@@ -33,14 +33,14 @@ It is free, fully open source, and runs as a browser extension or, in beta, as a
 - Drops
 - Subscriber badges
 - Channel points
-- Idle Watchlist
+- Watchlist
 - Fortnite and NoPixel, through their Twitch channel extensions
 
 **Kick**
 
 - Drops
 - Daily rewards
-- Idle Watchlist
+- Watchlist
 
 Each platform has its own switch, games, order, and channel list. Turn on one, or both.
 
@@ -52,7 +52,7 @@ Most watching happens in the background, with no stream video and no video ads. 
 
 The popup is one workspace for both platforms. The queue shows what is being farmed. Pin campaigns and drag them into order, rank favourite games, limit farming to chosen categories, block categories, exclude channels, and choose which reward Lurkloot prefers when several are available.
 
-When no drop, extension, or other reward is eligible, the Idle Watchlist takes over. Add the channels you want watched, and Lurkloot picks one that is live. On Kick, that watch time also counts toward your profile level and badges.
+When no drop, extension, or other reward is eligible, the Watchlist takes over. Add the channels you want watched, and Lurkloot picks one that is live. On Kick, that watch time also counts toward your profile level and badges.
 
 ## Optional extras
 

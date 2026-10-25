@@ -82,7 +82,7 @@ beforeEach(() => {
   sendMessage.mockClear();
   storageGet.mockReset();
   storageGet.mockResolvedValue({
-    settings: { showInPagePanel: true, platform: { twitch: { idleWatchlistChannels: [] } } },
+    settings: { showInPagePanel: true, platform: { twitch: { watchlistChannels: [] } } },
     schedulerState: {},
   });
 });
@@ -98,7 +98,7 @@ describe("in-page nav menu", () => {
 
     await openMenu();
 
-    expect(menuItems()).toEqual(["Open Lurkloot", "Add summit1g to the idle watchlist"]);
+    expect(menuItems()).toEqual(["Open Lurkloot", "Add summit1g to the watchlist"]);
   });
 
   it("sends the addition as one change, not a copy of the whole list", async () => {
@@ -126,6 +126,22 @@ describe("in-page nav menu", () => {
     storageGet.mockResolvedValue({
       settings: {
         showInPagePanel: true,
+        platform: { twitch: { watchlistChannels: ["summit1g"] } },
+      },
+      schedulerState: {},
+    });
+    setUpPage("https://www.twitch.tv/summit1g");
+    await mount("twitch");
+
+    await openMenu();
+
+    expect(menuItems()[1]).toBe("Remove summit1g from the watchlist");
+  });
+
+  it("reads a list stored under the name it had before the Watchlist rename", async () => {
+    storageGet.mockResolvedValue({
+      settings: {
+        showInPagePanel: true,
         platform: { twitch: { idleWatchlistChannels: ["summit1g"] } },
       },
       schedulerState: {},
@@ -135,7 +151,7 @@ describe("in-page nav menu", () => {
 
     await openMenu();
 
-    expect(menuItems()[1]).toBe("Remove summit1g from the idle watchlist");
+    expect(menuItems()[1]).toBe("Remove summit1g from the watchlist");
   });
 
   it("offers nothing but the panel on a page that is not a channel's", async () => {
@@ -173,7 +189,7 @@ describe("in-page nav menu", () => {
     await settle();
 
     expect(globalThis.document.querySelectorAll("#lurkloot-nav-menu")).toHaveLength(1);
-    expect(menuItems()).toEqual(["Open Lurkloot", "Add summit1g to the idle watchlist"]);
+    expect(menuItems()).toEqual(["Open Lurkloot", "Add summit1g to the watchlist"]);
   });
 
   it("keeps the button reported as expanded while the panel is open behind a closed menu", async () => {

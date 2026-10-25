@@ -84,7 +84,7 @@ describe("popup workspace shell", () => {
 
     go(container, "watchlist");
     expect(currentView(container)).toBe("watchlist");
-    // The rail and the view title already say "Idle watchlist", so the panel
+    // The rail and the view title already say "Watchlist", so the panel
     // itself carries the channels rather than repeating the name a third time.
     expect(container.querySelector("#idle-watchlist")).not.toBeNull();
     expect(panelText(container)).toContain("RivalsPilot");
@@ -340,7 +340,7 @@ describe("workspace rail sources", () => {
           view="queue"
           platform="twitch"
           counts={{}}
-          sourceOrder={["drops", "nopixel", "fortnite", "watch_streaks", "idle_watchlist"]}
+          sourceOrder={["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"]}
           presentation={{ twitch: idle, kick: idle }}
           version="0.0.0"
           onViewChange={() => undefined}
@@ -367,7 +367,7 @@ describe("workspace rail sources", () => {
 
   it("groups the Twitch extensions apart from the other sources, each in watch order", () => {
     const container = mountRail({
-      sourceOrder: ["watch_streaks", "idle_watchlist", "drops", "fortnite", "nopixel"],
+      sourceOrder: ["watch_streaks", "watchlist", "drops", "fortnite", "nopixel"],
     });
     expect(group(container, "navExtensions")).toEqual(["fortnite", "nopixel"]);
     expect(group(container, "navGroupOthers")).toEqual(["watchlist"]);
@@ -384,7 +384,7 @@ describe("workspace rail sources", () => {
   });
 
   it("keeps Twitch-only sources off the Kick rail whatever the order says", () => {
-    const container = mountRail({ platform: "kick", sourceOrder: ["drops", "idle_watchlist"] });
+    const container = mountRail({ platform: "kick", sourceOrder: ["drops", "watchlist"] });
     expect(sources(container)).toEqual(["watchlist"]);
     // With no extensions on Kick, the group and its heading are left out.
     expect(container.querySelector('[data-rail-group="navExtensions"]')).toBeNull();

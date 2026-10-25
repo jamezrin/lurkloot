@@ -129,7 +129,7 @@ export function createDiscovery<S extends EngineSettings>(
               Date.now,
               settings.preferKnownChannels,
               orderIdleWatchlist(
-                settings.platform[platform].idleWatchlistChannels
+                settings.platform[platform].watchlistChannels
                   .map((username) => username.trim().toLowerCase())
                   .filter(Boolean),
                 watchStreakChannelsFor(settings, platform),

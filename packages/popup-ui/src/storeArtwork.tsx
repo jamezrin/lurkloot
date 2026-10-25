@@ -146,7 +146,7 @@ export function StoreArtwork({
 
 const GUIDE_ICONS = [Star, Play, ArrowLeftRight];
 
-// How the idle watchlist works, then what it keeps earning. The list beside it
+// How the watchlist works, then what it keeps earning. The list beside it
 // carries the only numbers on the canvas: its watch order.
 function WatchGuide({
   copy,

@@ -124,7 +124,7 @@ describe("CLI engine event reporting", () => {
     );
 
     expect(lines).toEqual([
-      "WARN [twitch] All campaigns are skipped by your farming eligibility settings and no Idle Watchlist channels",
+      "WARN [twitch] All campaigns are skipped by your farming eligibility settings and no Watchlist channels",
     ]);
   });
 
@@ -226,7 +226,7 @@ describe("CLI engine event reporting", () => {
       "channel_mismatch",
       "watch_unhealthy",
       "higher_priority_reward",
-      "higher_priority_idle_watchlist",
+      "higher_priority_watchlist",
       "watch_requirement_completed",
       "runtime_restart",
       "target_changed",

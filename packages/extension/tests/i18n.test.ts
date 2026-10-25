@@ -278,12 +278,12 @@ describe("i18n", () => {
       screenshotExtrasEyebrow: "Beyond campaigns",
       screenshotExtrasHeadline: "More than drops.",
       screenshotExtrasSubcopy:
-        "Channel points, Kick challenges, and 2-minute drops — also claimed for you. An idle watchlist when nothing is left to farm.",
+        "Channel points, Kick challenges, and 2-minute drops — also claimed for you. A watchlist of your own channels when nothing is left to farm.",
       screenshotExtrasPointsName: "Channel points",
       screenshotExtrasPointsMeta: "Twitch · also claimed for you",
       screenshotExtrasChallengesName: "Daily challenges",
       screenshotExtrasChallengesMeta: "Kick · also claimed for you",
-      screenshotExtrasWatchlistName: "Idle watchlist",
+      screenshotExtrasWatchlistName: "Watchlist",
       screenshotExtrasWatchlistMeta: "Watches your streamers between campaigns",
       screenshotExtrasFlashName: "2-minute drops",
       screenshotExtrasFlashMeta: "Kick · picked up as they land",
@@ -380,6 +380,13 @@ describe("i18n", () => {
       // Provider names, which are brands and never translated.
       "navNoPixel",
       "navFortnite",
+      // "Watchlist" is the German and Polish word too.
+      "navWatchlist",
+      "watchlistTab",
+      "tourWatchlistTitle",
+      "watchlistSettingsTitle",
+      "screenshotExtrasWatchlistName",
+      "watchSourceWatchlist",
       // Watch-source labels include provider brands and the common Drops term.
       "watchSourceNoPixel",
       "watchSourceFortnite",
@@ -407,8 +414,8 @@ describe("i18n", () => {
       cs: new Set(["tourExtensionsTitle"]),
     };
 
-    // Case-insensitive, so a title-cased copy of the English ("Idle Watchlist"
-    // for "Idle watchlist") still counts as left untranslated.
+    // Case-insensitive, so a title-cased copy of the English ("Watchlist"
+    // for "Watchlist") still counts as left untranslated.
     const sameText = (a?: string, b?: string) =>
       a !== undefined && b !== undefined && a.toLowerCase() === b.toLowerCase();
 
