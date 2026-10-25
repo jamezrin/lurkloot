@@ -33,6 +33,11 @@ const CHROME_MUTED = "light-dark(#53535f, #adadb8)";
 const CHROME_HOVER = "light-dark(rgba(0,0,0,.08), rgba(255,255,255,.12))";
 const PANEL_SURFACE = "light-dark(#ffffff, #18181b)";
 const PANEL_ID = "lurkloot-panel";
+// Read raw, without the settings migrations: running them here doubled this
+// bundle on every twitch.tv and kick.com page. The panel only reads
+// showInPagePanel and idleWatchlistChannels, which only migration 1 (July 2026)
+// touched, and the background upgrades the stored document on its first load.
+// A migration that renames either key has to update these reads.
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 const UI_STATE_KEY = "inPagePanelUi";

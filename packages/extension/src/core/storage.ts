@@ -3,10 +3,11 @@ import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models"
 import type { LegacyEventLogEntry, StoredLegacyEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
-import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
-import { migrateSettings, withSchemaVersion } from "@lurkloot/shared/settingsSchema";
+import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { withSchemaVersion } from "@lurkloot/shared/settingsSchema";
 import { ONBOARDING_OFFERED_KEY, PENDING_ONBOARDING_KEY } from "./onboarding";
 import { clearActivityEvents, importLegacyActivityEvents } from "./activityStorage";
+import { readStoredSettings } from "./storedSettings";
 
 export { DEFAULT_STATE };
 
@@ -40,17 +41,16 @@ function withStateStorageLock<T>(operation: () => Promise<T>): Promise<T> {
 // Reads, migrates, normalizes and — only when the stored document was not
 // already at the current schema version — persists the canonical envelope, all
 // under the settings lock so a migration write can never overwrite a newer
-// concurrent save. A future schema version throws without writing rather than
-// replacing data this build does not understand.
+// concurrent save. A document from a newer build is read best-effort and left
+// as it is (see readStoredSettings).
 export async function loadSettings(): Promise<ExtensionSettings> {
   return withSettingsStorageLock(async () => {
     const data = await browser.storage.local.get(SETTINGS_KEY);
-    const migration = migrateSettings(data[SETTINGS_KEY]);
-    // migration.diagnostics is deliberately unused: browser storage upgrades
+    // Migration diagnostics are deliberately unused: browser storage upgrades
     // itself, so there is nothing for a user to act on. The CLI surfaces its
     // diagnostics as startup warnings because its config file is never rewritten.
-    const settings = mergeSettings(migration.settings as Partial<ExtensionSettings>);
-    if (migration.changed) {
+    const { settings, persist } = readStoredSettings(data[SETTINGS_KEY]);
+    if (persist) {
       try {
         // Persists the normalized settings, not the migrated raw payload, so a
         // property mergeSettings does not recognize is dropped here. That is
