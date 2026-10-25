@@ -26,7 +26,9 @@ The CLI has its **own** settings schema — it is *not* the extension's
 `ExtensionSettings` verbatim. Only settings that do something in the headless,
 tabless watch path are accepted; the schema is validated strictly, so an unknown
 key (or an extension-only one copy-pasted from the browser config) is a **hard
-error** that names the offender. `running` is gone — the CLI always runs. The CLI
+error** that names the offender. `running` is gone — the CLI always runs. An
+unversioned config that still has it loads: `running: false` switches off each
+platform block the config lists, with a warning, and the key is dropped. The CLI
 has no browser tabs, so it always watches tabless: `tablessMode` is derived, not
 configured. A config that still sets it loads, with a warning that the key is
 ignored. **Credentials never go in the config** — they live in the auth store.
@@ -36,13 +38,14 @@ warning per command; use the global `--log debug|info|warn|error` option instead
 `diagnosticLogging` is extension-only and is rejected because the CLI's `--log`
 option is its sole event filter.
 
-Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
+Supported `settings` keys: `autoClaim`, `priorityMode`,
 `campaignPins`, `excludedCampaignIds`,
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform
 `enabled`, `watchSourcePriority`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`, `rewardFilter`,
 `farmPinnedOnly`, `unlinkedCampaigns`,
-`categories`, `favouriteCategories`, `blockedCategories`.
+`categories`, `favouriteCategories`, `blockedCategories`, plus Twitch's
+`autoClaimChannelPoints` and Kick's `autoClaimChallenges`.
 
 Campaign order has three layers, and only the last one is automatic:
 `campaignPins` lists campaign ids to farm first, in that order; then campaigns
@@ -104,7 +107,7 @@ loads, with a warning: `true` becomes `"include"` and `false` becomes `"skip"`. 
 `rewardFilter.subscriptions: "skip"`. When every discovered campaign is
 filtered out, the run logs a warning saying so.
 
-Rejected (extension-only, no effect headlessly): `running`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
+Rejected (extension-only, no effect headlessly): `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
 `languageOverride`, `rateNudgeStatus`, `githubStarNudgeStatus`, `diagnosticLogging`.
 The retired `dropsListFilter` is no longer rejected: it is migrated away for
