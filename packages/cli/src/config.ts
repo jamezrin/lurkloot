@@ -257,14 +257,18 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
 
 // Warnings name the complete deprecated path and its replacement so the user
 // can find and fix the exact line. The CLI config file is intentionally never
-// rewritten, so these repeat on every startup until the file is edited. A future
-// migration that removes a property outright carries no replacement, so fall
-// back to a bare deprecation notice rather than printing "settings.undefined".
+// rewritten, so these repeat on every startup until the file is edited. A
+// diagnostic without a single replacement path — a value moved onto both
+// platforms, or one that changed what it switches — says what happened in its
+// message, so print that rather than calling the value ignored: most of them
+// are still applied.
 function formatMigrationWarning(diagnostic: CliSettingsDiagnostic): string {
   if (diagnostic.code === "limit_exceeded")
     return `settings.${diagnostic.path}: ${diagnostic.message}`;
   if (!diagnostic.replacement) {
-    return `settings.${diagnostic.path} is deprecated and ignored`;
+    return diagnostic.message.startsWith(diagnostic.path)
+      ? `settings.${diagnostic.message}`
+      : `settings.${diagnostic.path}: ${diagnostic.message}`;
   }
   const verb = diagnostic.code === "moved_property" ? "moved to" : "is deprecated; use";
   return `settings.${diagnostic.path} ${verb} settings.${diagnostic.replacement}`;

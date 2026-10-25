@@ -219,7 +219,7 @@ describe("parseCliSettings", () => {
           code: "deprecated_property",
           path: "tablessMode",
           message:
-            '"tablessMode" is ignored: the CLI has no browser tabs, so it always watches tabless',
+            "tablessMode is ignored: the CLI has no browser tabs, so it always watches tabless",
         },
       ]);
     },
@@ -279,12 +279,11 @@ describe("parseCliSettings", () => {
       expect(result.settings.platform[platform].unlinkedCampaigns).toBe("skip");
       expect(result.settings.platform[platform].rewardFilter.subscriptions).toBe("skip");
     }
-    // v8 spreads the switch to both platforms; v9 then turns each into a mode.
+    // v8 spreads the switch to both platforms and v9 turns each into a mode,
+    // but only the keys the config contains are reported.
     expect(result.diagnostics.map((entry) => entry.path)).toEqual([
       "farmingEligibility.farmUnlinkedCampaigns",
       "farmingEligibility.farmSubscriptionCampaigns",
-      "platform.twitch.farmUnlinkedCampaigns",
-      "platform.kick.farmUnlinkedCampaigns",
     ]);
   });
 
@@ -331,7 +330,7 @@ describe("parseCliSettings", () => {
     expect(() =>
       parseCliSettings({ farmingEligibility: { farmUnlinkedCampaigns: "yes" } }),
     ).toThrow(
-      /"platform.twitch.farmUnlinkedCampaigns" \(now "platform.twitch.unlinkedCampaigns"\)/,
+      /"farmingEligibility.farmUnlinkedCampaigns" \(now "platform.twitch.unlinkedCampaigns"\)/,
     );
   });
 
@@ -462,6 +461,15 @@ describe("CLI settings export/import", () => {
       JSON.parse(JSON.stringify(payload)),
     );
     expect(imported).toEqual(settings);
+  });
+
+  it("reads a file without a schemaVersion as an unversioned document", () => {
+    const { settings } = parseCliSettingsImportPayload({
+      kind: SETTINGS_EXPORT_KIND,
+      settings: { autoClaim: false, farmPinnedOnly: true },
+    });
+    expect(settings.autoClaim).toBe(false);
+    expect(settings.platform.twitch.farmPinnedOnly).toBe(true);
   });
 
   it("never carries credential-shaped fields", () => {

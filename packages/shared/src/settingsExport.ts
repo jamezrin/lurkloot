@@ -11,6 +11,7 @@ import type { ExtensionSettings } from "./models";
 import { mergeSettings } from "./settings";
 import {
   CURRENT_SETTINGS_SCHEMA_VERSION,
+  SETTINGS_SCHEMA_VERSION_KEY,
   migrateSettings,
   type SettingsMigrationDiagnostic,
 } from "./settingsSchema";
@@ -74,11 +75,20 @@ export function parseSettingsImportPayload(raw: unknown): SettingsImportResult {
     throw new InvalidSettingsImportError(`missing "settings"`);
   }
 
-  const rawSettings = {
-    ...(envelope.settings as Record<string, unknown>),
-    schemaVersion: envelope.schemaVersion,
-  };
-  const migration = migrateSettings(rawSettings);
+  const migration = migrateSettings(settingsWithEnvelopeVersion(envelope));
   const settings = mergeSettings(migration.settings as Partial<ExtensionSettings>);
   return { settings, diagnostics: migration.diagnostics };
+}
+
+// The envelope's version applies to its settings block. A hand-made file that
+// leaves it out is unversioned, version 0, like any other unversioned
+// document, instead of failing as a malformed version.
+export function settingsWithEnvelopeVersion(
+  envelope: Record<string, unknown>,
+): Record<string, unknown> {
+  const settings = envelope.settings as Record<string, unknown>;
+  const { [SETTINGS_SCHEMA_VERSION_KEY]: _ignored, ...rest } = settings;
+  return Object.hasOwn(envelope, "schemaVersion")
+    ? { ...rest, [SETTINGS_SCHEMA_VERSION_KEY]: envelope.schemaVersion }
+    : rest;
 }

@@ -81,14 +81,54 @@ describe("parseConfig", () => {
     const config = parseConfig({ settings: { farmPinnedOnly: true } }, CONFIG_PATH);
     expect(config.settings.platform.twitch.farmPinnedOnly).toBe(true);
     expect(config.settings.platform.kick.farmPinnedOnly).toBe(true);
-    expect(config.warnings).toHaveLength(1);
-    expect(config.warnings[0]).toContain("settings.farmPinnedOnly");
+    expect(config.warnings).toEqual([
+      "settings.farmPinnedOnly moved to platform.twitch and platform.kick farmPinnedOnly",
+    ]);
+  });
+
+  // The value is applied, so the warning must not call it ignored, and it
+  // names only the key the file contains, not the one migration 8 copied it to
+  // before migration 9 renamed it.
+  it("says where a v7 unlinked switch went instead of calling it ignored", () => {
+    const config = parseConfig(
+      { settings: { schemaVersion: 7, farmingEligibility: { farmUnlinkedCampaigns: false } } },
+      CONFIG_PATH,
+    );
+    expect(config.settings.platform.twitch.unlinkedCampaigns).toBe("skip");
+    expect(config.settings.platform.kick.unlinkedCampaigns).toBe("skip");
+    expect(config.warnings).toEqual([
+      "settings.farmingEligibility.farmUnlinkedCampaigns moved to platform.twitch and platform.kick unlinkedCampaigns",
+    ]);
+  });
+
+  it("warns about a v6 exclude mode even without a categories list", () => {
+    const config = parseConfig(
+      { settings: { schemaVersion: 6, platform: { twitch: { categoryMode: "exclude" } } } },
+      CONFIG_PATH,
+    );
+    expect(config.settings.platform.twitch.categoryMode).toBe("all");
+    expect(config.warnings).toEqual([
+      'settings.platform.twitch.categoryMode "exclude" is now "all", with its categories moved to platform.twitch.blockedCategories',
+    ]);
+  });
+
+  it("says that an unversioned running: false switched a listed platform off", () => {
+    const config = parseConfig(
+      { settings: { running: false, platform: { twitch: { enabled: true } } } },
+      CONFIG_PATH,
+    );
+    expect(config.settings.platform.twitch.enabled).toBe(false);
+    expect(config.warnings).toEqual([
+      "settings.running was removed; automation was switched off, so twitch kept the disabled state they were shown with",
+    ]);
   });
 
   it("loads a config that still sets tablessMode, warning that it is ignored", () => {
     const config = parseConfig({ settings: { tablessMode: false } }, CONFIG_PATH);
     expect(config.settings).not.toHaveProperty("tablessMode");
-    expect(config.warnings).toEqual(["settings.tablessMode is deprecated and ignored"]);
+    expect(config.warnings).toEqual([
+      "settings.tablessMode is ignored: the CLI has no browser tabs, so it always watches tabless",
+    ]);
   });
 
   it("keeps the first 20 idle watchlist channels and names the ones it drops", () => {

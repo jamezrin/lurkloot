@@ -327,13 +327,12 @@ describe("schema v2", () => {
     expect(result.settings.campaignVisibility).toBeUndefined();
     expect(result.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     expect(result.changed).toBe(true);
-    expect(result.diagnostics).toContainEqual({
-      code: "moved_property",
-      path: "campaignVisibility",
-      replacement: "dropsListFilter",
-      message:
-        "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
-    });
+    // v7 retired dropsListFilter, so the diagnostic names no replacement, and
+    // v7's own report of a dropsListFilter the document never had is dropped.
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({ code: "deprecated_property", path: "campaignVisibility" }),
+    ]);
+    expect(result.diagnostics[0].replacement).toBeUndefined();
   });
 
   it("never carries a legacy notLinked display preference into farming eligibility", () => {
@@ -599,6 +598,12 @@ describe("schema v8 and v9", () => {
       [["no_subscription"], { subscriptions: "skip" }],
       [["subscription"], { subscriptions: "only" }],
       [["no_subscription", "subscription"], undefined],
+      // 1.18.0 farmed a reward matching any tab. A filter cannot express a
+      // badge with a subscription type, so these farm everything rather than
+      // narrowing to the intersection.
+      [["badge", "no_subscription"], undefined],
+      [["badge", "subscription"], undefined],
+      [["badge", "no_subscription", "subscription"], undefined],
     ];
     for (const [types, rewardFilter] of cases) {
       const migrated = migrateSettings(
@@ -618,33 +623,36 @@ describe("schema v8 and v9", () => {
   });
 
   it("v8 lets the tab subscription choice win over the old toggle", () => {
-    const onlySubscriptions = migrateSettings(
-      withSchemaVersion(
-        {
-          farmingEligibility: { farmSubscriptionCampaigns: false },
-          platform: { twitch: { farmRewardTypes: ["badge", "subscription"] } },
-        },
-        7,
-      ),
-    );
-    expect(platformOf(onlySubscriptions.settings, "twitch").rewardFilter).toEqual({
-      kinds: ["badge"],
-      subscriptions: "only",
-    });
+    const migrate = (farmRewardTypes: string[]) =>
+      platformOf(
+        migrateSettings(
+          withSchemaVersion(
+            {
+              farmingEligibility: { farmSubscriptionCampaigns: false },
+              platform: { twitch: { farmRewardTypes } },
+            },
+            7,
+          ),
+        ).settings,
+        "twitch",
+      ).rewardFilter;
 
-    const skipSubscriptions = migrateSettings(
+    expect(migrate(["subscription"])).toEqual({ subscriptions: "only" });
+    expect(migrate(["badge"])).toEqual({ kinds: ["badge"], subscriptions: "skip" });
+    // Tabs the filter cannot express fall back to the toggle alone, which
+    // farms at least everything the toggle and the tabs together did.
+    expect(migrate(["badge", "subscription"])).toEqual({ subscriptions: "skip" });
+    expect(migrate(["badge", "no_subscription"])).toEqual({ subscriptions: "skip" });
+  });
+
+  it("v8 ignores a Kick badge tab, as the old normalizer did", () => {
+    const migrated = migrateSettings(
       withSchemaVersion(
-        {
-          farmingEligibility: { farmSubscriptionCampaigns: false },
-          platform: { twitch: { farmRewardTypes: ["badge", "no_subscription"] } },
-        },
+        { platform: { kick: { farmRewardTypes: ["badge", "no_subscription"] } } },
         7,
       ),
     );
-    expect(platformOf(skipSubscriptions.settings, "twitch").rewardFilter).toEqual({
-      kinds: ["badge"],
-      subscriptions: "skip",
-    });
+    expect(platformOf(migrated.settings, "kick").rewardFilter).toEqual({ subscriptions: "skip" });
   });
 
   it("v8 reports an unknown farmingEligibility key instead of dropping it silently", () => {
@@ -747,5 +755,94 @@ describe("schema v8 and v9", () => {
 
     expect(platformOf(migrated.settings, "kick")).toEqual({ unlinkedCampaigns: "yes" });
     expect(mergeSettings(migrated.settings).platform.kick.unlinkedCampaigns).toBe("include");
+  });
+});
+
+describe("migration diagnostics", () => {
+  // One document per legacy shape, each at the version that last wrote it.
+  const legacyDocuments: Array<[string, Record<string, unknown>]> = [
+    [
+      "v0 aliases",
+      {
+        watchQueueFallbackOnly: false,
+        verboseLogging: true,
+        autoClaimChannelPoints: false,
+        platform: { twitch: { watchQueueChannels: ["a"] } },
+      },
+    ],
+    ["v1 campaignVisibility", withSchemaVersion({ campaignVisibility: { upcoming: false } }, 1)],
+    [
+      "v3 running",
+      withSchemaVersion({ running: false, platform: { twitch: { enabled: true } } }, 3),
+    ],
+    [
+      "v4 farmAllCategories",
+      withSchemaVersion({ platform: { kick: { farmAllCategories: false } } }, 4),
+    ],
+    [
+      "v6 ranking stack",
+      withSchemaVersion(
+        {
+          campaignPriorities: { a: 2 },
+          priorityMode: "priority_list_only",
+          dropsListFilter: {},
+          platform: { twitch: { categoryMode: "exclude", categories: [] } },
+        },
+        6,
+      ),
+    ],
+    [
+      "v7 eligibility",
+      withSchemaVersion(
+        {
+          farmingEligibility: { farmUnlinkedCampaigns: false, farmSubscriptionCampaigns: false },
+          farmPinnedOnly: true,
+          platform: { twitch: { farmRewardTypes: ["badge"] } },
+        },
+        7,
+      ),
+    ],
+    [
+      "v6 exclude mode without a list",
+      withSchemaVersion({ platform: { kick: { categoryMode: "exclude" } } }, 6),
+    ],
+    [
+      "v8 unlinked switch",
+      withSchemaVersion({ platform: { kick: { farmUnlinkedCampaigns: true } } }, 8),
+    ],
+  ];
+
+  const hasPath = (source: unknown, path: string): boolean =>
+    path.split(".").every((key) => {
+      if (source === null || typeof source !== "object" || !Object.hasOwn(source, key))
+        return false;
+      source = (source as Record<string, unknown>)[key];
+      return true;
+    });
+
+  // The CLI never rewrites its config, so these repeat on every start: each
+  // has to name a line the user's file contains and, when it names a
+  // replacement, a setting that still exists once every migration has run.
+  it.each(legacyDocuments)("%s: names only paths the input has and the output keeps", (_, raw) => {
+    const result = migrateSettings(raw);
+    expect(result.diagnostics.length).toBeGreaterThan(0);
+    for (const diagnostic of result.diagnostics) {
+      expect(hasPath(raw, diagnostic.path), diagnostic.path).toBe(true);
+      for (const replacement of [
+        diagnostic.replacement ?? [],
+        diagnostic.replacements ?? [],
+      ].flat()) {
+        expect(hasPath(result.settings, replacement), replacement).toBe(true);
+      }
+    }
+  });
+
+  it("reports a v7 unlinked switch once, under the key the file contains", () => {
+    const result = migrateSettings(
+      withSchemaVersion({ farmingEligibility: { farmUnlinkedCampaigns: false } }, 7),
+    );
+    expect(result.diagnostics.map((diagnostic) => diagnostic.path)).toEqual([
+      "farmingEligibility.farmUnlinkedCampaigns",
+    ]);
   });
 });

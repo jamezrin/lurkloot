@@ -627,12 +627,12 @@ The popup and content scripts do not call adapters directly. They send typed run
 
 ## Settings Model
 
-`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries. It reads only current property names; legacy shapes are handled beforehand by the migration registry (see [Settings Migrations](#settings-migrations)).
+`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries. Legacy shapes are handled beforehand by the migration registry (see [Settings Migrations](#settings-migrations)); the one legacy input it still reads is `idleWatchlistFallbackOnly`, which decides `watchSourcePriority` for a platform block without one.
 
 Important setting groups:
 
-- Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
-- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
+- Global automation: `autoStartDropFarming` and per-platform `enabled`. Farming is active while any platform is enabled; there is no master switch.
+- Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
 - Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
 `categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
@@ -737,13 +737,42 @@ deprecation diagnostics depend on.
 A stored document carries a reserved `schemaVersion`; an unversioned document is
 version 0. `migrateSettings` applies every migration from the stored version up
 to `CURRENT_SETTINGS_SCHEMA_VERSION`, returning the migrated payload, a `changed`
-flag, and structured diagnostics. A version newer than this build supports throws
-`UnsupportedSettingsVersionError`, and neither host writes after that error.
+flag, and structured diagnostics. A version newer than this build supports, or
+one that is not a non-negative integer, throws `UnsupportedSettingsVersionError`.
+
+A diagnostic names only a path the input document contains. Migrations chain, so
+a later one can report a key an earlier one wrote in the same run (migration 9
+renaming the `farmUnlinkedCampaigns` migration 8 copied onto each platform);
+`migrateSettings` drops those, and the earlier diagnostic names where the value
+ends up once every migration has run. A value moved onto both platforms has no
+single `replacement` and lists both in `replacements`. The "migration
+diagnostics" tests in `settingsMigrations.test.ts` hold every legacy fixture to
+this: each path is in the input, and each replacement is in the output.
 
 Extension storage is upgraded automatically: `loadSettings` writes the canonical
-envelope once when `changed` is true, under the settings lock. The CLI's JSONC
-file is never rewritten, so its diagnostics surface as startup warnings that
-repeat until the user edits the file.
+envelope once when `changed` is true, under the settings lock. It reads through
+`readStoredSettings` (`packages/extension/src/core/storedSettings.ts`), which
+handles the two documents `migrateSettings` refuses. One from a newer build — a
+downgrade, or a worktree build copied over the loaded one — is read best-effort
+and never written back on load, so the newer build can still open it until the
+next save. That save, which may need no user action (startup normalization, a
+provider losing its permission), writes this build's version and drops the
+properties it does not know. This trades the newer document's extra properties
+for an extension that keeps working. Throwing instead left every settings read failing, the popup stuck loading
+and the factory reset, which saves settings on its way, unable to run. A
+malformed version was never written by any build, so it is migrated from version
+0 and written back. The in-page panel's content script reads two keys raw,
+because the migrations would double its bundle; see the comment there.
+
+The CLI's JSONC file is never rewritten, so its diagnostics surface as startup
+warnings that repeat until the user edits the file, and a newer version stops
+it at startup. Warnings print the diagnostic's message when it has no single
+replacement. The CLI also drops two keys that are still valid in the extension
+but meaningless headless, `tablessMode` and `enabledLogLevels`, with warnings of
+its own; those are host rules rather than shape migrations, so they stay out of
+the shared registry.
+
+A settings file import without a `schemaVersion` is unversioned, version 0.
 
 To add version N+1:
 
@@ -772,13 +801,14 @@ Watchlist rename, the pre-split top-level channel-points toggle, and the
 Migration 2 replaces the old `campaignVisibility` record, which in every shipped
 release was display-only — it decided what the popup's Drops list showed and
 never affected farming. The new split puts two settings on opposite sides of the
-engine/extension boundary: `EngineSettings.farmingEligibility`
+engine/extension boundary. Both have since been removed, so this describes the
+shape version 2 introduced: `EngineSettings.farmingEligibility`
 (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`; both replaced per
 platform by migration 8, and the unlinked switch by `unlinkedCampaigns` in
-migration 9), which the scheduler and CLI honour, and `ExtensionSettings.dropsListFilter`
+migration 9), which the scheduler and CLI honoured, and `ExtensionSettings.dropsListFilter`
 (`showUpcoming`/`showExpired`/`showFinished`/`showExcluded`), a popup-only view
-preference the CLI rejects as extension-only. Farming eligibility and list
-visibility are independent: hiding a campaign from the Drops list never stops it
+preference the CLI rejected as extension-only. Farming eligibility and list
+visibility were independent: hiding a campaign from the Drops list never stops it
 being farmed, and skipping a campaign class never hides it.
 
 The migration carries over only the four lifecycle display keys into
@@ -806,11 +836,22 @@ order the user's own placements imply.
 Migration 8 moves the global farming switches onto each platform. The global
 `farmingEligibility` and `farmPinnedOnly`, and `platform.<p>.farmRewardTypes`,
 are removed in favour of `platform.<p>.rewardFilter`, `farmPinnedOnly` and
-`farmUnlinkedCampaigns`. `farmRewardTypes` containing `badge` becomes
-`kinds: ["badge"]`; `no_subscription` alone becomes `subscriptions: "skip"` and
-`subscription` alone `"only"`; both or neither keep `"include"`. A global
-`farmSubscriptionCampaigns: false` becomes `"skip"` unless the old tabs already
-chose a mode, the global `farmUnlinkedCampaigns` and `farmPinnedOnly` are copied
+`farmUnlinkedCampaigns`.
+
+`farmRewardTypes` came from the Queue's tabs in 1.18.0, a multi-select that
+farmed a reward matching *any* selected tab, while a `rewardFilter` farms one
+matching its kinds *and* its subscription mode. A selection the filter can
+express maps exactly: `badge` alone becomes `kinds: ["badge"]`,
+`no_subscription` alone `subscriptions: "skip"`, `subscription` alone `"only"`,
+and both subscription tabs, or none, keep the default. A `badge` tab together
+with a subscription tab has no exact filter, so it gets none and farms every
+reward: the mapping may widen farming but never narrows it. (1.18.1 and 1.19.0
+mapped such a union to the intersection, so picking every tab farmed badges
+only; installs that ran that build were already rewritten and cannot be
+recovered, but 1.18.0 installs and CLI configs, which migrate on every start,
+now get the widening mapping.) Kick ignores a `badge` tab, as 1.18.0's
+normalizer did. A global `farmSubscriptionCampaigns: false` becomes `"skip"`
+unless the old tabs already chose a mode, the global `farmUnlinkedCampaigns` and `farmPinnedOnly` are copied
 to both platforms, and a current per-platform key always wins over a legacy one.
 Each move reports a deprecation diagnostic.
 
