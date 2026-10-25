@@ -251,6 +251,19 @@ describe("watch-streak payouts", () => {
       mergePlatformState(stored, tickState, "twitch").watchStreaks?.twitch?.attempts[0]?.outcome,
     ).toBe("credited");
   });
+
+  it("does not restore an attempt the tick pruned", () => {
+    const stale = {
+      ...started.attempts[0]!,
+      broadcastId: "old-broadcast",
+      startedAt: new Date(Date.now() - WATCH_STREAK_RETENTION_MS - 120_000).toISOString(),
+      updatedAt: new Date(Date.now() - WATCH_STREAK_RETENTION_MS - 60_000).toISOString(),
+    };
+    const stored: WatchStreakState = { attempts: [stale] };
+    const tick = pruneWatchStreaks(stored, Date.now());
+    expect(tick.attempts).toEqual([]);
+    expect(mergeWatchStreakState(stored, tick)?.attempts).toEqual([]);
+  });
 });
 
 describe("watch-streak storage", () => {

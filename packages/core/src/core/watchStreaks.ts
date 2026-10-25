@@ -322,7 +322,8 @@ export function mergeWatchStreakState(
   const attempts = [...byKey.values()].sort(
     (left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt),
   );
-  const merged: WatchStreakState = { ...next, attempts };
+  // Pruned again, so an attempt the tick pruned is not restored from storage.
+  const merged = pruneWatchStreaks({ ...next, attempts }, Date.now());
   if (
     merged.observing
     && attempts.some(
