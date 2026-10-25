@@ -65,6 +65,9 @@
   "languageCzech": {
     "message": "체코어"
   },
+  "languagePersian": {
+    "message": "페르시아어"
+  },
   "settingsLanguageTitle": {
     "message": "언어"
   },

@@ -150,14 +150,15 @@ export function Toggle({
       style={checked ? { backgroundColor: color ?? "var(--ink)" } : undefined}
     >
       {/* A CSS transform, not a Motion layout animation: a layout-animated
-          element makes Motion measure the page on every update. */}
+          element makes Motion measure the page on every update. :dir() follows
+          the nearest direction scope, including LTR sections inside RTL pages. */}
       <Switch.Thumb
         className={cn(
           "rounded-full shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none",
           checked && !color ? "bg-[var(--ink-contrast)]" : "bg-white",
           small
-            ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px]"
-            : "h-[18px] w-[18px] data-[checked]:translate-x-[16px]",
+            ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px] data-[checked]:[&:dir(rtl)]:-translate-x-[13px]"
+            : "h-[18px] w-[18px] data-[checked]:translate-x-[16px] data-[checked]:[&:dir(rtl)]:-translate-x-[16px]",
         )}
       />
     </Switch.Root>

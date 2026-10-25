@@ -5,7 +5,7 @@ export type MessageCatalog = Record<string, { message: string }>;
 
 export const DEFAULT_LOCALE: SupportedLocale = "en";
 
-export const RTL_LOCALES: SupportedLocale[] = ["ar"];
+export const RTL_LOCALES: SupportedLocale[] = ["ar", "fa"];
 
 export const LOCALE_OPTIONS: Array<{
   value: LanguageOverride;
@@ -23,6 +23,7 @@ export const LOCALE_OPTIONS: Array<{
   { value: "hi", labelKey: "languageHindi", nativeName: "हिन्दी" },
   { value: "pt_BR", labelKey: "languagePortuguese", nativeName: "Português (Brasil)" },
   { value: "ar", labelKey: "languageArabic", nativeName: "العربية" },
+  { value: "fa", labelKey: "languagePersian", nativeName: "فارسی" },
   { value: "tr", labelKey: "languageTurkish", nativeName: "Türkçe" },
   { value: "ja", labelKey: "languageJapanese", nativeName: "日本語" },
   { value: "id", labelKey: "languageIndonesian", nativeName: "Bahasa Indonesia" },

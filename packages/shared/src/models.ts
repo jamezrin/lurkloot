@@ -401,7 +401,8 @@ export type SupportedLocale =
   | "pl"
   | "ko"
   | "uk"
-  | "cs";
+  | "cs"
+  | "fa";
 
 export type LanguageOverride = "browser" | SupportedLocale;
 
