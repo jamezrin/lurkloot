@@ -113,8 +113,8 @@
   "navGames": {
     "message": "ゲーム"
   },
-  "navIdleWatchlist": {
-    "message": "アイドル・ウォッチリスト"
+  "navWatchlist": {
+    "message": "ウォッチリスト"
   },
   "navActivity": {
     "message": "アクティビティ"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "アイドル・ウォッチリスト"
+  "watchlistTab": {
+    "message": "ウォッチリスト"
   },
   "automationTitle": {
     "message": "$1 の自動化"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "ゲーム画面で、どのゲームをファームするか、どれを優先するか、どれを決してファームしないかを決めます。"
   },
-  "tipIdleWatchlist": {
-    "message": "プラットフォーム設定の視聴ソース優先度を変えると、アイドル・ウォッチリストのチャンネルをいつ視聴するかを決められます。"
+  "tipWatchlist": {
+    "message": "プラットフォーム設定の視聴ソース優先度を変えると、ウォッチリストのチャンネルをいつ視聴するかを決められます。"
   },
   "tipTablessMode": {
     "message": "タブレスモードはリソースを抑え、必要なときだけミュートタブにフォールバックします。"
@@ -399,7 +399,7 @@
     "message": "「すべてのカテゴリ」を選ぶと、ブロックしたゲーム以外のすべてをファームします。「選択のみ」を選ぶと、チェックしたゲームだけをファームします。ゲームにスターを付けるとそのキャンペーンが先頭に来、ブロックするとそのゲームは決してファームされません。"
   },
   "tourWatchlistTitle": {
-    "message": "アイドル・ウォッチリスト"
+    "message": "ウォッチリスト"
   },
   "tourWatchlistBody": {
     "message": "ファームできる Drops がないとき、Lurkloot はこれらのチャンネルを視聴し、Twitch ではチャンネルポイント、Kick では毎日の報酬と視聴ストリークを獲得し続けます。いつ視聴するかは、設定の視聴ソース優先度で決まります。"
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "ファームから除外"
   },
-  "noIdleWatchlist": {
-    "message": "アイドル・ウォッチリストのチャンネルが設定されていません。"
+  "noWatchlist": {
+    "message": "ウォッチリストのチャンネルが設定されていません。"
   },
   "channelPlaceholder": {
     "message": "チャンネル"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "チャンネルを追加"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "オフライン"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "配信が少ない順"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "アイドル・ウォッチリスト"
+  "watchlistSettingsTitle": {
+    "message": "ウォッチリスト"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "対象ドロップがないときに使う予備チャンネル。"
   },
   "preferKnownChannelsTitle": {
-    "message": "フォロー中とアイドル・ウォッチリストを優先"
+    "message": "フォロー中とウォッチリストを優先"
   },
   "preferKnownChannelsDescription": {
-    "message": "ドロップが複数チャンネルで配信中のとき、フォロー中またはアイドル・ウォッチリストのチャンネルを未知のチャンネルより選びます。"
+    "message": "ドロップが複数チャンネルで配信中のとき、フォロー中またはウォッチリストのチャンネルを未知のチャンネルより選びます。"
   },
   "platformSettingsTitle": {
     "message": "プラットフォーム設定"
@@ -783,7 +783,7 @@
     "message": "ファーム用タブをミュート"
   },
   "muteTabsDescription": {
-    "message": "ファーム中はドロップとアイドル・ウォッチリストのタブをミュートに保ちます。"
+    "message": "ファーム中はドロップとウォッチリストのタブをミュートに保ちます。"
   },
   "keepVideosUnmutedTitle": {
     "message": "ファーム動画はミュートにしない"
@@ -954,13 +954,13 @@
     "message": "自動化"
   },
   "farmOnPlatform": {
-    "message": "$1 でドロップをファームし、アイドル・ウォッチリストのチャンネルを視聴します。"
+    "message": "$1 でドロップをファームし、ウォッチリストのチャンネルを視聴します。"
   },
   "enabled": {
     "message": "有効"
   },
-  "idleWatchlistEditHint": {
-    "message": "$1 を選択したあと、アイドル・ウォッチリストタブから編集できます。"
+  "watchlistEditHint": {
+    "message": "$1 を選択したあと、ウォッチリストタブから編集できます。"
   },
   "autoClaimChannelPointsTitle": {
     "message": "チャンネルポイントを自動受け取り"
@@ -1236,7 +1236,7 @@
     "message": "ドロップ以上の機能。"
   },
   "screenshotExtrasSubcopy": {
-    "message": "チャンネルポイント、Kick チャレンジ、2分ドロップ — これらも自動で受け取り。ファームするものがなくなったらアイドル・ウォッチリスト。"
+    "message": "チャンネルポイント、Kick チャレンジ、2分ドロップ — これらも自動で受け取り。ファームするものがなくなったらウォッチリスト。"
   },
   "screenshotExtrasPointsName": {
     "message": "チャンネルポイント"
@@ -1251,7 +1251,7 @@
     "message": "Kick · 自動で受け取り"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "アイドル・ウォッチリスト"
+    "message": "ウォッチリスト"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "キャンペーンの合間に配信者を視聴"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "より優先度の高い報酬に切り替わった"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "より優先度の高いアイドル・ウォッチリストチャンネルが利用可能になった"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "より優先度の高いウォッチリストチャンネルが利用可能になった"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "視聴要件が完了した"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "アイドル・ウォッチリスト"
+  "watchSourceWatchlist": {
+    "message": "ウォッチリスト"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Lurkloot を開く"
   },
   "inPageAddToWatchlist": {
-    "message": "$1 をアイドル・ウォッチリストに追加"
+    "message": "$1 をウォッチリストに追加"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "$1 をアイドル・ウォッチリストから削除"
+    "message": "$1 をウォッチリストから削除"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "ゲームを開く"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "チャンネル名またはリンク"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "リストがいっぱいです（$1 チャンネル）。追加するには1件削除してください。"
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "チャンネル名またはチャンネルリンクを入力してください。"
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 はすでにリストにあります。"
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "視聴順序"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "最初のライブチャンネルが視聴されます"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "連続視聴の行は視聴順序の「連続視聴」の位置で視聴され、各行はTwitchが連続視聴を確認するか$1分経過するまで続きます。"
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "$1 の連続視聴を維持"
   },
   "watchStreakPending": {

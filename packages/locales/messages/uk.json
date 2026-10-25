@@ -113,8 +113,8 @@
   "navGames": {
     "message": "Ігри"
   },
-  "navIdleWatchlist": {
-    "message": "Резервний список"
+  "navWatchlist": {
+    "message": "Список перегляду"
   },
   "navActivity": {
     "message": "Активність"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Резервний список"
+  "watchlistTab": {
+    "message": "Список перегляду"
   },
   "automationTitle": {
     "message": "Автоматизація $1"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "Вкладка «Ігри» визначає, які ігри фармляться, які йдуть першими та які ніколи не фармляться."
   },
-  "tipIdleWatchlist": {
-    "message": "Оберіть, коли дивитися канали резервного списку, змінивши пріоритет джерел перегляду в налаштуваннях платформи."
+  "tipWatchlist": {
+    "message": "Оберіть, коли дивитися канали зі списку перегляду, змінивши пріоритет джерел перегляду в налаштуваннях платформи."
   },
   "tipTablessMode": {
     "message": "Режим без вкладок споживає менше ресурсів і за потреби перемикається на вкладку без звуку."
@@ -372,7 +372,7 @@
     "message": "Twitch і Kick"
   },
   "tourPlatformBody": {
-    "message": "Перемикайте платформи тут. Кожна має власну чергу, ігри та резервний список."
+    "message": "Перемикайте платформи тут. Кожна має власну чергу, ігри та список перегляду."
   },
   "tourQueueOrderTitle": {
     "message": "Як упорядковано чергу"
@@ -399,7 +399,7 @@
     "message": "Оберіть «Усі категорії», щоб фармити всі ігри, крім заблокованих, або «Лише обрані», щоб фармити лише позначені. Позначте гру зіркою, щоб її кампанії були першими, або заблокуйте її, щоб її ніколи не фармили."
   },
   "tourWatchlistTitle": {
-    "message": "Резервний список"
+    "message": "Список перегляду"
   },
   "tourWatchlistBody": {
     "message": "Коли дропів для фарму немає, Lurkloot дивиться ці канали, щоб ви й далі отримували бали каналу на Twitch, а щоденні нагороди та серію перегляду на Kick. Пріоритет джерел перегляду в налаштуваннях визначає, коли їх дивитися."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Виключити з фарму"
   },
-  "noIdleWatchlist": {
-    "message": "Канали резервного списку не налаштовані."
+  "noWatchlist": {
+    "message": "Канали списку перегляду не налаштовані."
   },
   "channelPlaceholder": {
     "message": "канал"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "Додати канал"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Офлайн"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Спочатку низька доступність"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Резервний список"
+  "watchlistSettingsTitle": {
+    "message": "Список перегляду"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Резервні канали, коли немає доступних дропів."
   },
   "preferKnownChannelsTitle": {
-    "message": "Надавати перевагу підписаним каналам і каналам резервного списку"
+    "message": "Надавати перевагу підписаним каналам і каналам зі списку перегляду"
   },
   "preferKnownChannelsDescription": {
-    "message": "Коли дроп доступний на кількох каналах, обирає той, на який ви підписані або який у резервному списку, а не незнайомий."
+    "message": "Коли дроп доступний на кількох каналах, обирає той, на який ви підписані або який є у списку перегляду, а не незнайомий."
   },
   "platformSettingsTitle": {
     "message": "Налаштування платформи"
@@ -783,7 +783,7 @@
     "message": "Вимкнути звук вкладок фарму"
   },
   "muteTabsDescription": {
-    "message": "Тримає вкладки drops і вкладки резервного списку без звуку під час фарму."
+    "message": "Тримає вкладки drops і вкладки списку перегляду без звуку під час фарму."
   },
   "keepVideosUnmutedTitle": {
     "message": "Не вимикати звук відео фарму"
@@ -954,13 +954,13 @@
     "message": "Автоматизація"
   },
   "farmOnPlatform": {
-    "message": "Фармить дропи та дивиться канали резервного списку на $1."
+    "message": "Фармить дропи та дивиться канали зі списку перегляду на $1."
   },
   "enabled": {
     "message": "Увімкнено"
   },
-  "idleWatchlistEditHint": {
-    "message": "Редагуйте їх на вкладці «Резервний список» після вибору $1."
+  "watchlistEditHint": {
+    "message": "Редагуйте їх на вкладці «Список перегляду» після вибору $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Автозабір балів каналу"
@@ -1236,7 +1236,7 @@
     "message": "Більше, ніж дропи."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Бали каналу, виклики Kick і 2-хвилинні дропи — теж забираються за вас. Резервний список, коли фармити більше нічого."
+    "message": "Бали каналу, виклики Kick і 2-хвилинні дропи — теж забираються за вас. Список перегляду, коли фармити більше нічого."
   },
   "screenshotExtrasPointsName": {
     "message": "Бали каналу"
@@ -1251,7 +1251,7 @@
     "message": "Kick · теж забирається за вас"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Резервний список"
+    "message": "Список перегляду"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Дивиться ваших стримерів між кампаніями"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "нагорода з вищим пріоритетом взяла верх"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "канал резервного списку з вищим пріоритетом став доступним"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "канал зі списку перегляду з вищим пріоритетом став доступним"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "вимогу перегляду виконано"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Резервний список"
+  "watchSourceWatchlist": {
+    "message": "Список перегляду"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Відкрити Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Додати $1 до резервного списку"
+    "message": "Додати $1 до списку перегляду"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Прибрати $1 з резервного списку"
+    "message": "Прибрати $1 зі списку перегляду"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "Відкрити «Ігри»"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Ім’я каналу або посилання"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "Список заповнений ($1 каналів). Видаліть один, щоб додати інший."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Введіть ім’я каналу або посилання на канал."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 уже в списку."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Порядок перегляду"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "дивиться перший канал у ефірі"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "Рядки із серіями обробляються на місці «Серії перегляду» в порядку перегляду, кожен доки Twitch не підтвердить серію або не минуть $1 хвилин."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "Підтримувати серію перегляду на $1"
   },
   "watchStreakPending": {

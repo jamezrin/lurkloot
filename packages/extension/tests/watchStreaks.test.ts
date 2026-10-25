@@ -315,27 +315,27 @@ describe("watch-streak settings", () => {
     const settings = structuredClone(DEFAULT_SETTINGS);
     return applySettingsPatch(settings, {
       platform: {
-        twitch: { idleWatchlistChannels: channels, idleWatchlistStreakChannels: streaks },
+        twitch: { watchlistChannels: channels, watchlistStreakChannels: streaks },
       },
     });
   }
 
   it("defaults to none and only keeps channels on the watchlist", () => {
-    expect(mergeSettings({}).platform.twitch.idleWatchlistStreakChannels).toEqual([]);
+    expect(mergeSettings({}).platform.twitch.watchlistStreakChannels).toEqual([]);
     const settings = withWatchlist(["a", "b", "c"], ["C", "ghost", "a"]);
-    expect(settings.platform.twitch.idleWatchlistStreakChannels).toEqual(["a", "c"]);
+    expect(settings.platform.twitch.watchlistStreakChannels).toEqual(["a", "c"]);
   });
 
   it("keeps opt-ins across a reorder and clears them on removal", () => {
     const settings = withWatchlist(["a", "b", "c"], ["a", "c"]);
     const reordered = applySettingsPatch(settings, {
-      platform: { twitch: { idleWatchlistChannels: ["c", "b", "a"] } },
+      platform: { twitch: { watchlistChannels: ["c", "b", "a"] } },
     });
-    expect(reordered.platform.twitch.idleWatchlistStreakChannels).toEqual(["c", "a"]);
+    expect(reordered.platform.twitch.watchlistStreakChannels).toEqual(["c", "a"]);
     const removed = applySettingsPatch(reordered, {
-      platform: { twitch: { idleWatchlistChannels: ["b", "a"] } },
+      platform: { twitch: { watchlistChannels: ["b", "a"] } },
     });
-    expect(removed.platform.twitch.idleWatchlistStreakChannels).toEqual(["a"]);
+    expect(removed.platform.twitch.watchlistStreakChannels).toEqual(["a"]);
   });
 
   it("round-trips through export and import, and resets to none", () => {
@@ -343,8 +343,8 @@ describe("watch-streak settings", () => {
     const imported = parseSettingsImportPayload(
       JSON.parse(JSON.stringify(buildSettingsExportPayload(settings))),
     );
-    expect(imported.settings.platform.twitch.idleWatchlistStreakChannels).toEqual(["b"]);
-    expect(DEFAULT_SETTINGS.platform.twitch.idleWatchlistStreakChannels).toEqual([]);
+    expect(imported.settings.platform.twitch.watchlistStreakChannels).toEqual(["b"]);
+    expect(DEFAULT_SETTINGS.platform.twitch.watchlistStreakChannels).toEqual([]);
   });
 
   it("orders maintained rows first, each group in the user's order", () => {
@@ -394,7 +394,7 @@ describe("watch-streak scheduling", () => {
       "drops",
       "nopixel",
       "fortnite",
-      "idle_watchlist",
+      "watchlist",
     ];
     const campaign: DropCampaign = {
       id: "drop",
@@ -421,15 +421,15 @@ describe("watch-streak scheduling", () => {
     const patched = applySettingsPatch(settings, {
       platform: {
         twitch: {
-          idleWatchlistChannels: options.channels ?? ["ordinary", "streaky"],
-          idleWatchlistStreakChannels: options.streaks ?? ["streaky"],
+          watchlistChannels: options.channels ?? ["ordinary", "streaky"],
+          watchlistStreakChannels: options.streaks ?? ["streaky"],
         },
       },
     });
     let state: SchedulerState = structuredClone(DEFAULT_STATE);
     state.authHealth.twitch = { status: "healthy", accountId: ACCOUNT };
     const broadcasts = new Map<string, string>();
-    const live = new Set(options.live ?? patched.platform.twitch.idleWatchlistChannels);
+    const live = new Set(options.live ?? patched.platform.twitch.watchlistChannels);
     const adapter: SchedulerTestAdapter = {
       platform: "twitch",
       supportsTabless: true,
@@ -582,7 +582,7 @@ describe("watch-streak scheduling", () => {
     const s = setup({ channels: ["streaky"], streaks: ["streaky"] });
     for (let minute = 0; minute < 20; minute += 1) await s.tick();
     expect(s.state.sessions.twitch.status).toBe("idle");
-    s.settings.platform.twitch.idleWatchlistStreakChannels = [];
+    s.settings.platform.twitch.watchlistStreakChannels = [];
     await s.tick();
     expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
   });
@@ -668,7 +668,7 @@ describe("watch-streak scheduling", () => {
   it("puts the whole Idle source, maintained rows first, ahead of Drops when ordered so", async () => {
     const s = setup({
       drop: true,
-      order: ["idle_watchlist", "drops", "nopixel", "fortnite"],
+      order: ["watchlist", "drops", "nopixel", "fortnite"],
     });
     for (let minute = 0; minute < 25; minute += 1) await s.tick();
     const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
@@ -680,7 +680,7 @@ describe("watch-streak scheduling", () => {
       drop: true,
       channels: ["streaky"],
       streaks: ["streaky"],
-      order: ["idle_watchlist", "drops", "nopixel", "fortnite"],
+      order: ["watchlist", "drops", "nopixel", "fortnite"],
     });
     for (let minute = 0; minute < 25; minute += 1) await s.tick();
     const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
@@ -698,7 +698,7 @@ describe("watch-streak scheduling", () => {
   it("puts only the streak rows ahead of Drops when Watch streaks is ordered there", async () => {
     const s = setup({
       drop: true,
-      order: ["watch_streaks", "drops", "nopixel", "fortnite", "idle_watchlist"],
+      order: ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"],
     });
     for (let minute = 0; minute < 25; minute += 1) await s.tick();
     const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
@@ -710,7 +710,7 @@ describe("watch-streak scheduling", () => {
     const s = setup({
       drop: true,
       live: ["ordinary"],
-      order: ["watch_streaks", "drops", "nopixel", "fortnite", "idle_watchlist"],
+      order: ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"],
     });
     await s.tick();
     expect(s.state.sessions.twitch.channel?.username).toBe("dropper");
@@ -723,7 +723,7 @@ describe("watch-streak scheduling", () => {
   it("keeps streak rows in their watchlist place when Watch streaks is ordered below it", async () => {
     const s = setup({
       channels: ["ordinary", "streaky"],
-      order: ["drops", "nopixel", "fortnite", "idle_watchlist", "watch_streaks"],
+      order: ["drops", "nopixel", "fortnite", "watchlist", "watch_streaks"],
     });
     for (let minute = 0; minute < 5; minute += 1) await s.tick();
     expect(new Set(s.watched)).toEqual(new Set(["ordinary"]));
@@ -741,27 +741,21 @@ describe("watch-streak scheduling", () => {
     expect(
       mergeSettings({
         platform: {
-          twitch: { watchSourcePriority: ["idle_watchlist", "drops", "nopixel", "fortnite"] },
-          kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
+          twitch: { watchSourcePriority: ["watchlist", "drops", "nopixel", "fortnite"] },
+          kick: { watchSourcePriority: ["watchlist", "drops"] },
         },
       } as never).platform,
     ).toMatchObject({
       twitch: {
-        watchSourcePriority: ["watch_streaks", "idle_watchlist", "drops", "nopixel", "fortnite"],
+        watchSourcePriority: ["watch_streaks", "watchlist", "drops", "nopixel", "fortnite"],
       },
-      kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
+      kick: { watchSourcePriority: ["watchlist", "drops"] },
     });
   });
 });
 
 describe("watch-streak source in a selection that resolves Drops itself", () => {
-  const ORDER: WatchSourceId[] = [
-    "watch_streaks",
-    "drops",
-    "nopixel",
-    "fortnite",
-    "idle_watchlist",
-  ];
+  const ORDER: WatchSourceId[] = ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"];
 
   function decide(options: { verdict: WatchStreakVerdict; drop: boolean; subscription?: boolean }) {
     const settings = applySettingsPatch(DEFAULT_SETTINGS, {
@@ -769,8 +763,8 @@ describe("watch-streak source in a selection that resolves Drops itself", () => 
         twitch: {
           enabled: true,
           watchSourcePriority: ORDER,
-          idleWatchlistChannels: ["streaky", "ordinary"],
-          idleWatchlistStreakChannels: ["streaky"],
+          watchlistChannels: ["streaky", "ordinary"],
+          watchlistStreakChannels: ["streaky"],
         },
       },
     });

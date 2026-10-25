@@ -153,7 +153,7 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set([
     "enabled",
     "watchSourcePriority",
-    "idleWatchlistChannels",
+    "watchlistChannels",
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
@@ -166,13 +166,13 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "autoClaimChannelPoints",
     "strictCampaignAvailability",
     "channelPointsPushClaim",
-    "idleWatchlistStreakChannels",
+    "watchlistStreakChannels",
     "alwaysEnterChat",
   ]),
   kick: new Set([
     "enabled",
     "watchSourcePriority",
-    "idleWatchlistChannels",
+    "watchlistChannels",
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
@@ -545,7 +545,7 @@ function normalizePlatform(
       base: {
         enabled: booleanOr(ps.enabled, defaults.enabled),
         watchSourcePriority: normalizePlatformWatchSourcePriority(platform, ps, legacyFallbackOnly),
-        idleWatchlistChannels: limitIdleWatchlist(platform, ps.idleWatchlistChannels, diagnostics),
+        watchlistChannels: limitIdleWatchlist(platform, ps.watchlistChannels, diagnostics),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),
         rewardFilter: normalizeRewardFilter(ps.rewardFilter, platform),
@@ -576,9 +576,9 @@ function normalizePlatform(
         twitch.ps.channelPointsPushClaim,
         DEFAULT_CLI_SETTINGS.platform.twitch.channelPointsPushClaim,
       ),
-      idleWatchlistStreakChannels: normalizeWatchStreakChannels(
-        twitch.ps.idleWatchlistStreakChannels,
-        twitch.base.idleWatchlistChannels,
+      watchlistStreakChannels: normalizeWatchStreakChannels(
+        twitch.ps.watchlistStreakChannels,
+        twitch.base.watchlistChannels,
       ),
     },
     kick: {
@@ -591,7 +591,7 @@ function normalizePlatform(
   };
 }
 
-// The engine keeps at most IDLE_WATCHLIST_LIMIT idle watchlist channels and the
+// The engine keeps at most IDLE_WATCHLIST_LIMIT watchlist channels and the
 // popup refuses to add more, but a config file can list any number. Keep the
 // first ones, as the engine would, and name the rest instead of dropping them
 // silently.
@@ -605,8 +605,8 @@ function limitIdleWatchlist(
   if (dropped.length > 0) {
     diagnostics.push({
       code: "limit_exceeded",
-      path: `platform.${platform}.idleWatchlistChannels`,
-      message: `The ${platform} idle watchlist holds at most ${IDLE_WATCHLIST_LIMIT} channels; ignoring the other ${dropped.length}: ${dropped.join(", ")}`,
+      path: `platform.${platform}.watchlistChannels`,
+      message: `The ${platform} watchlist holds at most ${IDLE_WATCHLIST_LIMIT} channels; ignoring the other ${dropped.length}: ${dropped.join(", ")}`,
     });
   }
   return normalized.slice(0, IDLE_WATCHLIST_LIMIT);

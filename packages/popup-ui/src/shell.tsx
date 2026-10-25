@@ -72,7 +72,7 @@ const EXTENSION_ITEMS: NavItem[] = [
   { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch", beta: true },
   { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch", beta: true },
 ];
-const OTHER_ITEMS: NavItem[] = [{ view: "watchlist", labelKey: "navIdleWatchlist", icon: Eye }];
+const OTHER_ITEMS: NavItem[] = [{ view: "watchlist", labelKey: "navWatchlist", icon: Eye }];
 const SOURCE_ITEMS: NavItem[] = [...EXTENSION_ITEMS, ...OTHER_ITEMS];
 
 // The view that shows each watch source. Drops is the whole Drops group, so its
@@ -83,7 +83,7 @@ export const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
   fortnite: "fortnite",
   // Watch streaks are rows of the watchlist, so they share its view.
   watch_streaks: "watchlist",
-  idle_watchlist: "watchlist",
+  watchlist: "watchlist",
 };
 
 const FOOTER_ITEMS: NavItem[] = [

@@ -113,8 +113,8 @@
   "navGames": {
     "message": "Spiele"
   },
-  "navIdleWatchlist": {
-    "message": "Ersatzliste"
+  "navWatchlist": {
+    "message": "Watchlist"
   },
   "navActivity": {
     "message": "Aktivität"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Leerlauf-Watchlist"
+  "watchlistTab": {
+    "message": "Watchlist"
   },
   "automationTitle": {
     "message": "$1-Automatisierung"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "Die Spiele-Ansicht entscheidet, welche Spiele gefarmt werden, welche zuerst kommen und welche nie."
   },
-  "tipIdleWatchlist": {
-    "message": "Ändere die Quellenpriorität in den Plattform-Einstellungen, um festzulegen, wann Kanäle der Leerlaufliste angesehen werden."
+  "tipWatchlist": {
+    "message": "Ändere die Quellenpriorität in den Plattform-Einstellungen, um festzulegen, wann Kanäle der Watchlist angesehen werden."
   },
   "tipTablessMode": {
     "message": "Der tablose Modus spart Ressourcen und öffnet bei Bedarf einen stummgeschalteten Tab."
@@ -372,7 +372,7 @@
     "message": "Twitch und Kick"
   },
   "tourPlatformBody": {
-    "message": "Wechsle hier die Plattform. Jede hat ihre eigene Warteschlange, Spiele und Ersatzliste."
+    "message": "Wechsle hier die Plattform. Jede hat ihre eigene Warteschlange, Spiele und Watchlist."
   },
   "tourQueueOrderTitle": {
     "message": "So ist die Warteschlange sortiert"
@@ -399,7 +399,7 @@
     "message": "Wähle Alle Kategorien, um jedes Spiel außer den blockierten zu farmen, oder Nur ausgewählte, um nur die angekreuzten Spiele zu farmen. Markiere ein Spiel mit einem Stern, damit seine Kampagnen zuerst kommen, oder blockiere es, damit es nie gefarmt wird."
   },
   "tourWatchlistTitle": {
-    "message": "Ersatzliste"
+    "message": "Watchlist"
   },
   "tourWatchlistBody": {
     "message": "Wenn es keine Drops zu farmen gibt, schaut Lurkloot diese Kanäle, damit du weiter Kanalpunkte auf Twitch und tägliche Belohnungen und Watch-Serie auf Kick sammelst. Die Quellenpriorität in den Einstellungen bestimmt, wann sie geschaut werden."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Vom Farming ausschließen"
   },
-  "noIdleWatchlist": {
-    "message": "Keine Kanäle in der Leerlauf-Watchlist konfiguriert."
+  "noWatchlist": {
+    "message": "Keine Kanäle in der Watchlist konfiguriert."
   },
   "channelPlaceholder": {
     "message": "Kanal"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "Kanal hinzufügen"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Nicht online"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Geringe Verfügbarkeit zuerst"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Leerlauf-Watchlist"
+  "watchlistSettingsTitle": {
+    "message": "Watchlist"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Gemeinsames Verhalten der Ersatz-Leerlauf-Watchlist."
   },
   "preferKnownChannelsTitle": {
-    "message": "Gefolgte und Leerlauf-Watchlist-Kanäle bevorzugen"
+    "message": "Gefolgte und Watchlist-Kanäle bevorzugen"
   },
   "preferKnownChannelsDescription": {
-    "message": "Wenn ein Drop auf mehreren Kanälen verfügbar ist, wird ein Kanal bevorzugt, dem du folgst oder der in deiner Leerlauf-Watchlist steht, statt eines unbekannten."
+    "message": "Wenn ein Drop auf mehreren Kanälen verfügbar ist, wird ein Kanal bevorzugt, dem du folgst oder der in deiner Watchlist steht, statt eines unbekannten."
   },
   "platformSettingsTitle": {
     "message": "Plattformeinstellungen"
@@ -783,7 +783,7 @@
     "message": "Farming-Tabs stummschalten"
   },
   "muteTabsDescription": {
-    "message": "Hält Drop- und Leerlauf-Watchlist-Tabs beim Farming stumm."
+    "message": "Hält Drop- und Watchlist-Tabs beim Farming stumm."
   },
   "keepVideosUnmutedTitle": {
     "message": "Farming-Videos nicht stummschalten"
@@ -954,13 +954,13 @@
     "message": "Automatisierung"
   },
   "farmOnPlatform": {
-    "message": "Farmt Drops und schaut die Leerlauf-Watchlist auf $1."
+    "message": "Farmt Drops und schaut die Watchlist auf $1."
   },
   "enabled": {
     "message": "Aktiviert"
   },
-  "idleWatchlistEditHint": {
-    "message": "Nach Auswahl von $1 im Leerlauf-Watchlist-Tab bearbeiten."
+  "watchlistEditHint": {
+    "message": "Nach Auswahl von $1 im Watchlist-Tab bearbeiten."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Kanalpunkte automatisch beanspruchen"
@@ -1236,7 +1236,7 @@
     "message": "Mehr als Drops."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Kanalpunkte, Kick-Challenges und 2-Minuten-Drops, ebenfalls für dich geclaimt. Eine Idle-Watchlist, wenn nichts mehr zu farmen ist."
+    "message": "Kanalpunkte, Kick-Challenges und 2-Minuten-Drops, ebenfalls für dich geclaimt. Eine Watchlist, wenn nichts mehr zu farmen ist."
   },
   "screenshotExtrasPointsName": {
     "message": "Kanalpunkte"
@@ -1251,7 +1251,7 @@
     "message": "Kick · ebenfalls für dich geclaimt"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Idle-Watchlist"
+    "message": "Watchlist"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Schaut deine Streamer zwischen Kampagnen"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "eine höher priorisierte Belohnung wurde übernommen"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "die Leerlauf-Watchlist hatte Vorrang"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "die Watchlist hatte Vorrang"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "die Wiedergabeanforderung wurde erfüllt"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Leerlaufliste"
+  "watchSourceWatchlist": {
+    "message": "Watchlist"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Lurkloot öffnen"
   },
   "inPageAddToWatchlist": {
-    "message": "$1 zur Ersatzliste hinzufügen"
+    "message": "$1 zur Watchlist hinzufügen"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "$1 aus der Ersatzliste entfernen"
+    "message": "$1 aus der Watchlist entfernen"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "Spiele öffnen"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Kanalname oder Link"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "Die Liste ist voll ($1 Kanäle). Entferne einen, um einen weiteren hinzuzufügen."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Gib einen Kanalnamen oder einen Kanallink ein."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 ist bereits auf der Liste."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Reihenfolge"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "der erste Live-Kanal wird geschaut"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "Serienzeilen werden an der Stelle Watch-Streaks in der Reihenfolge abgearbeitet, jede bis Twitch die Serie bestätigt oder $1 Minuten vergangen sind."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "Watch-Streak bei $1 aufrechterhalten"
   },
   "watchStreakPending": {

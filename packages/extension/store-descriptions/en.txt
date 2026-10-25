@@ -4,6 +4,6 @@ By default it runs a lightweight tabless mode that sends watch heartbeats in the
 
 Your data stays yours: no passwords, no exported cookies or tokens, and everything stays on your device.
 
-From the popup you can enable each platform, prioritize the campaigns and games you care about, manage per-platform idle watchlists and excluded channels, and toggle auto-claim and notifications.
+From the popup you can enable each platform, prioritize the campaigns and games you care about, manage per-platform watchlists and excluded channels, and toggle auto-claim and notifications.
 
-Lurkloot can also farm Kick watch time when no drop is active. Add your preferred channels to the idle watchlist and it automatically chooses one that is live. Tabless watching keeps resource use low, while the normal pinned-tab fallback keeps the session resilient.
+Lurkloot can also farm Kick watch time when no drop is active. Add your preferred channels to the watchlist and it automatically chooses one that is live. Tabless watching keeps resource use low, while the normal pinned-tab fallback keeps the session resilient.

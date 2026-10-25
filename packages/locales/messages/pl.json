@@ -113,8 +113,8 @@
   "navGames": {
     "message": "Gry"
   },
-  "navIdleWatchlist": {
-    "message": "Lista zapasowa"
+  "navWatchlist": {
+    "message": "Watchlist"
   },
   "navActivity": {
     "message": "Aktywność"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Lista zapasowa"
+  "watchlistTab": {
+    "message": "Watchlist"
   },
   "automationTitle": {
     "message": "Automatyzacja $1"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "Widok Gry decyduje, które gry są farmione, które są pierwsze i których nigdy nie farmić."
   },
-  "tipIdleWatchlist": {
-    "message": "Wybierz, kiedy oglądać kanały listy zapasowej, zmieniając priorytet źródeł oglądania w ustawieniach platformy."
+  "tipWatchlist": {
+    "message": "Wybierz, kiedy oglądać kanały Watchlist, zmieniając priorytet źródeł oglądania w ustawieniach platformy."
   },
   "tipTablessMode": {
     "message": "Tryb bez kart zużywa mniej zasobów i w razie potrzeby przechodzi na wyciszoną kartę."
@@ -372,7 +372,7 @@
     "message": "Twitch i Kick"
   },
   "tourPlatformBody": {
-    "message": "Przełączaj platformy tutaj. Każda ma własną kolejkę, gry i listę zapasową."
+    "message": "Przełączaj platformy tutaj. Każda ma własną kolejkę, gry i Watchlist."
   },
   "tourQueueOrderTitle": {
     "message": "Jak uporządkowana jest kolejka"
@@ -399,7 +399,7 @@
     "message": "Wybierz „Wszystkie kategorie”, aby farmić każdą grę oprócz zablokowanych, lub „Tylko wybrane”, aby farmić wyłącznie zaznaczone gry. Oznacz grę gwiazdką, aby jej kampanie były na początku, albo ją zablokuj, aby nigdy nie była farmiona."
   },
   "tourWatchlistTitle": {
-    "message": "Lista zapasowa"
+    "message": "Watchlist"
   },
   "tourWatchlistBody": {
     "message": "Gdy nie ma dropów do farmienia, Lurkloot ogląda te kanały, abyś nadal zdobywał punkty kanału na Twitchu oraz codzienne nagrody i serię oglądania na Kicku. O tym, kiedy są oglądane, decyduje priorytet źródeł oglądania w Ustawieniach."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Wyklucz z farmienia"
   },
-  "noIdleWatchlist": {
-    "message": "Nie skonfigurowano kanałów listy zapasowej."
+  "noWatchlist": {
+    "message": "Nie skonfigurowano kanałów Watchlist."
   },
   "channelPlaceholder": {
     "message": "kanał"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "Dodaj kanał"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Poza siecią"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Najpierw niska dostępność"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Lista zapasowa"
+  "watchlistSettingsTitle": {
+    "message": "Watchlist"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Kanały zapasowe, gdy brak kwalifikujących dropów."
   },
   "preferKnownChannelsTitle": {
-    "message": "Preferuj obserwowane kanały i listę zapasową"
+    "message": "Preferuj obserwowane kanały i Watchlist"
   },
   "preferKnownChannelsDescription": {
-    "message": "Gdy drop jest na wielu kanałach, wybiera ten, który obserwujesz lub masz na liście zapasowej, zamiast nieznanego."
+    "message": "Gdy drop jest na wielu kanałach, wybiera ten, który obserwujesz lub masz na Watchlist, zamiast nieznanego."
   },
   "platformSettingsTitle": {
     "message": "Ustawienia platformy"
@@ -783,7 +783,7 @@
     "message": "Wycisz karty farmienia"
   },
   "muteTabsDescription": {
-    "message": "Trzymaj karty dropów i listy zapasowej wyciszone podczas farmienia."
+    "message": "Trzymaj karty dropów i Watchlist wyciszone podczas farmienia."
   },
   "keepVideosUnmutedTitle": {
     "message": "Nie wyciszaj wideo na kartach farmienia"
@@ -954,13 +954,13 @@
     "message": "Automatyzacja"
   },
   "farmOnPlatform": {
-    "message": "Farmuj dropy i oglądaj kanały listy zapasowej na $1."
+    "message": "Farmuj dropy i oglądaj kanały Watchlist na $1."
   },
   "enabled": {
     "message": "Włączone"
   },
-  "idleWatchlistEditHint": {
-    "message": "Edytuj to w zakładce listy zapasowej po wybraniu $1."
+  "watchlistEditHint": {
+    "message": "Edytuj to w zakładce Watchlist po wybraniu $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Automatyczne odbieranie punktów kanału"
@@ -1236,7 +1236,7 @@
     "message": "Więcej niż dropy."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Punkty kanału, wyzwania Kick i 2-minutowe dropy — też odbierane za ciebie. Lista zapasowa, gdy nie ma już nic do farmienia."
+    "message": "Punkty kanału, wyzwania Kick i 2-minutowe dropy — też odbierane za ciebie. Watchlist, gdy nie ma już nic do farmienia."
   },
   "screenshotExtrasPointsName": {
     "message": "Punkty kanału"
@@ -1251,7 +1251,7 @@
     "message": "Kick · też odbierane za ciebie"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Lista zapasowa"
+    "message": "Watchlist"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Ogląda twoich streamerów między kampaniami"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "nagroda o wyższym priorytecie przejęła kontrolę"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "dostępny stał się kanał listy zapasowej o wyższym priorytecie"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "dostępny stał się kanał Watchlist o wyższym priorytecie"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "wymóg oglądania został spełniony"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Lista zapasowa"
+  "watchSourceWatchlist": {
+    "message": "Watchlist"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Otwórz Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Dodaj $1 do idle watchlist"
+    "message": "Dodaj $1 do Watchlist"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Usuń $1 z idle watchlist"
+    "message": "Usuń $1 z Watchlist"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "Otwórz Gry"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Nazwa kanału lub link"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "Lista jest pełna ($1 kanałów). Usuń jeden, aby dodać kolejny."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Wpisz nazwę kanału lub link do kanału."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 jest już na liście."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Kolejność oglądania"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "oglądany jest pierwszy kanał na żywo"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "Wiersze serii są oglądane w miejscu Serie oglądania w kolejności oglądania, każdy aż Twitch potwierdzi serię lub miną $1 minut."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "Utrzymuj serię oglądania na $1"
   },
   "watchStreakPending": {

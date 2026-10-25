@@ -52,7 +52,7 @@ function submit(container: Element, value: string): void {
   );
 }
 
-describe("idle watchlist view", () => {
+describe("watchlist view", () => {
   it("reads a channel from a name, an @name or a channel link", () => {
     expect(channelNameFromInput(" RivalsPilot ")).toBe("rivalspilot");
     expect(channelNameFromInput("@lootforge")).toBe("lootforge");
@@ -77,7 +77,7 @@ describe("idle watchlist view", () => {
 
     expect(onChange).not.toHaveBeenCalled();
     expect(container.querySelector("[data-watchlist-notice]")?.textContent).toBe(
-      "idleWatchlistDuplicate:lootforge",
+      "watchlistDuplicate:lootforge",
     );
     expect(container.querySelector<HTMLInputElement>("[data-watchlist-input]")?.value).toBe(
       "LootForge",
@@ -92,14 +92,14 @@ describe("idle watchlist view", () => {
 
     const input = container.querySelector<HTMLInputElement>("[data-watchlist-input]")!;
     expect(input.disabled).toBe(true);
-    expect(input.placeholder).toBe(`idleWatchlistFull:${IDLE_WATCHLIST_LIMIT}`);
+    expect(input.placeholder).toBe(`watchlistFull:${IDLE_WATCHLIST_LIMIT}`);
     expect(container.querySelector("[data-watchlist-count]")?.textContent).toBe(
       `${IDLE_WATCHLIST_LIMIT}/${IDLE_WATCHLIST_LIMIT}`,
     );
   });
 });
 
-describe("idle watchlist watch-streak controls (#897)", () => {
+describe("watchlist watch-streak controls (#897)", () => {
   function mountStreaks(
     streaks: Parameters<typeof IdleWatchlistPanel>[0]["streaks"],
     platform: "twitch" | "kick" = "twitch",
@@ -141,7 +141,7 @@ describe("idle watchlist watch-streak controls (#897)", () => {
       "false",
       "true",
     ]);
-    expect(switches[0]!.getAttribute("aria-label")).toBe("idleWatchlistStreakToggle:alpha");
+    expect(switches[0]!.getAttribute("aria-label")).toBe("watchlistStreakToggle:alpha");
     expect(
       [...container.querySelectorAll("[data-watchlist-streak-status]")].map((node) =>
         node.getAttribute("data-watchlist-streak-status"),
@@ -176,13 +176,7 @@ describe("idle watchlist watch-streak controls (#897)", () => {
     expect(container.querySelector("[data-watchlist-streak-hint]")).toBeNull();
   });
   it("shows the Watch streaks place beside the watchlist's once a row keeps a streak", () => {
-    const order: WatchSourceId[] = [
-      "watch_streaks",
-      "drops",
-      "nopixel",
-      "fortnite",
-      "idle_watchlist",
-    ];
+    const order: WatchSourceId[] = ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"];
     const places = (container: HTMLElement) =>
       [...container.querySelectorAll("[data-watch-source-place]")].map((place) => [
         place.getAttribute("data-watch-source-place"),
@@ -192,7 +186,7 @@ describe("idle watchlist watch-streak controls (#897)", () => {
       places(
         mountStreaks({ enabled: new Set(), statuses: {}, onToggle: vi.fn() }, "twitch", order),
       ),
-    ).toEqual([["idle_watchlist", null]]);
+    ).toEqual([["watchlist", null]]);
     expect(
       places(
         mountStreaks(
@@ -202,7 +196,7 @@ describe("idle watchlist watch-streak controls (#897)", () => {
         ),
       ),
     ).toEqual([
-      ["idle_watchlist", "watchSourceIdleWatchlist"],
+      ["watchlist", "watchSourceWatchlist"],
       ["watch_streaks", "watchSourceWatchStreaks"],
     ]);
   });

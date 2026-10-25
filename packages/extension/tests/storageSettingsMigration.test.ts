@@ -49,7 +49,7 @@ describe("settings storage migration", () => {
     const settings = await loadSettings();
 
     expect(settings.idleWatchlistFallbackOnly).toBe(false);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacy"]);
+    expect(settings.platform.twitch.watchlistChannels).toEqual(["legacy"]);
     expect(set).toHaveBeenCalledTimes(1);
     const written = set.mock.calls[0]?.[0].settings;
     expect(written).toEqual(withSchemaVersion(settings));
@@ -94,7 +94,7 @@ describe("settings storage migration", () => {
     get.mockResolvedValue({
       settings: {
         idleWatchlistFallbackOnly: true,
-        platform: { twitch: { idleWatchlistChannels: ["current"] } },
+        platform: { twitch: { watchlistChannels: ["current"] } },
       },
     });
 
@@ -123,7 +123,7 @@ describe("settings storage migration", () => {
 
     await expect(loadSettings()).resolves.toMatchObject({
       idleWatchlistFallbackOnly: false,
-      platform: { twitch: { idleWatchlistChannels: ["legacy"] } },
+      platform: { twitch: { watchlistChannels: ["legacy"] } },
     });
     expect(set).toHaveBeenCalledTimes(1);
 

@@ -391,7 +391,7 @@ describe("state transaction", () => {
         settingsPatchEffects({ platform: { kick: { favouriteCategories: [] } } }, off),
       ).toEqual({ kick: "selection" });
       expect(
-        settingsPatchEffects({ platform: { twitch: { idleWatchlistChannels: [] } } }, off),
+        settingsPatchEffects({ platform: { twitch: { watchlistChannels: [] } } }, off),
       ).toEqual({ twitch: "discovery" });
       expect(settingsPatchEffects({ campaignPins: ["a"] }, off)).toEqual({
         twitch: "selection",

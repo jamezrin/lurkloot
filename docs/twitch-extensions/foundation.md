@@ -59,7 +59,7 @@ validation instructions are in
 - Independent discovery makes bounded directory and installation-list requests;
   it never obtains per-candidate viewer JWTs. A five-minute cache bounds scans.
   Per-platform watch-source priority controls the lane; the default is Drops,
-  NoPixelV, Fortnite, then Idle Watchlist. Completed providers release it and
+  NoPixelV, Fortnite, then Watchlist. Completed providers release it and
   unavailable channels back off. See [selection policy](../watch-source-priority.md).
   Normal healthy channel changes cancel active resources while preserving completed
   public summaries and their bounded cooldowns. Authority loss/reset clears them.

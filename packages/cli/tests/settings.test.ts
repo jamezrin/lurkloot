@@ -26,7 +26,7 @@ describe("parseCliSettings", () => {
       platform: { twitch: { watchQueueChannels: [" Legacy ", "legacy"] } },
     });
     expect(settings.idleWatchlistFallbackOnly).toBe(false);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacy"]);
+    expect(settings.platform.twitch.watchlistChannels).toEqual(["legacy"]);
     expect(settings).not.toHaveProperty("watchQueueFallbackOnly");
     expect(diagnostics.map((d) => d.path)).toEqual([
       "watchQueueFallbackOnly",
@@ -39,13 +39,13 @@ describe("parseCliSettings", () => {
       idleWatchlistFallbackOnly: true,
       watchQueueFallbackOnly: false,
       platform: {
-        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"] },
-        kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
+        twitch: { watchlistChannels: [], watchQueueChannels: ["legacy"] },
+        kick: { watchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
       },
     });
     expect(settings.idleWatchlistFallbackOnly).toBe(true);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual([]);
-    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["new"]);
+    expect(settings.platform.twitch.watchlistChannels).toEqual([]);
+    expect(settings.platform.kick.watchlistChannels).toEqual(["new"]);
   });
 
   it("defaults preferKnownChannels to on and honors an explicit override", () => {
@@ -118,7 +118,7 @@ describe("parseCliSettings", () => {
       autoClaim: false,
       pollIntervalMinutes: 9,
       excludedCampaignIds: [" Foo ", "Foo", "bar"],
-      platform: { twitch: { enabled: false, idleWatchlistChannels: ["@Streamer", "streamer"] } },
+      platform: { twitch: { enabled: false, watchlistChannels: ["@Streamer", "streamer"] } },
     });
     expect(settings.autoClaim).toBe(false);
     expect(settings.pollIntervalMinutes).toBe(9);
@@ -126,7 +126,7 @@ describe("parseCliSettings", () => {
     expect(settings.excludedCampaignIds).toEqual(["Foo", "bar"]);
     // Channels are lowercased, @-stripped and deduped.
     expect(settings.platform.twitch.enabled).toBe(false);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["streamer"]);
+    expect(settings.platform.twitch.watchlistChannels).toEqual(["streamer"]);
     // Untouched platform keeps its default.
     expect(settings.platform.kick.enabled).toBe(DEFAULT_CLI_SETTINGS.platform.kick.enabled);
   });
@@ -434,11 +434,11 @@ describe("toEngineSettings", () => {
     const extension = mergeSettings(migrateSettings(legacy).settings as never);
     expect(cliEngine.idleWatchlistFallbackOnly).toBe(extension.idleWatchlistFallbackOnly);
     expect(cliEngine.idleWatchlistFallbackOnly).toBe(false);
-    expect(cliEngine.platform.twitch.idleWatchlistChannels).toEqual(
-      extension.platform.twitch.idleWatchlistChannels,
+    expect(cliEngine.platform.twitch.watchlistChannels).toEqual(
+      extension.platform.twitch.watchlistChannels,
     );
-    expect(cliEngine.platform.kick.idleWatchlistChannels).toEqual(
-      extension.platform.kick.idleWatchlistChannels,
+    expect(cliEngine.platform.kick.watchlistChannels).toEqual(
+      extension.platform.kick.watchlistChannels,
     );
     expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(
       extension.platform.twitch.autoClaimChannelPoints,
@@ -452,7 +452,7 @@ describe("CLI settings export/import", () => {
     const settings = parseCliSettings({
       autoClaim: false,
       excludedCampaignIds: ["abc123"],
-      platform: { twitch: { enabled: true, idleWatchlistChannels: ["someone"] } },
+      platform: { twitch: { enabled: true, watchlistChannels: ["someone"] } },
     });
     const payload = buildCliSettingsExportPayload(settings);
     expect(payload.kind).toBe(SETTINGS_EXPORT_KIND);

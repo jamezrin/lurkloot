@@ -24,7 +24,8 @@ export function heartbeatContextKey(session: WatchSession): string | undefined {
 }
 
 // Drop and supplemental keys stay exactly as they are so a persisted cadence
-// still matches. Idle is the watch that has a channel and no drop identity.
+// still matches. Idle is the watch that has a channel and no drop identity; its
+// key keeps the source's old id for the same reason.
 function heartbeatAuthority(session: WatchSession): string[] | undefined {
   if (session.supplementalWatch) return ["supplemental", session.supplementalWatch.id];
   if (session.campaignId && session.rewardId) return [session.campaignId, session.rewardId];

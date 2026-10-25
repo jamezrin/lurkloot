@@ -374,7 +374,7 @@ export function RankInput({
   );
 }
 
-/** Collapsible group heading, used to fold the Idle Watchlist under the drops
+/** Collapsible group heading, used to fold the Watchlist under the drops
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button
  * cannot nest inside a button. */

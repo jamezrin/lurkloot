@@ -81,43 +81,19 @@ function mount(platform: Platform, saveDelay?: Promise<void>) {
 describe("watch-source priority controls", () => {
   it("reorders disabled providers and resets Twitch with a platform-specific scheduler tick", () => {
     const view = mount("twitch");
-    expect(view.order()).toEqual([
-      "drops",
-      "nopixel",
-      "fortnite",
-      "watch_streaks",
-      "idle_watchlist",
-    ]);
+    expect(view.order()).toEqual(["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"]);
     expect(view.document.querySelector("ol")).toBeTruthy();
     view.click("Move NoPixelV up");
-    expect(view.order()).toEqual([
-      "nopixel",
-      "drops",
-      "fortnite",
-      "watch_streaks",
-      "idle_watchlist",
-    ]);
+    expect(view.order()).toEqual(["nopixel", "drops", "fortnite", "watch_streaks", "watchlist"]);
     expect(view.saved.at(-1)).toMatchObject({
       patch: { platform: { twitch: { watchSourcePriority: view.order() } } },
       options: { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     });
     view.click("Move NoPixelV down");
-    expect(view.order()).toEqual([
-      "drops",
-      "nopixel",
-      "fortnite",
-      "watch_streaks",
-      "idle_watchlist",
-    ]);
-    view.click("Move Idle Watchlist up");
+    expect(view.order()).toEqual(["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"]);
+    view.click("Move Watchlist up");
     view.click("Reset priority");
-    expect(view.order()).toEqual([
-      "drops",
-      "nopixel",
-      "fortnite",
-      "watch_streaks",
-      "idle_watchlist",
-    ]);
+    expect(view.order()).toEqual(["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"]);
     expect(
       view.document
         .querySelectorAll("li")[0]
@@ -128,9 +104,9 @@ describe("watch-source priority controls", () => {
 
   it("offers only Kick's supported sources", () => {
     const view = mount("kick");
-    expect(view.order()).toEqual(["drops", "idle_watchlist"]);
-    view.click("Move Idle Watchlist up");
-    expect(view.order()).toEqual(["idle_watchlist", "drops"]);
+    expect(view.order()).toEqual(["drops", "watchlist"]);
+    view.click("Move Watchlist up");
+    expect(view.order()).toEqual(["watchlist", "drops"]);
     expect(view.saved.at(-1)?.patch.platform).not.toHaveProperty("twitch");
   });
 

@@ -9,7 +9,7 @@ import { isRecord } from "./records";
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 9;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 10;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -82,6 +82,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 7, migrate: migrateToV7 },
   { to: 8, migrate: migrateToV8 },
   { to: 9, migrate: migrateToV9 },
+  { to: 10, migrate: migrateToV10 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -273,7 +274,7 @@ function migrateToV6(raw: Record<string, unknown>, _diagnose: Diagnose): Record<
     }
   }
   // Keep the old serialized field for backward compatibility. Its old false
-  // sticky-idle preference now becomes predictable Idle-first selection.
+  // sticky-idle preference now becomes predictable Watchlist-first selection.
   return raw;
 }
 
@@ -483,6 +484,32 @@ function migrateToV9(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   return raw;
 }
 
+// The Idle Watchlist became the Watchlist: its channel keys lose the prefix and
+// its watch-source id becomes "watchlist", keeping its place in the order. A
+// current key always wins, as renameProperty does.
+function migrateToV10(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  for (const platform of ["twitch", "kick"] as const) {
+    const block = platformBlock(raw, platform);
+    if (!block) continue;
+    const prefix = `platform.${platform}.`;
+    renameProperty(block, "idleWatchlistChannels", "watchlistChannels", prefix, diagnose);
+    renameProperty(
+      block,
+      "idleWatchlistStreakChannels",
+      "watchlistStreakChannels",
+      prefix,
+      diagnose,
+    );
+    const priority = block.watchSourcePriority;
+    if (Array.isArray(priority) && priority.includes("idle_watchlist")) {
+      block.watchSourcePriority = priority.map((source) =>
+        source === "idle_watchlist" ? "watchlist" : source,
+      );
+    }
+  }
+  return raw;
+}
+
 // Creates a nested block only when it is safe to do so; a pre-existing malformed
 // block is left untouched so validation can report it verbatim.
 function ensureBlock(
@@ -590,8 +617,37 @@ export function migrateSettings(raw: unknown): SettingsMigrationResult {
     // onto each platform. That key was never in the document, so reporting it
     // would send a user looking for a line their file does not contain. The
     // earlier diagnostic names where the value ends up instead.
-    diagnostics: diagnostics.filter((diagnostic) => hasPath(rest, diagnostic.path)),
+    diagnostics: finalReplacements(
+      diagnostics.filter((diagnostic) => hasPath(rest, diagnostic.path)),
+      diagnostics,
+    ),
   };
+}
+
+// A rename a later migration renames again (watchQueueChannels became
+// idleWatchlistChannels in migration 1, then watchlistChannels in migration
+// 10) names the key the value ends up under, not the intermediate one.
+function finalReplacements(
+  kept: SettingsMigrationDiagnostic[],
+  all: SettingsMigrationDiagnostic[],
+): SettingsMigrationDiagnostic[] {
+  const byPath = new Map(all.map((diagnostic) => [diagnostic.path, diagnostic]));
+  return kept.map((diagnostic) => {
+    let replacement = diagnostic.replacement;
+    const visited = new Set<string>();
+    while (replacement && !visited.has(replacement)) {
+      visited.add(replacement);
+      const next = byPath.get(replacement)?.replacement;
+      if (!next) break;
+      replacement = next;
+    }
+    if (!replacement || replacement === diagnostic.replacement) return diagnostic;
+    return {
+      ...diagnostic,
+      replacement,
+      message: diagnostic.message.split(diagnostic.replacement!).join(replacement),
+    };
+  });
 }
 
 function hasPath(source: Record<string, unknown>, path: string): boolean {

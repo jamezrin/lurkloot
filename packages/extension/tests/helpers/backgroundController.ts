@@ -686,7 +686,7 @@ export function tablessEnv(overrides: Partial<ExtensionSettings> = {}) {
     platform: {
       ...DEFAULT_SETTINGS.platform,
       twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-      kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+      kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
     },
     ...overrides,
   });
@@ -704,7 +704,7 @@ export async function establishedTablessEnv(platform: Platform) {
       kick: {
         ...DEFAULT_SETTINGS.platform.kick,
         enabled: platform === "kick",
-        idleWatchlistChannels: [],
+        watchlistChannels: [],
       },
     },
   });

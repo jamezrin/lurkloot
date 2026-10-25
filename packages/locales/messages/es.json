@@ -113,8 +113,8 @@
   "navGames": {
     "message": "Juegos"
   },
-  "navIdleWatchlist": {
-    "message": "Lista de reserva"
+  "navWatchlist": {
+    "message": "Lista de visualización"
   },
   "navActivity": {
     "message": "Actividad"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Lista de visualización inactiva"
+  "watchlistTab": {
+    "message": "Lista de visualización"
   },
   "automationTitle": {
     "message": "Automatización de $1"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "La vista Juegos decide qué juegos se farmean, cuáles van primero y cuáles no se farmean nunca."
   },
-  "tipIdleWatchlist": {
-    "message": "Elige cuándo ver los canales de la lista de espera cambiando la prioridad de fuentes en los ajustes de la plataforma."
+  "tipWatchlist": {
+    "message": "Elige cuándo se ven los canales de la lista de visualización cambiando la prioridad de fuentes en los ajustes de la plataforma."
   },
   "tipTablessMode": {
     "message": "El modo sin pestañas usa menos recursos y recurre a una pestaña silenciada cuando hace falta."
@@ -372,7 +372,7 @@
     "message": "Twitch y Kick"
   },
   "tourPlatformBody": {
-    "message": "Cambia de plataforma aquí. Cada una tiene su propia cola, juegos y lista de reserva."
+    "message": "Cambia de plataforma aquí. Cada una tiene su propia cola, juegos y lista de visualización."
   },
   "tourQueueOrderTitle": {
     "message": "Cómo se ordena la cola"
@@ -399,7 +399,7 @@
     "message": "Elige Todas las categorías para farmear todos los juegos excepto los que bloqueas, o Solo las seleccionadas para farmear solo los juegos que marques. Marca un juego con la estrella para poner sus campañas primero, o bloquéalo para que nunca se farmee."
   },
   "tourWatchlistTitle": {
-    "message": "Lista de reserva"
+    "message": "Lista de visualización"
   },
   "tourWatchlistBody": {
     "message": "Cuando no hay drops que farmear, Lurkloot mira estos canales para que sigas ganando puntos de canal en Twitch y tus recompensas diarias y racha de visualización en Kick. La prioridad de fuentes en Ajustes decide cuándo se miran."
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Excluir del farmeo"
   },
-  "noIdleWatchlist": {
-    "message": "No hay canales configurados en la lista."
+  "noWatchlist": {
+    "message": "No hay canales de la lista de visualización configurados."
   },
   "channelPlaceholder": {
     "message": "canal"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "Añadir canal"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Desconectado"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Baja disponibilidad primero"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Lista de visualización inactiva"
+  "watchlistSettingsTitle": {
+    "message": "Lista de visualización"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Comportamiento compartido de la lista alternativa."
   },
   "preferKnownChannelsTitle": {
-    "message": "Preferir canales seguidos y de la Lista de visualización inactiva"
+    "message": "Preferir canales seguidos y de la lista de visualización"
   },
   "preferKnownChannelsDescription": {
-    "message": "Cuando un drop está disponible en varios canales, elige uno que sigues o que está en tu Lista de visualización inactiva antes que uno desconocido."
+    "message": "Cuando un drop está disponible en varios canales, elige uno que sigues o que está en tu lista de visualización antes que uno desconocido."
   },
   "platformSettingsTitle": {
     "message": "Configuración de plataforma"
@@ -783,7 +783,7 @@
     "message": "Silenciar pestañas de farmeo"
   },
   "muteTabsDescription": {
-    "message": "Mantén silenciadas las pestañas de Drops y de la lista de visualización inactiva mientras farmeas."
+    "message": "Mantén silenciadas las pestañas de Drops y de la lista de visualización mientras farmeas."
   },
   "keepVideosUnmutedTitle": {
     "message": "Mantener vídeos de farmeo con sonido"
@@ -954,13 +954,13 @@
     "message": "Automatización"
   },
   "farmOnPlatform": {
-    "message": "Farmea drops y mira la lista en $1."
+    "message": "Farmea drops y mira canales de la lista de visualización en $1."
   },
   "enabled": {
     "message": "Habilitado"
   },
-  "idleWatchlistEditHint": {
-    "message": "Edítala desde la pestaña Lista de visualización inactiva después de seleccionar $1."
+  "watchlistEditHint": {
+    "message": "Edítala desde la pestaña Lista de visualización después de seleccionar $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Auto-reclamar puntos de canal"
@@ -1236,7 +1236,7 @@
     "message": "Más que drops."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Puntos de canal, desafíos de Kick y drops de 2 minutos, también reclamados por ti. Una lista de visualización inactiva cuando no queda nada que farmear."
+    "message": "Puntos de canal, desafíos de Kick y drops de 2 minutos, también reclamados por ti. Una lista de visualización con tus propios canales cuando no queda nada que farmear."
   },
   "screenshotExtrasPointsName": {
     "message": "Puntos de canal"
@@ -1251,7 +1251,7 @@
     "message": "Kick · también reclamados por ti"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Lista de visualización inactiva"
+    "message": "Lista de visualización"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Ve a tus streamers entre campañas"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "se priorizó una recompensa más importante"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "se priorizó la lista de visualización inactiva"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "se priorizó la lista de visualización"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "se completó el requisito de visualización"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Lista de espera"
+  "watchSourceWatchlist": {
+    "message": "Lista de visualización"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Abrir Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Añadir $1 a la lista de reserva"
+    "message": "Añadir $1 a la lista de visualización"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Quitar $1 de la lista de reserva"
+    "message": "Quitar $1 de la lista de visualización"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "Abrir Juegos"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Nombre o enlace del canal"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "La lista está llena ($1 canales). Quita uno para añadir otro."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Escribe el nombre o el enlace de un canal."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 ya está en la lista."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Orden de visualización"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "se ve el primer canal en directo"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "Las filas de racha se atienden en el lugar de Rachas de visualización dentro del orden de visualización, cada una hasta que Twitch confirme la racha o pasen $1 minutos."
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "Mantener racha de visualización en $1"
   },
   "watchStreakPending": {

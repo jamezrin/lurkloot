@@ -10,9 +10,9 @@ import { mergeSettings } from "@lurkloot/shared/settings";
 
 const defaultSourceSettings = {
   twitch: {
-    watchSourcePriority: ["drops", "nopixel", "fortnite", "watch_streaks", "idle_watchlist"],
+    watchSourcePriority: ["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"],
   },
-  kick: { watchSourcePriority: ["drops", "idle_watchlist"] },
+  kick: { watchSourcePriority: ["drops", "watchlist"] },
 };
 
 describe("settings schema versions", () => {
@@ -130,12 +130,12 @@ describe("migration 1: legacy aliases", () => {
       criticalFailurePromptEnabled: true,
       platform: {
         twitch: {
-          idleWatchlistChannels: ["Legacy"],
-          watchSourcePriority: ["watch_streaks", "idle_watchlist", "drops", "nopixel", "fortnite"],
+          watchlistChannels: ["Legacy"],
+          watchSourcePriority: ["watch_streaks", "watchlist", "drops", "nopixel", "fortnite"],
         },
         kick: {
-          idleWatchlistChannels: ["KickLegacy"],
-          watchSourcePriority: ["idle_watchlist", "drops"],
+          watchlistChannels: ["KickLegacy"],
+          watchSourcePriority: ["watchlist", "drops"],
         },
       },
     });
@@ -251,10 +251,10 @@ describe("migration 1: legacy aliases", () => {
       platform: {
         twitch: {
           ...defaultSourceSettings.twitch,
-          idleWatchlistChannels: [],
+          watchlistChannels: [],
           autoClaimChannelPoints: true,
         },
-        kick: { ...defaultSourceSettings.kick, idleWatchlistChannels: ["new"] },
+        kick: { ...defaultSourceSettings.kick, watchlistChannels: ["new"] },
       },
     });
     expect(result.diagnostics.map((d) => d.path)).toEqual([
@@ -263,6 +263,8 @@ describe("migration 1: legacy aliases", () => {
       "autoClaimChannelPoints",
       "platform.twitch.watchQueueChannels",
       "platform.kick.watchQueueChannels",
+      "platform.twitch.idleWatchlistChannels",
+      "platform.kick.idleWatchlistChannels",
     ]);
   });
 
@@ -281,7 +283,7 @@ describe("migration 1: legacy aliases", () => {
   it("reports nothing for a payload that only uses current names", () => {
     const result = migrateSettings({
       idleWatchlistFallbackOnly: true,
-      platform: { twitch: { idleWatchlistChannels: ["a"] } },
+      platform: { twitch: { watchlistChannels: ["a"] } },
     });
     expect(result.diagnostics).toEqual([]);
     expect(result.changed).toBe(true); // unversioned input still gets stamped

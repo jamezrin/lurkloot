@@ -123,9 +123,9 @@ describe("background controller", () => {
     });
   });
 
-  describe("Idle Watchlist changes from the page", () => {
+  describe("Watchlist changes from the page", () => {
     const listed = (env: ReturnType<typeof harness>) =>
-      env.settings.platform.twitch.idleWatchlistChannels;
+      env.settings.platform.twitch.watchlistChannels;
     const change = (env: ReturnType<typeof harness>, action: "add" | "remove", channel: string) =>
       env.controller.handleMessage({
         type: "updateIdleWatchlist",
@@ -140,7 +140,7 @@ describe("background controller", () => {
       const env = harness();
       await env.controller.handleMessage({
         type: "saveSettings",
-        settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second"] } } },
+        settingsPatch: { platform: { twitch: { watchlistChannels: ["first", "second"] } } },
       });
 
       await change(env, "add", "Third");
@@ -153,7 +153,7 @@ describe("background controller", () => {
       await env.controller.handleMessage({
         type: "saveSettings",
         settingsPatch: {
-          platform: { twitch: { idleWatchlistChannels: ["first", "second", "third"] } },
+          platform: { twitch: { watchlistChannels: ["first", "second", "third"] } },
         },
       });
 
@@ -168,7 +168,7 @@ describe("background controller", () => {
       const full = Array.from({ length: IDLE_WATCHLIST_LIMIT }, (_, index) => `channel${index}`);
       await env.controller.handleMessage({
         type: "saveSettings",
-        settingsPatch: { platform: { twitch: { idleWatchlistChannels: full } } },
+        settingsPatch: { platform: { twitch: { watchlistChannels: full } } },
       });
 
       await change(env, "add", "extra");
@@ -334,9 +334,9 @@ describe("background controller", () => {
           twitch: {
             ...DEFAULT_SETTINGS.platform.twitch,
             enabled: false,
-            idleWatchlistChannels: [],
+            watchlistChannels: [],
           },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
         },
       }),
     );
@@ -500,7 +500,7 @@ describe("background controller", () => {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        twitch: { ...env.settings.platform.twitch, idleWatchlistChannels: ["fallback"] },
+        twitch: { ...env.settings.platform.twitch, watchlistChannels: ["fallback"] },
       },
     };
 
@@ -513,7 +513,7 @@ describe("background controller", () => {
     );
 
     expect(env.twitch.refreshCampaigns).toHaveBeenCalled();
-    expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.twitch.watchlistChannels).toEqual(["fallback"]);
   });
 
   it("only ticks requested platforms after saving settings with targeted platforms", async () => {
@@ -522,7 +522,7 @@ describe("background controller", () => {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        kick: { ...env.settings.platform.kick, idleWatchlistChannels: ["fallback"] },
+        kick: { ...env.settings.platform.kick, watchlistChannels: ["fallback"] },
       },
     };
 
@@ -538,16 +538,16 @@ describe("background controller", () => {
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.kick.refreshCampaigns).toHaveBeenCalled();
-    expect(snapshot.settings.platform.kick.idleWatchlistChannels).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.kick.watchlistChannels).toEqual(["fallback"]);
   });
 
-  it("does not start automation after saving Idle Watchlist settings while paused", async () => {
+  it("does not start automation after saving Watchlist settings while paused", async () => {
     const env = harness(notFarming(DEFAULT_SETTINGS));
     const nextSettings = {
       ...env.settings,
       platform: {
         ...env.settings.platform,
-        twitch: { ...env.settings.platform.twitch, idleWatchlistChannels: ["fallback"] },
+        twitch: { ...env.settings.platform.twitch, watchlistChannels: ["fallback"] },
       },
     };
 
@@ -561,7 +561,7 @@ describe("background controller", () => {
 
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(isFarmingActive(snapshot.settings)).toBe(false);
-    expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
+    expect(snapshot.settings.platform.twitch.watchlistChannels).toEqual(["fallback"]);
   });
 
   it("keeps active farming untouched when saving a non-scheduling setting", async () => {

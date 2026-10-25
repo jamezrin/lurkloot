@@ -21,7 +21,7 @@ export const WATCH_SOURCE_NAME_KEYS: Record<WatchSourceId, string> = {
   nopixel: "watchSourceNoPixel",
   fortnite: "watchSourceFortnite",
   watch_streaks: "watchSourceWatchStreaks",
-  idle_watchlist: "watchSourceIdleWatchlist",
+  watchlist: "watchSourceWatchlist",
 };
 
 // The same icons the rail uses for each source, so the order reads as the rail does.
@@ -33,7 +33,7 @@ const WATCH_SOURCE_ICONS: Record<
   nopixel: Gift,
   fortnite: Sparkles,
   watch_streaks: Flame,
-  idle_watchlist: Eye,
+  watchlist: Eye,
 };
 
 export function WatchSourcePriority({

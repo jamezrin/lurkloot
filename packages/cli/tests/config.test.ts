@@ -131,29 +131,29 @@ describe("parseConfig", () => {
     ]);
   });
 
-  it("keeps the first 20 idle watchlist channels and names the ones it drops", () => {
+  it("keeps the first 20 watchlist channels and names the ones it drops", () => {
     const channels = Array.from({ length: 23 }, (_, index) => `channel${index + 1}`);
     const config = parseConfig(
-      { settings: { platform: { kick: { idleWatchlistChannels: channels } } } },
+      { settings: { platform: { kick: { watchlistChannels: channels } } } },
       CONFIG_PATH,
     );
-    expect(config.settings.platform.kick.idleWatchlistChannels).toEqual(channels.slice(0, 20));
+    expect(config.settings.platform.kick.watchlistChannels).toEqual(channels.slice(0, 20));
     expect(config.warnings).toEqual([
-      "settings.platform.kick.idleWatchlistChannels: The kick idle watchlist holds at most 20 channels; ignoring the other 3: channel21, channel22, channel23",
+      "settings.platform.kick.watchlistChannels: The kick watchlist holds at most 20 channels; ignoring the other 3: channel21, channel22, channel23",
     ]);
   });
 
-  it("does not warn for an idle watchlist at the limit, counting duplicates once", () => {
+  it("does not warn for an watchlist at the limit, counting duplicates once", () => {
     const channels = Array.from({ length: 20 }, (_, index) => `channel${index + 1}`);
     const config = parseConfig(
       {
         settings: {
-          platform: { twitch: { idleWatchlistChannels: [...channels, "Channel1", "@channel2"] } },
+          platform: { twitch: { watchlistChannels: [...channels, "Channel1", "@channel2"] } },
         },
       },
       CONFIG_PATH,
     );
-    expect(config.settings.platform.twitch.idleWatchlistChannels).toEqual(channels);
+    expect(config.settings.platform.twitch.watchlistChannels).toEqual(channels);
     expect(config.warnings).toEqual([]);
   });
 
@@ -238,9 +238,11 @@ describe("parseConfig", () => {
     expect(config.warnings).toContain(
       "settings.watchQueueFallbackOnly is deprecated; use settings.idleWatchlistFallbackOnly",
     );
+    // The Watch Queue key was renamed twice; the warning names the current key.
     expect(config.warnings).toContain(
-      "settings.platform.kick.watchQueueChannels is deprecated; use settings.platform.kick.idleWatchlistChannels",
+      "settings.platform.kick.watchQueueChannels is deprecated; use settings.platform.kick.watchlistChannels",
     );
+    expect(config.warnings.join("\n")).not.toContain("idleWatchlistChannels");
   });
 
   it("warns about a moved property with its destination path", () => {

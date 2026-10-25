@@ -20,7 +20,7 @@ describe("settings export/import", () => {
         twitch: {
           ...DEFAULT_SETTINGS.platform.twitch,
           enabled: true,
-          idleWatchlistChannels: ["someone"],
+          watchlistChannels: ["someone"],
           rewardFilter: { kinds: ["badge", "emote"], subscriptions: "only" },
           farmPinnedOnly: true,
         },

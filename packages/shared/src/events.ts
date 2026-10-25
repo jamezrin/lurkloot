@@ -7,6 +7,18 @@ import type {
   TwitchExtensionProviderId,
 } from "./models";
 
+// Reason codes renamed with the Idle Watchlist (schema 10). Sessions and
+// activity history stored by an older build may still carry them.
+const LEGACY_REASON_CODES: Readonly<Record<string, string>> = {
+  idle_watchlist_selected: "watchlist_selected",
+  higher_priority_idle_watchlist: "higher_priority_watchlist",
+  keeping_idle_watchlist: "keeping_watchlist",
+};
+
+export function currentReasonCode<T extends string>(code: T): T {
+  return (LEGACY_REASON_CODES[code] as T | undefined) ?? code;
+}
+
 export type FarmingStopReason =
   | "automation_disabled"
   | "platform_disabled"
@@ -20,7 +32,7 @@ export type FarmingStopReason =
   | "watch_unhealthy"
   | "no_progress"
   | "higher_priority_reward"
-  | "higher_priority_idle_watchlist"
+  | "higher_priority_watchlist"
   | "watch_requirement_completed"
   | "runtime_restart"
   | "target_changed"
@@ -112,7 +124,7 @@ export type ActivityEvent =
     }
   | {
       category: "activity";
-      // A maintained Idle Watchlist row's attempt for one broadcast ended
+      // A maintained Watchlist row's attempt for one broadcast ended
       // (#897): Twitch reported the payout, or the watch budget ran out first.
       code: "watch_streak_ended";
       level: "info";

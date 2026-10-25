@@ -8,6 +8,7 @@ import type {
 } from "@lurkloot/shared/models";
 import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { isRecord } from "@lurkloot/shared/records";
+import { currentReasonCode } from "@lurkloot/shared/events";
 import { normalizeWatchStreakState } from "./watchStreaks";
 
 const AUTH_STATUSES = new Set<PlatformAuthStatus>([
@@ -151,7 +152,7 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
   return {
     ...DEFAULT_STATE,
     ...operationalState,
-    sessions: { ...DEFAULT_STATE.sessions, ...stored?.sessions },
+    sessions: currentSessionReasonCodes({ ...DEFAULT_STATE.sessions, ...stored?.sessions }),
     authHealth: {
       twitch: normalizePlatformAuthHealth(stored?.authHealth?.twitch),
       kick: normalizePlatformAuthHealth(stored?.authHealth?.kick),
@@ -167,6 +168,18 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
     ...(criticalHealth ? { criticalHealth } : {}),
     ...(watchStreaks ? { watchStreaks } : { watchStreaks: undefined }),
   };
+}
+
+function currentSessionReasonCodes(
+  sessions: SchedulerState["sessions"],
+): SchedulerState["sessions"] {
+  const current = { ...sessions };
+  for (const platform of ["twitch", "kick"] as const) {
+    const session = current[platform];
+    if (session?.reasonCode && currentReasonCode(session.reasonCode) !== session.reasonCode)
+      current[platform] = { ...session, reasonCode: currentReasonCode(session.reasonCode) };
+  }
+  return current;
 }
 
 function normalizeStoredWatchStreaks(value: unknown): SchedulerState["watchStreaks"] {

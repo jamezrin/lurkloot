@@ -42,7 +42,7 @@ Supported `settings` keys: `autoClaim`, `priorityMode`,
 `campaignPins`, `excludedCampaignIds`,
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform
-`enabled`, `watchSourcePriority`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`, `rewardFilter`,
+`enabled`, `watchSourcePriority`, `watchlistChannels`, `excludedChannels`, `categoryMode`, `rewardFilter`,
 `farmPinnedOnly`, `unlinkedCampaigns`,
 `categories`, `favouriteCategories`, `blockedCategories`, plus Twitch's
 `autoClaimChannelPoints` and Kick's `autoClaimChallenges`.
@@ -68,18 +68,18 @@ or `farmingEligibility` is migrated automatically, with a deprecation warning
 naming each moved key.
 
 `watchSourcePriority` selects the first eligible watch source independently for
-each platform. Twitch defaults to `["drops", "nopixel", "fortnite", "idle_watchlist"]`;
-Kick defaults to `["drops", "idle_watchlist"]`. Reorder the array to prefer a
+each platform. Twitch defaults to `["drops", "nopixel", "fortnite", "watchlist"]`;
+Kick defaults to `["drops", "watchlist"]`. Reorder the array to prefer a
 source, including while already watching. Unknown, duplicate and wrong-platform
 entries are discarded; missing sources append in their default order. Idle
 Watchlist keeps its own channel order. Excluded drop channels also apply to
-supplemental providers; explicitly listed Idle Watchlist channels remain allowed.
+supplemental providers; explicitly listed Watchlist channels remain allowed.
 The CLI currently has no NoPixelV or Fortnite provider, so those
 sources yield to the next eligible source even when placed first.
 
 The deprecated `idleWatchlistFallbackOnly` field remains accepted for existing
 configs. When a platform has no explicit priority and that field is `false`, it
-migrates to Idle Watchlist first. An explicit priority always wins, and the
+migrates to Watchlist first. An explicit priority always wins, and the
 generated config uses the per-platform arrays.
 
 `categoryMode` is `"all"` (farm every category) or `"include"` (farm only the

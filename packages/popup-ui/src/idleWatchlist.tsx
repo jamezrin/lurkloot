@@ -45,7 +45,7 @@ export interface IdleWatchlistStreaks {
   onToggle(username: string, enabled: boolean): void;
 }
 
-/** The Idle Watchlist destination. The add field sits at the top, always
+/** The Watchlist destination. The add field sits at the top, always
  * open, with where the list falls in the watch order right under it, so
  * nothing about the list waits at the bottom of a long page. */
 export function IdleWatchlistPanel({
@@ -78,11 +78,11 @@ export function IdleWatchlistPanel({
   function addChannel(): void {
     const username = channelNameFromInput(value);
     if (!username) {
-      if (value.trim()) setNotice(t("idleWatchlistInvalid"));
+      if (value.trim()) setNotice(t("watchlistInvalid"));
       return;
     }
     if (streamers.some((streamer) => streamer.name.toLowerCase() === username)) {
-      setNotice(t("idleWatchlistDuplicate", username));
+      setNotice(t("watchlistDuplicate", username));
       return;
     }
     void onChange([...streamers, { id: username, name: username, live: false }]);
@@ -119,7 +119,7 @@ export function IdleWatchlistPanel({
               setNotice(undefined);
             }}
             placeholder={t(
-              full ? "idleWatchlistFull" : "idleWatchlistAddPlaceholder",
+              full ? "watchlistFull" : "watchlistAddPlaceholder",
               String(IDLE_WATCHLIST_LIMIT),
             )}
             className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent-ring)] disabled:cursor-not-allowed disabled:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-900/50"
@@ -146,7 +146,7 @@ export function IdleWatchlistPanel({
 
       {watchOrder && onChangeOrder ? (
         <WatchSourcePlace
-          source="idle_watchlist"
+          source="watchlist"
           order={watchOrder}
           onChangeOrder={onChangeOrder}
           named={Boolean(streaks && streaks.enabled.size > 0)}
@@ -163,15 +163,15 @@ export function IdleWatchlistPanel({
       ) : null}
 
       {streamers.length === 0 ? (
-        <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel>
+        <EmptyPanel>{t("noWatchlist")}</EmptyPanel>
       ) : (
         <div data-tour="watchlist" className="space-y-1.5">
           <div className="flex items-center gap-2 pt-1">
             <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-              {t("idleWatchlistOrderTitle")}
+              {t("watchlistOrderTitle")}
             </span>
             <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">
-              {t("idleWatchlistOrderHint")}
+              {t("watchlistOrderHint")}
             </span>
             <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
           </div>
@@ -181,7 +181,7 @@ export function IdleWatchlistPanel({
               className="flex items-center gap-1 px-1 text-[10px] text-zinc-400 dark:text-zinc-500"
             >
               <Flame size={10} aria-hidden className="shrink-0 text-orange-500" />
-              {t("idleWatchlistStreakHint", String(WATCH_STREAK_BUDGET_MINUTES))}
+              {t("watchlistStreakHint", String(WATCH_STREAK_BUDGET_MINUTES))}
             </p>
           ) : null}
           <DragDropProvider onDragEnd={endDrag}>
@@ -309,7 +309,7 @@ function WatchStreakToggle({
   onToggle(enabled: boolean): void;
 }): React.ReactElement {
   const t = useT();
-  const label = t("idleWatchlistStreakToggle", name);
+  const label = t("watchlistStreakToggle", name);
   return (
     <Tip label={label}>
       <button

@@ -869,7 +869,7 @@ describe("background controller", () => {
         kick: {
           ...DEFAULT_SETTINGS.platform.kick,
           enabled: true,
-          idleWatchlistChannels: Array.from({ length: 50 }, (_, index) => `channel-${index}`),
+          watchlistChannels: Array.from({ length: 50 }, (_, index) => `channel-${index}`),
         },
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
       },

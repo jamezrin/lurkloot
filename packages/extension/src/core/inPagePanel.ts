@@ -35,9 +35,11 @@ const PANEL_SURFACE = "light-dark(#ffffff, #18181b)";
 const PANEL_ID = "lurkloot-panel";
 // Read raw, without the settings migrations: running them here doubled this
 // bundle on every twitch.tv and kick.com page. The panel only reads
-// showInPagePanel and idleWatchlistChannels, which only migration 1 (July 2026)
-// touched, and the background upgrades the stored document on its first load.
-// A migration that renames either key has to update these reads.
+// showInPagePanel and the platform's watchlist channels. Migration 1 (July
+// 2026) and migration 10 (the Watchlist rename) touched the channel key, so a
+// document the background has not upgraded yet is read under its old name.
+// The background upgrades the stored document on its first load. A migration
+// that renames either key has to update these reads.
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 const UI_STATE_KEY = "inPagePanelUi";
@@ -495,17 +497,13 @@ async function buildMenu(): Promise<void> {
     items.push(
       listed
         ? {
-            label: message(
-              "inPageRemoveFromWatchlist",
-              "Remove $1 from the idle watchlist",
-              channel,
-            ),
+            label: message("inPageRemoveFromWatchlist", "Remove $1 from the watchlist", channel),
             run: () => {
               void changeWatchlist("remove", channel);
             },
           }
         : {
-            label: message("inPageAddToWatchlist", "Add $1 to the idle watchlist", channel),
+            label: message("inPageAddToWatchlist", "Add $1 to the watchlist", channel),
             run: () => {
               void changeWatchlist("add", channel);
             },
@@ -588,7 +586,8 @@ function closeMenu(): void {
 async function readWatchlist(): Promise<string[]> {
   const stored = await browser.storage.local.get(SETTINGS_KEY);
   const settings = stored[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
-  const channels = settings?.platform?.[platform]?.idleWatchlistChannels;
+  const block = settings?.platform?.[platform] as Record<string, unknown> | undefined;
+  const channels = block?.watchlistChannels ?? block?.idleWatchlistChannels;
   return Array.isArray(channels) ? channels : [];
 }
 

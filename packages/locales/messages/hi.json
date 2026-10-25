@@ -113,8 +113,8 @@
   "navGames": {
     "message": "गेम्स"
   },
-  "navIdleWatchlist": {
-    "message": "आइडल वॉचलिस्ट"
+  "navWatchlist": {
+    "message": "वॉचलिस्ट"
   },
   "navActivity": {
     "message": "गतिविधि"
@@ -254,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "निष्क्रिय वॉचलिस्ट"
+  "watchlistTab": {
+    "message": "वॉचलिस्ट"
   },
   "automationTitle": {
     "message": "$1 ऑटोमेशन"
@@ -308,8 +308,8 @@
   "tipCategorySelection": {
     "message": "गेम्स व्यू तय करता है कि कौन-से गेम फ़ार्म हों, कौन पहले आएँ और कौन कभी न हों।"
   },
-  "tipIdleWatchlist": {
-    "message": "प्लेटफ़ॉर्म सेटिंग्स में स्रोतों की प्राथमिकता बदलकर चुनें कि निष्क्रिय वॉचलिस्ट के चैनल कब देखे जाएँ।"
+  "tipWatchlist": {
+    "message": "प्लेटफ़ॉर्म सेटिंग्स में स्रोतों की प्राथमिकता बदलकर चुनें कि वॉचलिस्ट के चैनल कब देखे जाएँ।"
   },
   "tipTablessMode": {
     "message": "टैबलेस मोड कम संसाधन इस्तेमाल करता है और ज़रूरत पर म्यूट टैब खोलता है।"
@@ -399,7 +399,7 @@
     "message": "“सभी श्रेणियाँ” चुनें तो आपके ब्लॉक किए गए गेम्स को छोड़कर सभी गेम्स फ़ार्म होंगे, या “केवल चयनित” चुनें तो सिर्फ़ टिक किए गए गेम्स फ़ार्म होंगे। किसी गेम को स्टार करें ताकि उसके कैंपेन सबसे ऊपर रहें, या ब्लॉक करें ताकि वह कभी फ़ार्म न हो।"
   },
   "tourWatchlistTitle": {
-    "message": "आइडल वॉचलिस्ट"
+    "message": "वॉचलिस्ट"
   },
   "tourWatchlistBody": {
     "message": "जब फ़ार्म करने को कोई drop न हो, तब Lurkloot इन चैनलों को देखता है ताकि Twitch पर आपके चैनल पॉइंट्स और Kick पर आपके दैनिक रिवॉर्ड और वॉच स्ट्रीक जारी रहें। सेटिंग्स में स्रोत प्राथमिकता तय करती है कि इन्हें कब देखा जाए।"
@@ -629,8 +629,8 @@
   "excludeFromFarming": {
     "message": "फ़ार्मिंग से हटाएँ"
   },
-  "noIdleWatchlist": {
-    "message": "निष्क्रिय वॉचलिस्ट में कोई चैनल कॉन्फ़िगर नहीं है।"
+  "noWatchlist": {
+    "message": "वॉचलिस्ट में कोई चैनल कॉन्फ़िगर नहीं है।"
   },
   "channelPlaceholder": {
     "message": "चैनल"
@@ -641,7 +641,7 @@
   "addChannel": {
     "message": "चैनल जोड़ें"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "ऑफ़लाइन"
   },
   "live": {
@@ -719,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "कम उपलब्धता पहले"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "निष्क्रिय वॉचलिस्ट"
+  "watchlistSettingsTitle": {
+    "message": "वॉचलिस्ट"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "साझा फ़ॉलबैक वॉचलिस्ट व्यवहार।"
   },
   "preferKnownChannelsTitle": {
-    "message": "फ़ॉलो किए गए और निष्क्रिय वॉचलिस्ट चैनलों को प्राथमिकता दें"
+    "message": "फ़ॉलो किए गए और वॉचलिस्ट चैनलों को प्राथमिकता दें"
   },
   "preferKnownChannelsDescription": {
-    "message": "जब कोई drop कई चैनलों पर उपलब्ध हो, तो किसी अनजान चैनल के बजाय ऐसा चैनल चुनता है जिसे आप फ़ॉलो करते हैं या जो आपकी निष्क्रिय वॉचलिस्ट में है।"
+    "message": "जब कोई drop कई चैनलों पर उपलब्ध हो, तो किसी अनजान चैनल के बजाय ऐसा चैनल चुनता है जिसे आप फ़ॉलो करते हैं या जो आपकी वॉचलिस्ट में है।"
   },
   "platformSettingsTitle": {
     "message": "प्लेटफ़ॉर्म सेटिंग्स"
@@ -783,7 +783,7 @@
     "message": "फ़ार्मिंग टैब म्यूट करें"
   },
   "muteTabsDescription": {
-    "message": "फ़ार्मिंग के दौरान Drops और निष्क्रिय वॉचलिस्ट वाले टैब म्यूट रखें।"
+    "message": "फ़ार्मिंग के दौरान Drops और वॉचलिस्ट वाले टैब म्यूट रखें।"
   },
   "keepVideosUnmutedTitle": {
     "message": "फ़ार्मिंग वीडियो अनम्यूट रखें"
@@ -954,13 +954,13 @@
     "message": "ऑटोमेशन"
   },
   "farmOnPlatform": {
-    "message": "$1 पर drops फ़ार्म करें और निष्क्रिय वॉचलिस्ट देखें।"
+    "message": "$1 पर drops फ़ार्म करें और वॉचलिस्ट देखें।"
   },
   "enabled": {
     "message": "सक्षम"
   },
-  "idleWatchlistEditHint": {
-    "message": "$1 चुनने के बाद निष्क्रिय वॉचलिस्ट टैब से संपादित करें।"
+  "watchlistEditHint": {
+    "message": "$1 चुनने के बाद वॉचलिस्ट टैब से संपादित करें।"
   },
   "autoClaimChannelPointsTitle": {
     "message": "चैनल पॉइंट अपने आप क्लेम करें"
@@ -1236,7 +1236,7 @@
     "message": "सिर्फ़ drops नहीं।"
   },
   "screenshotExtrasSubcopy": {
-    "message": "चैनल पॉइंट्स, Kick चैलेंज और 2-मिनट ड्रॉप्स भी तुम्हारे लिए क्लेम। जब फार्म करने को कुछ न हो, idle watchlist।"
+    "message": "चैनल पॉइंट्स, Kick चैलेंज और 2-मिनट ड्रॉप्स भी तुम्हारे लिए क्लेम। जब फार्म करने को कुछ न हो, वॉचलिस्ट।"
   },
   "screenshotExtrasPointsName": {
     "message": "चैनल पॉइंट्स"
@@ -1251,7 +1251,7 @@
     "message": "Kick · तुम्हारे लिए भी क्लेम"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "आइडल वॉचलिस्ट"
+    "message": "वॉचलिस्ट"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "कैंपेन के बीच तुम्हारे स्ट्रीमर देखे जाते हैं"
@@ -1583,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "अधिक प्राथमिकता वाला इनाम चुना गया"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "निष्क्रिय वॉचलिस्ट को प्राथमिकता मिली"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "वॉचलिस्ट को प्राथमिकता मिली"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "देखने की आवश्यकता पूरी हुई"
@@ -1952,8 +1952,8 @@
   "watchSourceDrops": {
     "message": "ड्रॉप्स"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "निष्क्रिय वॉचलिस्ट"
+  "watchSourceWatchlist": {
+    "message": "वॉचलिस्ट"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -2007,10 +2007,10 @@
     "message": "Lurkloot खोलें"
   },
   "inPageAddToWatchlist": {
-    "message": "$1 को आइडल वॉचलिस्ट में जोड़ें"
+    "message": "$1 को वॉचलिस्ट में जोड़ें"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "$1 को आइडल वॉचलिस्ट से हटाएँ"
+    "message": "$1 को वॉचलिस्ट से हटाएँ"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2168,28 +2168,28 @@
   "settingsGamesPointerAction": {
     "message": "गेम खोलें"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "चैनल का नाम या लिंक"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "सूची भरी है ($1 चैनल)। नया जोड़ने के लिए एक हटाएँ।"
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "चैनल का नाम या चैनल लिंक दर्ज करें।"
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 पहले से सूची में है।"
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "देखने का क्रम"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "पहला लाइव चैनल देखा जाता है"
   },
-  "idleWatchlistStreakHint": {
+  "watchlistStreakHint": {
     "message": "स्ट्रीक वाली पंक्तियाँ देखने के क्रम में वॉच स्ट्रीक्स के स्थान पर देखी जाती हैं, हर एक तब तक जब तक Twitch स्ट्रीक की पुष्टि न करे या $1 मिनट न बीत जाएँ।"
   },
-  "idleWatchlistStreakToggle": {
+  "watchlistStreakToggle": {
     "message": "$1 पर वॉच स्ट्रीक बनाए रखें"
   },
   "watchStreakPending": {

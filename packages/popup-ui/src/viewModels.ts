@@ -484,8 +484,7 @@ export function streamerItemFromFallback(
     channel != null
     && channel.username.toLowerCase() === username.toLowerCase()
     && session.status === "watching";
-  if (!live)
-    return { id: username, name: username, live: false, subtitle: t("idleWatchlistChannel") };
+  if (!live) return { id: username, name: username, live: false, subtitle: t("watchlistChannel") };
   return {
     id: username,
     name: channel.displayName ?? username,

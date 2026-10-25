@@ -20,7 +20,7 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 
 - `entrypoints/background.ts` registers extension lifecycle hooks, alarms, tab-removal handling, runtime message handling, and browser-specific adapters around `@lurkloot/core`.
 - `packages/core/src/background/controller.ts` assembles the controller from its owner modules in the same directory, which coordinate settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
-- `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Idle Watchlist fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
+- `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Watchlist fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
 - `packages/core/src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `packages/core/src/platforms/twitch/index.ts` and `packages/core/src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior. A claim refusal that sets `reward.claimGuidance` (Kick's account-link prompt) has been explained by the adapter, so the shared claim loop does not warn about it again on each tick (#779).
 - Browser tabs are an extension-only capability (#598). `packages/core/src/core/tabRegistry.ts` (`@lurkloot/core/tabRegistry`) is the engine's side: the tab state and the rules for it (the managed-tab breaker, page-context snapshots and the recovery threshold, integrity captures and waits), with no browser code. `packages/extension/src/core/browserTabs.ts` holds the mechanics (watch tabs, playback priming, ad focus, page-context tabs and in-page fetches, the twitch.tv boot that mints an integrity token) against an injected `BrowserTabApi`, `packages/extension/src/core/tabPorts.ts` (`createExtensionTabPorts`) builds the controller's `tabs` ports from them and the user's tab settings, and `packages/extension/src/core/tabs.ts` binds the rest to the live WXT/browser APIs. `coreBoundary.test.ts` keeps tab mechanics out of core. Tab state (page contexts, the managed-tab breaker, playback priming, ad focus, integrity captures and waiters) lives in a `TabRegistry`, one per controller, never at module level. The extension creates it, binds its tab functions to it with `createBrowserTabs`, and passes it to the controller as `tabRegistry`; a host without tabs gets an empty one from the controller. `tests/tabRegistry.test.ts` checks that two controllers share no tab state (#598). Every tab the engine closes goes through `closeTab` in `browserTabs.ts`, which records a closure origin (`extension-cleanup`, `extension-recovery` or `host-restart`) in the registry before the browser call; `browserTabs.test.ts` fails if any other extension source calls `tabs.remove`. A close can fail while the tab stays open ("Tabs cannot be edited right now"), so code that forgets a managed tab or replaces it goes through `closeOwnedTab`, which tells closed, gone and still-open apart. A still-open tab stays owned, and nothing opens a replacement beside it (#794). New platform behavior reaches these mechanics as an injected function wired per platform in `background.ts`, such as a `PageDocumentInspector`, rather than as a platform or origin branch inside `browserTabs.ts`, `tabPorts.ts` or `tabs.ts`. The Kick bearer in `pageFetchJson` and the twitch.tv integrity boot are older exceptions. `handleTabRemoved` takes that origin, defaulting to `user`, and only a `user` close of the managed watch tab creates a manual-close pause. The tick closes its tab with no lock held, so the removal event can land before it commits. The record outlives the removal event (bounded, since browsers do not reuse tab ids), so a playback report still in flight from a tab the engine closed is dropped as a late result instead of reading as the user watching. The host forwards tab events through `TabEventsPort` (`handleTabRemoved`, `handleTabUpdated`).
 - `packages/core/src/core/transport.ts` (`@lurkloot/core/transport`) holds the cookie-backed background fetchers for Twitch GQL and Kick's API, with no tab state. The Twitch fetcher takes an injected request identity (integrity token and client session id), so the extension replays the page-captured token and tabless hosts send none. The CLI imports only this module and no tab code; `packages/cli/tests/tabBoundary.test.ts` guards that (#598).
@@ -66,7 +66,7 @@ their existing behavior. This gate uses the same evaluator as selection.
 Kick checks eligible campaigns through an optional adapter batch contract. Three
 workers process independent campaigns; each campaign checks candidates in order
 and stops at its first valid channel. This avoids speculative requests after an
-early match. Idle Watchlist checks are independent jobs and all remain observed.
+early match. Watchlist checks are independent jobs and all remain observed.
 Raw API/page responses are shared by URL only within that discovery revision;
 each candidate retains its own campaign, ACL metadata and category expectation.
 The next revision fetches fresh evidence. A single campaign's candidate chain
@@ -606,7 +606,7 @@ tested too (#598).
 | The CLI's `state.json` save is atomic | `packages/cli/tests/storage.test.ts` |
 | The popup reads the stored settings and state verbatim | `controllerContract.test.ts` ("runtime snapshot") |
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
-| `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Idle Watchlist changes from the page") |
+| `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Watchlist changes from the page") |
 | Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
 | Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
 | The scheduler tick decides from plain inputs and names its effects; one handler per effect type | `schedulerEffects.test.ts` |
@@ -628,13 +628,13 @@ The popup and content scripts do not call adapters directly. They send typed run
 
 ## Settings Model
 
-`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries. Legacy shapes are handled beforehand by the migration registry (see [Settings Migrations](#settings-migrations)); the one legacy input it still reads is `idleWatchlistFallbackOnly`, which decides `watchSourcePriority` for a platform block without one.
+`mergeSettings` in `@lurkloot/shared/settings` is the source of truth for defaults and persisted-setting normalization. It fills missing keys from `DEFAULT_SETTINGS`, clamps numeric values, normalizes channel/category/campaign lists, and removes duplicate list entries. Legacy shapes are handled beforehand by the migration registry (see [Settings Migrations](#settings-migrations)); the legacy inputs it still reads are `idleWatchlistFallbackOnly`, which decides `watchSourcePriority` for a platform block without one, and the pre-schema-10 watchlist keys it falls back to.
 
 Important setting groups:
 
 - Global automation: `autoStartDropFarming` and per-platform `enabled`. Farming is active while any platform is enabled; there is no master switch.
 - Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
-- Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
+- Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].watchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
 `categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
 both: `all` farms everything and leaves the list inactive, `include` farms only
@@ -862,6 +862,19 @@ farming is unchanged; the third option, `"last"`, is only ever chosen by the
 user. A current `unlinkedCampaigns` wins, and any other legacy value moves
 across as it is for normalization, or the CLI's validation, to judge.
 
+Migration 10 renames the Idle Watchlist to the Watchlist: each platform's
+`idleWatchlistChannels` and `idleWatchlistStreakChannels` become
+`watchlistChannels` and `watchlistStreakChannels`, and `idle_watchlist` in a
+stored `watchSourcePriority` becomes `watchlist` in the same place. A document
+that reaches normalization unmigrated keeps its data too: `mergeSettings` falls
+back to the old channel keys and `normalizeWatchSourcePriority` reads the old
+source id. Sessions and activity history stored before the rename may still
+carry `idle_watchlist_selected`, `higher_priority_idle_watchlist` or
+`keeping_idle_watchlist`; `currentReasonCode` (`@lurkloot/shared/events`) maps
+them, applied by `mergeSchedulerState` and the popup's stop-reason labels. The
+tabless heartbeat cadence key keeps `idle_watchlist`, so a persisted cadence
+still matches.
+
 ## Scheduler Flow
 
 Each scheduler tick runs enabled platforms independently:
@@ -882,7 +895,7 @@ Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in the user's order, then the single live
 strategy, then name and id, and last the unlinked campaigns of a platform set to
-farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only), `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
+farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only), `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 
@@ -968,8 +981,8 @@ Stopping behavior depends on ownership and settings:
 
 ## Watch-streak maintenance (#897)
 
-A Twitch Idle Watchlist row can be opted in to **Maintain watch streak**
-(`platform.twitch.idleWatchlistStreakChannels`, always a subset of the watchlist: removing a
+A Twitch Watchlist row can be opted in to **Maintain watch streak**
+(`platform.twitch.watchlistStreakChannels`, always a subset of the watchlist: removing a
 row clears its opt-in, reordering keeps it, Kick has none). It is best effort. LurkLoot never
 claims to know the user's streak count.
 
@@ -1106,7 +1119,7 @@ The browser greys out the icon itself.
 The popup is a controller UI, not a platform client. It requests snapshots and sends setting/action messages to the background controller. Manual reward claims are routed through the platform adapter so state updates, notifications, and event logging stay consistent with automated claims.
 
 The popup is a workspace: a rail carries the platform switch and one entry per
-destination — Queue, Completed, Games, Idle watchlist, Extensions (Twitch only),
+destination — Queue, Completed, Games, Watchlist, Extensions (Twitch only),
 Activity, Settings — with the now-farming strip above all of them. Platform and
 destination are independent axes; a destination that exists on one platform only
 falls back to the Queue when the platform changes under it.
