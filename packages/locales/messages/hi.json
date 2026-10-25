@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "सामान्य ब्राउज़र सत्रों, दिखने वाले म्यूट टैब और वैकल्पिक लो-रिसोर्स मोड से Twitch और Kick drops फ़ार्म करें।"
   },
+  "toolbarTitleOff": {
+    "message": "फ़ार्म बंद है"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: फ़ार्म हो रहा है"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: अभी फ़ार्म करने को कुछ नहीं"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: रुका हुआ"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: साइन आउट"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: एक्सेस अवरुद्ध"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: प्रगति नहीं हो रही"
+  },
   "promoTagline": {
     "message": "Twitch और Kick drops ऑटोपायलट पर फ़ार्म करें।"
   },

@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "通过正常的浏览器登录会话、可见的静音标签页和可选的低资源模式，在 Twitch 与 Kick 上挂机获取掉宝。"
   },
+  "toolbarTitleOff": {
+    "message": "挂机已关闭"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1：挂机中"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1：目前没有可挂机的内容"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1：已暂停"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1：未登录"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1：访问被阻止"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1：没有进展"
+  },
   "promoTagline": {
     "message": "自动挂机获取 Twitch 与 Kick 掉宝。"
   },
