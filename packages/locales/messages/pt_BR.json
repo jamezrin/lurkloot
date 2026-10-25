@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farme drops da Twitch e da Kick com sessões normais do navegador, abas visíveis silenciadas e modo opcional de baixo consumo."
   },
+  "toolbarTitleOff": {
+    "message": "Farm desligado"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farmando"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: nada para farmar agora"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: pausado"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: desconectado"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: acesso bloqueado"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: sem progresso"
+  },
   "promoTagline": {
     "message": "Farme drops da Twitch e Kick no piloto automático."
   },

@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farmuj dropy Twitch i Kick w normalnych sesjach przeglądarki, na widocznych wyciszonych kartach i opcjonalnie w trybie niskiego zużycia zasobów."
   },
+  "toolbarTitleOff": {
+    "message": "Farmienie wyłączone"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farmienie"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: nic do farmienia w tej chwili"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: wstrzymane"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: wylogowano"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: dostęp zablokowany"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: brak postępu"
+  },
   "promoTagline": {
     "message": "Farmuj dropy Twitch i Kick na autopilocie."
   },

@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farma drop di Twitch e Kick tramite normali sessioni del browser, schede visibili e silenziate e una modalità opzionale a basso consumo."
   },
+  "toolbarTitleOff": {
+    "message": "Farming disattivato"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farming in corso"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: niente da farmare al momento"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: in pausa"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: disconnesso"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: accesso bloccato"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: nessun progresso"
+  },
   "promoTagline": {
     "message": "Farma i drop di Twitch e Kick in automatico."
   },

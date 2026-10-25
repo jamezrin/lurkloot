@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farmí drops na Twitchi a Kicku přes běžné relace prohlížeče, viditelné ztlumené záložky a volitelný úsporný režim."
   },
+  "toolbarTitleOff": {
+    "message": "Farmení je vypnuté"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farmení"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: teď není co farmit"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: pozastaveno"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: odhlášen"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: přístup zablokován"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: bez postupu"
+  },
   "promoTagline": {
     "message": "Farmí drops na Twitchi a Kicku na autopilotu."
   },

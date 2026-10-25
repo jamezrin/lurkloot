@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farme Twitch- und Kick-Drops über normale Browsersitzungen, sichtbare stummgeschaltete Tabs und optionalen Energiesparmodus."
   },
+  "toolbarTitleOff": {
+    "message": "Farmen ist aus"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farmen"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: gerade nichts zu farmen"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: pausiert"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: abgemeldet"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: Zugriff blockiert"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: kein Fortschritt"
+  },
   "promoTagline": {
     "message": "Twitch- und Kick-Drops automatisch farmen."
   },

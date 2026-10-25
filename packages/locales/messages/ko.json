@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "일반 브라우저 세션, 보이는 음소거 탭, 선택적 저자원 모드로 Twitch와 Kick 드롭을 파밍합니다."
   },
+  "toolbarTitleOff": {
+    "message": "파밍 꺼짐"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: 파밍 중"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: 지금은 파밍할 항목 없음"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: 일시정지됨"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: 로그아웃됨"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: 접근 차단됨"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: 진행되지 않음"
+  },
   "promoTagline": {
     "message": "Twitch와 Kick 드롭을 자동으로 파밍하세요."
   },

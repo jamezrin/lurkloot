@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode."
   },
+  "toolbarTitleOff": {
+    "message": "Farming is off"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farming"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: nothing to farm right now"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: paused"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: signed out"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: access blocked"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: not making progress"
+  },
   "promoTagline": {
     "message": "Farm Twitch & Kick drops on autopilot."
   },
