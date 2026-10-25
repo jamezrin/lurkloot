@@ -3,9 +3,9 @@ import { useState } from "react";
 import { arrayMove } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { Eye, Plus } from "lucide-react";
-import type { Platform, WatchSourceId } from "@lurkloot/shared/models";
-import { IDLE_WATCHLIST_LIMIT } from "@lurkloot/shared/settings";
+import { Eye, Flame, Plus } from "lucide-react";
+import type { Platform, WatchSourceId, WatchStreakRowStatus } from "@lurkloot/shared/models";
+import { IDLE_WATCHLIST_LIMIT, WATCH_STREAK_BUDGET_MINUTES } from "@lurkloot/shared/settings";
 import { useT } from "./context";
 import { formatViewers } from "./format";
 import { channelUrl } from "./viewModels";
@@ -35,6 +35,16 @@ export function channelNameFromInput(value: string): string | undefined {
   return /^[a-z0-9_-]+$/.test(name) ? name : undefined;
 }
 
+/** Watch-streak maintenance on the rows (#897). Only offered where the
+ * platform maintains streaks (Twitch). */
+export interface IdleWatchlistStreaks {
+  // Rows the user opted in, lowercased.
+  enabled: ReadonlySet<string>;
+  // The last tick's status per opted-in row.
+  statuses: Readonly<Record<string, WatchStreakRowStatus>>;
+  onToggle(username: string, enabled: boolean): void;
+}
+
 /** The Idle Watchlist destination. The add field sits at the top, always
  * open, with where the list falls in the watch order right under it, so
  * nothing about the list waits at the bottom of a long page. */
@@ -44,9 +54,11 @@ export function IdleWatchlistPanel({
   watchOrder,
   onChangeOrder,
   onChange,
+  streaks,
 }: {
   platform: Platform;
   streamers: StreamerItem[];
+  streaks?: IdleWatchlistStreaks;
   // The platform's watch-source priority, which decides when the list is used.
   watchOrder?: readonly WatchSourceId[];
   onChangeOrder?(): void;
@@ -137,6 +149,16 @@ export function IdleWatchlistPanel({
           source="idle_watchlist"
           order={watchOrder}
           onChangeOrder={onChangeOrder}
+          named={Boolean(streaks && streaks.enabled.size > 0)}
+        />
+      ) : null}
+
+      {watchOrder && onChangeOrder && streaks && streaks.enabled.size > 0 ? (
+        <WatchSourcePlace
+          source="watch_streaks"
+          order={watchOrder}
+          onChangeOrder={onChangeOrder}
+          named
         />
       ) : null}
 
@@ -153,6 +175,15 @@ export function IdleWatchlistPanel({
             </span>
             <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
           </div>
+          {streaks ? (
+            <p
+              data-watchlist-streak-hint
+              className="flex items-center gap-1 px-1 text-[10px] text-zinc-400 dark:text-zinc-500"
+            >
+              <Flame size={10} aria-hidden className="shrink-0 text-orange-500" />
+              {t("idleWatchlistStreakHint", String(WATCH_STREAK_BUDGET_MINUTES))}
+            </p>
+          ) : null}
           <DragDropProvider onDragEnd={endDrag}>
             <div className="space-y-1.5">
               {streamers.map((streamer, index) => (
@@ -162,6 +193,16 @@ export function IdleWatchlistPanel({
                   index={index}
                   count={streamers.length}
                   platform={platform}
+                  streak={
+                    streaks
+                      ? {
+                          enabled: streaks.enabled.has(streamer.id.toLowerCase()),
+                          status: streaks.statuses[streamer.id.toLowerCase()],
+                          onToggle: (enabled) =>
+                            streaks.onToggle(streamer.id.toLowerCase(), enabled),
+                        }
+                      : undefined
+                  }
                   onRemove={() =>
                     void onChange(streamers.filter((entry) => entry.id !== streamer.id))
                   }
@@ -181,6 +222,7 @@ function SortableIdleWatchlist({
   index,
   count,
   platform,
+  streak,
   onRemove,
   onMove,
 }: {
@@ -188,6 +230,7 @@ function SortableIdleWatchlist({
   index: number;
   count: number;
   platform: Platform;
+  streak?: { enabled: boolean; status?: WatchStreakRowStatus; onToggle(enabled: boolean): void };
   onRemove(): void;
   onMove(toIndex: number): void;
 }) {
@@ -212,7 +255,15 @@ function SortableIdleWatchlist({
         dragHandle={<DragHandle handleRef={handleRef} label={t("reorderItem", streamer.name)} />}
         trailing={
           <span className="flex shrink-0 items-center gap-1.5">
+            {streak?.enabled ? <WatchStreakStatus status={streak.status ?? "pending"} /> : null}
             {status}
+            {streak ? (
+              <WatchStreakToggle
+                name={streamer.name}
+                enabled={streak.enabled}
+                onToggle={streak.onToggle}
+              />
+            ) : null}
             <RemoveRowButton label={t("removeItem", streamer.name)} onClick={onRemove} />
           </span>
         }
@@ -246,4 +297,60 @@ function IdleWatchlistStatus({ streamer }: { streamer: StreamerItem }): React.Re
     );
   }
   return <></>;
+}
+
+function WatchStreakToggle({
+  name,
+  enabled,
+  onToggle,
+}: {
+  name: string;
+  enabled: boolean;
+  onToggle(enabled: boolean): void;
+}): React.ReactElement {
+  const t = useT();
+  const label = t("idleWatchlistStreakToggle", name);
+  return (
+    <Tip label={label}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={label}
+        data-watchlist-streak-toggle
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle(!enabled);
+        }}
+        className={
+          enabled
+            ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-orange-500/12 text-orange-600 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-orange-400"
+            : "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors outline-none hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        }
+      >
+        <Flame size={13} aria-hidden />
+      </button>
+    </Tip>
+  );
+}
+
+const WATCH_STREAK_STATUS = {
+  pending: { key: "watchStreakPending", tone: "outline" },
+  watching: { key: "watchStreakWatching", tone: "accent" },
+  credited: { key: "watchStreakCredited", tone: "live" },
+  not_confirmed: { key: "watchStreakNotConfirmed", tone: "warning" },
+  unavailable: { key: "watchStreakUnavailable", tone: "muted" },
+} as const satisfies Record<
+  WatchStreakRowStatus,
+  { key: string; tone: "outline" | "accent" | "live" | "warning" | "muted" }
+>;
+
+function WatchStreakStatus({ status }: { status: WatchStreakRowStatus }): React.ReactElement {
+  const t = useT();
+  const { key, tone } = WATCH_STREAK_STATUS[status];
+  return (
+    <span data-watchlist-streak-status={status}>
+      <Pill tone={tone}>{t(key)}</Pill>
+    </span>
+  );
 }

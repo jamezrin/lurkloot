@@ -1184,7 +1184,13 @@ export class TwitchAdapter implements PlatformAdapter {
         signal,
       );
       if (response.data?.currentUser) {
-        return { status: "healthy", checkedAt, message: { key: "authHealthy" } };
+        const accountId = response.data.currentUser.id;
+        return {
+          status: "healthy",
+          checkedAt,
+          message: { key: "authHealthy" },
+          ...(typeof accountId === "string" && /^\d{1,20}$/.test(accountId) ? { accountId } : {}),
+        };
       }
       return {
         status: "invalid_credentials",

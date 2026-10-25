@@ -20,6 +20,7 @@ describe("CLI watch-source priority", () => {
       "fortnite",
       "nopixel",
       "drops",
+      "watch_streaks",
       "idle_watchlist",
     ]);
     expect(settings.platform.kick.watchSourcePriority).toEqual(["idle_watchlist", "drops"]);
@@ -34,7 +35,7 @@ describe("CLI watch-source priority", () => {
   it("migrates legacy Idle-first intent and lets explicit priority win", () => {
     expect(
       parseCliSettings({ idleWatchlistFallbackOnly: false }).platform.twitch.watchSourcePriority,
-    ).toEqual(["idle_watchlist", "drops", "nopixel", "fortnite"]);
+    ).toEqual(["watch_streaks", "idle_watchlist", "drops", "nopixel", "fortnite"]);
     expect(
       parseCliSettings({
         idleWatchlistFallbackOnly: false,
@@ -50,6 +51,7 @@ describe("CLI watch-source priority", () => {
       "drops",
       "nopixel",
       "fortnite",
+      "watch_streaks",
       "idle_watchlist",
     ]);
     expect(config.settings.platform.kick.watchSourcePriority).toEqual(["drops", "idle_watchlist"]);

@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "Reclamó una carta $1 del desafío $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch confirmó la racha de visualización en $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "La racha de visualización en $1 no se confirmó a tiempo; se pasó al siguiente"
+  },
   "activityAuthHealthChanged": {
     "message": "La autenticación de $1 cambió de $2 a $3."
   },
@@ -1955,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Rachas de visualización"
+  },
   "gamesStarHint": {
     "message": "★ pone un juego por encima de la estrategia"
   },
@@ -2176,6 +2185,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "se ve el primer canal en directo"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Las filas de racha se atienden en el lugar de Rachas de visualización dentro del orden de visualización, cada una hasta que Twitch confirme la racha o pasen $1 minutos."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Mantener racha de visualización en $1"
+  },
+  "watchStreakPending": {
+    "message": "Racha pendiente"
+  },
+  "watchStreakWatching": {
+    "message": "Manteniendo racha"
+  },
+  "watchStreakCredited": {
+    "message": "Racha confirmada"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "No confirmada"
+  },
+  "watchStreakUnavailable": {
+    "message": "Racha no disponible"
   },
   "gamesModeAllDescription": {
     "message": "Se farmean todos los juegos con drops activos, salvo los bloqueados."

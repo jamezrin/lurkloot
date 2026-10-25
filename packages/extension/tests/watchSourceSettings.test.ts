@@ -19,7 +19,7 @@ import {
   normalizeWatchSourcePriority,
 } from "@lurkloot/shared/watchSources";
 
-const twitchDefaults = ["drops", "nopixel", "fortnite", "idle_watchlist"];
+const twitchDefaults = ["drops", "nopixel", "fortnite", "watch_streaks", "idle_watchlist"];
 const kickDefaults = ["drops", "idle_watchlist"];
 
 describe("watch-source settings", () => {
@@ -28,6 +28,7 @@ describe("watch-source settings", () => {
       "nopixel",
       "drops",
       "fortnite",
+      "watch_streaks",
       "idle_watchlist",
     ]);
     for (const value of [undefined, null, {}, "drops", 42, ["not_a_source"]]) {
@@ -52,7 +53,9 @@ describe("watch-source settings", () => {
         },
       } as never).platform,
     ).toMatchObject({
-      twitch: { watchSourcePriority: ["fortnite", "idle_watchlist", "drops", "nopixel"] },
+      twitch: {
+        watchSourcePriority: ["fortnite", "watch_streaks", "idle_watchlist", "drops", "nopixel"],
+      },
       kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
     });
   });
@@ -63,6 +66,7 @@ describe("watch-source settings", () => {
     expect(migration.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     const settings = mergeSettings(migration.settings as never);
     expect(settings.platform.twitch).toHaveProperty("watchSourcePriority", [
+      "watch_streaks",
       "idle_watchlist",
       "drops",
       "nopixel",
@@ -90,7 +94,7 @@ describe("watch-source settings", () => {
       } as never);
       expect(settings.platform.twitch.watchSourcePriority).toEqual(
         Array.isArray(value) && value.length
-          ? ["drops", "fortnite", "nopixel", "idle_watchlist"]
+          ? ["drops", "fortnite", "nopixel", "watch_streaks", "idle_watchlist"]
           : twitchDefaults,
       );
       expect(settings.platform.kick.watchSourcePriority).toEqual(kickDefaults);
@@ -111,6 +115,7 @@ describe("watch-source settings", () => {
       "fortnite",
       "drops",
       "nopixel",
+      "watch_streaks",
       "idle_watchlist",
     ]);
   });
@@ -118,7 +123,9 @@ describe("watch-source settings", () => {
   it("preserves independent orders through save, restart and export/import", () => {
     const changed = applySettingsPatch(DEFAULT_SETTINGS, {
       platform: {
-        twitch: { watchSourcePriority: ["nopixel", "idle_watchlist", "drops", "fortnite"] },
+        twitch: {
+          watchSourcePriority: ["nopixel", "watch_streaks", "idle_watchlist", "drops", "fortnite"],
+        },
         kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
       },
     });
@@ -127,6 +134,7 @@ describe("watch-source settings", () => {
     );
     expect(restarted.platform.twitch.watchSourcePriority).toEqual([
       "nopixel",
+      "watch_streaks",
       "idle_watchlist",
       "drops",
       "fortnite",

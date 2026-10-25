@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "已领取 $2 挑战的 $1 卡片"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch 已确认 $1 的观看连续记录"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "$1 的观看连续记录未及时确认，已跳过"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 的身份验证状态从 $2 变为 $3。"
   },
@@ -1955,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "观看连续记录"
+  },
   "gamesStarHint": {
     "message": "★ 让游戏排在策略之上"
   },
@@ -2176,6 +2185,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "观看第一个正在直播的频道"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "连续记录行会在观看顺序中的“观看连续记录”位置处理，每行直到 Twitch 确认连续记录或过去 $1 分钟。"
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "维持 $1 的观看连续记录"
+  },
+  "watchStreakPending": {
+    "message": "等待连续记录"
+  },
+  "watchStreakWatching": {
+    "message": "保持连续记录"
+  },
+  "watchStreakCredited": {
+    "message": "连续记录已确认"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "未确认"
+  },
+  "watchStreakUnavailable": {
+    "message": "连续记录不可用"
   },
   "gamesModeAllDescription": {
     "message": "所有有进行中掉宝的游戏都会挂机，已屏蔽的除外。"

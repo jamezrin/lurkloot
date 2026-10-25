@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "کارت $1 از چالش $2 دریافت شد"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch تداوم تماشا را در $1 تأیید کرد"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "تداوم تماشا در $1 به‌موقع تأیید نشد؛ ادامه داده شد"
+  },
   "activityAuthHealthChanged": {
     "message": "وضعیت احراز هویت $1 از $2 به $3 تغییر کرد."
   },
@@ -1955,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "تداوم‌های تماشا"
+  },
   "gamesStarHint": {
     "message": "★ یک بازی را بالاتر از راهبرد قرار می‌دهد"
   },
@@ -2176,6 +2185,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "اولین کانال زنده تماشا می‌شود"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "ردیف‌های تداوم در جایگاه «تداوم‌های تماشا» در ترتیب تماشا می‌شوند؛ هرکدام تا وقتی Twitch تداوم را تأیید کند یا $1 دقیقه بگذرد."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "حفظ تداوم تماشا در $1"
+  },
+  "watchStreakPending": {
+    "message": "تداوم در انتظار"
+  },
+  "watchStreakWatching": {
+    "message": "حفظ تداوم"
+  },
+  "watchStreakCredited": {
+    "message": "تداوم تأیید شد"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "تأیید نشد"
+  },
+  "watchStreakUnavailable": {
+    "message": "تداوم در دسترس نیست"
   },
   "gamesModeAllDescription": {
     "message": "همه بازی‌هایی که دراپ زنده دارند فارم می‌شوند، به‌جز موارد مسدودشده."

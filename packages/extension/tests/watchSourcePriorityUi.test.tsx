@@ -81,19 +81,43 @@ function mount(platform: Platform, saveDelay?: Promise<void>) {
 describe("watch-source priority controls", () => {
   it("reorders disabled providers and resets Twitch with a platform-specific scheduler tick", () => {
     const view = mount("twitch");
-    expect(view.order()).toEqual(["drops", "nopixel", "fortnite", "idle_watchlist"]);
+    expect(view.order()).toEqual([
+      "drops",
+      "nopixel",
+      "fortnite",
+      "watch_streaks",
+      "idle_watchlist",
+    ]);
     expect(view.document.querySelector("ol")).toBeTruthy();
     view.click("Move NoPixelV up");
-    expect(view.order()).toEqual(["nopixel", "drops", "fortnite", "idle_watchlist"]);
+    expect(view.order()).toEqual([
+      "nopixel",
+      "drops",
+      "fortnite",
+      "watch_streaks",
+      "idle_watchlist",
+    ]);
     expect(view.saved.at(-1)).toMatchObject({
       patch: { platform: { twitch: { watchSourcePriority: view.order() } } },
       options: { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     });
     view.click("Move NoPixelV down");
-    expect(view.order()).toEqual(["drops", "nopixel", "fortnite", "idle_watchlist"]);
+    expect(view.order()).toEqual([
+      "drops",
+      "nopixel",
+      "fortnite",
+      "watch_streaks",
+      "idle_watchlist",
+    ]);
     view.click("Move Idle Watchlist up");
     view.click("Reset priority");
-    expect(view.order()).toEqual(["drops", "nopixel", "fortnite", "idle_watchlist"]);
+    expect(view.order()).toEqual([
+      "drops",
+      "nopixel",
+      "fortnite",
+      "watch_streaks",
+      "idle_watchlist",
+    ]);
     expect(
       view.document
         .querySelectorAll("li")[0]

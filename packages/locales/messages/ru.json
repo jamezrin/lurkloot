@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "Получена карта $1 за испытание $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch подтвердил серию просмотров на $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Серия просмотров на $1 не подтверждена вовремя; переход к следующему"
+  },
   "activityAuthHealthChanged": {
     "message": "Состояние аутентификации $1 изменилось с $2 на $3."
   },
@@ -1955,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Серии просмотра"
+  },
   "gamesStarHint": {
     "message": "★ ставит игру выше стратегии"
   },
@@ -2176,6 +2185,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "смотрится первый канал в эфире"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Строки с серией обрабатываются на месте «Серии просмотра» в порядке просмотра, каждая до подтверждения серии Twitch или $1 минут."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Поддерживать серию просмотров на $1"
+  },
+  "watchStreakPending": {
+    "message": "Серия ожидается"
+  },
+  "watchStreakWatching": {
+    "message": "Серия продолжается"
+  },
+  "watchStreakCredited": {
+    "message": "Серия подтверждена"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Не подтверждена"
+  },
+  "watchStreakUnavailable": {
+    "message": "Серия недоступна"
   },
   "gamesModeAllDescription": {
     "message": "Фармятся все игры с активными дропсами, кроме заблокированных."

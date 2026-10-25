@@ -3,6 +3,7 @@ import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { IDLE_WATCHLIST_LIMIT } from "@lurkloot/shared/settings";
+import type { WatchSourceId } from "@lurkloot/shared/models";
 import { I18nContext } from "../../popup-ui/src/context";
 import { IdleWatchlistPanel, channelNameFromInput } from "../../popup-ui/src/idleWatchlist";
 import type { StreamerItem, TFunction } from "../../popup-ui/src/types";
@@ -95,5 +96,114 @@ describe("idle watchlist view", () => {
     expect(container.querySelector("[data-watchlist-count]")?.textContent).toBe(
       `${IDLE_WATCHLIST_LIMIT}/${IDLE_WATCHLIST_LIMIT}`,
     );
+  });
+});
+
+describe("idle watchlist watch-streak controls (#897)", () => {
+  function mountStreaks(
+    streaks: Parameters<typeof IdleWatchlistPanel>[0]["streaks"],
+    platform: "twitch" | "kick" = "twitch",
+    watchOrder?: WatchSourceId[],
+  ) {
+    document.body.innerHTML = "<div id=app></div>";
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const container = document.getElementById("app")!;
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <I18nContext.Provider value={{ t, dir: "ltr", locale: "en" }}>
+          <IdleWatchlistPanel
+            platform={platform}
+            streamers={[streamer("alpha"), streamer("beta")]}
+            onChange={vi.fn()}
+            streaks={streaks}
+            watchOrder={watchOrder}
+            onChangeOrder={watchOrder ? vi.fn() : undefined}
+          />
+        </I18nContext.Provider>,
+      );
+    });
+    return container;
+  }
+
+  it("offers a labelled switch per row and marks enabled rows with their status", () => {
+    const onToggle = vi.fn();
+    const container = mountStreaks({
+      enabled: new Set(["beta"]),
+      statuses: { beta: "credited" },
+      onToggle,
+    });
+    const switches = [
+      ...container.querySelectorAll<HTMLButtonElement>("[data-watchlist-streak-toggle]"),
+    ];
+    expect(switches.map((button) => button.getAttribute("role"))).toEqual(["switch", "switch"]);
+    expect(switches.map((button) => button.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "true",
+    ]);
+    expect(switches[0]!.getAttribute("aria-label")).toBe("idleWatchlistStreakToggle:alpha");
+    expect(
+      [...container.querySelectorAll("[data-watchlist-streak-status]")].map((node) =>
+        node.getAttribute("data-watchlist-streak-status"),
+      ),
+    ).toEqual(["credited"]);
+    expect(container.querySelector("[data-watchlist-streak-hint]")).not.toBeNull();
+
+    act(() => switches[0]!.click());
+    act(() => switches[1]!.click());
+    expect(onToggle.mock.calls).toEqual([
+      ["alpha", true],
+      ["beta", false],
+    ]);
+  });
+
+  it("shows pending for an enabled row no tick has reported yet", () => {
+    const container = mountStreaks({
+      enabled: new Set(["alpha"]),
+      statuses: {},
+      onToggle: vi.fn(),
+    });
+    expect(
+      container
+        .querySelector("[data-watchlist-streak-status]")
+        ?.getAttribute("data-watchlist-streak-status"),
+    ).toBe("pending");
+  });
+
+  it("offers no streak controls without streak support", () => {
+    const container = mountStreaks(undefined, "kick");
+    expect(container.querySelector("[data-watchlist-streak-toggle]")).toBeNull();
+    expect(container.querySelector("[data-watchlist-streak-hint]")).toBeNull();
+  });
+  it("shows the Watch streaks place beside the watchlist's once a row keeps a streak", () => {
+    const order: WatchSourceId[] = [
+      "watch_streaks",
+      "drops",
+      "nopixel",
+      "fortnite",
+      "idle_watchlist",
+    ];
+    const places = (container: HTMLElement) =>
+      [...container.querySelectorAll("[data-watch-source-place]")].map((place) => [
+        place.getAttribute("data-watch-source-place"),
+        place.querySelector("[data-watch-source-place-name]")?.textContent ?? null,
+      ]);
+    expect(
+      places(
+        mountStreaks({ enabled: new Set(), statuses: {}, onToggle: vi.fn() }, "twitch", order),
+      ),
+    ).toEqual([["idle_watchlist", null]]);
+    expect(
+      places(
+        mountStreaks(
+          { enabled: new Set(["beta"]), statuses: {}, onToggle: vi.fn() },
+          "twitch",
+          order,
+        ),
+      ),
+    ).toEqual([
+      ["idle_watchlist", "watchSourceIdleWatchlist"],
+      ["watch_streaks", "watchSourceWatchStreaks"],
+    ]);
   });
 });

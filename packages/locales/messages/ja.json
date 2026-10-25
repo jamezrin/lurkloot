@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "$1 カードを $2 チャレンジで受け取りました"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitchが $1 の連続視聴を確認しました"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "$1 の連続視聴が時間内に確認されなかったため、次に進みました"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 の認証が $2 から $3 に変わりました。"
   },
@@ -1955,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "連続視聴"
+  },
   "gamesStarHint": {
     "message": "★ でゲームを戦略より上位に並べます"
   },
@@ -2176,6 +2185,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "最初のライブチャンネルが視聴されます"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "連続視聴の行は視聴順序の「連続視聴」の位置で視聴され、各行はTwitchが連続視聴を確認するか$1分経過するまで続きます。"
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "$1 の連続視聴を維持"
+  },
+  "watchStreakPending": {
+    "message": "連続視聴待ち"
+  },
+  "watchStreakWatching": {
+    "message": "連続視聴中"
+  },
+  "watchStreakCredited": {
+    "message": "連続視聴を確認"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "未確認"
+  },
+  "watchStreakUnavailable": {
+    "message": "連続視聴不可"
   },
   "gamesModeAllDescription": {
     "message": "ライブドロップのあるゲームはブロック以外すべてファームします。"

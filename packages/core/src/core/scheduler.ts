@@ -73,6 +73,17 @@ import { pausedForManualWatch } from "./manualWatch";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
 import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "./discoverySnapshot";
 import { errorMessage } from "@lurkloot/shared/errors";
+import { watchStreakChannelsFor } from "@lurkloot/shared/settings";
+import {
+  accrueWatchStreak,
+  NO_WATCH_STREAKS,
+  pruneWatchStreaks,
+  watchStreakPlan,
+  watchStreakRowStatuses,
+  watchStreakAttemptKey,
+  watchStreakStateFor,
+  type IdleWatchlistStreakPlan,
+} from "./watchStreaks";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -268,6 +279,10 @@ export async function chooseCampaignDecision(
   // skipped keeps it, since rotating to nothing is worse than a slow channel.
   skipChannels?: ReadonlySet<string>,
   includeIdleWatchlist = true,
+  // Maintained watch-streak rows (#897). Every Idle choice reads the same plan.
+  streaks: IdleWatchlistStreakPlan = NO_WATCH_STREAKS,
+  // The caller already tried the watchlist sources ordered ahead of Drops.
+  watchlistAheadChecked = false,
 ): Promise<WatchDecision> {
   const sorted = rankCampaigns(
     campaigns.filter((campaign) => isEligible(campaign, settings)),
@@ -310,18 +325,22 @@ export async function chooseCampaignDecision(
     return decision;
   };
 
-  const sourceOrder = normalizeWatchSourcePriority(
+  const watchlistSources = includeIdleWatchlist
+    ? watchlistSourcesAroundDrops(platform, settings)
+    : { before: [], after: [] };
+  const countWatchlistCheck = () => {
+    candidatesChecked += 1;
+  };
+  const ahead = await chooseWatchlistSourcesDecision(
+    watchlistAheadChecked ? [] : watchlistSources.before,
     platform,
-    settings.platform[platform].watchSourcePriority,
+    settings,
+    adapter,
+    streaks,
+    signal,
+    countWatchlistCheck,
   );
-  const idleFirst =
-    includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
-  if (idleFirst) {
-    const idle = await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
-      candidatesChecked += 1;
-    });
-    if (idle) return finish(idle);
-  }
+  if (ahead) return finish(ahead);
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign, settings);
@@ -407,6 +426,22 @@ export async function chooseCampaignDecision(
     }
   }
 
+  // Only subscription campaigns are left: the plain watchlist below Drops stays
+  // suppressed, but an opted-in watch streak still gets its turn.
+  const fallback = await chooseWatchlistSourcesDecision(
+    subscriptionOnly
+      ? watchlistSources.after.filter((source) => source === "watch_streaks")
+      : watchlistSources.after,
+    platform,
+    settings,
+    adapter,
+    streaks,
+    signal,
+    countWatchlistCheck,
+  );
+
+  if (fallback) return finish(fallback);
+
   if (subscriptionOnly) {
     return finish({
       platform,
@@ -415,15 +450,6 @@ export async function chooseCampaignDecision(
       reasonCode: "campaign_ineligible",
     });
   }
-
-  const fallback =
-    !includeIdleWatchlist || idleFirst
-      ? undefined
-      : await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
-          candidatesChecked += 1;
-        });
-
-  if (fallback) return finish(fallback);
 
   return finish({
     platform,
@@ -437,30 +463,153 @@ async function chooseIdleWatchlistDecision(
   platform: Platform,
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "selectCandidateChannel" | "checkChannel">,
+  streaks: IdleWatchlistStreakPlan,
   signal?: AbortSignal,
   onCheck?: () => void,
 ): Promise<WatchDecision | undefined> {
-  const fallbackCandidates = settings.platform[platform].idleWatchlistChannels
-    .map((username) => username.trim().toLowerCase())
-    .filter(Boolean)
-    .map((username) => fallbackChannel(platform, username));
-  const fallback = await firstValidCandidate(
-    fallbackCandidates,
-    undefined,
-    adapter,
-    signal,
-    onCheck,
-  );
-
-  if (fallback) {
-    return {
-      platform,
-      action: "fallback",
-      channel: fallback,
-      reason: "Idle Watchlist channel selected by watch-source priority",
-      reasonCode: "idle_watchlist_selected",
-    };
+  const channels = idleWatchlistUsernames(platform, settings);
+  if (streaks.prioritized.length === 0) {
+    const fallback = await firstValidCandidate(
+      channels.map((username) => fallbackChannel(platform, username)),
+      undefined,
+      adapter,
+      signal,
+      onCheck,
+    );
+    if (!fallback) return undefined;
+    return idleWatchlistDecision(platform, fallback, false);
   }
+  // Rows in the user's order. A maintained row whose attempt for this broadcast
+  // has ended is skipped outright: it never falls back to ordinary watching for
+  // the same broadcast, so the toggle cannot keep a channel on top all day. One
+  // whose attempt is still running is watched here too when the Watch streaks
+  // source sits below this one.
+  const prioritized = new Set(streaks.prioritized);
+  for (const username of channels) {
+    const channel = await liveIdleWatchlistRow(platform, username, adapter, signal, onCheck);
+    if (!channel) continue;
+    const verdict = prioritized.has(username) ? streaks.verdict(channel) : "unavailable";
+    if (verdict === "credited" || verdict === "not_confirmed") continue;
+    return idleWatchlistDecision(platform, channel, verdict === "pending");
+  }
+  return undefined;
+}
+
+// The Watch streaks source (#897): the first live maintained row, in the user's
+// order, whose attempt for this broadcast is still running.
+async function chooseWatchStreakDecision(
+  platform: Platform,
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "checkChannel">,
+  streaks: IdleWatchlistStreakPlan,
+  signal?: AbortSignal,
+  onCheck?: () => void,
+): Promise<WatchDecision | undefined> {
+  const prioritized = new Set(streaks.prioritized);
+  for (const username of idleWatchlistUsernames(platform, settings)) {
+    if (!prioritized.has(username)) continue;
+    const channel = await liveIdleWatchlistRow(platform, username, adapter, signal, onCheck);
+    if (channel && streaks.verdict(channel) === "pending")
+      return idleWatchlistDecision(platform, channel, true);
+  }
+  return undefined;
+}
+
+function idleWatchlistUsernames(platform: Platform, settings: EngineSettings): string[] {
+  return settings.platform[platform].idleWatchlistChannels
+    .map((username) => username.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+async function liveIdleWatchlistRow(
+  platform: Platform,
+  username: string,
+  adapter: Pick<PlatformAdapter, "checkChannel">,
+  signal?: AbortSignal,
+  onCheck?: () => void,
+): Promise<ChannelCandidate | undefined> {
+  signal?.throwIfAborted();
+  onCheck?.();
+  const candidate = fallbackChannel(platform, username);
+  const check = await adapter.checkChannel(candidate, { signal });
+  if (!check.live || !check.categoryMatches || check.campaignMatches === false) return undefined;
+  return channelFromCheck(candidate, check);
+}
+
+function idleWatchlistDecision(
+  platform: Platform,
+  channel: ChannelCandidate,
+  streak: boolean,
+): WatchDecision {
+  return {
+    platform,
+    action: "fallback",
+    channel,
+    reason: streak
+      ? "Idle Watchlist channel selected to maintain its watch streak"
+      : "Idle Watchlist channel selected by watch-source priority",
+    reasonCode: "idle_watchlist_selected",
+  };
+}
+
+// The sources that pick from the Idle Watchlist rows, split around Drops in the
+// user's watch-source order. Selection paths that resolve Drops themselves try
+// the first group ahead of it and the second after it.
+type WatchlistSource = "watch_streaks" | "idle_watchlist";
+
+function watchlistSourcesAroundDrops(
+  platform: Platform,
+  settings: EngineSettings,
+): { before: WatchlistSource[]; after: WatchlistSource[] } {
+  const order = normalizeWatchSourcePriority(
+    platform,
+    settings.platform[platform].watchSourcePriority,
+  );
+  const drops = order.indexOf("drops");
+  const watchlist = (sources: WatchSourceId[]) =>
+    sources.filter(
+      (source): source is WatchlistSource =>
+        source === "watch_streaks" || source === "idle_watchlist",
+    );
+  return { before: watchlist(order.slice(0, drops)), after: watchlist(order.slice(drops + 1)) };
+}
+
+function chooseWatchlistSourceDecision(
+  source: WatchlistSource,
+  platform: Platform,
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "selectCandidateChannel" | "checkChannel">,
+  streaks: IdleWatchlistStreakPlan,
+  signal?: AbortSignal,
+  onCheck?: () => void,
+): Promise<WatchDecision | undefined> {
+  return source === "watch_streaks"
+    ? chooseWatchStreakDecision(platform, settings, adapter, streaks, signal, onCheck)
+    : chooseIdleWatchlistDecision(platform, settings, adapter, streaks, signal, onCheck);
+}
+
+async function chooseWatchlistSourcesDecision(
+  sources: readonly WatchlistSource[],
+  platform: Platform,
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "selectCandidateChannel" | "checkChannel">,
+  streaks: IdleWatchlistStreakPlan,
+  signal?: AbortSignal,
+  onCheck?: () => void,
+): Promise<WatchDecision | undefined> {
+  for (const source of sources) {
+    const decision = await chooseWatchlistSourceDecision(
+      source,
+      platform,
+      settings,
+      adapter,
+      streaks,
+      signal,
+      onCheck,
+    );
+    if (decision) return decision;
+  }
+  return undefined;
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -771,6 +920,7 @@ async function selectWatchTarget(
   >,
   signal?: AbortSignal,
   includeIdleWatchlist = true,
+  streaks: IdleWatchlistStreakPlan = NO_WATCH_STREAKS,
 ): Promise<SnapshotSelectionResult> {
   if (previous.supplementalWatch || (!includeIdleWatchlist && !previous.campaignId))
     previous = {
@@ -780,20 +930,23 @@ async function selectWatchTarget(
       campaignId: undefined,
       rewardId: undefined,
     };
-  const sourceOrder = normalizeWatchSourcePriority(
-    platform,
-    settings.platform[platform].watchSourcePriority,
-  );
-  // A retained drop is an optimization within its source. An Idle-first policy
-  // must check the watchlist before taking that optimization.
-  const idleAheadOfDrops =
-    includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
+  // A retained drop is an optimization within its source. A watchlist source
+  // ordered ahead of Drops must be checked before taking that optimization.
+  const watchlistAhead = includeIdleWatchlist
+    ? watchlistSourcesAroundDrops(platform, settings).before
+    : [];
   let candidatesChecked = 0;
-  const preferredIdle = idleAheadOfDrops
-    ? await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
-        candidatesChecked += 1;
-      })
-    : undefined;
+  const preferredIdle = await chooseWatchlistSourcesDecision(
+    watchlistAhead,
+    platform,
+    settings,
+    adapter,
+    streaks,
+    signal,
+    () => {
+      candidatesChecked += 1;
+    },
+  );
   const currentWatch = preferredIdle
     ? undefined
     : await evaluatePreferredCurrentWatch(previous, campaigns, settings, adapter, signal);
@@ -823,7 +976,9 @@ async function selectWatchTarget(
         candidatesChecked += metrics.candidatesChecked;
       },
       stalled,
-      includeIdleWatchlist && !idleAheadOfDrops,
+      includeIdleWatchlist,
+      streaks,
+      true,
     );
     retention =
       currentWatch?.keep
@@ -865,13 +1020,14 @@ async function* selectWatchSources(
   previous: WatchSession,
   settings: EngineSettings,
   supportsTabless: boolean,
-  resolveOrdinary: (source: "drops" | "idle_watchlist") => Promise<SnapshotSelectionResult>,
+  resolveOrdinary: (source: "drops" | WatchlistSource) => Promise<SnapshotSelectionResult>,
   // Supplemental sources are only consulted when the host offers them; each one
   // is resolved through a selectSupplementalTarget effect.
   supplementalState: SchedulerState | undefined,
   emit: EventEmitter,
   signal?: AbortSignal,
   dropsUndecided = false,
+  streaks: IdleWatchlistStreakPlan = NO_WATCH_STREAKS,
 ): AsyncGenerator<
   SchedulerEffect,
   { selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget },
@@ -885,7 +1041,14 @@ async function* selectWatchSources(
   const currentSource: string | undefined =
     previous.status !== "watching"
       ? undefined
-      : (previous.supplementalWatch?.id ?? (previous.campaignId ? "drops" : "idle_watchlist"));
+      : (previous.supplementalWatch?.id
+        ?? (previous.campaignId
+          ? "drops"
+          : previous.channel
+              && streaks.prioritized.includes(previous.channel.username.toLowerCase())
+              && streaks.verdict(previous.channel) === "pending"
+            ? "watch_streaks"
+            : "idle_watchlist"));
   let pastDrops = false;
   for (const source of normalizeWatchSourcePriority(
     platform,
@@ -894,16 +1057,22 @@ async function* selectWatchSources(
     signal?.throwIfAborted();
     if (pastDrops && dropsUndecided && source !== currentSource) continue;
     if (source === "drops") pastDrops = true;
-    if (source === "drops" || source === "idle_watchlist") {
+    if (source === "drops" || source === "idle_watchlist" || source === "watch_streaks") {
       try {
-        ordinary = await resolveOrdinary(source);
-        const ordinarySource =
-          ordinary.decision.action === "watch"
+        const resolved = await resolveOrdinary(source);
+        // A watchlist source resolves to a fallback only for a row it chose.
+        const resolvedSource =
+          resolved.decision.action === "watch"
             ? "drops"
-            : ordinary.decision.action === "fallback"
-              ? "idle_watchlist"
+            : resolved.decision.action === "fallback"
+              ? source === "watch_streaks"
+                ? "watch_streaks"
+                : "idle_watchlist"
               : undefined;
-        if (ordinarySource === source) return { selection: ordinary };
+        if (resolvedSource === source) return { selection: resolved };
+        // An empty Watch streaks source does not explain the idle state; the
+        // other ordinary sources do.
+        if (source !== "watch_streaks" || !ordinary) ordinary = resolved;
       } catch (error) {
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
@@ -982,6 +1151,8 @@ export interface SnapshotSelectionInput {
   signal?: AbortSignal;
   previousBackoff?: CampaignSearchBackoff;
   bypassBackoff?: boolean;
+  // The same watch-streak plan the tick would build from this state (#897).
+  watchStreaks?: IdleWatchlistStreakPlan;
 }
 
 function stableHash(value: unknown): string {
@@ -1073,6 +1244,7 @@ export async function selectWatchTargetFromSnapshot({
   signal,
   previousBackoff,
   bypassBackoff = false,
+  watchStreaks = NO_WATCH_STREAKS,
 }: SnapshotSelectionInput): Promise<SnapshotSelectionResult> {
   const campaigns = preserveClaimedRewards(
     snapshot.campaigns.map(({ campaign }) => campaign),
@@ -1108,6 +1280,8 @@ export async function selectWatchTargetFromSnapshot({
     settings,
     selectionAdapterFromDiscoverySnapshot(snapshot, previous),
     signal,
+    true,
+    watchStreaks,
   );
   if (mayReuseBackoff) {
     return { ...result, backoff: previousBackoff, backoffSkippedMs: retryAt - Date.now() };
@@ -1284,6 +1458,9 @@ export interface PlatformTickCapabilities {
   watchTabs: boolean;
   claimChallenges: boolean;
   claimChannelPoints: boolean;
+  // The host can observe a watch-streak payout (#897). Without it maintained
+  // Idle Watchlist rows are skipped as unavailable.
+  observeWatchStreaks?: boolean;
 }
 
 export interface SchedulerTickDiscovery {
@@ -1516,6 +1693,10 @@ export async function* decidePlatformTick(
   // out, disabled) must still be able to recover from an open breaker.
   // Overwritten below as the tick learns what actually happened.
   let observation: CriticalHealthObservation = neutralObservation();
+  // Whether this tick observed the watch for streak accrual. A tick that took
+  // any other exit drops the observation stamp, so the time it skipped (a
+  // pause, a backoff, signed out) never counts as watching on the next one.
+  let streakObserved = false;
   // Runs in the `finally` below, so every exit — early return, thrown error, or
   // normal completion — reaches the detector exactly once.
   const applyObservation = (): void => {
@@ -1847,6 +2028,45 @@ export async function* decidePlatformTick(
       }
     }
 
+    // Watch streaks (#897): what the last tick watched accrues first, so the
+    // selection below already sees an attempt whose budget just ran out.
+    const observeWatchStreaks = capabilities.observeWatchStreaks === true;
+    const maintainedStreaks = watchStreakChannelsFor(settings, platform);
+    if (maintainedStreaks.length > 0 || tick.state.watchStreaks?.[platform]) {
+      const health = tick.state.authHealth[platform];
+      const before = watchStreakStateFor(tick.state, platform);
+      const streaks = accrueWatchStreak(before, {
+        session: previous,
+        accountId: health.status === "healthy" ? health.accountId : undefined,
+        maintained: new Set(observeWatchStreaks ? maintainedStreaks : []),
+        healthy: isSessionHealthy(previous),
+        settling:
+          isWithinPlaybackGrace(previous)
+          || (previous.watchMode === "tabless" && !previous.lastHeartbeatAt),
+        paused: false,
+        now: Date.now(),
+      });
+      for (const attempt of streaks.attempts) {
+        if (attempt.outcome !== "not_confirmed") continue;
+        const key = watchStreakAttemptKey(attempt);
+        const earlier = before.attempts.find((entry) => watchStreakAttemptKey(entry) === key);
+        if (earlier && earlier.outcome !== "pending") continue;
+        emit({
+          category: "activity",
+          code: "watch_streak_ended",
+          level: "info",
+          platform,
+          data: { channel: attempt.username, outcome: "not_confirmed" },
+        });
+      }
+      tick.state.watchStreaks = {
+        ...tick.state.watchStreaks,
+        [platform]: pruneWatchStreaks(streaks, Date.now()),
+      };
+      streakObserved = true;
+    }
+    const streakPlan = watchStreakPlan(platform, settings, tick.state, observeWatchStreaks);
+
     const selectionStartedAt = Date.now();
     const retentionCampaigns = discoveryFailed
       ? [
@@ -1886,21 +2106,32 @@ export async function* decidePlatformTick(
               selectionView,
               signal,
               false,
+              streakPlan,
             ))
           );
         }
 
         // Keep the established subscription-only fallback suppression when
         // Drops precedes Idle. An explicit Idle-first order remains eligible.
+        // An opted-in watch streak is never suppressed.
         const idleSuppressed =
-          sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist")
+          source === "idle_watchlist"
+          && sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist")
           && onlySubscriptionCampaigns(campaigns, settings);
         let candidatesChecked = 0;
         const idle = idleSuppressed
           ? undefined
-          : await chooseIdleWatchlistDecision(platform, settings, selectionView, signal, () => {
-              candidatesChecked += 1;
-            });
+          : await chooseWatchlistSourceDecision(
+              source,
+              platform,
+              settings,
+              selectionView,
+              streakPlan,
+              signal,
+              () => {
+                candidatesChecked += 1;
+              },
+            );
         let decision: WatchDecision = idle ?? {
           platform,
           action: "idle",
@@ -1929,6 +2160,7 @@ export async function* decidePlatformTick(
       emit,
       signal,
       discoveryDiscarded,
+      streakPlan,
     );
     let { decision } = selection;
     if (discoveryDiscarded && decision.action === "idle") {
@@ -1986,6 +2218,37 @@ export async function* decidePlatformTick(
         "debug",
         `Switching watch target (${shouldKeep.reason}); ${signalName} ${signalState}`,
       );
+    }
+    if (streakPlan.maintained.length > 0) {
+      const live = new Map<string, ChannelCandidate>();
+      for (const username of streakPlan.maintained) {
+        const candidate = fallbackChannel(platform, username);
+        const check = await selectionView.checkChannel(candidate, { signal });
+        if (check.live && check.categoryMatches)
+          live.set(username, channelFromCheck(candidate, check));
+      }
+      const health = tick.state.authHealth[platform];
+      const streaks = watchStreakStateFor(tick.state, platform);
+      tick.state.watchStreaks = {
+        ...tick.state.watchStreaks,
+        [platform]: {
+          ...streaks,
+          observerAvailable: observeWatchStreaks,
+          rows: watchStreakRowStatuses(
+            streakPlan,
+            streaks,
+            health.status === "healthy" ? health.accountId : undefined,
+            observeWatchStreaks,
+            live,
+            decision.action === "idle" ? undefined : decision.channel,
+          ),
+        },
+      };
+    } else if (tick.state.watchStreaks?.[platform]?.rows) {
+      tick.state.watchStreaks = {
+        ...tick.state.watchStreaks,
+        [platform]: { ...watchStreakStateFor(tick.state, platform), rows: undefined },
+      };
     }
     const decisionChanged =
       previous.campaignId !== decision.campaign?.id
@@ -2276,6 +2539,12 @@ export async function* decidePlatformTick(
       `Tick failed from status "${previous.status}" (error #${errorChecks}); ${failureDetail}`,
     );
   } finally {
+    if (!streakObserved && tick.state.watchStreaks?.[platform]?.observing) {
+      tick.state.watchStreaks = {
+        ...tick.state.watchStreaks,
+        [platform]: { ...watchStreakStateFor(tick.state, platform), observing: undefined },
+      };
+    }
     applyObservation();
   }
 }

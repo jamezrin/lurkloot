@@ -9,7 +9,9 @@ import {
 import { mergeSettings } from "@lurkloot/shared/settings";
 
 const defaultSourceSettings = {
-  twitch: { watchSourcePriority: ["drops", "nopixel", "fortnite", "idle_watchlist"] },
+  twitch: {
+    watchSourcePriority: ["drops", "nopixel", "fortnite", "watch_streaks", "idle_watchlist"],
+  },
   kick: { watchSourcePriority: ["drops", "idle_watchlist"] },
 };
 
@@ -129,7 +131,7 @@ describe("migration 1: legacy aliases", () => {
       platform: {
         twitch: {
           idleWatchlistChannels: ["Legacy"],
-          watchSourcePriority: ["idle_watchlist", "drops", "nopixel", "fortnite"],
+          watchSourcePriority: ["watch_streaks", "idle_watchlist", "drops", "nopixel", "fortnite"],
         },
         kick: {
           idleWatchlistChannels: ["KickLegacy"],

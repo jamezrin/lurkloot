@@ -130,12 +130,14 @@ export class FakeDiscoverySignalController implements DiscoverySignalController 
 }
 
 export class FakeChannelPointsPushController {
-  subscribed = false;
+  claimsSubscribed = false;
   starts = 0;
   stops = 0;
   startBarrier?: Promise<void>;
   startError?: Error;
   private onClaimAvailable?: (notice: TwitchChannelPointsClaimNotice) => void;
+  // The watch-streak payout owner from the latest start (#897).
+  onWatchStreakEarned?: TwitchHermesOwners["onWatchStreakEarned"];
   // The watched channel's playback owner from the latest start (#759).
   playback?: TwitchHermesOwners["playback"];
   // The watching provider's broadcast owner from the latest start (#757).
@@ -154,6 +156,7 @@ export class FakeChannelPointsPushController {
     if (this.startBarrier) await this.startBarrier;
     const next = typeof owners === "function" ? { onClaimAvailable: owners } : owners;
     this.onClaimAvailable = next.onClaimAvailable;
+    this.onWatchStreakEarned = next.onWatchStreakEarned;
     this.playback = next.playback;
     this.extensionBroadcast = next.extensionBroadcast;
   }
@@ -181,8 +184,9 @@ export class FakeChannelPointsPushController {
   async stop(): Promise<void> {
     this.stops += 1;
     this.onClaimAvailable = undefined;
+    this.onWatchStreakEarned = undefined;
     this.playback = undefined;
-    this.subscribed = false;
+    this.claimsSubscribed = false;
   }
 }
 

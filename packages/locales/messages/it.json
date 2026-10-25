@@ -1484,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "Riscattata una carta $1 dalla sfida $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch ha confermato la serie di visualizzazioni su $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Serie di visualizzazioni su $1 non confermata in tempo; passato al successivo"
+  },
   "activityAuthHealthChanged": {
     "message": "L’autenticazione di $1 è passata da $2 a $3."
   },
@@ -1955,6 +1961,9 @@
   "watchSourceFortnite": {
     "message": "Fortnite"
   },
+  "watchSourceWatchStreaks": {
+    "message": "Serie di visione"
+  },
   "gamesStarHint": {
     "message": "★ mette un gioco sopra la strategia"
   },
@@ -2176,6 +2185,27 @@
   },
   "idleWatchlistOrderHint": {
     "message": "si guarda il primo canale in diretta"
+  },
+  "idleWatchlistStreakHint": {
+    "message": "Le righe delle serie vengono viste nella posizione Serie di visione nell’ordine di visione, ciascuna finché Twitch non conferma la serie o non passano $1 minuti."
+  },
+  "idleWatchlistStreakToggle": {
+    "message": "Mantieni la serie di visualizzazioni su $1"
+  },
+  "watchStreakPending": {
+    "message": "Serie in attesa"
+  },
+  "watchStreakWatching": {
+    "message": "Serie in corso"
+  },
+  "watchStreakCredited": {
+    "message": "Serie confermata"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Non confermata"
+  },
+  "watchStreakUnavailable": {
+    "message": "Serie non disponibile"
   },
   "gamesModeAllDescription": {
     "message": "Ogni gioco con drop attivi viene farmato, tranne quelli bloccati."

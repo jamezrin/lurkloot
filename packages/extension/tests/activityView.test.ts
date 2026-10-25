@@ -120,6 +120,15 @@ describe("activity view model", () => {
         platform: "kick",
         data: { challengeId: "challenge", rarity: "rare", recurrence: "daily" },
       },
+      watch_streak_ended: {
+        id: "watch-streak-ended",
+        at,
+        category: "activity",
+        code: "watch_streak_ended",
+        level: "info",
+        platform: "twitch",
+        data: { channel: "streamer", outcome: "credited" },
+      },
       page_context_opened: {
         id: "page-context-opened",
         at,
