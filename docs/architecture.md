@@ -1000,8 +1000,8 @@ The icon follows the controller's accepted commits through one `onCommit` hook
 in `entrypoints/background.ts`. It is re-applied from storage on every worker
 wake, because the browser restores the manifest icon on restart, and after a
 reset, which bypasses commits. Nothing else calls `setIcon` or `setTitle`.
-`toolbarStatus.test.ts` asserts the ranking and that every status ships its
-icons. The variants in `public/icon/status/` are rendered from
+`toolbarStatus.test.ts` asserts the ranking, guards that no other module writes
+the icon, and checks that every status ships its icons. The variants in `public/icon/status/` are rendered from
 `public/icon/source.svg` by `scripts/render-status-icons.mjs`.
 
 A browser-disabled extension runs no code, so the icon cannot report that case.

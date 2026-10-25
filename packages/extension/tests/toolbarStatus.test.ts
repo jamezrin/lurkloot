@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -241,5 +241,23 @@ describe("createToolbarStatusApplier", () => {
     await expect(
       createToolbarStatusApplier(undefined, englishTranslate).apply(BOTH, state()),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("toolbar ownership", () => {
+  // The icon reflects committed state only (#900): one module writes it.
+  it("writes the toolbar icon, title and badge only from toolbarStatus.ts", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const sources = ["src", "entrypoints"].flatMap((dir) =>
+      readdirSync(join(root, dir), { recursive: true, encoding: "utf8" })
+        .filter((file) => /\.tsx?$/.test(file))
+        .map((file) => join(root, dir, file)),
+    );
+    for (const file of sources) {
+      if (file.endsWith("/src/core/toolbarStatus.ts")) continue;
+      expect(readFileSync(file, "utf8").replace(/\/\/.*$/gm, ""), file).not.toMatch(
+        /\.\s*(?:setIcon|setTitle|setBadgeText|setBadgeBackgroundColor)\s*\(/,
+      );
+    }
   });
 });
