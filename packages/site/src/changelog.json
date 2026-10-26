@@ -1,5 +1,38 @@
 [
   {
+    "version": "1.20.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Lurkloot can now keep your Twitch watch streaks going. Turn on Maintain watch streak for a Twitch channel in the Watchlist, and when that channel goes live Lurkloot watches it long enough for the stream to count toward your streak, up to 15 minutes per broadcast, then goes back to what it was farming. Watch streaks come first in the Twitch watch order by default, and you can move them in Settings. Nothing changes until you turn it on for a channel."
+      },
+      {
+        "kind": "new",
+        "text": "The toolbar icon now shows what Lurkloot is doing. It gets a green dot while watching, a pause symbol while paused, and a red ! when a platform needs attention, such as being signed out. It turns grey when every platform is off. Hover it to see each platform's status."
+      },
+      {
+        "kind": "new",
+        "text": "Lurkloot is now available in Persian."
+      },
+      {
+        "kind": "improved",
+        "text": "The Idle Watchlist is now called the Watchlist, since it can rank above Drops and isn't only used when there is nothing else to watch. Your channels and watch order carry over."
+      },
+      {
+        "kind": "fixed",
+        "text": "Updating from 1.18.0 no longer narrows what Lurkloot farms. If you had picked several reward types, such as badges and subscriptions, Lurkloot could end up farming only rewards that were all of them at once. Selections that can't be carried over exactly now farm everything. If you already updated to 1.18.1 or later and Lurkloot farms less than you expect, check Rewards to farm."
+      },
+      {
+        "kind": "fixed",
+        "text": "Lurkloot no longer gets stuck loading after you go back to an older version. Its settings now load, and Reset everything works again."
+      },
+      {
+        "kind": "fixed",
+        "text": "In Arabic and Persian, switches no longer slide out of their track when turned on."
+      }
+    ]
+  },
+  {
     "version": "1.19.0",
     "changes": [
       {
