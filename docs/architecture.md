@@ -1006,8 +1006,8 @@ claims to know the user's streak count.
 - **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
   prepared selection builds the same plan from its state (`SnapshotSelectionInput.watchStreaks`).
   It is passed to every watchlist chooser. Maintained rows are their own watch source,
-  `watch_streaks`, ordered by the user in watch-source priority (default: just ahead of the Idle
-  Watchlist, so above Drops only when the user moves it there). `chooseWatchStreakDecision` tries
+  `watch_streaks`, ordered by the user in watch-source priority (default: first, ahead of Drops, and
+  first too in an order saved before it existed). `chooseWatchStreakDecision` tries
   the rows the plan can attribute (`prioritized`) in the user's order; without an observer or an
   account id that list is empty, and maintained rows keep their ordinary place. In the Idle
   Watchlist source a maintained row whose attempt is terminal is skipped outright, so it never

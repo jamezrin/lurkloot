@@ -689,7 +689,10 @@ describe("watch-streak scheduling", () => {
   });
 
   it("leaves maintenance opportunistic below a live drop", async () => {
-    const s = setup({ drop: true });
+    const s = setup({
+      drop: true,
+      order: ["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"],
+    });
     for (let minute = 0; minute < 25; minute += 1) await s.tick();
     expect(new Set(s.watched)).toEqual(new Set(["dropper"]));
     expect(s.state.watchStreaks?.twitch?.rows).toEqual({ streaky: "pending" });
@@ -737,17 +740,27 @@ describe("watch-streak scheduling", () => {
     expect(s.state.sessions.twitch.status).toBe("idle");
   });
 
-  it("slots Watch streaks in just ahead of the watchlist in an order saved before it", () => {
+  it("watches streaks ahead of Drops by default", async () => {
+    const s = setup({
+      drop: true,
+      order: [...DEFAULT_SETTINGS.platform.twitch.watchSourcePriority],
+    });
+    for (let minute = 0; minute < 25; minute += 1) await s.tick();
+    const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
+    expect(order).toEqual(["streaky", "dropper"]);
+  });
+
+  it("puts Watch streaks first in an order saved before it", () => {
     expect(
       mergeSettings({
         platform: {
-          twitch: { watchSourcePriority: ["watchlist", "drops", "nopixel", "fortnite"] },
+          twitch: { watchSourcePriority: ["drops", "nopixel", "fortnite", "watchlist"] },
           kick: { watchSourcePriority: ["watchlist", "drops"] },
         },
       } as never).platform,
     ).toMatchObject({
       twitch: {
-        watchSourcePriority: ["watch_streaks", "watchlist", "drops", "nopixel", "fortnite"],
+        watchSourcePriority: ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"],
       },
       kick: { watchSourcePriority: ["watchlist", "drops"] },
     });

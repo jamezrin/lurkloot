@@ -19,16 +19,16 @@ import {
   normalizeWatchSourcePriority,
 } from "@lurkloot/shared/watchSources";
 
-const twitchDefaults = ["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"];
+const twitchDefaults = ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"];
 const kickDefaults = ["drops", "watchlist"];
 
 describe("watch-source settings", () => {
   it("appends every supported source to partial orders without sharing mutable defaults", () => {
     expect(normalizeWatchSourcePriority("twitch", ["nopixel"])).toEqual([
+      "watch_streaks",
       "nopixel",
       "drops",
       "fortnite",
-      "watch_streaks",
       "watchlist",
     ]);
     for (const value of [undefined, null, {}, "drops", 42, ["not_a_source"]]) {
@@ -54,7 +54,7 @@ describe("watch-source settings", () => {
       } as never).platform,
     ).toMatchObject({
       twitch: {
-        watchSourcePriority: ["fortnite", "watch_streaks", "watchlist", "drops", "nopixel"],
+        watchSourcePriority: ["watch_streaks", "fortnite", "watchlist", "drops", "nopixel"],
       },
       kick: { watchSourcePriority: ["watchlist", "drops"] },
     });
@@ -91,7 +91,7 @@ describe("watch-source settings", () => {
       } as never);
       expect(settings.platform.twitch.watchSourcePriority).toEqual(
         Array.isArray(value) && value.length
-          ? ["drops", "fortnite", "nopixel", "watch_streaks", "watchlist"]
+          ? ["watch_streaks", "drops", "fortnite", "nopixel", "watchlist"]
           : twitchDefaults,
       );
       expect(settings.platform.kick.watchSourcePriority).toEqual(kickDefaults);
@@ -109,10 +109,10 @@ describe("watch-source settings", () => {
       twitch: { watchSourcePriority: priority },
     });
     expect(mergeSettings(migration.settings as never).platform.twitch.watchSourcePriority).toEqual([
+      "watch_streaks",
       "fortnite",
       "drops",
       "nopixel",
-      "watch_streaks",
       "watchlist",
     ]);
   });

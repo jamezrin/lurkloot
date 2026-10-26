@@ -10,7 +10,7 @@ import { mergeSettings } from "@lurkloot/shared/settings";
 
 const defaultSourceSettings = {
   twitch: {
-    watchSourcePriority: ["drops", "nopixel", "fortnite", "watch_streaks", "watchlist"],
+    watchSourcePriority: ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"],
   },
   kick: { watchSourcePriority: ["drops", "watchlist"] },
 };

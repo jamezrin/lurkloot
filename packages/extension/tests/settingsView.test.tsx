@@ -449,7 +449,7 @@ describe("deadline feasibility setting", () => {
       {
         platform: {
           twitch: {
-            watchSourcePriority: ["nopixel", "drops", "fortnite", "watch_streaks", "watchlist"],
+            watchSourcePriority: ["watch_streaks", "nopixel", "drops", "fortnite", "watchlist"],
           },
         },
       },
