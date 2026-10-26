@@ -20,7 +20,7 @@
       },
       {
         "kind": "fixed",
-        "text": "Updating from 1.18.0 no longer narrows what Lurkloot farms. If you had picked several reward types, such as badges and subscriptions, Lurkloot could end up farming only rewards that were all of them at once. Selections that can't be carried over exactly now farm everything."
+        "text": "Updating from 1.18.0 no longer narrows what Lurkloot farms. If you had picked several reward types, such as badges and subscriptions, Lurkloot could end up farming only rewards that were all of them at once. Selections that can't be carried over exactly now farm everything. If you already updated to 1.18.1 or later and Lurkloot farms less than you expect, check Rewards to farm."
       },
       {
         "kind": "fixed",
