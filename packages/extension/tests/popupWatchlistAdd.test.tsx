@@ -55,7 +55,7 @@ const byLabel = (container: Element, label: string) =>
     (button) => button.getAttribute("aria-label") === label,
   );
 
-// The Idle Watchlist is its own rail destination now, so the form is reached by
+// The Watchlist is its own rail destination now, so the form is reached by
 // navigating there rather than by expanding a section of the drops list. The
 // view swaps outright, so one act() settles it.
 function openWatchlist(container: Element): void {
@@ -64,7 +64,7 @@ function openWatchlist(container: Element): void {
   });
 }
 
-describe("idle watchlist add form", () => {
+describe("watchlist add form", () => {
   // The add form and its text used to survive a platform switch, so a channel
   // typed for Twitch could be submitted into Kick's watchlist.
   it("drops a half-typed channel when the platform changes", async () => {

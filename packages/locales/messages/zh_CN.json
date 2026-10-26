@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "通过正常的浏览器登录会话、可见的静音标签页和可选的低资源模式，在 Twitch 与 Kick 上挂机获取掉宝。"
   },
+  "toolbarTitleOff": {
+    "message": "挂机已关闭"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1：挂机中"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1：目前没有可挂机的内容"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1：已暂停"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1：未登录"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1：访问被阻止"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1：没有进展"
+  },
   "promoTagline": {
     "message": "自动挂机获取 Twitch 与 Kick 掉宝。"
   },
@@ -65,6 +86,9 @@
   "languageCzech": {
     "message": "捷克语"
   },
+  "languagePersian": {
+    "message": "波斯语"
+  },
   "settingsLanguageTitle": {
     "message": "语言"
   },
@@ -89,8 +113,8 @@
   "navGames": {
     "message": "游戏"
   },
-  "navIdleWatchlist": {
-    "message": "空闲观看列表"
+  "navWatchlist": {
+    "message": "观看列表"
   },
   "navActivity": {
     "message": "活动"
@@ -230,8 +254,8 @@
   "dropsTab": {
     "message": "掉宝"
   },
-  "idleWatchlistTab": {
-    "message": "备用观看列表"
+  "watchlistTab": {
+    "message": "观看列表"
   },
   "automationTitle": {
     "message": "$1 自动挂机"
@@ -284,8 +308,8 @@
   "tipCategorySelection": {
     "message": "“游戏”页面决定挂机哪些游戏、哪些优先，以及哪些永不挂机。"
   },
-  "tipIdleWatchlist": {
-    "message": "在平台设置中调整观看来源优先级，选择何时观看待机列表中的频道。"
+  "tipWatchlist": {
+    "message": "在平台设置中调整观看来源优先级，选择何时观看观看列表中的频道。"
   },
   "tipTablessMode": {
     "message": "无标签页模式占用更少资源，必要时会改用静音标签页。"
@@ -348,7 +372,7 @@
     "message": "Twitch 和 Kick"
   },
   "tourPlatformBody": {
-    "message": "在这里切换平台。每个平台都有自己的队列、游戏和空闲观看列表。"
+    "message": "在这里切换平台。每个平台都有自己的队列、游戏和观看列表。"
   },
   "tourQueueOrderTitle": {
     "message": "队列的排序方式"
@@ -375,7 +399,7 @@
     "message": "选择“所有分类”会挂机你屏蔽之外的所有游戏，选择“仅所选分类”则只挂机你勾选的游戏。收藏某个游戏可将其活动排在最前，屏蔽则让它永远不会被挂机。"
   },
   "tourWatchlistTitle": {
-    "message": "空闲观看列表"
+    "message": "观看列表"
   },
   "tourWatchlistBody": {
     "message": "没有可挂机的掉宝时，Lurkloot 会观看这些频道，让你在 Twitch 上继续赚取频道点数，在 Kick 上继续获得每日奖励和观看连续天数。设置中的观看来源优先级决定何时观看它们。"
@@ -605,8 +629,8 @@
   "excludeFromFarming": {
     "message": "从挂机中排除"
   },
-  "noIdleWatchlist": {
-    "message": "备用观看列表中尚未添加频道。"
+  "noWatchlist": {
+    "message": "观看列表中尚未添加频道。"
   },
   "channelPlaceholder": {
     "message": "频道"
@@ -617,7 +641,7 @@
   "addChannel": {
     "message": "添加频道"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "离线"
   },
   "live": {
@@ -695,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "可用频道较少的优先"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "备用观看列表"
+  "watchlistSettingsTitle": {
+    "message": "观看列表"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "没有符合条件的掉宝时使用的备用频道。"
   },
   "preferKnownChannelsTitle": {
-    "message": "优先选择已关注和备用观看列表中的频道"
+    "message": "优先选择已关注和观看列表中的频道"
   },
   "preferKnownChannelsDescription": {
-    "message": "当某个掉宝可在多个频道获取时，优先选择你已关注或已加入备用观看列表的频道，而非陌生频道。"
+    "message": "当某个掉宝可在多个频道获取时，优先选择你已关注或已加入观看列表的频道，而非陌生频道。"
   },
   "platformSettingsTitle": {
     "message": "平台设置"
@@ -759,7 +783,7 @@
     "message": "将挂机标签页静音"
   },
   "muteTabsDescription": {
-    "message": "挂机时，掉宝标签页和备用观看列表标签页始终保持静音。"
+    "message": "挂机时，掉宝标签页和观看列表标签页始终保持静音。"
   },
   "keepVideosUnmutedTitle": {
     "message": "保持挂机播放器不静音"
@@ -930,13 +954,13 @@
     "message": "自动挂机"
   },
   "farmOnPlatform": {
-    "message": "在 $1 上挂机获取掉宝，并观看备用观看列表中的频道。"
+    "message": "在 $1 上挂机获取掉宝，并观看观看列表中的频道。"
   },
   "enabled": {
     "message": "已启用"
   },
-  "idleWatchlistEditHint": {
-    "message": "选择 $1 后，可在“备用观看列表”标签页中编辑。"
+  "watchlistEditHint": {
+    "message": "选择 $1 后，可在“观看列表”标签页中编辑。"
   },
   "autoClaimChannelPointsTitle": {
     "message": "自动领取频道点数"
@@ -1212,7 +1236,7 @@
     "message": "不只是掉宝。"
   },
   "screenshotExtrasSubcopy": {
-    "message": "频道点数、Kick 每日挑战和两分钟掉落也会自动领取。没有掉宝可挂机时，自动观看备用观看列表中的频道。"
+    "message": "频道点数、Kick 每日挑战和两分钟掉落也会自动领取。没有掉宝可挂机时，自动观看观看列表中的频道。"
   },
   "screenshotExtrasPointsName": {
     "message": "频道点数"
@@ -1227,7 +1251,7 @@
     "message": "Kick · 也会帮你领取"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "备用观看列表"
+    "message": "观看列表"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "掉宝活动间隙，自动观看选定的主播"
@@ -1460,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "已领取 $2 挑战的 $1 卡片"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch 已确认 $1 的观看连续记录"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "$1 的观看连续记录未及时确认，已跳过"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 的身份验证状态从 $2 变为 $3。"
   },
@@ -1553,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "已切换到更高优先级的奖励"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "备用观看列表中出现了优先级更高的频道"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "观看列表中出现了优先级更高的频道"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "已满足观看时长要求"
@@ -1922,14 +1952,17 @@
   "watchSourceDrops": {
     "message": "掉宝"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "待机观看列表"
+  "watchSourceWatchlist": {
+    "message": "观看列表"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "watchSourceWatchStreaks": {
+    "message": "观看连续记录"
   },
   "gamesStarHint": {
     "message": "★ 让游戏排在策略之上"
@@ -1974,10 +2007,10 @@
     "message": "打开 Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "将 $1 加入空闲观看列表"
+    "message": "将 $1 加入观看列表"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "将 $1 移出空闲观看列表"
+    "message": "将 $1 移出观看列表"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2135,23 +2168,44 @@
   "settingsGamesPointerAction": {
     "message": "打开游戏"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "频道名称或链接"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "列表已满（$1 个频道）。请先移除一个再添加。"
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "请输入频道名称或频道链接。"
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 已在列表中。"
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "观看顺序"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "观看第一个正在直播的频道"
+  },
+  "watchlistStreakHint": {
+    "message": "连续记录行会在观看顺序中的“观看连续记录”位置处理，每行直到 Twitch 确认连续记录或过去 $1 分钟。"
+  },
+  "watchlistStreakToggle": {
+    "message": "维持 $1 的观看连续记录"
+  },
+  "watchStreakPending": {
+    "message": "等待连续记录"
+  },
+  "watchStreakWatching": {
+    "message": "保持连续记录"
+  },
+  "watchStreakCredited": {
+    "message": "连续记录已确认"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "未确认"
+  },
+  "watchStreakUnavailable": {
+    "message": "连续记录不可用"
   },
   "gamesModeAllDescription": {
     "message": "所有有进行中掉宝的游戏都会挂机，已屏蔽的除外。"

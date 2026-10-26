@@ -1,5 +1,14 @@
 import React from "react";
-import { ChevronDown, ChevronUp, Eye, Gift, ListChecks, RotateCcw, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Flame,
+  Gift,
+  ListChecks,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 import type { Platform, WatchSourceId } from "@lurkloot/shared/models";
 import {
   DEFAULT_WATCH_SOURCE_PRIORITY,
@@ -11,7 +20,8 @@ export const WATCH_SOURCE_NAME_KEYS: Record<WatchSourceId, string> = {
   drops: "watchSourceDrops",
   nopixel: "watchSourceNoPixel",
   fortnite: "watchSourceFortnite",
-  idle_watchlist: "watchSourceIdleWatchlist",
+  watch_streaks: "watchSourceWatchStreaks",
+  watchlist: "watchSourceWatchlist",
 };
 
 // The same icons the rail uses for each source, so the order reads as the rail does.
@@ -22,7 +32,8 @@ const WATCH_SOURCE_ICONS: Record<
   drops: ListChecks,
   nopixel: Gift,
   fortnite: Sparkles,
-  idle_watchlist: Eye,
+  watch_streaks: Flame,
+  watchlist: Eye,
 };
 
 export function WatchSourcePriority({
@@ -153,21 +164,34 @@ export function WatchSourcePlace({
   source,
   order,
   onChangeOrder,
+  named = false,
 }: {
   source: WatchSourceId;
   order: readonly WatchSourceId[];
   onChangeOrder(): void;
+  // Names the source, for a view that shows the place of more than one.
+  named?: boolean;
 }) {
   const t = useT();
   const index = order.indexOf(source);
   if (index === -1) return null;
   const before = order.slice(0, index).map((entry) => t(WATCH_SOURCE_NAME_KEYS[entry]));
+  const Icon = WATCH_SOURCE_ICONS[source];
   return (
     <div
       data-watch-source-place={source}
       className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
     >
       <div className="min-w-0 flex-1">
+        {named ? (
+          <div
+            data-watch-source-place-name
+            className="mb-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-zinc-500 dark:text-zinc-400"
+          >
+            <Icon size={12} aria-hidden className="shrink-0" />
+            {t(WATCH_SOURCE_NAME_KEYS[source])}
+          </div>
+        ) : null}
         <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">
           {t("watchSourcePlace", [String(index + 1), String(order.length)])}
         </div>

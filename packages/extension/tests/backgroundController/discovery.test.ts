@@ -116,8 +116,8 @@ describe("background controller", () => {
       ...DEFAULT_SETTINGS,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, idleWatchlistChannels: [] },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, watchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
       },
     });
     let dashboardFails = false;

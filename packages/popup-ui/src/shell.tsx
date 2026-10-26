@@ -72,7 +72,7 @@ const EXTENSION_ITEMS: NavItem[] = [
   { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch", beta: true },
   { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch", beta: true },
 ];
-const OTHER_ITEMS: NavItem[] = [{ view: "watchlist", labelKey: "navIdleWatchlist", icon: Eye }];
+const OTHER_ITEMS: NavItem[] = [{ view: "watchlist", labelKey: "navWatchlist", icon: Eye }];
 const SOURCE_ITEMS: NavItem[] = [...EXTENSION_ITEMS, ...OTHER_ITEMS];
 
 // The view that shows each watch source. Drops is the whole Drops group, so its
@@ -81,7 +81,9 @@ export const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
   drops: "queue",
   nopixel: "nopixel",
   fortnite: "fortnite",
-  idle_watchlist: "watchlist",
+  // Watch streaks are rows of the watchlist, so they share its view.
+  watch_streaks: "watchlist",
+  watchlist: "watchlist",
 };
 
 const FOOTER_ITEMS: NavItem[] = [
@@ -133,6 +135,8 @@ export function WorkspaceRail({
   const liveView = liveSource ? WATCH_SOURCE_VIEWS[liveSource] : undefined;
   const inWatchOrder = (items: NavItem[]): NavItem[] =>
     sourceOrder
+      // Watch streaks share the watchlist's view; the rail follows the watchlist.
+      .filter((source) => source !== "watch_streaks")
       .map((source) => items.find((item) => item.view === WATCH_SOURCE_VIEWS[source]))
       .filter((item): item is NavItem => Boolean(item));
   return (

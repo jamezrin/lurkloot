@@ -1249,7 +1249,7 @@ describe("background controller", () => {
       platform: {
         ...DEFAULT_SETTINGS.platform,
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, watchlistChannels: [] },
       },
     });
     env.state.sessions.twitch = {

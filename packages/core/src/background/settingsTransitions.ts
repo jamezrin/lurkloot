@@ -276,7 +276,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     return snapshot();
   }
 
-  // One channel added to or removed from an Idle Watchlist, applied to the list
+  // One channel added to or removed from an Watchlist, applied to the list
   // as it is stored at save time.
   async function updateIdleWatchlist(
     message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>,
@@ -284,7 +284,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     const channel = message.channel.trim().replace(/^@/, "").toLowerCase();
     const commit = channel
       ? await commitSettings((current) => {
-          const listed = current.platform[message.platform].idleWatchlistChannels;
+          const listed = current.platform[message.platform].watchlistChannels;
           const present = listed.some((entry) => entry.toLowerCase() === channel);
           const next =
             message.action === "remove"
@@ -292,7 +292,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
               : present || listed.length >= IDLE_WATCHLIST_LIMIT
                 ? listed
                 : [...listed, channel];
-          return { platform: { [message.platform]: { idleWatchlistChannels: next } } };
+          return { platform: { [message.platform]: { watchlistChannels: next } } };
         })
       : undefined;
     if (commit && isFarmingActive(commit.settings)) {

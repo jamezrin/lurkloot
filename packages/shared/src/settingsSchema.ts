@@ -9,7 +9,7 @@ import { isRecord } from "./records";
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 9;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 10;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -25,6 +25,9 @@ export interface SettingsMigrationDiagnostic {
   path: string;
   // Dotted replacement path, when the property has one.
   replacement?: string;
+  // Every dotted replacement path, when the value moved onto both platforms
+  // and so has no single replacement.
+  replacements?: string[];
   // Host-neutral text. Hosts add their own prefix (the CLI prepends "settings.").
   message: string;
 }
@@ -79,6 +82,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 7, migrate: migrateToV7 },
   { to: 8, migrate: migrateToV8 },
   { to: 9, migrate: migrateToV9 },
+  { to: 10, migrate: migrateToV10 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -169,12 +173,13 @@ function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   // field; normalization then defaults it.
   if (!isRecord(legacy)) return raw;
 
+  // Names where the value ends up once every migration has run: migration 7
+  // retired dropsListFilter, so naming it would point at a removed setting.
   diagnose({
-    code: "moved_property",
+    code: "deprecated_property",
     path: "campaignVisibility",
-    replacement: "dropsListFilter",
     message:
-      "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
+      "campaignVisibility was removed; the popup groups campaigns into Queue, Completed, Skipped and Upcoming, and farming eligibility is controlled separately",
   });
 
   for (const { from, toKey } of CAMPAIGN_VISIBILITY_MAPPING) {
@@ -269,7 +274,7 @@ function migrateToV6(raw: Record<string, unknown>, _diagnose: Diagnose): Record<
     }
   }
   // Keep the old serialized field for backward compatibility. Its old false
-  // sticky-idle preference now becomes predictable Idle-first selection.
+  // sticky-idle preference now becomes predictable Watchlist-first selection.
   return raw;
 }
 
@@ -302,11 +307,14 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 
   if (raw.priorityMode === "priority_list_only") {
     raw.priorityMode = "ending_soonest";
+    // Migration 8 moves the top-level switch onto each platform, so the
+    // message names where it ends up.
     diagnose({
       code: "moved_property",
       path: "priorityMode",
-      replacement: "farmPinnedOnly",
-      message: 'priorityMode "priority_list_only" is now the farmPinnedOnly switch',
+      replacements: ["platform.twitch.farmPinnedOnly", "platform.kick.farmPinnedOnly"],
+      message:
+        'priorityMode "priority_list_only" is now the platform.twitch and platform.kick farmPinnedOnly switch',
     });
     if (!Object.hasOwn(raw, "farmPinnedOnly")) raw.farmPinnedOnly = true;
   }
@@ -317,11 +325,12 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     const listed = block.categories;
     block.categoryMode = "all";
     block.categories = [];
+    // Reported on categoryMode, the key that triggers it: a document can set
+    // the exclude mode without a categories list.
     diagnose({
       code: "moved_property",
-      path: `platform.${platform}.categories`,
-      replacement: `platform.${platform}.blockedCategories`,
-      message: `platform.${platform} exclude-mode categories are now blockedCategories`,
+      path: `platform.${platform}.categoryMode`,
+      message: `platform.${platform}.categoryMode "exclude" is now "all", with its categories moved to platform.${platform}.blockedCategories`,
     });
     if (!Object.hasOwn(block, "blockedCategories"))
       block.blockedCategories = Array.isArray(listed) ? listed : [];
@@ -362,11 +371,16 @@ function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   delete raw.farmPinnedOnly;
 
   // Each moves to both platforms, so no single replacement path exists.
-  const movedToPlatforms: Array<[present: boolean, path: string, message: string]> = [
+  const onBothPlatforms = (key: string) => [`platform.twitch.${key}`, `platform.kick.${key}`];
+  const movedToPlatforms: Array<
+    [present: boolean, path: string, message: string, replacements?: string[]]
+  > = [
     [
       Object.hasOwn(legacyEligibility, "farmUnlinkedCampaigns"),
       "farmingEligibility.farmUnlinkedCampaigns",
-      "farmingEligibility.farmUnlinkedCampaigns moved to platform.twitch and platform.kick farmUnlinkedCampaigns",
+      // Migration 9 turns the copied switch into unlinkedCampaigns.
+      "farmingEligibility.farmUnlinkedCampaigns moved to platform.twitch and platform.kick unlinkedCampaigns",
+      onBothPlatforms("unlinkedCampaigns"),
     ],
     [
       Object.hasOwn(legacyEligibility, "farmSubscriptionCampaigns"),
@@ -377,10 +391,12 @@ function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
       hasPinnedOnly,
       "farmPinnedOnly",
       "farmPinnedOnly moved to platform.twitch and platform.kick farmPinnedOnly",
+      onBothPlatforms("farmPinnedOnly"),
     ],
   ];
-  for (const [present, path, message] of movedToPlatforms) {
-    if (present) diagnose({ code: "moved_property", path, message });
+  for (const [present, path, message, replacements] of movedToPlatforms) {
+    if (present)
+      diagnose({ code: "moved_property", path, message, ...(replacements && { replacements }) });
   }
   for (const key of Object.keys(legacyEligibility)) {
     if (key === "farmUnlinkedCampaigns" || key === "farmSubscriptionCampaigns") continue;
@@ -404,13 +420,7 @@ function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
         replacement: `platform.${platform}.rewardFilter`,
         message: `platform.${platform}.farmRewardTypes is now platform.${platform}.rewardFilter`,
       });
-      if (Array.isArray(types)) {
-        if (types.includes("badge")) derived.kinds = ["badge"];
-        const skip = types.includes("no_subscription");
-        const only = types.includes("subscription");
-        if (skip && !only) derived.subscriptions = "skip";
-        if (only && !skip) derived.subscriptions = "only";
-      }
+      Object.assign(derived, rewardFilterFromFarmTypes(types, platform));
     }
     if (skipsSubscriptions && !Object.hasOwn(derived, "subscriptions"))
       derived.subscriptions = "skip";
@@ -432,6 +442,25 @@ function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   return raw;
 }
 
+// farmRewardTypes (1.18.0) farmed a reward matching ANY selected type, while a
+// rewardFilter farms one matching its kinds AND its subscription mode. A union
+// the filter can express maps exactly. One it cannot — a badge together with a
+// subscription type — gets no filter, so normalization farms every reward: the
+// mapping may widen farming but never narrows it. Kick ignored "badge", as the
+// old normalizer did.
+function rewardFilterFromFarmTypes(types: unknown, platform: string): Record<string, unknown> {
+  if (!Array.isArray(types)) return {};
+  const badge = platform === "twitch" && types.includes("badge");
+  const skip = types.includes("no_subscription");
+  const only = types.includes("subscription");
+  if (skip && only) return {};
+  if (badge && (skip || only)) return {};
+  if (badge) return { kinds: ["badge"] };
+  if (skip) return { subscriptions: "skip" };
+  if (only) return { subscriptions: "only" };
+  return {};
+}
+
 // The per-platform farmUnlinkedCampaigns switch becomes unlinkedCampaigns, a
 // choice with a third option ("last"). true keeps farming them ("include"),
 // false keeps skipping them ("skip"). A current key always wins. Any other
@@ -451,6 +480,32 @@ function migrateToV9(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     });
     if (Object.hasOwn(block, "unlinkedCampaigns")) continue;
     block.unlinkedCampaigns = legacy === true ? "include" : legacy === false ? "skip" : legacy;
+  }
+  return raw;
+}
+
+// The Idle Watchlist became the Watchlist: its channel keys lose the prefix and
+// its watch-source id becomes "watchlist", keeping its place in the order. A
+// current key always wins, as renameProperty does.
+function migrateToV10(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  for (const platform of ["twitch", "kick"] as const) {
+    const block = platformBlock(raw, platform);
+    if (!block) continue;
+    const prefix = `platform.${platform}.`;
+    renameProperty(block, "idleWatchlistChannels", "watchlistChannels", prefix, diagnose);
+    renameProperty(
+      block,
+      "idleWatchlistStreakChannels",
+      "watchlistStreakChannels",
+      prefix,
+      diagnose,
+    );
+    const priority = block.watchSourcePriority;
+    if (Array.isArray(priority) && priority.includes("idle_watchlist")) {
+      block.watchSourcePriority = priority.map((source) =>
+        source === "idle_watchlist" ? "watchlist" : source,
+      );
+    }
   }
   return raw;
 }
@@ -557,8 +612,51 @@ export function migrateSettings(raw: unknown): SettingsMigrationResult {
     fromVersion,
     toVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
     changed: fromVersion !== CURRENT_SETTINGS_SCHEMA_VERSION,
-    diagnostics,
+    // A migration can report a key an earlier one wrote in this same run, such
+    // as migration 9 renaming the farmUnlinkedCampaigns migration 8 copied
+    // onto each platform. That key was never in the document, so reporting it
+    // would send a user looking for a line their file does not contain. The
+    // earlier diagnostic names where the value ends up instead.
+    diagnostics: finalReplacements(
+      diagnostics.filter((diagnostic) => hasPath(rest, diagnostic.path)),
+      diagnostics,
+    ),
   };
+}
+
+// A rename a later migration renames again (watchQueueChannels became
+// idleWatchlistChannels in migration 1, then watchlistChannels in migration
+// 10) names the key the value ends up under, not the intermediate one.
+function finalReplacements(
+  kept: SettingsMigrationDiagnostic[],
+  all: SettingsMigrationDiagnostic[],
+): SettingsMigrationDiagnostic[] {
+  const byPath = new Map(all.map((diagnostic) => [diagnostic.path, diagnostic]));
+  return kept.map((diagnostic) => {
+    let replacement = diagnostic.replacement;
+    const visited = new Set<string>();
+    while (replacement && !visited.has(replacement)) {
+      visited.add(replacement);
+      const next = byPath.get(replacement)?.replacement;
+      if (!next) break;
+      replacement = next;
+    }
+    if (!replacement || replacement === diagnostic.replacement) return diagnostic;
+    return {
+      ...diagnostic,
+      replacement,
+      message: diagnostic.message.split(diagnostic.replacement!).join(replacement),
+    };
+  });
+}
+
+function hasPath(source: Record<string, unknown>, path: string): boolean {
+  let owner: unknown = source;
+  for (const key of path.split(".")) {
+    if (!isRecord(owner) || !Object.hasOwn(owner, key)) return false;
+    owner = owner[key];
+  }
+  return true;
 }
 
 function readVersion(source: Record<string, unknown>): number {

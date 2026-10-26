@@ -406,7 +406,7 @@ describe("scheduler campaign selection", () => {
         ...settings(),
         platform: {
           ...settings().platform,
-          twitch: { ...settings().platform.twitch, idleWatchlistChannels: [idleChannel.username] },
+          twitch: { ...settings().platform.twitch, watchlistChannels: [idleChannel.username] },
         },
       },
     });
@@ -969,11 +969,11 @@ describe("scheduler campaign selection", () => {
     });
   });
 
-  it("prefers an Idle Watchlist channel over a bigger directory channel", async () => {
+  it("prefers an Watchlist channel over a bigger directory channel", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("any")],
-      settings({ platform: { twitch: { idleWatchlistChannels: ["Watched"] } } }),
+      settings({ platform: { twitch: { watchlistChannels: ["Watched"] } } }),
       {
         listCandidateChannels: vi.fn(async () => [
           channel("popular", { viewerCount: 90_000 }),
@@ -1005,11 +1005,11 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.username).toBe("friend");
   });
 
-  it("ranks an Idle Watchlist channel above a followed one", async () => {
+  it("ranks an Watchlist channel above a followed one", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("any")],
-      settings({ platform: { twitch: { idleWatchlistChannels: ["watched"] } } }),
+      settings({ platform: { twitch: { watchlistChannels: ["watched"] } } }),
       {
         listCandidateChannels: vi.fn(async () => [
           channel("friend", { viewerCount: 5_000 }),
@@ -1158,7 +1158,7 @@ describe("scheduler campaign selection", () => {
       [campaign("any")],
       settings({
         preferKnownChannels: false,
-        platform: { twitch: { idleWatchlistChannels: ["watched"] } },
+        platform: { twitch: { watchlistChannels: ["watched"] } },
       }),
       {
         listCandidateChannels: vi.fn(async () => [
@@ -1350,13 +1350,13 @@ describe("scheduler campaign selection", () => {
 
     expect(decision).toMatchObject({
       action: "idle",
-      reason: "Only upcoming campaigns are available and no Idle Watchlist channels",
+      reason: "Only upcoming campaigns are available and no Watchlist channels",
       reasonCode: "no_eligible_channel",
     });
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("passes cancellation to Idle Watchlist channel checks", async () => {
+  it("passes cancellation to Watchlist channel checks", async () => {
     const abort = new AbortController();
     const checkChannel = vi.fn(async (candidate) => ({
       live: true,
@@ -1370,7 +1370,7 @@ describe("scheduler campaign selection", () => {
       settings({
         platform: {
           ...DEFAULT_SETTINGS.platform,
-          twitch: { ...DEFAULT_SETTINGS.platform.twitch, idleWatchlistChannels: ["fallback"] },
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchlistChannels: ["fallback"] },
         },
       }),
       {
@@ -1577,13 +1577,13 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.username).toBe("allowed");
   });
 
-  it("starts idle watchlist channel mode when campaigns are empty", async () => {
+  it("starts watchlist channel mode when campaigns are empty", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
       settings({
         platform: {
-          kick: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: true, watchlistChannels: ["fallback"] },
         } as ExtensionSettings["platform"],
       }),
       {
@@ -1600,7 +1600,7 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.url).toBe("https://kick.com/fallback");
   });
 
-  it("does not apply excluded drop channels to idle watchlist fallback", async () => {
+  it("does not apply excluded drop channels to watchlist fallback", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
@@ -1609,7 +1609,7 @@ describe("scheduler campaign selection", () => {
           ...DEFAULT_SETTINGS.platform,
           kick: {
             ...DEFAULT_SETTINGS.platform.kick,
-            idleWatchlistChannels: ["fallback"],
+            watchlistChannels: ["fallback"],
             excludedChannels: ["fallback"],
           },
         },
@@ -1628,13 +1628,13 @@ describe("scheduler campaign selection", () => {
     expect(decision.channel?.username).toBe("fallback");
   });
 
-  it("keeps live-check metadata on idle watchlist channel decisions", async () => {
+  it("keeps live-check metadata on watchlist channel decisions", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
       settings({
         platform: {
-          kick: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: true, watchlistChannels: ["fallback"] },
         } as ExtensionSettings["platform"],
       }),
       {
@@ -1663,13 +1663,13 @@ describe("scheduler campaign selection", () => {
     });
   });
 
-  it("tries later idle watchlist channels when earlier fallback channels are offline", async () => {
+  it("tries later watchlist channels when earlier fallback channels are offline", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
       settings({
         platform: {
-          kick: { enabled: true, idleWatchlistChannels: ["offline", "live"] },
+          kick: { enabled: true, watchlistChannels: ["offline", "live"] },
         } as ExtensionSettings["platform"],
       }),
       {
@@ -2065,8 +2065,8 @@ describe("scheduler tick", () => {
       baseState,
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch: adapter("twitch", [ready], []), kick: adapter("kick", [], []) },
@@ -2086,8 +2086,8 @@ describe("scheduler tick", () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
     const tickSettings = settings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [] },
-        kick: { enabled: false, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [] },
+        kick: { enabled: false, watchlistChannels: [] },
       },
     });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
@@ -2238,8 +2238,8 @@ describe("scheduler tick", () => {
     const twitch = adapter("twitch", first, []);
     const tickSettings = settings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [] },
-        kick: { enabled: false, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [] },
+        kick: { enabled: false, watchlistChannels: [] },
       },
     });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
@@ -2275,8 +2275,8 @@ describe("scheduler tick", () => {
       const twitch = adapter("twitch", previous, []);
       const tickSettings = settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       });
       const tickAdapters = { twitch, kick: adapter("kick", [], []) };
@@ -2308,8 +2308,8 @@ describe("scheduler tick", () => {
     const twitch = adapter("twitch", [drops], []);
     const tickSettings = settings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [] },
-        kick: { enabled: false, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [] },
+        kick: { enabled: false, watchlistChannels: [] },
       },
     });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
@@ -2340,8 +2340,8 @@ describe("scheduler tick", () => {
         settings({
           deadlineSafetyMarginMinutes: 5,
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [] },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            twitch: { enabled: true, watchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch: adapter("twitch", [timed], []), kick: adapter("kick", [], []) },
@@ -2374,8 +2374,8 @@ describe("scheduler tick", () => {
       const tickSettings = settings({
         deadlineSafetyMarginMinutes: 5,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       });
       const tickAdapters = { twitch, kick: adapter("kick", [], []) };
@@ -2427,8 +2427,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2460,8 +2460,8 @@ describe("scheduler tick", () => {
       settings({
         autoClaim: false,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2471,7 +2471,7 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.reasonCode).toBe("watch_requirement_completed");
   });
 
-  it("classifies a refreshed claimable reward as completed when switching to Idle Watchlist fallback", async () => {
+  it("classifies a refreshed claimable reward as completed when switching to Watchlist fallback", async () => {
     const currentChannel = channel("creator");
     const completedReward = reward("claimable");
     const twitch = adapter("twitch", [campaign("drops", { rewards: [completedReward] })], []);
@@ -2494,8 +2494,8 @@ describe("scheduler tick", () => {
       settings({
         autoClaim: false,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: ["fallback"] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2533,8 +2533,8 @@ describe("scheduler tick", () => {
       settings({
         offlineRetryLimit: 3,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2587,8 +2587,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: true, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: true, watchlistChannels: [] },
         },
       }),
       { twitch, kick },
@@ -2628,8 +2628,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2664,8 +2664,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2708,8 +2708,8 @@ describe("scheduler tick", () => {
       baseState,
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2777,8 +2777,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2850,8 +2850,8 @@ describe("scheduler tick", () => {
         settings({
           priorityMode,
           platform: {
-            twitch: { enabled: false, idleWatchlistChannels: [] },
-            kick: { enabled: true, idleWatchlistChannels: [] },
+            twitch: { enabled: false, watchlistChannels: [] },
+            kick: { enabled: true, watchlistChannels: [] },
           },
         }),
         { twitch: adapter("twitch", [], []), kick },
@@ -2877,8 +2877,8 @@ describe("scheduler tick", () => {
         settings({
           priorityMode,
           platform: {
-            twitch: { enabled: false, idleWatchlistChannels: [] },
-            kick: { enabled: true, idleWatchlistChannels: [] },
+            twitch: { enabled: false, watchlistChannels: [] },
+            kick: { enabled: true, watchlistChannels: [] },
           },
         }),
         { twitch: adapter("twitch", [], []), kick },
@@ -2925,8 +2925,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -2945,8 +2945,8 @@ describe("scheduler tick", () => {
     const kickSettings = settings({
       tablessMode: true,
       platform: {
-        twitch: { enabled: false, idleWatchlistChannels: [] },
-        kick: { enabled: true, idleWatchlistChannels: [], unlinkedCampaigns: "last" },
+        twitch: { enabled: false, watchlistChannels: [] },
+        kick: { enabled: true, watchlistChannels: [], unlinkedCampaigns: "last" },
       },
     });
     const kickChannel = (username: string) =>
@@ -3088,8 +3088,8 @@ describe("scheduler tick", () => {
       settings({
         campaignPins: ["urgent"],
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3134,10 +3134,10 @@ describe("scheduler tick", () => {
         platform: {
           twitch: {
             enabled: true,
-            idleWatchlistChannels: [],
+            watchlistChannels: [],
             favouriteCategories: [{ id: "starred game", name: "Starred Game" }],
           },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3185,8 +3185,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3227,8 +3227,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3262,8 +3262,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3272,7 +3272,7 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.channel?.username).toBe("new");
   });
 
-  it("switches to a higher-priority idle watchlist channel after the watchlist is reordered", async () => {
+  it("switches to a higher-priority watchlist channel after the watchlist is reordered", async () => {
     const toonyx = channel("toonyx", { url: "https://www.twitch.tv/toonyx" });
     const twitch = adapter("twitch", [], []);
     // No campaigns -> fallback mode. Both fallbacks are live; "xqc" is now first.
@@ -3299,8 +3299,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["xqc", "toonyx"] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: ["xqc", "toonyx"] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3338,8 +3338,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3386,10 +3386,10 @@ describe("scheduler tick", () => {
           twitch: {
             ...DEFAULT_SETTINGS.platform.twitch,
             enabled: true,
-            idleWatchlistChannels: [],
+            watchlistChannels: [],
             excludedChannels: ["old"],
           },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3443,8 +3443,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3500,8 +3500,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3557,8 +3557,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3608,8 +3608,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3662,8 +3662,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -3714,8 +3714,8 @@ describe("scheduler tick", () => {
         settings({
           offlineRetryLimit: 3,
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [] },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            twitch: { enabled: true, watchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch, kick: adapter("kick", [], []) },
@@ -3754,8 +3754,8 @@ describe("scheduler tick", () => {
           settings({
             offlineRetryLimit: 3,
             platform: {
-              twitch: { enabled: true, idleWatchlistChannels: [] },
-              kick: { enabled: false, idleWatchlistChannels: [] },
+              twitch: { enabled: true, watchlistChannels: [] },
+              kick: { enabled: false, watchlistChannels: [] },
             },
           }),
           { twitch, kick: adapter("kick", [], []) },
@@ -3813,10 +3813,10 @@ describe("scheduler tick", () => {
           platform: {
             twitch: {
               enabled: true,
-              idleWatchlistChannels: [],
+              watchlistChannels: [],
               subscribedRewardMarks: ["drops:combined"],
             },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch, kick: adapter("kick", [], []) },
@@ -3851,8 +3851,8 @@ describe("scheduler tick", () => {
         settings({
           offlineRetryLimit: 3,
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [] },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            twitch: { enabled: true, watchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch, kick: adapter("kick", [], []) },
@@ -3884,8 +3884,8 @@ describe("scheduler tick", () => {
         settings({
           offlineRetryLimit: 3,
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [] },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            twitch: { enabled: true, watchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch, kick: adapter("kick", [], []) },
@@ -3986,8 +3986,8 @@ describe("scheduler tick", () => {
       settings({
         offlineRetryLimit: 3,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4052,8 +4052,8 @@ describe("scheduler tick", () => {
       const engineSettings = settings({
         offlineRetryLimit: 3,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       });
 
@@ -4160,8 +4160,8 @@ describe("scheduler tick", () => {
         settings({
           offlineRetryLimit: 3,
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [] },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            twitch: { enabled: true, watchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch, kick: adapter("kick", [], []) },
@@ -4202,8 +4202,8 @@ describe("scheduler tick", () => {
         },
         settings({
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [] },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            twitch: { enabled: true, watchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch, kick: adapter("kick", [], []) },
@@ -4235,8 +4235,8 @@ describe("scheduler tick", () => {
         },
         settings({
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [] },
-            kick: { enabled: false, idleWatchlistChannels: [] },
+            twitch: { enabled: true, watchlistChannels: [] },
+            kick: { enabled: false, watchlistChannels: [] },
           },
         }),
         { twitch, kick: adapter("kick", [], []) },
@@ -4280,8 +4280,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: ["fallback"] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4311,8 +4311,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4348,8 +4348,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4387,8 +4387,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4401,7 +4401,7 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.message).toContain("Waiting for a qualifying subscription");
   });
 
-  it("does not start a live Idle Watchlist fallback for subscription-only campaigns", async () => {
+  it("does not start a live Watchlist fallback for subscription-only campaigns", async () => {
     const waiting = campaign("subscription-drops", {
       eligibility: "waiting_for_subscription",
       rewards: [
@@ -4428,8 +4428,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: ["fallback"] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4444,8 +4444,8 @@ describe("scheduler tick", () => {
   });
 
   // A subscription the user marked is done, so a campaign whose only reward is
-  // marked no longer holds the Idle Watchlist back.
-  it("starts the Idle Watchlist fallback once every subscription reward is marked", async () => {
+  // marked no longer holds the Watchlist back.
+  it("starts the Watchlist fallback once every subscription reward is marked", async () => {
     const marked = campaign("subscription-drops", {
       eligibility: "waiting_for_subscription",
       rewards: [
@@ -4475,10 +4475,10 @@ describe("scheduler tick", () => {
         platform: {
           twitch: {
             enabled: true,
-            idleWatchlistChannels: ["fallback"],
+            watchlistChannels: ["fallback"],
             subscribedRewardMarks: ["subscription-drops:sub"],
           },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4489,7 +4489,7 @@ describe("scheduler tick", () => {
   });
 
   it.each(["claimed", "claimable"] as const)(
-    "does not start Idle Watchlist when a historical watch reward is %s and only a subscription reward remains",
+    "does not start Watchlist when a historical watch reward is %s and only a subscription reward remains",
     async (watchStatus) => {
       const waiting = campaign("mixed-drops", {
         eligibility: "waiting_for_subscription",
@@ -4515,7 +4515,7 @@ describe("scheduler tick", () => {
       const decision = await chooseCampaignDecision(
         "twitch",
         [waiting],
-        settings({ platform: { twitch: { idleWatchlistChannels: ["fallback"] } } }),
+        settings({ platform: { twitch: { watchlistChannels: ["fallback"] } } }),
         {
           listCandidateChannels: vi.fn(async () => []),
           checkChannel,
@@ -4530,7 +4530,7 @@ describe("scheduler tick", () => {
     },
   );
 
-  it("stops an existing Idle Watchlist fallback when only subscription campaigns remain", async () => {
+  it("stops an existing Watchlist fallback when only subscription campaigns remain", async () => {
     const waiting = campaign("subscription-drops", {
       eligibility: "waiting_for_subscription",
       rewards: [
@@ -4565,8 +4565,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: ["fallback"] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4618,8 +4618,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4655,8 +4655,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4690,8 +4690,8 @@ describe("scheduler tick", () => {
     });
     const enabledSettings = settings({
       platform: {
-        twitch: { enabled: false, idleWatchlistChannels: [] },
-        kick: { enabled: true, idleWatchlistChannels: [] },
+        twitch: { enabled: false, watchlistChannels: [] },
+        kick: { enabled: true, watchlistChannels: [] },
       },
     });
     let state: SchedulerState = {
@@ -4737,8 +4737,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4769,8 +4769,8 @@ describe("scheduler tick", () => {
     };
     const enabledSettings = settings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [] },
-        kick: { enabled: false, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [] },
+        kick: { enabled: false, watchlistChannels: [] },
       },
     });
 
@@ -4821,8 +4821,8 @@ describe("scheduler tick", () => {
     };
     const enabledSettings = settings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [] },
-        kick: { enabled: false, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [] },
+        kick: { enabled: false, watchlistChannels: [] },
       },
     });
     const adapters = { twitch, kick: adapter("kick", [], []) };
@@ -4863,8 +4863,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4884,8 +4884,8 @@ describe("scheduler tick", () => {
     };
     const enabledSettings = settings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [] },
-        kick: { enabled: false, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [] },
+        kick: { enabled: false, watchlistChannels: [] },
       },
     });
     const adapters = { twitch, kick: adapter("kick", [], []) };
@@ -4927,8 +4927,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4953,8 +4953,8 @@ describe("scheduler tick", () => {
       settings({
         autoClaim: false,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -4978,8 +4978,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5006,8 +5006,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: true, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: true, watchlistChannels: [] },
         },
       }),
       { twitch, kick },
@@ -5039,8 +5039,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: true, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: true, watchlistChannels: [] },
         },
       }),
       { twitch, kick },
@@ -5129,8 +5129,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: true, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: true, watchlistChannels: [] },
         },
       }),
       { twitch, kick },
@@ -5157,8 +5157,8 @@ describe("scheduler tick", () => {
     };
     const tickSettings = settings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [] },
-        kick: { enabled: false, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [] },
+        kick: { enabled: false, watchlistChannels: [] },
       },
     });
 
@@ -5254,8 +5254,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5286,8 +5286,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5339,7 +5339,7 @@ describe("scheduler tick", () => {
     ).toBe(true);
   });
 
-  it("uses Idle Watchlist fallback when drop discovery is incomplete and idle watchlist channels exist", async () => {
+  it("uses Watchlist fallback when drop discovery is incomplete and watchlist channels exist", async () => {
     const twitch = adapter("twitch", [], []);
     vi.mocked(twitch.checkChannel).mockResolvedValue({
       live: true,
@@ -5358,8 +5358,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: ["fallback"] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5379,7 +5379,7 @@ describe("scheduler tick", () => {
     });
   });
 
-  it("keeps previously discovered campaigns when discovery is incomplete and the Idle Watchlist takes over", async () => {
+  it("keeps previously discovered campaigns when discovery is incomplete and the Watchlist takes over", async () => {
     const known = campaign("known-drops");
     const twitch = adapter("twitch", [], []);
     vi.mocked(twitch.checkChannel).mockResolvedValue({
@@ -5399,8 +5399,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: ["fallback"] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5415,7 +5415,7 @@ describe("scheduler tick", () => {
     });
   });
 
-  it("keeps previously discovered campaigns when discovery is incomplete without idle watchlist channels", async () => {
+  it("keeps previously discovered campaigns when discovery is incomplete without watchlist channels", async () => {
     const known = campaign("known-drops");
     const twitch = adapter("twitch", [], []);
 
@@ -5430,8 +5430,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5463,8 +5463,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5499,8 +5499,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5529,8 +5529,8 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5752,7 +5752,7 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.kick.retryAfter).toBeDefined();
   });
 
-  it("does not turn an authentication failure into an Idle Watchlist session", async () => {
+  it("does not turn an authentication failure into an Watchlist session", async () => {
     const kick = adapter("kick", [], []);
     kick.claimChallenges = vi
       .fn()
@@ -5765,7 +5765,7 @@ describe("scheduler tick", () => {
           twitch: { enabled: false },
           kick: {
             enabled: true,
-            idleWatchlistChannels: ["public-creator"],
+            watchlistChannels: ["public-creator"],
             autoClaimChallenges: true,
           },
         },
@@ -5869,8 +5869,8 @@ describe("scheduler tabless mode", () => {
         ...overrides,
         tablessMode: true,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5895,8 +5895,8 @@ describe("scheduler tabless mode", () => {
       settings({
         tablessMode: true,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -5986,8 +5986,8 @@ describe("scheduler tabless mode", () => {
       settings({
         tablessMode: true,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -6012,8 +6012,8 @@ describe("scheduler tabless mode", () => {
       settings({
         tablessMode: false,
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: [] },
-          kick: { enabled: false, idleWatchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [] },
+          kick: { enabled: false, watchlistChannels: [] },
         },
       }),
       { twitch, kick: adapter("kick", [], []) },
@@ -6038,8 +6038,8 @@ describe("scheduler critical health observations", () => {
     settings({
       ...patch,
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: ["fallback"], ...patch.platform?.twitch },
-        kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+        twitch: { enabled: true, watchlistChannels: ["fallback"], ...patch.platform?.twitch },
+        kick: { enabled: false, watchlistChannels: [], ...patch.platform?.kick },
       },
     });
 
@@ -6382,13 +6382,13 @@ describe("scheduler critical health observations", () => {
       },
     );
 
-    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_idle_watchlist");
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_watchlist");
     expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
   });
 
   it("does not charge a failing tick for an outage that ends in an accrual precondition break", async () => {
     // Discovery is incomplete (no conclusion about accrual) and the tick then
-    // finds the idle watchlist channel it was watching has been superseded — an
+    // finds the watchlist channel it was watching has been superseded — an
     // explainable stop, so the precondition arm must win and clear the counters.
     const twitch = adapter("twitch", [], [channel("fallback")]);
     const result = await runSchedulerTick(
@@ -6412,7 +6412,7 @@ describe("scheduler critical health observations", () => {
       { platforms: ["twitch"], discovery: { twitch: { campaigns: [], complete: false } } },
     );
 
-    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_idle_watchlist");
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_watchlist");
     expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
     expect(result.state.criticalHealth?.twitch?.failingMs).toBe(0);
   });
@@ -6472,8 +6472,8 @@ describe("scheduler managed tab circuit breaker", () => {
     settings({
       ...patch,
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [], ...patch.platform?.twitch },
-        kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+        twitch: { enabled: true, watchlistChannels: [], ...patch.platform?.twitch },
+        kick: { enabled: false, watchlistChannels: [], ...patch.platform?.kick },
       },
     });
 

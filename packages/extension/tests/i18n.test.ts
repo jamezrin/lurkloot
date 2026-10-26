@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { loadCatalog } from "@lurkloot/locales";
 import {
   effectiveLocale,
   isRtlLocale,
@@ -39,14 +40,19 @@ describe("i18n", () => {
     expect(normalizeBrowserLocale("ko-KR")).toBe("ko");
     expect(normalizeBrowserLocale("uk-UA")).toBe("uk");
     expect(normalizeBrowserLocale("cs-CZ")).toBe("cs");
+    expect(normalizeBrowserLocale("fa-IR")).toBe("fa");
+    expect(normalizeBrowserLocale("fa_IR")).toBe("fa");
     expect(normalizeBrowserLocale("unknown")).toBe("en");
   });
 
-  it("resolves explicit overrides and Arabic RTL", () => {
+  it("resolves explicit overrides and RTL languages", () => {
     expect(effectiveLocale("browser", "de-DE")).toBe("de");
     expect(effectiveLocale("ar", "de-DE")).toBe("ar");
     expect(effectiveLocale("tr", "en-US")).toBe("tr");
+    expect(effectiveLocale("browser", "fa-IR")).toBe("fa");
+    expect(effectiveLocale("fa", "en-US")).toBe("fa");
     expect(isRtlLocale("ar")).toBe(true);
+    expect(isRtlLocale("fa")).toBe(true);
     expect(isRtlLocale("en")).toBe(false);
   });
 
@@ -86,6 +92,24 @@ describe("i18n", () => {
       labelKey: "languageCzech",
       nativeName: "Čeština",
     });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "fa",
+      labelKey: "languagePersian",
+      nativeName: "فارسی",
+    });
+  });
+
+  it("loads the Persian catalog with every message and its substitutions intact", async () => {
+    const catalog = await loadCatalog("fa");
+    const english = readCatalog("en");
+
+    expect(catalog?.languagePersian?.message).toBe("فارسی");
+    expect(Object.keys(catalog ?? {}).sort()).toEqual(Object.keys(english).sort());
+    for (const [key, { message }] of Object.entries(english)) {
+      const translated = catalog?.[key]?.message;
+      expect(translated?.trim(), key).toBeTruthy();
+      expect(translated?.match(/\$\d+/g) ?? [], key).toEqual(message.match(/\$\d+/g) ?? []);
+    }
   });
 
   it("translates with substitutions and falls back to English", () => {
@@ -118,6 +142,7 @@ describe("i18n", () => {
 
     expect(locales).toContain("ar");
     expect(locales).toContain("tr");
+    expect(locales).toContain("fa");
     for (const locale of locales) {
       const catalog = readCatalog(locale);
       expect(Object.keys(catalog).sort(), locale).toEqual(englishKeys);
@@ -177,6 +202,7 @@ describe("i18n", () => {
       ko: "구독 캠페인",
       uk: "Кампанії за підпискою",
       cs: "Kampaně s předplatným",
+      fa: "کمپین‌های اشتراکی",
     };
 
     for (const locale of localeCodes()) {
@@ -252,12 +278,12 @@ describe("i18n", () => {
       screenshotExtrasEyebrow: "Beyond campaigns",
       screenshotExtrasHeadline: "More than drops.",
       screenshotExtrasSubcopy:
-        "Channel points, Kick challenges, and 2-minute drops — also claimed for you. An idle watchlist when nothing is left to farm.",
+        "Channel points, Kick challenges, and 2-minute drops — also claimed for you. A watchlist of your own channels when nothing is left to farm.",
       screenshotExtrasPointsName: "Channel points",
       screenshotExtrasPointsMeta: "Twitch · also claimed for you",
       screenshotExtrasChallengesName: "Daily challenges",
       screenshotExtrasChallengesMeta: "Kick · also claimed for you",
-      screenshotExtrasWatchlistName: "Idle watchlist",
+      screenshotExtrasWatchlistName: "Watchlist",
       screenshotExtrasWatchlistMeta: "Watches your streamers between campaigns",
       screenshotExtrasFlashName: "2-minute drops",
       screenshotExtrasFlashMeta: "Kick · picked up as they land",
@@ -354,6 +380,13 @@ describe("i18n", () => {
       // Provider names, which are brands and never translated.
       "navNoPixel",
       "navFortnite",
+      // "Watchlist" is the German and Polish word too.
+      "navWatchlist",
+      "watchlistTab",
+      "tourWatchlistTitle",
+      "watchlistSettingsTitle",
+      "screenshotExtrasWatchlistName",
+      "watchSourceWatchlist",
       // Watch-source labels include provider brands and the common Drops term.
       "watchSourceNoPixel",
       "watchSourceFortnite",
@@ -381,8 +414,8 @@ describe("i18n", () => {
       cs: new Set(["tourExtensionsTitle"]),
     };
 
-    // Case-insensitive, so a title-cased copy of the English ("Idle Watchlist"
-    // for "Idle watchlist") still counts as left untranslated.
+    // Case-insensitive, so a title-cased copy of the English ("Watchlist"
+    // for "Watchlist") still counts as left untranslated.
     const sameText = (a?: string, b?: string) =>
       a !== undefined && b !== undefined && a.toLowerCase() === b.toLowerCase();
 

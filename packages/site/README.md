@@ -18,7 +18,7 @@ pnpm --filter @lurkloot/site preview   # serve the production build
 The homepage imports the shared popup React package (`@lurkloot/popup-ui`) and
 renders it inside a **Shadow DOM** (`src/popup-ui/mountPopup.tsx`): once as the
 interactive demo under the hero (`PopupDemo.tsx`), and as read-only views of the
-queue, games and idle watchlist in the farming-order section
+queue, games and watchlist in the farming-order section
 (`PopupExcerpt.tsx`). Both are backed by the package's deterministic demo
 adapter, so the site has no WXT or extension runtime dependency.
 

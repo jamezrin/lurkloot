@@ -22,7 +22,6 @@ vi.mock("../src/core/activityStorage", () => ({
 import { loadSettings, resetStorage, saveSettings } from "../src/core/storage";
 import {
   CURRENT_SETTINGS_SCHEMA_VERSION,
-  UnsupportedSettingsVersionError,
   withSchemaVersion,
 } from "@lurkloot/shared/settingsSchema";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
@@ -50,7 +49,7 @@ describe("settings storage migration", () => {
     const settings = await loadSettings();
 
     expect(settings.idleWatchlistFallbackOnly).toBe(false);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacy"]);
+    expect(settings.platform.twitch.watchlistChannels).toEqual(["legacy"]);
     expect(set).toHaveBeenCalledTimes(1);
     const written = set.mock.calls[0]?.[0].settings;
     expect(written).toEqual(withSchemaVersion(settings));
@@ -95,7 +94,7 @@ describe("settings storage migration", () => {
     get.mockResolvedValue({
       settings: {
         idleWatchlistFallbackOnly: true,
-        platform: { twitch: { idleWatchlistChannels: ["current"] } },
+        platform: { twitch: { watchlistChannels: ["current"] } },
       },
     });
 
@@ -124,7 +123,7 @@ describe("settings storage migration", () => {
 
     await expect(loadSettings()).resolves.toMatchObject({
       idleWatchlistFallbackOnly: false,
-      platform: { twitch: { idleWatchlistChannels: ["legacy"] } },
+      platform: { twitch: { watchlistChannels: ["legacy"] } },
     });
     expect(set).toHaveBeenCalledTimes(1);
 
@@ -133,13 +132,38 @@ describe("settings storage migration", () => {
     expect(set).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects a future schema version without writing", async () => {
+  it("reads a future schema version best-effort without writing it back", async () => {
     get.mockResolvedValue({
       settings: { schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION + 1, autoClaim: false },
     });
 
-    await expect(loadSettings()).rejects.toThrow(UnsupportedSettingsVersionError);
+    // Throwing here left every settings read failing, the popup stuck loading
+    // and the factory reset unable to run after a downgrade.
+    const settings = await loadSettings();
+    expect(settings).toEqual({ ...DEFAULT_SETTINGS, autoClaim: false });
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it("writes the current version over a future document on an explicit save", async () => {
+    get.mockResolvedValue({
+      settings: { schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION + 1, autoClaim: false },
+    });
+
+    const settings = await loadSettings();
+    await saveSettings({ ...settings, autoClaim: true });
+    expect(set).toHaveBeenCalledWith({
+      settings: withSchemaVersion({ ...DEFAULT_SETTINGS, autoClaim: true }),
+    });
+  });
+
+  it("migrates a malformed schema version from version 0 and writes it back", async () => {
+    get.mockResolvedValue({
+      settings: { schemaVersion: "9", verboseLogging: false },
+    });
+
+    const settings = await loadSettings();
+    expect(settings.diagnosticLogging).toBe(false);
+    expect(set).toHaveBeenCalledWith({ settings: withSchemaVersion(settings) });
   });
 
   it("emits the current version on an ordinary save", async () => {

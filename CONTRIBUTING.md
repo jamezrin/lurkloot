@@ -86,8 +86,8 @@ pnpm build:all      # every package
 For a change confined to one package, `pnpm test` and `pnpm typecheck` are usually enough. Run
 `pnpm verify` for anything that touches the manifest, the build, or release tooling.
 
-**`pnpm check` needs a Playwright Chromium.** The store screenshot tests drive a real browser against
-local HTML fixtures, so install it once:
+**`pnpm test` and `pnpm check` need a Playwright Chromium.** The popup layout and store screenshot
+tests drive a real browser against local HTML fixtures, so install it once:
 
 ```bash
 pnpm --filter @lurkloot/extension exec playwright install chromium

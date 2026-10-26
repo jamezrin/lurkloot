@@ -53,6 +53,8 @@ export function tickCapabilities(
     watchTabs,
     claimChallenges: typeof adapter.claimChallenges === "function",
     claimChannelPoints: typeof adapter.claimChannelPoints === "function",
+    // A streak payout arrives only over the platform's push connection.
+    observeWatchStreaks: typeof adapter.createChannelPointsPushController === "function",
   };
 }
 

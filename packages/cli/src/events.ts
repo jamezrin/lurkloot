@@ -33,8 +33,8 @@ function formatStopReason(reason: FarmingStopReason): string {
       return "no drop progress earned";
     case "higher_priority_reward":
       return "higher priority reward";
-    case "higher_priority_idle_watchlist":
-      return "higher priority idle watchlist";
+    case "higher_priority_watchlist":
+      return "higher priority watchlist";
     case "watch_requirement_completed":
       return "watch requirement completed";
     case "runtime_restart":
@@ -127,6 +127,10 @@ export function formatCliEvent(event: EngineEvent): string {
     }
     case "challenge_claimed":
       return `Claimed a ${event.data.rarity} ${event.data.recurrence} challenge`;
+    case "watch_streak_ended":
+      return event.data.outcome === "credited"
+        ? `Watch streak paid out on ${event.data.channel}`
+        : `Watch streak on ${event.data.channel} not confirmed; moving on`;
     case "page_context_opened":
       return `Opened background context on ${event.data.host}: ${formatPageContextOpenReason(event.data.reason)}`;
     case "page_context_closed":

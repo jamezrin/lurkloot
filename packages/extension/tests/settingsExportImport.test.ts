@@ -20,7 +20,7 @@ describe("settings export/import", () => {
         twitch: {
           ...DEFAULT_SETTINGS.platform.twitch,
           enabled: true,
-          idleWatchlistChannels: ["someone"],
+          watchlistChannels: ["someone"],
           rewardFilter: { kinds: ["badge", "emote"], subscriptions: "only" },
           farmPinnedOnly: true,
         },
@@ -95,6 +95,16 @@ describe("settings export/import", () => {
     expect(settings.autoClaim).toBe(false);
     expect(settings.idleWatchlistFallbackOnly).toBe(true);
     expect(diagnostics.length).toBeGreaterThan(0);
+  });
+
+  it("reads a file without a schemaVersion as an unversioned document", () => {
+    const { settings, diagnostics } = parseSettingsImportPayload({
+      kind: SETTINGS_EXPORT_KIND,
+      settings: { autoClaim: false, verboseLogging: false },
+    });
+    expect(settings.autoClaim).toBe(false);
+    expect(settings.diagnosticLogging).toBe(false);
+    expect(diagnostics).toContainEqual(expect.objectContaining({ path: "verboseLogging" }));
   });
 
   it("drops a non-https category imageUrl from a crafted import instead of rendering it as <img src>", () => {

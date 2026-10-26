@@ -1176,8 +1176,8 @@ export function PopupFrame({
     rewardKindCounts,
     subscriptionChoice,
   };
-  const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
-  const idleWatchlist = idleWatchlistChannels.map((username) =>
+  const watchlistChannels = settings.platform[platform].watchlistChannels;
+  const idleWatchlist = watchlistChannels.map((username) =>
     streamerItemFromFallback(username, session, t),
   );
   const screenshotWatchlist = watchlistShot
@@ -1231,7 +1231,7 @@ export function PopupFrame({
         : activeCampaign
           ? "drops"
           : farmingChannel
-            ? "idle_watchlist"
+            ? "watchlist"
             : undefined;
   const sourceOrder = settings.platform[platform].watchSourcePriority;
   // The status strip shows in every view, but only the queue can reveal the
@@ -1260,13 +1260,13 @@ export function PopupFrame({
       settings.platform[platform].categoryMode === "all"
         ? dropCategorySuggestions[platform].length
         : settings.platform[platform].categories.length,
-    watchlist: settings.platform[platform].idleWatchlistChannels.length,
+    watchlist: settings.platform[platform].watchlistChannels.length,
   };
   const VIEW_TITLE_KEYS: Record<PopupView, string> = {
     queue: "navQueue",
     completed: "navCompleted",
     games: "navGames",
-    watchlist: "navIdleWatchlist",
+    watchlist: "navWatchlist",
     nopixel: "navNoPixel",
     fortnite: "navFortnite",
     activity: "activityTitle",
@@ -1535,14 +1535,41 @@ export function PopupFrame({
                               onChangeOrder={() =>
                                 changeView("settings", `${platform}.watchSourcePriority`)
                               }
+                              streaks={
+                                platform === "twitch"
+                                  ? {
+                                      enabled: new Set(
+                                        settings.platform.twitch.watchlistStreakChannels,
+                                      ),
+                                      statuses: snapshot.state.watchStreaks?.twitch?.rows ?? {},
+                                      onToggle: (username, enabled) => {
+                                        const current =
+                                          settings.platform.twitch.watchlistStreakChannels;
+                                        void updateSettings(
+                                          {
+                                            platform: {
+                                              twitch: {
+                                                watchlistStreakChannels: enabled
+                                                  ? [...current, username]
+                                                  : current.filter((entry) => entry !== username),
+                                              },
+                                            },
+                                          },
+                                          {
+                                            tickAfterSave: true,
+                                            tickAfterSavePlatforms: ["twitch"],
+                                          },
+                                        );
+                                      },
+                                    }
+                                  : undefined
+                              }
                               onChange={(ordered) =>
                                 updateSettings(
                                   {
                                     platform: {
                                       [platform]: {
-                                        idleWatchlistChannels: ordered.map(
-                                          (streamer) => streamer.id,
-                                        ),
+                                        watchlistChannels: ordered.map((streamer) => streamer.id),
                                       },
                                     },
                                   },

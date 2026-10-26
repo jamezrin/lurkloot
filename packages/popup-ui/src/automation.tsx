@@ -150,7 +150,7 @@ export function AutomationStatusLine({
                   aria-hidden
                   style={{ color: "var(--accent-text)" }}
                 />
-                <span className="truncate font-semibold">{t("idleWatchlistTab")}</span>
+                <span className="truncate font-semibold">{t("watchlistTab")}</span>
               </span>
             )}
           </span>

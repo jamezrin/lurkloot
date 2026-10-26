@@ -8,6 +8,8 @@ import type {
 } from "@lurkloot/shared/models";
 import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { isRecord } from "@lurkloot/shared/records";
+import { currentReasonCode } from "@lurkloot/shared/events";
+import { normalizeWatchStreakState } from "./watchStreaks";
 
 const AUTH_STATUSES = new Set<PlatformAuthStatus>([
   "checking",
@@ -73,6 +75,12 @@ export function normalizePlatformAuthHealth(value: unknown): PlatformAuthHealth 
       ? (value.reasonCode as PlatformAuthReasonCode)
       : undefined;
   if (reasonCode) health.reasonCode = reasonCode;
+  if (
+    normalizedStatus === "healthy"
+    && typeof value.accountId === "string"
+    && /^[A-Za-z0-9_-]{1,64}$/.test(value.accountId)
+  )
+    health.accountId = value.accountId;
 
   if (isRecord(value.message)) {
     const expectedKey = AUTH_MESSAGE_KEYS[reasonCode ?? normalizedStatus];
@@ -140,10 +148,11 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
     normalizedCriticalHealth && Object.keys(normalizedCriticalHealth).length > 0
       ? normalizedCriticalHealth
       : undefined;
+  const watchStreaks = normalizeStoredWatchStreaks(stored?.watchStreaks);
   return {
     ...DEFAULT_STATE,
     ...operationalState,
-    sessions: { ...DEFAULT_STATE.sessions, ...stored?.sessions },
+    sessions: currentSessionReasonCodes({ ...DEFAULT_STATE.sessions, ...stored?.sessions }),
     authHealth: {
       twitch: normalizePlatformAuthHealth(stored?.authHealth?.twitch),
       kick: normalizePlatformAuthHealth(stored?.authHealth?.kick),
@@ -157,5 +166,28 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
     manualWatchTabs: { ...stored?.manualWatchTabs },
     campaigns: { ...DEFAULT_STATE.campaigns, ...stored?.campaigns },
     ...(criticalHealth ? { criticalHealth } : {}),
+    ...(watchStreaks ? { watchStreaks } : { watchStreaks: undefined }),
   };
+}
+
+function currentSessionReasonCodes(
+  sessions: SchedulerState["sessions"],
+): SchedulerState["sessions"] {
+  const current = { ...sessions };
+  for (const platform of ["twitch", "kick"] as const) {
+    const session = current[platform];
+    if (session?.reasonCode && currentReasonCode(session.reasonCode) !== session.reasonCode)
+      current[platform] = { ...session, reasonCode: currentReasonCode(session.reasonCode) };
+  }
+  return current;
+}
+
+function normalizeStoredWatchStreaks(value: unknown): SchedulerState["watchStreaks"] {
+  if (!isRecord(value)) return undefined;
+  const normalized: NonNullable<SchedulerState["watchStreaks"]> = {};
+  for (const platform of ["twitch", "kick"] as const) {
+    const entry = normalizeWatchStreakState(value[platform]);
+    if (entry) normalized[platform] = entry;
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }

@@ -107,7 +107,7 @@ describe("store screenshot variants", () => {
 });
 
 describe("extras screenshot popup", () => {
-  it("expands the idle watchlist with live demo rows", async () => {
+  it("expands the watchlist with live demo rows", async () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -193,7 +193,7 @@ describe("store screenshot cameras", () => {
     expect(container.textContent).toContain("More than drops.");
     expect(container.textContent).toContain("Channel points");
     expect(container.textContent).toContain("Daily challenges");
-    expect(container.textContent).toContain("Idle watchlist");
+    expect(container.textContent).toContain("Watchlist");
     expect(container.textContent).toContain("2-minute drops");
     expect(container.textContent).toContain("LIVE_POPUP");
     expect(container.querySelector('[data-layout="extras"]')).not.toBeNull();

@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farm drop Twitch dan Kick lewat sesi browser biasa, tab bisu yang terlihat, dan mode hemat sumber daya opsional."
   },
+  "toolbarTitleOff": {
+    "message": "Farm sedang nonaktif"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: sedang farm"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: tidak ada yang bisa di-farm saat ini"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: dijeda"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: belum login"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: akses diblokir"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: tidak ada kemajuan"
+  },
   "promoTagline": {
     "message": "Farm drop Twitch & Kick otomatis."
   },
@@ -65,6 +86,9 @@
   "languageCzech": {
     "message": "Ceko"
   },
+  "languagePersian": {
+    "message": "bahasa Persia"
+  },
   "settingsLanguageTitle": {
     "message": "Bahasa"
   },
@@ -89,8 +113,8 @@
   "navGames": {
     "message": "Game"
   },
-  "navIdleWatchlist": {
-    "message": "Daftar cadangan"
+  "navWatchlist": {
+    "message": "Daftar pantau"
   },
   "navActivity": {
     "message": "Aktivitas"
@@ -230,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Daftar cadangan"
+  "watchlistTab": {
+    "message": "Daftar pantau"
   },
   "automationTitle": {
     "message": "Otomatisasi $1"
@@ -284,8 +308,8 @@
   "tipCategorySelection": {
     "message": "Tampilan Game menentukan game mana yang di-farm, mana yang diutamakan, dan mana yang tidak pernah di-farm."
   },
-  "tipIdleWatchlist": {
-    "message": "Atur kapan saluran daftar cadangan ditonton dengan mengubah prioritas sumber tontonan di pengaturan platform."
+  "tipWatchlist": {
+    "message": "Atur kapan saluran daftar pantau ditonton dengan mengubah prioritas sumber tontonan di pengaturan platform."
   },
   "tipTablessMode": {
     "message": "Mode tanpa tab memakai lebih sedikit sumber daya dan beralih ke tab bisu jika diperlukan."
@@ -348,7 +372,7 @@
     "message": "Twitch dan Kick"
   },
   "tourPlatformBody": {
-    "message": "Ganti platform di sini. Masing-masing punya antrean, game, dan watchlist sendiri."
+    "message": "Ganti platform di sini. Masing-masing punya antrean, game, dan daftar pantau sendiri."
   },
   "tourQueueOrderTitle": {
     "message": "Cara antrean diurutkan"
@@ -375,7 +399,7 @@
     "message": "Pilih \"Semua kategori\" untuk memfarm setiap game kecuali yang Anda blokir, atau \"Hanya yang dipilih\" untuk memfarm hanya game yang Anda centang. Beri bintang pada game agar kampanyenya tampil lebih dulu, atau blokir agar tidak pernah di-farm."
   },
   "tourWatchlistTitle": {
-    "message": "Daftar cadangan"
+    "message": "Daftar pantau"
   },
   "tourWatchlistBody": {
     "message": "Saat tidak ada drop untuk di-farm, Lurkloot menonton saluran ini agar Anda terus mendapat poin saluran di Twitch, serta hadiah harian dan streak tonton di Kick. Prioritas sumber tontonan di Pengaturan menentukan kapan saluran ditonton."
@@ -605,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Kecualikan dari farming"
   },
-  "noIdleWatchlist": {
-    "message": "Tidak ada saluran daftar cadangan yang dikonfigurasi."
+  "noWatchlist": {
+    "message": "Tidak ada saluran daftar pantau yang dikonfigurasi."
   },
   "channelPlaceholder": {
     "message": "saluran"
@@ -617,7 +641,7 @@
   "addChannel": {
     "message": "Tambah saluran"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Luring"
   },
   "live": {
@@ -695,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Ketersediaan rendah dulu"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Daftar cadangan"
+  "watchlistSettingsTitle": {
+    "message": "Daftar pantau"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Saluran cadangan saat tidak ada drop yang memenuhi syarat."
   },
   "preferKnownChannelsTitle": {
-    "message": "Utamakan saluran yang diikuti dan daftar cadangan"
+    "message": "Utamakan saluran yang diikuti dan daftar pantau"
   },
   "preferKnownChannelsDescription": {
-    "message": "Saat drop tersedia di beberapa saluran, pilih yang Anda ikuti atau ada di daftar cadangan, bukan yang asing."
+    "message": "Saat drop tersedia di beberapa saluran, pilih yang Anda ikuti atau ada di daftar pantau, bukan yang asing."
   },
   "platformSettingsTitle": {
     "message": "Pengaturan platform"
@@ -759,7 +783,7 @@
     "message": "Bisukan tab farming"
   },
   "muteTabsDescription": {
-    "message": "Biarkan tab drop dan daftar cadangan bisu saat farming."
+    "message": "Biarkan tab drop dan daftar pantau bisu saat farming."
   },
   "keepVideosUnmutedTitle": {
     "message": "Biarkan video farming tidak bisu"
@@ -930,13 +954,13 @@
     "message": "Otomatisasi"
   },
   "farmOnPlatform": {
-    "message": "Farm drop dan tonton saluran daftar cadangan di $1."
+    "message": "Farm drop dan tonton saluran daftar pantau di $1."
   },
   "enabled": {
     "message": "Diaktifkan"
   },
-  "idleWatchlistEditHint": {
-    "message": "Edit dari tab Daftar cadangan setelah memilih $1."
+  "watchlistEditHint": {
+    "message": "Edit dari tab Daftar pantau setelah memilih $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Klaim channel points otomatis"
@@ -1212,7 +1236,7 @@
     "message": "Lebih dari drop."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Channel points, tantangan Kick, dan drop 2 menit — juga diklaim untuk Anda. Daftar cadangan saat tidak ada yang perlu di-farm."
+    "message": "Channel points, tantangan Kick, dan drop 2 menit — juga diklaim untuk Anda. Daftar pantau saat tidak ada yang perlu di-farm."
   },
   "screenshotExtrasPointsName": {
     "message": "Poin channel"
@@ -1227,7 +1251,7 @@
     "message": "Kick · juga diklaim untuk Anda"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Daftar cadangan"
+    "message": "Daftar pantau"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Menonton streamer Anda di antara kampanye"
@@ -1460,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "Mengklaim kartu $1 dari tantangan $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch mengonfirmasi streak menonton di $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Streak menonton di $1 belum dikonfirmasi tepat waktu; lanjut ke berikutnya"
+  },
   "activityAuthHealthChanged": {
     "message": "Autentikasi $1 berubah dari $2 ke $3."
   },
@@ -1553,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "hadiah prioritas lebih tinggi mengambil alih"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "saluran daftar cadangan prioritas lebih tinggi tersedia"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "saluran daftar pantau prioritas lebih tinggi tersedia"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "persyaratan tonton selesai"
@@ -1922,14 +1952,17 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Daftar cadangan"
+  "watchSourceWatchlist": {
+    "message": "Daftar pantau"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "watchSourceWatchStreaks": {
+    "message": "Streak menonton"
   },
   "gamesStarHint": {
     "message": "★ menaikkan game di atas strategi"
@@ -1974,10 +2007,10 @@
     "message": "Buka Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Tambahkan $1 ke daftar cadangan"
+    "message": "Tambahkan $1 ke daftar pantau"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Hapus $1 dari daftar cadangan"
+    "message": "Hapus $1 dari daftar pantau"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2135,23 +2168,44 @@
   "settingsGamesPointerAction": {
     "message": "Buka Game"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Nama saluran atau tautan"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "Daftar penuh ($1 saluran). Hapus satu untuk menambah."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Masukkan nama saluran atau tautan saluran."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 sudah ada di daftar."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Urutan tonton"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "saluran live pertama yang ditonton"
+  },
+  "watchlistStreakHint": {
+    "message": "Baris streak ditonton di posisi Streak menonton dalam urutan tonton, masing-masing sampai Twitch mengonfirmasi streak atau $1 menit berlalu."
+  },
+  "watchlistStreakToggle": {
+    "message": "Pertahankan streak menonton di $1"
+  },
+  "watchStreakPending": {
+    "message": "Streak menunggu"
+  },
+  "watchStreakWatching": {
+    "message": "Mempertahankan streak"
+  },
+  "watchStreakCredited": {
+    "message": "Streak dikonfirmasi"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Belum dikonfirmasi"
+  },
+  "watchStreakUnavailable": {
+    "message": "Streak tidak tersedia"
   },
   "gamesModeAllDescription": {
     "message": "Setiap game dengan drop live di-farm, kecuali yang diblokir."

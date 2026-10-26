@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "Farmí drops na Twitchi a Kicku přes běžné relace prohlížeče, viditelné ztlumené záložky a volitelný úsporný režim."
   },
+  "toolbarTitleOff": {
+    "message": "Farmení je vypnuté"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: farmení"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: teď není co farmit"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: pozastaveno"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: odhlášen"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: přístup zablokován"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: bez postupu"
+  },
   "promoTagline": {
     "message": "Farmí drops na Twitchi a Kicku na autopilotu."
   },
@@ -65,6 +86,9 @@
   "languageCzech": {
     "message": "Čeština"
   },
+  "languagePersian": {
+    "message": "perština"
+  },
   "settingsLanguageTitle": {
     "message": "Jazyk"
   },
@@ -89,8 +113,8 @@
   "navGames": {
     "message": "Hry"
   },
-  "navIdleWatchlist": {
-    "message": "Záložní seznam"
+  "navWatchlist": {
+    "message": "Seznam sledování"
   },
   "navActivity": {
     "message": "Aktivita"
@@ -230,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "Záložní seznam"
+  "watchlistTab": {
+    "message": "Seznam sledování"
   },
   "automationTitle": {
     "message": "Automatizace $1"
@@ -284,8 +308,8 @@
   "tipCategorySelection": {
     "message": "Zobrazení Her rozhoduje, které hry se farmí, které jsou první a které se vůbec nefarmí."
   },
-  "tipIdleWatchlist": {
-    "message": "Zvolte, kdy se sledují kanály Idle watchlist, úpravou priority zdrojů sledování v nastavení platformy."
+  "tipWatchlist": {
+    "message": "Zvolte, kdy se sledují kanály ze seznamu sledování, úpravou priority zdrojů sledování v nastavení platformy."
   },
   "tipTablessMode": {
     "message": "Režim bez záložek spotřebuje méně prostředků a v případě potřeby přejde na ztlumenou záložku."
@@ -348,7 +372,7 @@
     "message": "Twitch a Kick"
   },
   "tourPlatformBody": {
-    "message": "Přepínejte platformy zde. Každá má vlastní frontu, hry a Záložní seznam."
+    "message": "Přepínejte platformy zde. Každá má vlastní frontu, hry a seznam sledování."
   },
   "tourQueueOrderTitle": {
     "message": "Jak je fronta seřazena"
@@ -375,7 +399,7 @@
     "message": "Vyberte Všechny kategorie a farmí se každá hra kromě těch, které zablokujete, nebo Jen vybrané a farmí se jen hry, které zaškrtnete. Hvězdičkou označte hru, aby se její kampaně zařadily nahoru, nebo ji zablokujte, aby se nikdy nefarmila."
   },
   "tourWatchlistTitle": {
-    "message": "Záložní seznam"
+    "message": "Seznam sledování"
   },
   "tourWatchlistBody": {
     "message": "Když nejsou žádné drops k farmení, Lurkloot sleduje tyto kanály, takže na Twitchi dál získáváte body kanálu a na Kicku denní odměny a sérii sledování. Priorita zdrojů sledování v Nastavení určuje, kdy se sledují."
@@ -605,8 +629,8 @@
   "excludeFromFarming": {
     "message": "Vyloučit z farmení"
   },
-  "noIdleWatchlist": {
-    "message": "Nejsou nastaveny žádné kanály Idle watchlist."
+  "noWatchlist": {
+    "message": "Nejsou nastaveny žádné kanály v seznamu sledování."
   },
   "channelPlaceholder": {
     "message": "kanál"
@@ -617,7 +641,7 @@
   "addChannel": {
     "message": "Přidat kanál"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "Mimo síť"
   },
   "live": {
@@ -695,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "Nejdříve s nízkou dostupností"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "Záložní seznam"
+  "watchlistSettingsTitle": {
+    "message": "Seznam sledování"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "Záložní kanály, když nejsou dostupné žádné vhodné drops."
   },
   "preferKnownChannelsTitle": {
-    "message": "Upřednostnit sledované a kanály Idle watchlist"
+    "message": "Upřednostnit sledované a kanály v seznamu sledování"
   },
   "preferKnownChannelsDescription": {
-    "message": "Když je drop na více kanálech, vybere ten, který sledujete nebo máte v Idle watchlist, místo neznámého."
+    "message": "Když je drop na více kanálech, vybere ten, který sledujete nebo máte v seznamu sledování, místo neznámého."
   },
   "platformSettingsTitle": {
     "message": "Nastavení platformy"
@@ -759,7 +783,7 @@
     "message": "Ztlumit záložky pro farmení"
   },
   "muteTabsDescription": {
-    "message": "Udržuje záložky drops a Idle watchlist během farmení ztlumené."
+    "message": "Udržuje záložky drops a seznam sledování během farmení ztlumené."
   },
   "keepVideosUnmutedTitle": {
     "message": "Nenechat farmící videa ztlumená"
@@ -930,13 +954,13 @@
     "message": "Automatizace"
   },
   "farmOnPlatform": {
-    "message": "Farmí drops a sleduje kanály Idle watchlist na $1."
+    "message": "Farmí drops a sleduje kanály ze seznamu sledování na $1."
   },
   "enabled": {
     "message": "Zapnuto"
   },
-  "idleWatchlistEditHint": {
-    "message": "Upravte to na kartě Idle Watchlist po výběru $1."
+  "watchlistEditHint": {
+    "message": "Upravte to na kartě Seznam sledování po výběru $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Automaticky vyzvedávat channel points"
@@ -1212,7 +1236,7 @@
     "message": "Víc než drops."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Channel points, výzvy Kick a 2minutové drops — taky za vás vyzvednuté. Idle watchlist, když už není co farmit."
+    "message": "Channel points, výzvy Kick a 2minutové drops — taky za vás vyzvednuté. Seznam sledování, když už není co farmit."
   },
   "screenshotExtrasPointsName": {
     "message": "Body kanálu"
@@ -1227,7 +1251,7 @@
     "message": "Kick · taky za vás vyzvednuté"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Záložní seznam"
+    "message": "Seznam sledování"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "Sleduje vaše streamery mezi kampaněmi"
@@ -1460,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "Vyzvednuta karta $1 z výzvy $2"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch potvrdil sérii sledování u $1"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "Série sledování u $1 nebyla včas potvrzena; přejde se dál"
+  },
   "activityAuthHealthChanged": {
     "message": "Autentizace $1 se změnila z $2 na $3."
   },
@@ -1553,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "převzala odměna s vyšší prioritou"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "byl dostupný kanál Idle watchlist s vyšší prioritou"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "byl dostupný kanál ze seznamu sledování s vyšší prioritou"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "požadavek sledování byl splněn"
@@ -1922,14 +1952,17 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "Záložní seznam"
+  "watchSourceWatchlist": {
+    "message": "Seznam sledování"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "watchSourceWatchStreaks": {
+    "message": "Série sledování"
   },
   "gamesStarHint": {
     "message": "★ zařadí hru nad strategii"
@@ -1974,10 +2007,10 @@
     "message": "Otevřít Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Přidat $1 do idle watchlist"
+    "message": "Přidat $1 do seznamu sledování"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Odebrat $1 z idle watchlist"
+    "message": "Odebrat $1 ze seznamu sledování"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2135,23 +2168,44 @@
   "settingsGamesPointerAction": {
     "message": "Otevřít Hry"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "Název kanálu nebo odkaz"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "Seznam je plný ($1 kanálů). Odeberte jeden pro přidání dalšího."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "Zadejte název kanálu nebo odkaz na kanál."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1 už je na seznamu."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "Pořadí sledování"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "sleduje se první live kanál"
+  },
+  "watchlistStreakHint": {
+    "message": "Řádky sérií se sledují na místě Série sledování v pořadí sledování, každý, dokud Twitch sérii nepotvrdí nebo neuplyne $1 minut."
+  },
+  "watchlistStreakToggle": {
+    "message": "Udržovat sérii sledování u $1"
+  },
+  "watchStreakPending": {
+    "message": "Série čeká"
+  },
+  "watchStreakWatching": {
+    "message": "Udržuji sérii"
+  },
+  "watchStreakCredited": {
+    "message": "Série potvrzena"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "Nepotvrzeno"
+  },
+  "watchStreakUnavailable": {
+    "message": "Série nedostupná"
   },
   "gamesModeAllDescription": {
     "message": "Farmí se každá hra s aktivními drops kromě blokovaných."

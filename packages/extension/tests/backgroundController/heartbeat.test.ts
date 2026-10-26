@@ -337,7 +337,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, watchlistChannels: [] },
       },
     });
     env.kick.supportsTabless = true;
@@ -443,7 +443,7 @@ describe("background controller", () => {
         platform: {
           ...DEFAULT_SETTINGS.platform,
           twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
         },
       },
       {
@@ -699,7 +699,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, watchlistChannels: [] },
       },
     });
     env.kick.supportsTabless = true;
@@ -1349,7 +1349,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, watchlistChannels: [] },
       },
     });
     env.kick.supportsTabless = true;
@@ -1403,7 +1403,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, watchlistChannels: [] },
       },
     });
     env.kick.supportsTabless = true;
@@ -1455,7 +1455,7 @@ describe("background controller", () => {
       tablessMode: true,
       platform: {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, watchlistChannels: [] },
       },
     });
     env.kick.supportsTabless = true;
@@ -1639,7 +1639,7 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
   });
 
-  it("heartbeats a Kick idle watchlist session from the minute alarm", async () => {
+  it("heartbeats a Kick watchlist session from the minute alarm", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
     const env = harness(
       farming({
@@ -1651,7 +1651,7 @@ describe("background controller", () => {
           kick: {
             ...DEFAULT_SETTINGS.platform.kick,
             enabled: true,
-            idleWatchlistChannels: ["rewardstation"],
+            watchlistChannels: ["rewardstation"],
           },
         },
       }),
@@ -1957,7 +1957,7 @@ describe("background controller", () => {
         platform: {
           ...DEFAULT_SETTINGS.platform,
           twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, watchlistChannels: [] },
         },
       },
       {
@@ -2207,7 +2207,7 @@ describe("background controller", () => {
           kick: {
             ...DEFAULT_SETTINGS.platform.kick,
             enabled: platform === "kick",
-            idleWatchlistChannels: [],
+            watchlistChannels: [],
           },
         },
       });

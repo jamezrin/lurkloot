@@ -180,9 +180,9 @@ describe("supplemental watch lane", () => {
     });
     expect(resumed.state.sessions.twitch.supplementalWatch).toBeUndefined();
   });
-  it("prefers supplemental rewards over the Idle Watchlist", async () => {
+  it("prefers supplemental rewards over the Watchlist", async () => {
     const s = fixture();
-    s.settings.platform.twitch.idleWatchlistChannels = ["lootforge"];
+    s.settings.platform.twitch.watchlistChannels = ["lootforge"];
     const result = await runSchedulerTick(s.state, s.settings, s.adapters, {
       platforms: ["twitch"],
       selectSupplementalWatchTarget: async () => s.target,

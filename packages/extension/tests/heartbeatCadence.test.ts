@@ -63,7 +63,7 @@ describe("tabless heartbeat cadence", () => {
     expect(idle).not.toBe(heartbeatContextKey(session));
   });
 
-  it("keys an idle watchlist target and leaves a half-identified drop without a key", () => {
+  it("keys an watchlist target and leaves a half-identified drop without a key", () => {
     const idle = tablessSession({ campaignId: undefined, rewardId: undefined });
     const drop = tablessSession({ campaignId: "campaign", rewardId: "reward" });
 
@@ -284,7 +284,7 @@ describe("scheduler tabless heartbeat cadence state", () => {
     expect(changed.state.sessions.twitch.tablessHeartbeat).toBeUndefined();
   });
 
-  it("retains cadence metadata for an unchanged idle watchlist target", async () => {
+  it("retains cadence metadata for an unchanged watchlist target", async () => {
     const channel: ChannelCandidate = {
       platform: "kick",
       username: "rewardstation",
@@ -306,7 +306,7 @@ describe("scheduler tabless heartbeat cadence state", () => {
     settings.platform.kick = {
       ...settings.platform.kick,
       enabled: true,
-      idleWatchlistChannels: ["rewardstation"],
+      watchlistChannels: ["rewardstation"],
     };
     settings.platform.twitch = { ...settings.platform.twitch, enabled: false };
 

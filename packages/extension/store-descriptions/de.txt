@@ -4,6 +4,6 @@ Standardmäßig läuft ein ressourcenschonender Modus ohne Tab, der Watch-Signal
 
 Deine Daten bleiben deine: keine Passwörter, kein Export von Cookies oder Tokens, und alles bleibt auf deinem Gerät.
 
-Über das Popup kannst du jede Plattform aktivieren, die Kampagnen und Spiele priorisieren, die dir wichtig sind, Leerlauf-Watchlists und ausgeschlossene Kanäle pro Plattform verwalten und Auto-Claim sowie Benachrichtigungen umschalten.
+Über das Popup kannst du jede Plattform aktivieren, die Kampagnen und Spiele priorisieren, die dir wichtig sind, Watchlists und ausgeschlossene Kanäle pro Plattform verwalten und Auto-Claim sowie Benachrichtigungen umschalten.
 
-Lurkloot kann auch Kick-Watchtime farmen, wenn kein Drop aktiv ist. Füge deine bevorzugten Kanäle zur Leerlauf-Watchlist hinzu; es wählt automatisch einen gerade laufenden Stream. Das Zuschauen ohne Tab spart Ressourcen, während der Rückfall auf einen angepinnten Tab die Sitzung zuverlässig am Laufen hält.
+Lurkloot kann auch Kick-Watchtime farmen, wenn kein Drop aktiv ist. Füge deine bevorzugten Kanäle zur Watchlist hinzu; es wählt automatisch einen gerade laufenden Stream. Das Zuschauen ohne Tab spart Ressourcen, während der Rückfall auf einen angepinnten Tab die Sitzung zuverlässig am Laufen hält.

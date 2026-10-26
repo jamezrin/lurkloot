@@ -5,6 +5,7 @@ import type {
   FarmingStopReason,
   StoredEngineEvent,
 } from "@lurkloot/shared/events";
+import { currentReasonCode } from "@lurkloot/shared/events";
 import type { ActivityPage } from "@lurkloot/shared/messages";
 import type { Platform } from "@lurkloot/shared/models";
 import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
@@ -158,7 +159,8 @@ export function applyActivityMutationForRequest(
     : current;
 }
 
-function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
+function formatStopReason(stored: FarmingStopReason, t: TFunction): string {
+  const reason = currentReasonCode(stored);
   switch (reason) {
     case "automation_disabled":
       return t("activityReasonAutomationDisabled");
@@ -184,8 +186,8 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
       return t("activityReasonNoProgress");
     case "higher_priority_reward":
       return t("activityReasonHigherPriorityReward");
-    case "higher_priority_idle_watchlist":
-      return t("activityReasonHigherPriorityIdleWatchlist");
+    case "higher_priority_watchlist":
+      return t("activityReasonHigherPriorityWatchlist");
     case "watch_requirement_completed":
       return t("activityReasonWatchRequirementCompleted");
     case "runtime_restart":
@@ -302,6 +304,10 @@ function formatCurrentActivity(
     }
     case "challenge_claimed":
       return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
+    case "watch_streak_ended":
+      return event.data.outcome === "credited"
+        ? t("activityWatchStreakCredited", event.data.channel)
+        : t("activityWatchStreakNotConfirmed", event.data.channel);
     case "page_context_opened":
       return t("activityPageContextOpened", [
         event.data.host,
@@ -392,6 +398,10 @@ export function buildActivityCard(
         detail: event.data.detail,
         chips: [formatStopReason(event.data.reason, t)],
       };
+    case "watch_streak_ended":
+      return event.data.outcome === "credited"
+        ? { icon: "trophy", tone: "success", summary, chips: [event.data.channel] }
+        : { icon: "triangle", tone: "muted", summary, chips: [event.data.channel] };
     case "page_context_opened":
       return {
         icon: "monitor-up",

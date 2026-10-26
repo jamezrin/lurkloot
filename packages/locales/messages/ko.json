@@ -8,6 +8,27 @@
   "extensionDescription": {
     "message": "일반 브라우저 세션, 보이는 음소거 탭, 선택적 저자원 모드로 Twitch와 Kick 드롭을 파밍합니다."
   },
+  "toolbarTitleOff": {
+    "message": "파밍 꺼짐"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: 파밍 중"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: 지금은 파밍할 항목 없음"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: 일시정지됨"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: 로그아웃됨"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: 접근 차단됨"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: 진행되지 않음"
+  },
   "promoTagline": {
     "message": "Twitch와 Kick 드롭을 자동으로 파밍하세요."
   },
@@ -65,6 +86,9 @@
   "languageCzech": {
     "message": "체코어"
   },
+  "languagePersian": {
+    "message": "페르시아어"
+  },
   "settingsLanguageTitle": {
     "message": "언어"
   },
@@ -89,8 +113,8 @@
   "navGames": {
     "message": "게임"
   },
-  "navIdleWatchlist": {
-    "message": "대기 시청 목록"
+  "navWatchlist": {
+    "message": "시청 목록"
   },
   "navActivity": {
     "message": "활동"
@@ -230,8 +254,8 @@
   "dropsTab": {
     "message": "Drops"
   },
-  "idleWatchlistTab": {
-    "message": "대기 시청 목록"
+  "watchlistTab": {
+    "message": "시청 목록"
   },
   "automationTitle": {
     "message": "$1 자동화"
@@ -284,8 +308,8 @@
   "tipCategorySelection": {
     "message": "게임 보기에서 어떤 게임을 파밍할지, 어떤 게임이 먼저 올지, 어떤 게임은 파밍하지 않을지 결정합니다."
   },
-  "tipIdleWatchlist": {
-    "message": "플랫폼 설정에서 시청 소스 우선순위를 바꿔 대기 시청 목록 채널을 언제 시청할지 선택하세요."
+  "tipWatchlist": {
+    "message": "플랫폼 설정에서 시청 소스 우선순위를 바꿔 시청 목록 채널을 언제 시청할지 선택하세요."
   },
   "tipTablessMode": {
     "message": "탭 없는 모드는 리소스를 덜 쓰며, 필요할 때 음소거 탭으로 전환합니다."
@@ -348,7 +372,7 @@
     "message": "Twitch와 Kick"
   },
   "tourPlatformBody": {
-    "message": "여기에서 플랫폼을 전환하세요. 각 플랫폼에는 고유한 대기열, 게임, 대기 시청 목록이 있습니다."
+    "message": "여기에서 플랫폼을 전환하세요. 각 플랫폼에는 고유한 대기열, 게임, 시청 목록이 있습니다."
   },
   "tourQueueOrderTitle": {
     "message": "대기열 정렬 방식"
@@ -375,7 +399,7 @@
     "message": "\"모든 카테고리\"를 고르면 차단한 게임을 제외한 모든 게임을 파밍하고, \"선택한 항목만\"을 고르면 체크한 게임만 파밍합니다. 게임에 별표를 누르면 그 캠페인이 먼저 오고, 차단하면 해당 게임은 절대 파밍하지 않습니다."
   },
   "tourWatchlistTitle": {
-    "message": "대기 시청 목록"
+    "message": "시청 목록"
   },
   "tourWatchlistBody": {
     "message": "파밍할 Drops가 없을 때 Lurkloot은 이 채널들을 시청해 Twitch에서는 채널 포인트를, Kick에서는 일일 보상과 시청 연속 기록을 계속 쌓습니다. 언제 시청할지는 설정의 시청 소스 우선순위에 따라 정해집니다."
@@ -605,8 +629,8 @@
   "excludeFromFarming": {
     "message": "파밍에서 제외"
   },
-  "noIdleWatchlist": {
-    "message": "구성된 대기 시청 목록 채널이 없습니다."
+  "noWatchlist": {
+    "message": "구성된 시청 목록 채널이 없습니다."
   },
   "channelPlaceholder": {
     "message": "채널"
@@ -617,7 +641,7 @@
   "addChannel": {
     "message": "채널 추가"
   },
-  "idleWatchlistChannel": {
+  "watchlistChannel": {
     "message": "오프라인"
   },
   "live": {
@@ -695,17 +719,17 @@
   "lowAvailabilityFirst": {
     "message": "채널 적음 우선"
   },
-  "idleWatchlistSettingsTitle": {
-    "message": "대기 시청 목록"
+  "watchlistSettingsTitle": {
+    "message": "시청 목록"
   },
-  "idleWatchlistSettingsDescription": {
+  "watchlistSettingsDescription": {
     "message": "적격 드롭이 없을 때 사용하는 대체 채널."
   },
   "preferKnownChannelsTitle": {
-    "message": "팔로우 및 대기 시청 목록 채널 우선"
+    "message": "팔로우 및 시청 목록 채널 우선"
   },
   "preferKnownChannelsDescription": {
-    "message": "여러 채널에서 드롭이 가능할 때, 모르는 채널보다 팔로우하거나 대기 시청 목록에 있는 채널을 선택합니다."
+    "message": "여러 채널에서 드롭이 가능할 때, 모르는 채널보다 팔로우하거나 시청 목록에 있는 채널을 선택합니다."
   },
   "platformSettingsTitle": {
     "message": "플랫폼 설정"
@@ -759,7 +783,7 @@
     "message": "파밍 탭 음소거"
   },
   "muteTabsDescription": {
-    "message": "파밍 중 드롭 및 대기 시청 목록 탭을 음소거 상태로 유지합니다."
+    "message": "파밍 중 드롭 및 시청 목록 탭을 음소거 상태로 유지합니다."
   },
   "keepVideosUnmutedTitle": {
     "message": "파밍 동영상 음소거 해제 유지"
@@ -930,13 +954,13 @@
     "message": "자동화"
   },
   "farmOnPlatform": {
-    "message": "$1에서 드롭을 파밍하고 대기 시청 목록 채널을 시청합니다."
+    "message": "$1에서 드롭을 파밍하고 시청 목록 채널을 시청합니다."
   },
   "enabled": {
     "message": "켜짐"
   },
-  "idleWatchlistEditHint": {
-    "message": "$1을(를) 선택한 뒤 대기 시청 목록 탭에서 편집하세요."
+  "watchlistEditHint": {
+    "message": "$1을(를) 선택한 뒤 시청 목록 탭에서 편집하세요."
   },
   "autoClaimChannelPointsTitle": {
     "message": "채널 포인트 자동 수령"
@@ -1212,7 +1236,7 @@
     "message": "드롭만이 아닙니다."
   },
   "screenshotExtrasSubcopy": {
-    "message": "채널 포인트, Kick 챌린지, 2분 드롭 — 이것도 대신 수령합니다. 파밍할 것이 없을 때는 대기 시청 목록."
+    "message": "채널 포인트, Kick 챌린지, 2분 드롭 — 이것도 대신 수령합니다. 파밍할 것이 없을 때는 시청 목록."
   },
   "screenshotExtrasPointsName": {
     "message": "채널 포인트"
@@ -1227,7 +1251,7 @@
     "message": "Kick · 대신 수령"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "대기 시청 목록"
+    "message": "시청 목록"
   },
   "screenshotExtrasWatchlistMeta": {
     "message": "캠페인 사이에 스트리머를 시청"
@@ -1460,6 +1484,12 @@
   "activityChallengeClaimed": {
     "message": "$1 카드를 $2 챌린지에서 수령했습니다"
   },
+  "activityWatchStreakCredited": {
+    "message": "Twitch가 $1의 연속 시청을 확인했습니다"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "$1의 연속 시청이 제때 확인되지 않아 다음으로 넘어갔습니다"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 인증이 $2에서 $3(으)로 변경되었습니다."
   },
@@ -1553,8 +1583,8 @@
   "activityReasonHigherPriorityReward": {
     "message": "더 높은 우선순위 보상으로 전환"
   },
-  "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "더 높은 우선순위 대기 시청 목록 채널 사용 가능"
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "더 높은 우선순위 시청 목록 채널 사용 가능"
   },
   "activityReasonWatchRequirementCompleted": {
     "message": "시청 요건 완료"
@@ -1922,14 +1952,17 @@
   "watchSourceDrops": {
     "message": "Drops"
   },
-  "watchSourceIdleWatchlist": {
-    "message": "대기 시청 목록"
+  "watchSourceWatchlist": {
+    "message": "시청 목록"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "watchSourceWatchStreaks": {
+    "message": "연속 시청"
   },
   "gamesStarHint": {
     "message": "★는 게임을 전략보다 위에 둡니다"
@@ -1974,10 +2007,10 @@
     "message": "Lurkloot 열기"
   },
   "inPageAddToWatchlist": {
-    "message": "$1을(를) 대기 시청 목록에 추가"
+    "message": "$1을(를) 시청 목록에 추가"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "$1을(를) 대기 시청 목록에서 제거"
+    "message": "$1을(를) 시청 목록에서 제거"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -2135,23 +2168,44 @@
   "settingsGamesPointerAction": {
     "message": "게임 열기"
   },
-  "idleWatchlistAddPlaceholder": {
+  "watchlistAddPlaceholder": {
     "message": "채널 이름 또는 링크"
   },
-  "idleWatchlistFull": {
+  "watchlistFull": {
     "message": "목록이 가득 찼습니다($1개 채널). 추가하려면 하나를 제거하세요."
   },
-  "idleWatchlistInvalid": {
+  "watchlistInvalid": {
     "message": "채널 이름 또는 채널 링크를 입력하세요."
   },
-  "idleWatchlistDuplicate": {
+  "watchlistDuplicate": {
     "message": "$1(은)는 이미 목록에 있습니다."
   },
-  "idleWatchlistOrderTitle": {
+  "watchlistOrderTitle": {
     "message": "시청 순서"
   },
-  "idleWatchlistOrderHint": {
+  "watchlistOrderHint": {
     "message": "첫 라이브 채널을 시청"
+  },
+  "watchlistStreakHint": {
+    "message": "연속 시청 행은 시청 순서에서 연속 시청 위치에 따라 처리되며, 각 행은 Twitch가 연속 시청을 확인하거나 $1분이 지날 때까지 유지됩니다."
+  },
+  "watchlistStreakToggle": {
+    "message": "$1 연속 시청 유지"
+  },
+  "watchStreakPending": {
+    "message": "연속 시청 대기 중"
+  },
+  "watchStreakWatching": {
+    "message": "연속 시청 유지 중"
+  },
+  "watchStreakCredited": {
+    "message": "연속 시청 확인됨"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "확인되지 않음"
+  },
+  "watchStreakUnavailable": {
+    "message": "연속 시청 불가"
   },
   "gamesModeAllDescription": {
     "message": "라이브 드롭이 있는 모든 게임을 차단된 것 제외하고 파밍합니다."

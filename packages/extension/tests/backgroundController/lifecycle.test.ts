@@ -328,7 +328,7 @@ describe("background controller", () => {
       ...DEFAULT_SETTINGS,
       autoStartDropFarming: true,
       platform: {
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, watchlistChannels: [] },
         kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
       },
     });

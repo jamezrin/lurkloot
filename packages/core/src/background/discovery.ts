@@ -26,6 +26,8 @@ import type {
   TickTrigger,
 } from "./types";
 import { errorMessage } from "@lurkloot/shared/errors";
+import { watchStreakChannelsFor } from "@lurkloot/shared/settings";
+import { orderIdleWatchlist, watchStreakAttemptKey, watchStreakPlan } from "../core/watchStreaks";
 
 // Discovery lanes and snapshot selection.
 export function createDiscovery<S extends EngineSettings>(
@@ -126,18 +128,20 @@ export function createDiscovery<S extends EngineSettings>(
               signal,
               Date.now,
               settings.preferKnownChannels,
-              settings.platform[platform].idleWatchlistChannels
-                .map((username) => username.trim().toLowerCase())
-                .filter(Boolean)
-                .map((username) => ({
-                  platform,
-                  username,
-                  displayName: username,
-                  url:
-                    platform === "twitch"
-                      ? `https://www.twitch.tv/${username}`
-                      : `https://kick.com/${username}`,
-                })),
+              orderIdleWatchlist(
+                settings.platform[platform].watchlistChannels
+                  .map((username) => username.trim().toLowerCase())
+                  .filter(Boolean),
+                watchStreakChannelsFor(settings, platform),
+              ).map((username) => ({
+                platform,
+                username,
+                displayName: username,
+                url:
+                  platform === "twitch"
+                    ? `https://www.twitch.tv/${username}`
+                    : `https://kick.com/${username}`,
+              })),
               (campaign, campaigns) => {
                 const backoff = state.campaignSearchBackoffs?.[platform];
                 if (
@@ -262,6 +266,10 @@ export function createDiscovery<S extends EngineSettings>(
       },
       persistedCampaigns: state.campaigns[platform],
       campaignSearchBackoff: state.campaignSearchBackoffs?.[platform],
+      watchStreakAttempts: state.watchStreaks?.[platform]?.attempts.map(
+        (attempt) => `${watchStreakAttemptKey(attempt)}:${attempt.outcome}`,
+      ),
+      accountId: state.authHealth[platform].accountId,
       settings,
       target: {
         status: session.status,
@@ -344,6 +352,14 @@ export function createDiscovery<S extends EngineSettings>(
       signal: input.signal,
       previousBackoff: input.state.campaignSearchBackoffs?.[input.platform],
       bypassBackoff: selectionBypassesBackoff(input.trigger),
+      // The host's observer availability as the last tick recorded it; the
+      // tick itself rebuilds the plan from its declared capability.
+      watchStreaks: watchStreakPlan(
+        input.platform,
+        input.settings,
+        input.state,
+        input.state.watchStreaks?.[input.platform]?.observerAvailable ?? true,
+      ),
     });
     discoverySlice.discoveryEvents[input.platform].push({
       category: "diagnostic",

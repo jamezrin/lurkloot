@@ -148,7 +148,7 @@ export class KickWatcher implements TablessWatchController {
       return { ok: false, live: false, message: "Kick channel is offline" };
     }
     // The scheduler owns the category check (checkChannel, every tick); an
-    // Idle Watchlist watch has none. A second check here could only disagree.
+    // Watchlist watch has none. A second check here could only disagree.
     if (!this.targets.liveStreamId) {
       return { ok: false, live: true, message: "Kick channel is missing a livestream id" };
     }

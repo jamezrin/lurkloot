@@ -8,7 +8,7 @@ export interface StoreArtworkCopy {
     queue: StoreArtworkStory & { steps: string[] };
     games: StoreArtworkStory & { description: string };
     kick: StoreArtworkStory;
-    // How the idle watchlist works, beside the real list, then what it earns.
+    // How the watchlist works, beside the real list, then what it earns.
     watchlist: StoreArtworkStory & {
       feature: string;
       howItWorks: string[];
@@ -51,7 +51,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Idle watchlist",
+        "feature": "Watchlist",
         "title": "Keep watching\nwhen there are no drops.",
         "howItWorks": [
           "Pick your favourite streamers",
@@ -79,7 +79,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Badges",
-        "Idle watchlist"
+        "Watchlist"
       ],
       "twitch": [
         "Channel points",
@@ -134,7 +134,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Lista de reserva",
+        "feature": "Lista de visualización",
         "title": "Sigue viendo\ncuando no haya drops.",
         "howItWorks": [
           "Elige tus streamers favoritos",
@@ -162,7 +162,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Insignias",
-        "Lista de reserva"
+        "Lista de visualización"
       ],
       "twitch": [
         "Puntos de canal",
@@ -217,7 +217,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Liste d'attente",
+        "feature": "Liste de visionnage",
         "title": "Continuez à regarder\nsans drops.",
         "howItWorks": [
           "Choisissez vos streamers préférés",
@@ -245,7 +245,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Badges",
-        "Liste d'attente"
+        "Liste de visionnage"
       ],
       "twitch": [
         "Points de chaîne",
@@ -300,7 +300,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Lista di riserva",
+        "feature": "Lista di visione",
         "title": "Continua a guardare\nsenza drop.",
         "howItWorks": [
           "Scegli i tuoi streamer preferiti",
@@ -328,7 +328,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Badge",
-        "Lista di riserva"
+        "Lista di visione"
       ],
       "twitch": [
         "Punti canale",
@@ -383,7 +383,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Ersatzliste",
+        "feature": "Watchlist",
         "title": "Weiter schauen,\nauch ohne Drops.",
         "howItWorks": [
           "Wähle deine Lieblings-Streamer",
@@ -411,7 +411,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Abzeichen",
-        "Ersatzliste"
+        "Watchlist"
       ],
       "twitch": [
         "Kanalpunkte",
@@ -466,7 +466,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Lista de reserva",
+        "feature": "Lista de visualização",
         "title": "Continue assistindo\nsem drops.",
         "howItWorks": [
           "Escolha seus streamers favoritos",
@@ -494,7 +494,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Emblemas",
-        "Lista de reserva"
+        "Lista de visualização"
       ],
       "twitch": [
         "Pontos de canal",
@@ -549,7 +549,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Yedek izleme listesi",
+        "feature": "İzleme listesi",
         "title": "Drop olmadığında\nizlemeye devam et.",
         "howItWorks": [
           "Favori yayıncılarını seç",
@@ -577,7 +577,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drop'lar",
         "Rozetler",
-        "Yedek izleme listesi"
+        "İzleme listesi"
       ],
       "twitch": [
         "Kanal puanları",
@@ -632,7 +632,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Резервный список",
+        "feature": "Список просмотра",
         "title": "Продолжайте смотреть,\nкогда дропов нет.",
         "howItWorks": [
           "Выберите любимых стримеров",
@@ -660,7 +660,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Значки",
-        "Резервный список"
+        "Список просмотра"
       ],
       "twitch": [
         "Баллы канала",
@@ -715,7 +715,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "空闲观看列表",
+        "feature": "观看列表",
         "title": "没有掉宝时\n也要继续观看。",
         "howItWorks": [
           "选择你喜欢的主播",
@@ -743,7 +743,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "掉宝",
         "徽章",
-        "空闲观看列表"
+        "观看列表"
       ],
       "twitch": [
         "频道积分",
@@ -798,7 +798,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "आइडल वॉचलिस्ट",
+        "feature": "वॉचलिस्ट",
         "title": "ड्रॉप्स न हों तब भी\nदेखते रहें।",
         "howItWorks": [
           "अपने पसंदीदा स्ट्रीमर चुनें",
@@ -826,7 +826,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "बैज",
-        "आइडल वॉचलिस्ट"
+        "वॉचलिस्ट"
       ],
       "twitch": [
         "चैनल पॉइंट्स",
@@ -881,7 +881,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "قائمة الانتظار للمشاهدة",
+        "feature": "قائمة المشاهدة",
         "title": "استمر في المشاهدة\nحين لا توجد دروبس.",
         "howItWorks": [
           "اختر قنواتك المفضلة",
@@ -909,7 +909,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "شارات",
-        "قائمة الانتظار للمشاهدة"
+        "قائمة المشاهدة"
       ],
       "twitch": [
         "نقاط القناة",
@@ -964,7 +964,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "アイドル・ウォッチリスト",
+        "feature": "ウォッチリスト",
         "title": "ドロップが無くても、\n視聴は続く。",
         "howItWorks": [
           "お気に入りの配信者を選ぶ",
@@ -992,7 +992,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "バッジ",
-        "アイドル・ウォッチリスト"
+        "ウォッチリスト"
       ],
       "twitch": [
         "チャンネルポイント",
@@ -1047,7 +1047,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Daftar cadangan",
+        "feature": "Daftar pantau",
         "title": "Tetap menonton\nsaat tak ada drop.",
         "howItWorks": [
           "Pilih streamer favoritmu",
@@ -1075,7 +1075,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Lencana",
-        "Daftar cadangan"
+        "Daftar pantau"
       ],
       "twitch": [
         "Poin channel",
@@ -1130,7 +1130,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Lista zapasowa",
+        "feature": "Watchlist",
         "title": "Oglądaj dalej,\ngdy nie ma dropów.",
         "howItWorks": [
           "Wybierz ulubionych streamerów",
@@ -1158,7 +1158,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Odznaki",
-        "Lista zapasowa"
+        "Watchlist"
       ],
       "twitch": [
         "Punkty kanału",
@@ -1213,7 +1213,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "대기 시청 목록",
+        "feature": "시청 목록",
         "title": "드롭이 없어도\n계속 시청하세요.",
         "howItWorks": [
           "좋아하는 스트리머를 고르세요",
@@ -1241,7 +1241,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "배지",
-        "대기 시청 목록"
+        "시청 목록"
       ],
       "twitch": [
         "채널 포인트",
@@ -1296,7 +1296,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Резервний список",
+        "feature": "Список перегляду",
         "title": "Дивіться далі,\nколи дропів немає.",
         "howItWorks": [
           "Оберіть улюблених стримерів",
@@ -1324,7 +1324,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Значки",
-        "Резервний список"
+        "Список перегляду"
       ],
       "twitch": [
         "Бали каналу",
@@ -1379,7 +1379,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       },
       "watchlist": {
         "number": "04",
-        "feature": "Záložní seznam",
+        "feature": "Seznam sledování",
         "title": "Sleduj dál,\nkdyž nejsou drops.",
         "howItWorks": [
           "Vyber si oblíbené streamery",
@@ -1407,7 +1407,7 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
       "both": [
         "Drops",
         "Odznaky",
-        "Záložní seznam"
+        "Seznam sledování"
       ],
       "twitch": [
         "Body kanálu",
@@ -1435,6 +1435,89 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
         [
           "Vaše pořadí sledování",
           "Připněte kampaně. Označte hry. Vyberte kanály."
+        ]
+      ]
+    }
+  },
+  "fa": {
+    "tagline": "کمتر تماشا کن. بیشتر جایزه بگیر.",
+    "stories": {
+      "queue": {
+        "number": "01",
+        "title": "دراپ‌ها را فارم کن\nبی‌آنکه حتی\nانگشتی تکان دهی.",
+        "steps": [
+          "یک پخش زنده پیدا می‌کند",
+          "پیشرفتت را دنبال می‌کند",
+          "جایزه‌هایت را دریافت می‌کند"
+        ]
+      },
+      "games": {
+        "number": "02",
+        "title": "بازی‌های تو.\nاولویت‌های تو.",
+        "description": "Lurkloot به‌طور پیش‌فرض همه بازی‌ها را فارم می‌کند. فقط چندتا را می‌خواهی؟ انتخابشان کن، به محبوب‌ها ستاره بده و بقیه را مسدود کن."
+      },
+      "kick": {
+        "number": "03",
+        "title": "خیلی بیشتر\nاز دراپ‌ها."
+      },
+      "watchlist": {
+        "number": "04",
+        "feature": "فهرست تماشا",
+        "title": "وقتی دراپی نیست،\nتماشا را ادامه بده.",
+        "howItWorks": [
+          "استریمرهای محبوبت را انتخاب کن",
+          "چیزی برای فارم نیست؟ اولین کانال زنده تماشا می‌شود",
+          "با زنده یا آفلاین شدنشان جابه‌جا می‌شود"
+        ],
+        "earning": "به کسب جایزه ادامه می‌دهد",
+        "earns": {
+          "twitch": [
+            "امتیاز کانال"
+          ],
+          "kick": [
+            "جایزه‌های روزانه",
+            "XP سطح"
+          ]
+        }
+      },
+      "free": {
+        "number": "05",
+        "title": "همه‌چیز را فارم کن.\nهیچ‌چیز تماشا نکن.",
+        "description": "همیشه رایگان و متن‌باز. بدون تبلیغ و اشتراک."
+      }
+    },
+    "platforms": {
+      "both": [
+        "دراپ‌ها",
+        "نشان‌ها",
+        "فهرست تماشا"
+      ],
+      "twitch": [
+        "امتیاز کانال",
+        "اکستنشن‌های Twitch"
+      ],
+      "kick": [
+        "جایزه روزانه",
+        "سطح حساب"
+      ]
+    },
+    "promo": {
+      "lines": [
+        "Twitch + Kick. جایزه‌های خودکار.",
+        "پشتیبانی از اکستنشن‌های منتخب Twitch."
+      ],
+      "steps": [
+        [
+          "دراپ‌ها روی حالت خودکار",
+          "پخش زنده را پیدا کن. پیشرفت را دنبال کن. جایزه‌ها را بگیر."
+        ],
+        [
+          "اکستنشن‌های Twitch هم همین‌طور",
+          "پشتیبانی اختیاری از جایزه‌های اکستنشن‌های منتخب."
+        ],
+        [
+          "ترتیب تماشای دلخواهت",
+          "کمپین‌ها را سنجاق کن. بازی‌ها را ستاره‌دار کن. کانال‌هایت را انتخاب کن."
         ]
       ]
     }

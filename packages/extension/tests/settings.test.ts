@@ -75,7 +75,7 @@ describe("settings", () => {
     // verboseLogging is not read here; the default applies.
     expect(merged.diagnosticLogging).toBe(true);
     expect(merged.platform.twitch.autoClaimChannelPoints).toBe(true);
-    expect(merged.platform.twitch.idleWatchlistChannels).toEqual([]);
+    expect(merged.platform.twitch.watchlistChannels).toEqual([]);
     expect(merged).not.toHaveProperty("watchQueueFallbackOnly");
   });
 
@@ -315,7 +315,7 @@ describe("settings", () => {
       platform: {
         twitch: {
           enabled: "true",
-          idleWatchlistChannels: [" Creator ", "", "creator"],
+          watchlistChannels: [" Creator ", "", "creator"],
           excludedChannels: [" @SkipMe ", "skipme"],
           categories: [
             { id: " Game-A ", name: " Game A " },
@@ -325,7 +325,7 @@ describe("settings", () => {
         },
         kick: {
           enabled: false,
-          idleWatchlistChannels: ["KickOne"],
+          watchlistChannels: ["KickOne"],
           excludedChannels: ["KickSkip"],
           categories: [{ id: "cat-1", name: "Category" }],
         },
@@ -338,12 +338,12 @@ describe("settings", () => {
     expect(settings.pauseOnManualWatch).toBe(DEFAULT_SETTINGS.pauseOnManualWatch);
     expect(settings.priorityMode).toBe(DEFAULT_SETTINGS.priorityMode);
     expect(settings.platform.twitch.enabled).toBe(DEFAULT_SETTINGS.platform.twitch.enabled);
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["creator"]);
+    expect(settings.platform.twitch.watchlistChannels).toEqual(["creator"]);
     expect(settings.platform.twitch.excludedChannels).toEqual(["skipme"]);
     // Categories: trimmed, deduped by lowercased id (order preserved), blanks dropped.
     expect(settings.platform.twitch.categories).toEqual([{ id: "Game-A", name: "Game A" }]);
     expect(settings.platform.kick.enabled).toBe(false);
-    expect(settings.platform.kick.idleWatchlistChannels).toEqual(["kickone"]);
+    expect(settings.platform.kick.watchlistChannels).toEqual(["kickone"]);
     expect(settings.platform.kick.excludedChannels).toEqual(["kickskip"]);
     expect(settings.platform.kick.categories).toEqual([{ id: "cat-1", name: "Category" }]);
     expect(settings.campaignPins).toEqual(["campaign"]);
@@ -421,31 +421,32 @@ describe("settings", () => {
     expect(mergeSettings({ languageOverride: "ko" }).languageOverride).toBe("ko");
     expect(mergeSettings({ languageOverride: "uk" }).languageOverride).toBe("uk");
     expect(mergeSettings({ languageOverride: "cs" }).languageOverride).toBe("cs");
+    expect(mergeSettings({ languageOverride: "fa" }).languageOverride).toBe("fa");
     expect(
       mergeSettings({ languageOverride: "pt" } as unknown as Parameters<typeof mergeSettings>[0])
         .languageOverride,
     ).toBe("browser");
   });
 
-  it("preserves idle watchlist channel priority order while removing duplicates", () => {
+  it("preserves watchlist channel priority order while removing duplicates", () => {
     const settings = mergeSettings({
       platform: {
         twitch: {
           ...DEFAULT_SETTINGS.platform.twitch,
-          idleWatchlistChannels: ["third", "first", "second", "first"],
+          watchlistChannels: ["third", "first", "second", "first"],
         },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, idleWatchlistChannels: [] },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, watchlistChannels: [] },
       },
     });
 
-    expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["third", "first", "second"]);
+    expect(settings.platform.twitch.watchlistChannels).toEqual(["third", "first", "second"]);
   });
 
   it("defaults categoryMode to all and ignores the legacy gamePriority list", () => {
     const settings = mergeSettings({
       platform: {
-        twitch: { enabled: true, idleWatchlistChannels: [], gamePriority: ["13", "rust"] },
-        kick: { enabled: true, idleWatchlistChannels: [] },
+        twitch: { enabled: true, watchlistChannels: [], gamePriority: ["13", "rust"] },
+        kick: { enabled: true, watchlistChannels: [] },
       },
     } as unknown as Parameters<typeof mergeSettings>[0]);
 

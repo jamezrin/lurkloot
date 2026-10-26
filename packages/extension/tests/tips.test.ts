@@ -142,7 +142,7 @@ describe("TipsBanner", () => {
       "tipCampaignPriority",
       "tipMissingCampaigns",
       "tipCategorySelection",
-      "tipIdleWatchlist",
+      "tipWatchlist",
       "tipTablessMode",
       "tipCli",
       "tipCliAction",
@@ -161,7 +161,7 @@ describe("TipsBanner", () => {
       "watchSourceDrops",
       "watchSourceNoPixel",
       "watchSourceFortnite",
-      "watchSourceIdleWatchlist",
+      "watchSourceWatchlist",
     ];
     const locales = [
       "en",
@@ -181,6 +181,7 @@ describe("TipsBanner", () => {
       "ko",
       "uk",
       "cs",
+      "fa",
     ];
 
     for (const locale of locales) {

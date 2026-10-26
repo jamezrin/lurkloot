@@ -928,7 +928,7 @@ describe("background tabless provider host", () => {
         "fortnite",
         "nopixel",
         "drops",
-        "idle_watchlist",
+        "watchlist",
       ];
       expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({
         id: "fortnite",

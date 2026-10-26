@@ -65,7 +65,7 @@ export function defaultConfigJsonc(): string {
     "campaignPins": ${json(defaults.campaignPins)},
     "excludedCampaignIds": ${json(defaults.excludedCampaignIds)},
 
-    // Prefer an Idle Watchlist or followed channel over a bigger anonymous one
+    // Prefer an Watchlist or followed channel over a bigger anonymous one
     // when picking who to farm a campaign on.
     "preferKnownChannels": ${json(defaults.preferKnownChannels)},
     "offlineRetryLimit": ${json(defaults.offlineRetryLimit)},
@@ -111,7 +111,10 @@ export function defaultConfigJsonc(): string {
         // First eligible source wins. Providers without a host implementation
         // yield to the next source; the CLI currently skips NoPixelV and Fortnite.
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
-        "idleWatchlistChannels": ${json(twitch.idleWatchlistChannels)},
+        "watchlistChannels": ${json(twitch.watchlistChannels)},
+        // Watchlist channels whose watch streak to maintain. The CLI has no
+        // Twitch push connection to see the payout, so it skips these rows.
+        "watchlistStreakChannels": ${json(twitch.watchlistStreakChannels ?? [])},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
@@ -158,7 +161,7 @@ export function defaultConfigJsonc(): string {
       "kick": {
         "enabled": ${json(kick.enabled)},
         "watchSourcePriority": ${json(kick.watchSourcePriority)},
-        "idleWatchlistChannels": ${json(kick.idleWatchlistChannels)},
+        "watchlistChannels": ${json(kick.watchlistChannels)},
         "excludedChannels": ${json(kick.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
@@ -257,14 +260,18 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
 
 // Warnings name the complete deprecated path and its replacement so the user
 // can find and fix the exact line. The CLI config file is intentionally never
-// rewritten, so these repeat on every startup until the file is edited. A future
-// migration that removes a property outright carries no replacement, so fall
-// back to a bare deprecation notice rather than printing "settings.undefined".
+// rewritten, so these repeat on every startup until the file is edited. A
+// diagnostic without a single replacement path — a value moved onto both
+// platforms, or one that changed what it switches — says what happened in its
+// message, so print that rather than calling the value ignored: most of them
+// are still applied.
 function formatMigrationWarning(diagnostic: CliSettingsDiagnostic): string {
   if (diagnostic.code === "limit_exceeded")
     return `settings.${diagnostic.path}: ${diagnostic.message}`;
   if (!diagnostic.replacement) {
-    return `settings.${diagnostic.path} is deprecated and ignored`;
+    return diagnostic.message.startsWith(diagnostic.path)
+      ? `settings.${diagnostic.message}`
+      : `settings.${diagnostic.path}: ${diagnostic.message}`;
   }
   const verb = diagnostic.code === "moved_property" ? "moved to" : "is deprecated; use";
   return `settings.${diagnostic.path} ${verb} settings.${diagnostic.replacement}`;

@@ -19,16 +19,17 @@ import {
   normalizeWatchSourcePriority,
 } from "@lurkloot/shared/watchSources";
 
-const twitchDefaults = ["drops", "nopixel", "fortnite", "idle_watchlist"];
-const kickDefaults = ["drops", "idle_watchlist"];
+const twitchDefaults = ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"];
+const kickDefaults = ["drops", "watchlist"];
 
 describe("watch-source settings", () => {
   it("appends every supported source to partial orders without sharing mutable defaults", () => {
     expect(normalizeWatchSourcePriority("twitch", ["nopixel"])).toEqual([
+      "watch_streaks",
       "nopixel",
       "drops",
       "fortnite",
-      "idle_watchlist",
+      "watchlist",
     ]);
     for (const value of [undefined, null, {}, "drops", 42, ["not_a_source"]]) {
       expect(normalizeWatchSourcePriority("kick", value)).toEqual(kickDefaults);
@@ -47,31 +48,31 @@ describe("watch-source settings", () => {
     expect(
       mergeSettings({
         platform: {
-          twitch: { watchSourcePriority: ["fortnite", "fortnite", "invalid", "idle_watchlist"] },
-          kick: { watchSourcePriority: ["nopixel", "idle_watchlist", null, "drops"] },
+          twitch: { watchSourcePriority: ["fortnite", "fortnite", "invalid", "watchlist"] },
+          kick: { watchSourcePriority: ["nopixel", "watchlist", null, "drops"] },
         },
       } as never).platform,
     ).toMatchObject({
-      twitch: { watchSourcePriority: ["fortnite", "idle_watchlist", "drops", "nopixel"] },
-      kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
+      twitch: {
+        watchSourcePriority: ["watch_streaks", "fortnite", "watchlist", "drops", "nopixel"],
+      },
+      kick: { watchSourcePriority: ["watchlist", "drops"] },
     });
   });
 
-  it("migrates the old sticky-idle preference to Idle-first on both platforms", () => {
+  it("migrates the old sticky-idle preference to Watchlist-first on both platforms", () => {
     const migration = migrateSettings({ schemaVersion: 5, idleWatchlistFallbackOnly: false });
     expect(migration.changed).toBe(true);
     expect(migration.toVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
     const settings = mergeSettings(migration.settings as never);
     expect(settings.platform.twitch).toHaveProperty("watchSourcePriority", [
-      "idle_watchlist",
+      "watch_streaks",
+      "watchlist",
       "drops",
       "nopixel",
       "fortnite",
     ]);
-    expect(settings.platform.kick).toHaveProperty("watchSourcePriority", [
-      "idle_watchlist",
-      "drops",
-    ]);
+    expect(settings.platform.kick).toHaveProperty("watchSourcePriority", ["watchlist", "drops"]);
     expect(migration.settings.platform).toMatchObject({
       twitch: { watchSourcePriority: settings.platform.twitch.watchSourcePriority },
       kick: { watchSourcePriority: settings.platform.kick.watchSourcePriority },
@@ -80,7 +81,7 @@ describe("watch-source settings", () => {
   });
 
   it("lets an explicit priority win over the legacy flag, including an invalid or empty value", () => {
-    for (const value of [[], null, "idle_watchlist", ["drops", "fortnite"]]) {
+    for (const value of [[], null, "watchlist", ["drops", "fortnite"]]) {
       const settings = mergeSettings({
         idleWatchlistFallbackOnly: false,
         platform: {
@@ -90,7 +91,7 @@ describe("watch-source settings", () => {
       } as never);
       expect(settings.platform.twitch.watchSourcePriority).toEqual(
         Array.isArray(value) && value.length
-          ? ["drops", "fortnite", "nopixel", "idle_watchlist"]
+          ? ["watch_streaks", "drops", "fortnite", "nopixel", "watchlist"]
           : twitchDefaults,
       );
       expect(settings.platform.kick.watchSourcePriority).toEqual(kickDefaults);
@@ -108,18 +109,21 @@ describe("watch-source settings", () => {
       twitch: { watchSourcePriority: priority },
     });
     expect(mergeSettings(migration.settings as never).platform.twitch.watchSourcePriority).toEqual([
+      "watch_streaks",
       "fortnite",
       "drops",
       "nopixel",
-      "idle_watchlist",
+      "watchlist",
     ]);
   });
 
   it("preserves independent orders through save, restart and export/import", () => {
     const changed = applySettingsPatch(DEFAULT_SETTINGS, {
       platform: {
-        twitch: { watchSourcePriority: ["nopixel", "idle_watchlist", "drops", "fortnite"] },
-        kick: { watchSourcePriority: ["idle_watchlist", "drops"] },
+        twitch: {
+          watchSourcePriority: ["nopixel", "watch_streaks", "watchlist", "drops", "fortnite"],
+        },
+        kick: { watchSourcePriority: ["watchlist", "drops"] },
       },
     });
     const restarted = mergeSettings(
@@ -127,11 +131,12 @@ describe("watch-source settings", () => {
     );
     expect(restarted.platform.twitch.watchSourcePriority).toEqual([
       "nopixel",
-      "idle_watchlist",
+      "watch_streaks",
+      "watchlist",
       "drops",
       "fortnite",
     ]);
-    expect(restarted.platform.kick.watchSourcePriority).toEqual(["idle_watchlist", "drops"]);
+    expect(restarted.platform.kick.watchSourcePriority).toEqual(["watchlist", "drops"]);
     expect(
       parseSettingsImportPayload(JSON.parse(JSON.stringify(buildSettingsExportPayload(restarted))))
         .settings,

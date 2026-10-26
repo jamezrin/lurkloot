@@ -150,14 +150,16 @@ export function Toggle({
       style={checked ? { backgroundColor: color ?? "var(--ink)" } : undefined}
     >
       {/* A CSS transform, not a Motion layout animation: a layout-animated
-          element makes Motion measure the page on every update. */}
+          element makes Motion measure the page on every update. The thumb starts
+          at the inline start, so in RTL it moves left; dir-rtl (styles.css)
+          explains why this is not :dir(rtl). */}
       <Switch.Thumb
         className={cn(
           "rounded-full shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none",
           checked && !color ? "bg-[var(--ink-contrast)]" : "bg-white",
           small
-            ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px]"
-            : "h-[18px] w-[18px] data-[checked]:translate-x-[16px]",
+            ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px] dir-rtl:data-[checked]:-translate-x-[13px]"
+            : "h-[18px] w-[18px] data-[checked]:translate-x-[16px] dir-rtl:data-[checked]:-translate-x-[16px]",
         )}
       />
     </Switch.Root>
@@ -373,7 +375,7 @@ export function RankInput({
   );
 }
 
-/** Collapsible group heading, used to fold the Idle Watchlist under the drops
+/** Collapsible group heading, used to fold the Watchlist under the drops
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button
  * cannot nest inside a button. */

@@ -1,6 +1,6 @@
 import type { ChannelCandidate, EngineSettings, SchedulerState } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import { autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
+import { autoClaimChannelPointsFor, watchStreakChannelsFor } from "@lurkloot/shared/settings";
 import { twitchExtensionProvider } from "../extensions/registry";
 import { pausedForManualWatch, recentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -8,7 +8,9 @@ import type {
   TwitchChannelPointsClaimNotice,
   TwitchChannelPointsPushController,
   TwitchPlaybackNotice,
+  TwitchWatchStreakNotice,
 } from "../platforms/twitch/channelPointsPush";
+import { recordWatchStreakCredit, watchStreakStateFor } from "../core/watchStreaks";
 import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
@@ -129,7 +131,7 @@ export const TWITCH_CHANNEL_POINTS_JOBS: Readonly<Record<string, BackgroundJob>>
 // effect and the one-minute job. Their state is this service's own.
 export function createChannelPoints<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  transaction: Pick<StateTransaction<S>, "onCommit" | "onTickConcluded">,
+  transaction: Pick<StateTransaction<S>, "commit" | "onCommit" | "onTickConcluded">,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
   calls: Pick<
     ControllerCalls<S>,
@@ -330,8 +332,89 @@ export function createChannelPoints<S extends EngineSettings>(
     );
   }
 
+  // Watch-streak payouts (#897) arrive on the channel-points topic, which is
+  // followed for them whenever a maintained row exists, whatever the claim
+  // settings say. Observing never claims.
+  function streaksWanted(settings: EngineSettings, state: SchedulerState): boolean {
+    const health = state.authHealth.twitch;
+    return (
+      settings.platform.twitch.enabled
+      && health.status === "healthy"
+      && health.accountId !== undefined
+      && watchStreakChannelsFor(settings, "twitch").length > 0
+    );
+  }
+
   function pushWanted(settings: EngineSettings, state: SchedulerState): boolean {
-    return claimsWanted(settings, state) || watchedTwitchChannelId(settings, state) !== undefined;
+    return (
+      claimsWanted(settings, state)
+      || streaksWanted(settings, state)
+      || watchedTwitchChannelId(settings, state) !== undefined
+    );
+  }
+
+  // Commits a payout against the attempt it belongs to, re-checked against the
+  // latest stored state: a payout for an account no longer signed in, or one
+  // no attempt can be attributed to, changes nothing. A tick that was running
+  // meanwhile merges its attempts forward and cannot undo it.
+  function handleWatchStreakNotice(
+    controller: TwitchChannelPointsPushController,
+    notice: TwitchWatchStreakNotice,
+  ): void {
+    if (push.current !== controller || lifecycleSlice.controllerShutdown) return;
+    const run = withEventCollector(async (emit, events) => {
+      try {
+        let ended: { username: string } | undefined;
+        const result = await transaction.commit(
+          ["twitch"],
+          () => push.current === controller && !lifecycleSlice.controllerShutdown,
+          (latest) => {
+            const health = latest.authHealth.twitch;
+            if (health.status !== "healthy" || health.accountId !== notice.userId) return undefined;
+            const recorded = recordWatchStreakCredit(watchStreakStateFor(latest, "twitch"), {
+              accountId: notice.userId,
+              channelId: notice.channelId,
+              at: notice.at,
+            });
+            if (!recorded) return undefined;
+            ended = { username: recorded.attempt.username };
+            return {
+              ...latest,
+              watchStreaks: { ...latest.watchStreaks, twitch: recorded.state },
+            };
+          },
+        );
+        if (result.status !== "accepted" || !ended) {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "debug",
+            message: `Twitch watch-streak payout on channel ${notice.channelId} matched no running attempt`,
+          });
+          return;
+        }
+        emit({
+          category: "activity",
+          code: "watch_streak_ended",
+          level: "info",
+          platform: "twitch",
+          data: { channel: ended.username, outcome: "credited" },
+        });
+        tickInBackground(["twitch"], "watch_streak_credited");
+      } finally {
+        drainPushEvents(emit);
+        await reportBestEffort(events);
+      }
+    });
+    trackBackgroundWork(
+      run.catch((error) => {
+        diagnosticEvent(
+          "warn",
+          `Twitch watch-streak payout could not be recorded: ${errorMessage(error)}`,
+          "twitch",
+        );
+      }),
+    );
   }
 
   // A stream-down for the watched channel checks it once the stream query has
@@ -367,6 +450,7 @@ export function createChannelPoints<S extends EngineSettings>(
     since: number,
   ): Promise<void> {
     const claims = claimsWanted(settings, state);
+    const streaks = streaksWanted(settings, state);
     const channelId = watchedTwitchChannelId(settings, state);
     const sources = ports.twitch.supplementalSources;
     const watched = sources?.refreshNow ? watchedExtensionBroadcast(settings, state) : undefined;
@@ -377,7 +461,7 @@ export function createChannelPoints<S extends EngineSettings>(
     // A playback check pending for a channel no longer watched is moot.
     if (streamDownCheck && streamDownCheck.channelId !== channelId) cancelStreamDownCheck();
     await push.reconcile({
-      wanted: claims || channelId !== undefined,
+      wanted: claims || streaks || channelId !== undefined,
       factory: adapter.createChannelPointsPushController,
       open: observersOpen,
       since,
@@ -390,6 +474,12 @@ export function createChannelPoints<S extends EngineSettings>(
                   if (push.current !== controller) return;
                   queueTwitchChannelPointsPushClaim(notice);
                 },
+              }
+            : {}),
+          ...(streaks
+            ? {
+                onWatchStreakEarned: (notice: TwitchWatchStreakNotice) =>
+                  handleWatchStreakNotice(controller, notice),
               }
             : {}),
           ...(channelId !== undefined
@@ -584,7 +674,7 @@ export function createChannelPoints<S extends EngineSettings>(
   async function runTwitchChannelPointsClaim(): Promise<void> {
     if (lifecycleSlice.controllerShutdown) return;
     await withEventCollector(async (emit, events) => {
-      if (push.current?.subscribed) {
+      if (push.current?.claimsSubscribed) {
         drainPushEvents(emit);
         await reportBestEffort(events);
         return;

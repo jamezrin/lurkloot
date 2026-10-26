@@ -8,6 +8,7 @@ import {
   normalizeCategoryMode,
   normalizeCategorySelections,
   normalizeChannelList,
+  normalizeWatchStreakChannels,
   normalizeIdList,
   normalizeSubscriptionMarks,
   POLL_INTERVAL_MAX_MINUTES,
@@ -28,7 +29,11 @@ import {
   UNLINKED_CAMPAIGN_MODES,
   normalizeUnlinkedCampaignMode,
 } from "@lurkloot/shared/unlinkedCampaigns";
-import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
+import {
+  SETTINGS_EXPORT_KIND,
+  settingsWithEnvelopeVersion,
+  type SettingsExportEnvelope,
+} from "@lurkloot/shared/settingsExport";
 import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type {
   CompatibilitySettings,
@@ -148,7 +153,7 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set([
     "enabled",
     "watchSourcePriority",
-    "idleWatchlistChannels",
+    "watchlistChannels",
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
@@ -161,12 +166,13 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "autoClaimChannelPoints",
     "strictCampaignAvailability",
     "channelPointsPushClaim",
+    "watchlistStreakChannels",
     "alwaysEnterChat",
   ]),
   kick: new Set([
     "enabled",
     "watchSourcePriority",
-    "idleWatchlistChannels",
+    "watchlistChannels",
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
@@ -272,7 +278,7 @@ function withoutTablessMode(
   diagnostics.push({
     code: "deprecated_property",
     path: "tablessMode",
-    message: '"tablessMode" is ignored: the CLI has no browser tabs, so it always watches tabless',
+    message: "tablessMode is ignored: the CLI has no browser tabs, so it always watches tabless",
   });
   return rest;
 }
@@ -314,10 +320,7 @@ export function parseCliSettingsImportPayload(raw: unknown): CliSettingsParseRes
   ) {
     throw new Error('Not a lurkloot settings file: missing "settings"');
   }
-  return parseCliSettingsWithDiagnostics({
-    ...(envelope.settings as Record<string, unknown>),
-    schemaVersion: envelope.schemaVersion,
-  });
+  return parseCliSettingsWithDiagnostics(settingsWithEnvelopeVersion(envelope));
 }
 
 // A kind the platform does not support is accepted on purpose: the v8 migration
@@ -408,7 +411,8 @@ function parseMigratedCliSettings(
             const path = `platform.${name}.unlinkedCampaigns`;
             const movedFrom = diagnostics.find(
               (diagnostic) =>
-                diagnostic.code !== "limit_exceeded" && diagnostic.replacement === path,
+                diagnostic.code !== "limit_exceeded"
+                && (diagnostic.replacement === path || diagnostic.replacements?.includes(path)),
             )?.path;
             const subject = movedFrom ? `"${movedFrom}" (now "${path}")` : `"${path}"`;
             offenders.push(`${subject} must be one of: ${UNLINKED_CAMPAIGN_MODES.join(", ")}`);
@@ -541,7 +545,7 @@ function normalizePlatform(
       base: {
         enabled: booleanOr(ps.enabled, defaults.enabled),
         watchSourcePriority: normalizePlatformWatchSourcePriority(platform, ps, legacyFallbackOnly),
-        idleWatchlistChannels: limitIdleWatchlist(platform, ps.idleWatchlistChannels, diagnostics),
+        watchlistChannels: limitIdleWatchlist(platform, ps.watchlistChannels, diagnostics),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),
         rewardFilter: normalizeRewardFilter(ps.rewardFilter, platform),
@@ -572,6 +576,10 @@ function normalizePlatform(
         twitch.ps.channelPointsPushClaim,
         DEFAULT_CLI_SETTINGS.platform.twitch.channelPointsPushClaim,
       ),
+      watchlistStreakChannels: normalizeWatchStreakChannels(
+        twitch.ps.watchlistStreakChannels,
+        twitch.base.watchlistChannels,
+      ),
     },
     kick: {
       ...kick.base,
@@ -583,7 +591,7 @@ function normalizePlatform(
   };
 }
 
-// The engine keeps at most IDLE_WATCHLIST_LIMIT idle watchlist channels and the
+// The engine keeps at most IDLE_WATCHLIST_LIMIT watchlist channels and the
 // popup refuses to add more, but a config file can list any number. Keep the
 // first ones, as the engine would, and name the rest instead of dropping them
 // silently.
@@ -597,8 +605,8 @@ function limitIdleWatchlist(
   if (dropped.length > 0) {
     diagnostics.push({
       code: "limit_exceeded",
-      path: `platform.${platform}.idleWatchlistChannels`,
-      message: `The ${platform} idle watchlist holds at most ${IDLE_WATCHLIST_LIMIT} channels; ignoring the other ${dropped.length}: ${dropped.join(", ")}`,
+      path: `platform.${platform}.watchlistChannels`,
+      message: `The ${platform} watchlist holds at most ${IDLE_WATCHLIST_LIMIT} channels; ignoring the other ${dropped.length}: ${dropped.join(", ")}`,
     });
   }
   return normalized.slice(0, IDLE_WATCHLIST_LIMIT);

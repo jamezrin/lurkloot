@@ -1,0 +1,2264 @@
+{
+  "extensionName": {
+    "message": "Lurkloot"
+  },
+  "extensionStoreName": {
+    "message": "Lurkloot - فارم دراپ‌های Twitch و Kick"
+  },
+  "extensionDescription": {
+    "message": "دراپ‌های Twitch و Kick را با نشست عادی مرورگر و تب‌های بی‌صدا فارم کنید؛ حالت کم‌مصرف هم اختیاری است."
+  },
+  "toolbarTitleOff": {
+    "message": "فارم خاموش است"
+  },
+  "toolbarTitleWatching": {
+    "message": "$1: در حال فارم"
+  },
+  "toolbarTitleIdle": {
+    "message": "$1: فعلاً چیزی برای فارم نیست"
+  },
+  "toolbarTitlePaused": {
+    "message": "$1: مکث‌شده"
+  },
+  "toolbarTitleSignedOut": {
+    "message": "$1: نیاز به ورود"
+  },
+  "toolbarTitleBlocked": {
+    "message": "$1: دسترسی مسدود است"
+  },
+  "toolbarTitleStuck": {
+    "message": "$1: پیشرفتی حاصل نمی‌شود"
+  },
+  "promoTagline": {
+    "message": "دراپ‌های Twitch و Kick را خودکار فارم کنید."
+  },
+  "languageBrowser": {
+    "message": "استفاده از زبان مرورگر"
+  },
+  "languageEnglish": {
+    "message": "انگلیسی"
+  },
+  "languageSpanish": {
+    "message": "اسپانیایی"
+  },
+  "languageFrench": {
+    "message": "فرانسوی"
+  },
+  "languageItalian": {
+    "message": "ایتالیایی"
+  },
+  "languageRussian": {
+    "message": "روسی"
+  },
+  "languageGerman": {
+    "message": "آلمانی"
+  },
+  "languageChinese": {
+    "message": "چینی"
+  },
+  "languageHindi": {
+    "message": "هندی"
+  },
+  "languagePortuguese": {
+    "message": "پرتغالی"
+  },
+  "languageArabic": {
+    "message": "عربی"
+  },
+  "languageTurkish": {
+    "message": "ترکی"
+  },
+  "languageJapanese": {
+    "message": "ژاپنی"
+  },
+  "languageIndonesian": {
+    "message": "اندونزیایی"
+  },
+  "languagePolish": {
+    "message": "لهستانی"
+  },
+  "languageKorean": {
+    "message": "کره‌ای"
+  },
+  "languageUkrainian": {
+    "message": "اوکراینی"
+  },
+  "languageCzech": {
+    "message": "چکی"
+  },
+  "languagePersian": {
+    "message": "فارسی"
+  },
+  "settingsLanguageTitle": {
+    "message": "زبان"
+  },
+  "settingsLanguageDescription": {
+    "message": "زبان پنجرهٔ افزونه و اعلان‌های آن را انتخاب کنید."
+  },
+  "navWorkspace": {
+    "message": "فضای کار"
+  },
+  "navPlatform": {
+    "message": "پلتفرم"
+  },
+  "navGroupDrops": {
+    "message": "دراپ‌ها"
+  },
+  "navQueue": {
+    "message": "صف"
+  },
+  "navCompleted": {
+    "message": "تکمیل‌شده"
+  },
+  "navGames": {
+    "message": "بازی‌ها"
+  },
+  "navWatchlist": {
+    "message": "فهرست تماشا"
+  },
+  "navActivity": {
+    "message": "فعالیت"
+  },
+  "navSettings": {
+    "message": "تنظیمات"
+  },
+  "queueGroupPinned": {
+    "message": "سنجاق‌شده"
+  },
+  "queueGroupPinnedHint": {
+    "message": "برای جابه‌جایی بکشید یا رتبه‌ای وارد کنید"
+  },
+  "queueGroupFavourite": {
+    "message": "بازی‌های محبوب"
+  },
+  "queueGroupStrategy": {
+    "message": "سپس بر اساس"
+  },
+  "queueNotInQueue": {
+    "message": "در صف نیست"
+  },
+  "queueSkipped": {
+    "message": "ردشده"
+  },
+  "queueSkippedByFilter": {
+    "message": "$1 با فیلتر پاداش شما سازگار نیست"
+  },
+  "queueActionRequired": {
+    "message": "نیازمند اقدام"
+  },
+  "queueActionRequiredHint": {
+    "message": "به اشتراک یا اقدامی بیرون از Lurkloot نیاز دارد. سنجاق و علاقه‌مندی فقط ترتیب را عوض می‌کنند."
+  },
+  "queueUpcoming": {
+    "message": "به‌زودی"
+  },
+  "queueStrategyLabel": {
+    "message": "سپس بر اساس"
+  },
+  "queueUnpinAll": {
+    "message": "برداشتن همهٔ سنجاق‌ها ($1)"
+  },
+  "queueUnpin": {
+    "message": "برداشتن سنجاق"
+  },
+  "queueFixInclude": {
+    "message": "افزودن"
+  },
+  "queueFixPin": {
+    "message": "سنجاق‌کردن"
+  },
+  "queueFixFarmAll": {
+    "message": "فارم‌کردن همه"
+  },
+  "queueFixGames": {
+    "message": "رفتن به بازی‌ها"
+  },
+  "queueFixSettings": {
+    "message": "رفتن به تنظیمات"
+  },
+  "queueEmpty": {
+    "message": "فعلاً چیزی برای فارم‌کردن اینجا نیست."
+  },
+  "queueEmptyRewardTypes": {
+    "message": "فعلاً چیزی از نوع‌های انتخاب‌شده برای فارم‌کردن نیست."
+  },
+  "completedTabFinished": {
+    "message": "تمام‌شده"
+  },
+  "completedTabExpired": {
+    "message": "منقضی‌شده"
+  },
+  "completedEmptyFinished": {
+    "message": "وقتی همهٔ پاداش‌های کمپین را بگیرید، اینجا نمایش داده می‌شود."
+  },
+  "completedEmptyExpired": {
+    "message": "کمپین‌هایی که پیش از تکمیل تمام شوند، اینجا نمایش داده می‌شوند."
+  },
+  "settingsTitle": {
+    "message": "تنظیمات"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "جست‌وجوی تنظیمات…"
+  },
+  "settingsSearchNoResults": {
+    "message": "تنظیمی با «$1» پیدا نشد."
+  },
+  "settingsPlatformSettings": {
+    "message": "تنظیمات $1"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "نمایش تنظیمات پیشرفته"
+  },
+  "settingsSectionJumpNavLabel": {
+    "message": "رفتن به بخش"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "کارهای پیشرفته"
+  },
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "تنظیمات Lurkloot را وارد، صادر یا بازنشانی کنید."
+  },
+  "activityTitle": {
+    "message": "فعالیت"
+  },
+  "activeStatus": {
+    "message": "فعال"
+  },
+  "pausedStatus": {
+    "message": "مکث‌شده"
+  },
+  "refreshSchedule": {
+    "message": "به‌روزرسانی برنامه"
+  },
+  "openInventory": {
+    "message": "بازکردن موجودی"
+  },
+  "openActivity": {
+    "message": "بازکردن فعالیت‌ها"
+  },
+  "closeActivity": {
+    "message": "بستن فعالیت‌ها"
+  },
+  "openSettings": {
+    "message": "بازکردن تنظیمات"
+  },
+  "closeSettings": {
+    "message": "بستن تنظیمات"
+  },
+  "back": {
+    "message": "بازگشت"
+  },
+  "loading": {
+    "message": "در حال بارگذاری"
+  },
+  "dropsTab": {
+    "message": "دراپ‌ها"
+  },
+  "watchlistTab": {
+    "message": "فهرست تماشا"
+  },
+  "automationTitle": {
+    "message": "خودکارسازی $1"
+  },
+  "automationRunning": {
+    "message": "در حال اجرا"
+  },
+  "automationStarting": {
+    "message": "در حال شروع"
+  },
+  "automationStopping": {
+    "message": "در حال توقف"
+  },
+  "startingAutomation": {
+    "message": "در حال شروع خودکارسازی…"
+  },
+  "pausingAutomation": {
+    "message": "در حال مکث خودکارسازی…"
+  },
+  "watchingLabel": {
+    "message": "در حال تماشا"
+  },
+  "farmingLabel": {
+    "message": "در حال فارم"
+  },
+  "waitingEligibleStream": {
+    "message": "فعلاً هیچ پخش زندهٔ واجد شرایطی برای این کمپین پیدا نشد"
+  },
+  "watchingPausedHint": {
+    "message": "تماشا مکث شده است. برای ادامهٔ فارم دراپ، کلید را روشن کنید."
+  },
+  "hideTipsTitle": {
+    "message": "پنهان‌کردن راهنماها"
+  },
+  "hideTipsDescription": {
+    "message": "راهنماهای مفید را از پنجرهٔ اصلی حذف کنید."
+  },
+  "inPagePanelTitle": {
+    "message": "نمایش پنل در Twitch و Kick"
+  },
+  "inPagePanelDescription": {
+    "message": "دکمهٔ Lurkloot را به twitch.tv و kick.com اضافه می‌کند تا این پنجره در پنل همان صفحه باز شود."
+  },
+  "tipCampaignPriority": {
+    "message": "کمپین را بکشید تا اول سنجاق شود، یا بازی را ستاره‌دار کنید تا کمپین‌هایش همیشه رتبهٔ بالاتری بگیرند. بقیه طبق ترتیبی می‌آیند که در صف انتخاب می‌کنید."
+  },
+  "tipMissingCampaigns": {
+    "message": "کمپینی پیدا نمی‌کنید؟ موجودی دراپ پلتفرم را بررسی کنید و بعد فیلتر کمپین‌ها را در تنظیمات ببینید."
+  },
+  "tipCategorySelection": {
+    "message": "در نمای بازی‌ها تعیین می‌کنید کدام بازی‌ها فارم شوند، کدام اولویت بگیرند و کدام هرگز فارم نشوند."
+  },
+  "tipWatchlist": {
+    "message": "در تنظیمات پلتفرم، اولویت منبع تماشا را تغییر دهید تا مشخص کنید چه زمانی کانال‌های فهرست تماشا تماشا شوند."
+  },
+  "tipTablessMode": {
+    "message": "حالت بدون تب منابع کمتری مصرف می‌کند و در صورت نیاز به تبِ بی‌صدا برمی‌گردد."
+  },
+  "tipCli": {
+    "message": "ترجیح می‌دهید افزونه اجرا نکنید؟ Lurkloot به‌صورت CLI مبتنی بر Docker هم در دسترس است."
+  },
+  "tipCliAction": {
+    "message": "راهنمای CLI را بخوانید"
+  },
+  "tipFeedback": {
+    "message": "باگی پیدا کرده‌اید یا پیشنهادی دارید؟"
+  },
+  "tipFeedbackAction": {
+    "message": "گزارش مشکل در GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "کمپینی را اشتباهی کنار گذاشتید؟ در بخش «ردشده» صف است؛ دکمهٔ بازگرداندن را بزنید."
+  },
+  "tipTranslations": {
+    "message": "ترجمه‌ها با کمک هوش مصنوعی نگه‌داری می‌شوند. در GitHub به بهبودشان کمک کنید."
+  },
+  "tipTranslationsAction": {
+    "message": "راهنمای ترجمه را بخوانید"
+  },
+  "tourWelcomeTitle": {
+    "message": "به Lurkloot خوش آمدید"
+  },
+  "tourWelcomeBody": {
+    "message": "Lurkloot دراپ‌های Twitch و Kick را در پس‌زمینه برایتان فارم می‌کند. می‌خواهید سریع ببینید چطور کار می‌کند؟ با کلیدهای جهت‌دار در راهنما جابه‌جا شوید."
+  },
+  "tourWelcomeReturningTitle": {
+    "message": "تازه در Lurkloot: راهنمای کوتاه"
+  },
+  "tourWelcomeReturningBody": {
+    "message": "در کمتر از یک دقیقه با قابلیت‌های تازه و چیزهایی که شاید ندیده‌اید آشنا شوید. برای جابه‌جایی در راهنما از کلیدهای جهت‌دار استفاده کنید."
+  },
+  "tourStart": {
+    "message": "راهنما را نشانم بده"
+  },
+  "tourSkip": {
+    "message": "ردکردن"
+  },
+  "tourNext": {
+    "message": "بعدی"
+  },
+  "tourBack": {
+    "message": "قبلی"
+  },
+  "tourProgress": {
+    "message": "$1 از $2"
+  },
+  "tourStatusStripTitle": {
+    "message": "همیشه جلوی چشم"
+  },
+  "tourStatusStripBody": {
+    "message": "این نوار نشان می‌دهد همین حالا چه چیزی و در کدام کانال فارم می‌شود. کلید آن فارم را در این پلتفرم شروع یا متوقف می‌کند."
+  },
+  "tourPlatformTitle": {
+    "message": "Twitch و Kick"
+  },
+  "tourPlatformBody": {
+    "message": "اینجا پلتفرم را عوض کنید. هرکدام صف، بازی‌ها و فهرست تماشای خودش را دارد."
+  },
+  "tourQueueOrderTitle": {
+    "message": "ترتیب صف چگونه تعیین می‌شود"
+  },
+  "tourQueueOrderBody": {
+    "message": "اول کمپین‌های سنجاق‌شده می‌آیند، بعد بازی‌های محبوب و سپس بقیه با ترتیب «سپس بر اساس». روی کمپین بزنید تا پاداش و پیشرفت را ببینید یا آن را سنجاق یا کنار بگذارید."
+  },
+  "tourRewardFilterTitle": {
+    "message": "چیزی را که می‌خواهید فارم کنید انتخاب کنید"
+  },
+  "tourRewardFilterBody": {
+    "message": "«همهٔ پاداش‌ها» را باز کنید تا نوع پاداش، رفتار با کمپین‌های حساب پیوندنخورده و فارم‌کردن فقط کمپین‌های سنجاق‌شده را انتخاب کنید."
+  },
+  "tourCompletedTitle": {
+    "message": "تمام‌شده و منقضی‌شده"
+  },
+  "tourCompletedBody": {
+    "message": "کمپین‌های تمام‌شده همهٔ پاداش‌هایشان را گرفته‌اند. کمپین‌های منقضی‌شده پیش از تکمیل پایان یافته‌اند."
+  },
+  "tourGamesTitle": {
+    "message": "بازی‌هایتان را انتخاب کنید"
+  },
+  "tourGamesBody": {
+    "message": "«همهٔ دسته‌ها» را انتخاب کنید تا همهٔ بازی‌ها جز موارد مسدودشده فارم شوند؛ یا «فقط انتخاب‌شده» را بزنید تا فقط بازی‌های علامت‌خورده فارم شوند. بازی را ستاره‌دار کنید تا کمپین‌هایش اول بیایند، یا مسدودش کنید تا هرگز فارم نشود."
+  },
+  "tourWatchlistTitle": {
+    "message": "فهرست تماشا"
+  },
+  "tourWatchlistBody": {
+    "message": "وقتی دراپی برای فارم نیست، Lurkloot این کانال‌ها را تماشا می‌کند تا در Twitch امتیاز کانال و در Kick پاداش روزانه و زنجیرهٔ تماشا بگیرید. اولویت منبع تماشا در تنظیمات تعیین می‌کند چه زمانی سراغشان برود."
+  },
+  "tourExtensionsTitle": {
+    "message": "افزونه‌های Twitch"
+  },
+  "tourExtensionsBody": {
+    "message": "بعضی بازی‌ها از راه افزونه‌های Twitch پاداش می‌دهند؛ مثل NoPixel و Fortnite. هرکدام را روشن کنید تا آن‌ها هم فارم شوند."
+  },
+  "tourKickProgressTitle": {
+    "message": "سطح Kick شما"
+  },
+  "tourKickProgressBody": {
+    "message": "در Kick این نشان سطح تماشا، فاصله تا سطح بعد و زنجیرهٔ تماشای روزانه را نشان می‌دهد."
+  },
+  "tourKickChallengesTitle": {
+    "message": "چالش‌های روزانه"
+  },
+  "tourKickChallengesBody": {
+    "message": "Lurkloot می‌تواند پاداش چالش روزانهٔ Kick را برایتان بگیرد. از اینجا روشن یا خاموشش کنید."
+  },
+  "tourActivityTitle": {
+    "message": "کارهایی که Lurkloot انجام داد"
+  },
+  "tourActivityBody": {
+    "message": "فعالیت همهٔ دریافت‌ها، جابه‌جایی کانال‌ها و کمپین‌های تمام‌شده را نشان می‌دهد تا ببینید در نبودتان چه شده است."
+  },
+  "tourSettingsTitle": {
+    "message": "تنظیمات کاربردی"
+  },
+  "tourSettingsBody": {
+    "message": "Lurkloot تنظیمات زیادی دارد و به ۱۸ زبان در دسترس است. برای یافتن تنظیم موردنظر از نوار جست‌وجو استفاده کنید. از همین‌جا هم می‌توانید Lurkloot را بازنشانی کنید یا تنظیمات را برای استفاده در رایانه و مرورگر دیگر صادر یا وارد کنید."
+  },
+  "tourDoneTitle": {
+    "message": "همه‌چیز آماده است! برویم دراپ‌ها را فارم کنیم!"
+  },
+  "tourDoneBody": {
+    "message": "در این مرورگر، در وب‌سایت رسمی Twitch یا Kick وارد شوید. Lurkloot هرگز اطلاعات ورودتان را نمی‌خواهد. سپس پلتفرمی را که می‌خواهید فارم کنید روشن کنید (یا هر دو را)."
+  },
+  "tourFinish": {
+    "message": "بزن بریم!"
+  },
+  "noCampaigns": {
+    "message": "هنوز کمپینی پیدا نشده است."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "جست‌وجوی کمپین‌ها…"
+  },
+  "campaignSearchNoResults": {
+    "message": "کمپینی با «$1» پیدا نشد."
+  },
+  "closeSearch": {
+    "message": "بستن جست‌وجو"
+  },
+  "search": {
+    "message": "جست‌وجو"
+  },
+  "noActivity": {
+    "message": "هنوز فعالیتی ثبت نشده است. برای بررسی، تازه‌سازی را بزنید."
+  },
+  "noDiagnostics": {
+    "message": "هنوز گزارشی ثبت نشده است. گزارش‌ها با کارکرد افزونه ظاهر می‌شوند."
+  },
+  "searchDiagnostics": {
+    "message": "جست‌وجوی گزارش‌ها"
+  },
+  "noDiagnosticsMatch": {
+    "message": "گزارشی با «$1» پیدا نشد."
+  },
+  "platformActivity": {
+    "message": "فعالیت $1"
+  },
+  "platformDiagnostics": {
+    "message": "گزارش‌های $1"
+  },
+  "lastCheck": {
+    "message": "آخرین بررسی: $1"
+  },
+  "noChecksYet": {
+    "message": "هنوز بررسی‌ای انجام نشده"
+  },
+  "debug": {
+    "message": "اشکال‌زدایی"
+  },
+  "info": {
+    "message": "اطلاعات"
+  },
+  "warn": {
+    "message": "هشدار"
+  },
+  "error": {
+    "message": "خطا"
+  },
+  "notLinked": {
+    "message": "پیوند داده نشده"
+  },
+  "subscriptionCampaigns": {
+    "message": "کمپین‌های اشتراکی"
+  },
+  "subscriptionRequired": {
+    "message": "نیازمند اشتراک"
+  },
+  "subscriptionRewards": {
+    "message": "پاداش‌های اشتراکی"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "$1 اشتراک واجد شرایط لازم است"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "میزان پیشرفت در دسترس نیست"
+  },
+  "rewardBadge": {
+    "message": "نشان"
+  },
+  "rewardBadgeNamed": {
+    "message": "نشان: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "به‌علاوهٔ $1 تماشا"
+  },
+  "rewardClaimable": {
+    "message": "آمادهٔ دریافت"
+  },
+  "notEarnableByWatching": {
+    "message": "با تماشا به دست نمی‌آید"
+  },
+  "subscribedRefresh": {
+    "message": "اشتراک گرفتم — تازه‌سازی وضعیت"
+  },
+  "subscriptionMarkSubscribed": {
+    "message": "علامت‌گذاری به‌عنوان مشترک"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "به‌عنوان مشترک علامت خورد"
+  },
+  "subscriptionMarkUndo": {
+    "message": "واگردانی"
+  },
+  "waitingForSubscription": {
+    "message": "در انتظار اشتراک واجد شرایط"
+  },
+  "actionRequired": {
+    "message": "نیازمند اقدام"
+  },
+  "earned": {
+    "message": "دریافت‌شده"
+  },
+  "linkAccount": {
+    "message": "پیوند حساب"
+  },
+  "externalGameAccountRequired": {
+    "message": "حساب بازی بیرونی لازم است"
+  },
+  "linkExternalGameAccount": {
+    "message": "پیوند حساب بازی بیرونی"
+  },
+  "viewDropPage": {
+    "message": "دیدن صفحهٔ دراپ"
+  },
+  "campaignDropDetails": {
+    "message": "جزئیات دراپ"
+  },
+  "campaignCategoryDrops": {
+    "message": "دراپ‌های دسته‌بندی"
+  },
+  "upcoming": {
+    "message": "به‌زودی"
+  },
+  "expired": {
+    "message": "منقضی‌شده"
+  },
+  "excluded": {
+    "message": "کنارگذاشته‌شده"
+  },
+  "finished": {
+    "message": "تمام‌شده"
+  },
+  "completedCampaigns": {
+    "message": "کمپین‌های تکمیل‌شده"
+  },
+  "upcomingPill": {
+    "message": "به‌زودی"
+  },
+  "expiredPill": {
+    "message": "منقضی‌شده"
+  },
+  "complete": {
+    "message": "تکمیل‌شده"
+  },
+  "startsIn": {
+    "message": "شروع تا $1"
+  },
+  "endsIn": {
+    "message": "پایان تا $1"
+  },
+  "watchToGo": {
+    "message": "$1 تماشای دیگر"
+  },
+  "left": {
+    "message": "باقی‌مانده"
+  },
+  "campaignFactWatchTime": {
+    "message": "زمان تماشا"
+  },
+  "watchTimeLeftValue": {
+    "message": "$1 باقی‌مانده"
+  },
+  "watchTimeNeeded": {
+    "message": "$1 لازم است"
+  },
+  "watchTimeOfTotal": {
+    "message": "از مجموع $1"
+  },
+  "done": {
+    "message": "انجام‌شده"
+  },
+  "rewards": {
+    "message": "پاداش‌ها"
+  },
+  "allChannels": {
+    "message": "همهٔ کانال‌ها"
+  },
+  "includeInFarming": {
+    "message": "گنجاندن در فارم"
+  },
+  "excludeFromFarming": {
+    "message": "حذف از فارم"
+  },
+  "noWatchlist": {
+    "message": "هنوز کانالی به فهرست تماشا اضافه نشده است."
+  },
+  "channelPlaceholder": {
+    "message": "کانال"
+  },
+  "add": {
+    "message": "افزودن"
+  },
+  "addChannel": {
+    "message": "افزودن کانال"
+  },
+  "watchlistChannel": {
+    "message": "آفلاین"
+  },
+  "live": {
+    "message": "زنده"
+  },
+  "viewerCount": {
+    "message": "$1 بیننده"
+  },
+  "settingsGeneralTitle": {
+    "message": "تنظیمات عمومی"
+  },
+  "settingsGeneralDescription": {
+    "message": "زبان، راه‌اندازی و رفتار پنجرهٔ افزونه."
+  },
+  "settingsGroupAppearance": {
+    "message": "ظاهر و رفتار"
+  },
+  "pauseManualTitle": {
+    "message": "مکث هنگام تماشای دستی"
+  },
+  "pauseManualDescription": {
+    "message": "وقتی پخشی را باز کرده‌اید و خودتان تماشا می‌کنید، فارم را متوقف کند."
+  },
+  "autoStartTitle": {
+    "message": "شروع خودکار هنگام اجرا"
+  },
+  "autoStartDescription": {
+    "message": "به‌محض بارگذاری افزونه، فارم را شروع کند."
+  },
+  "notificationsTitle": {
+    "message": "اعلان‌ها"
+  },
+  "notificationsDescription": {
+    "message": "هشدار برای آماده‌شدن پاداش‌ها یا پایان کمپین‌ها."
+  },
+  "settingsGroupNotifications": {
+    "message": "اعلان‌ها"
+  },
+  "rewardEarnedTitle": {
+    "message": "پاداش دریافت شد"
+  },
+  "rewardEarnedDescription": {
+    "message": "وقتی پاداش دراپ آمادهٔ دریافت است، اعلان بده."
+  },
+  "noDropsLeftTitle": {
+    "message": "دراپی نمانده"
+  },
+  "noDropsLeftDescription": {
+    "message": "وقتی همهٔ کمپین‌های فعال تمام شدند، اعلان بده."
+  },
+  "dropsSettingsTitle": {
+    "message": "دراپ‌ها"
+  },
+  "dropsSettingsDescription": {
+    "message": "دریافت، واجد شرایط بودن، اولویت‌ها و نمایش کمپین‌ها."
+  },
+  "settingsGroupDrops": {
+    "message": "دراپ‌ها"
+  },
+  "autoClaimTitle": {
+    "message": "دریافت خودکار دراپ‌ها"
+  },
+  "autoClaimDescription": {
+    "message": "پاداش‌های دراپی را که به دست آورده‌اید، به‌محض در دسترس‌شدن خودکار بگیر."
+  },
+  "campaignPriorityTitle": {
+    "message": "اولویت کمپین‌ها"
+  },
+  "campaignPriorityDescription": {
+    "message": "ترتیب کمپین‌های صف را تعیین می‌کند، جز موارد سنجاق‌شده یا مربوط به بازی محبوب. می‌توانید آن را از جداکنندهٔ «سپس بر اساس» در صف هم تغییر دهید."
+  },
+  "endingSoonest": {
+    "message": "آن‌هایی که زودتر تمام می‌شوند"
+  },
+  "lowAvailabilityFirst": {
+    "message": "اول آن‌هایی با کانال کمتر"
+  },
+  "watchlistSettingsTitle": {
+    "message": "فهرست تماشا"
+  },
+  "watchlistSettingsDescription": {
+    "message": "کانال‌های جایگزین برای زمان‌هایی که دراپ واجد شرایطی نیست."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "ترجیح کانال‌های دنبال‌شده و فهرست تماشا"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "اگر دراپ در چند کانال باشد، کانالی را که دنبال می‌کنید یا در فهرست تماشا است به کانال ناآشنا ترجیح می‌دهد."
+  },
+  "platformSettingsTitle": {
+    "message": "تنظیمات پلتفرم"
+  },
+  "farmingTabsTitle": {
+    "message": "تب‌های فارم"
+  },
+  "farmingTabsDescription": {
+    "message": "تنظیمات فارم با تبِ ویدیو. وقتی حالت کم‌مصرف بدون تب روشن باشد، تنظیمات ویژهٔ تب غیرفعال می‌شوند."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "تب‌های فارم"
+  },
+  "tablessTitle": {
+    "message": "حالت کم‌مصرف بدون تب"
+  },
+  "tablessDescription": {
+    "message": "به‌جای تبِ ویدیو، با ضربان‌های سبک تماشا فارم کنید. Twitch از ضربان تماشا و Kick از اتصال بیننده استفاده می‌کند. اگر دیگر پیشرفتی ندهد، خودکار به تب برمی‌گردد."
+  },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "آستانهٔ بازگشت به تب"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "پس از این تعداد سیگنال ناموفقِ پیاپی در حالت بدون تب، تبِ ویدیو باز شود."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "برای تغییر این تنظیم، حالت کم‌مصرف بدون تب را روشن کنید."
+  },
+  "failuresSuffix": {
+    "message": "شکست"
+  },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "بازیابی صفحهٔ جایگزین Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "پس از این تعداد چرخهٔ تازه‌سازی موفق، صفحهٔ جایگزین Kick که افزونه باز کرده ببند."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "برای تغییر این تنظیم، Kick را روشن کنید."
+  },
+  "cyclesSuffix": {
+    "message": "چرخه"
+  },
+  "autoCloseTabsTitle": {
+    "message": "بستن خودکار تب‌های فارم"
+  },
+  "autoCloseTabsDescription": {
+    "message": "وقتی افزونه بیکار است (دراپی برای فارم‌کردن یا استریمری برای تماشا وجود ندارد)، تب‌ها را خودکار ببند."
+  },
+  "muteTabsTitle": {
+    "message": "بی‌صدا کردن تب‌های فارم"
+  },
+  "muteTabsDescription": {
+    "message": "هنگام فارم، تب‌های دراپ و فهرست تماشا را بی‌صدا نگه دار."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "ویدیوهای فارم بی‌صدا نشوند"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "صدای پخش‌کننده‌های ویدیو را حتی وقتی تبِ مرورگر بی‌صداست، روشن نگه می‌دارد."
+  },
+  "tablessDisabledReason": {
+    "message": "وقتی حالت کم‌مصرف بدون تب فعال است، غیرفعال می‌شود."
+  },
+  "adFocusTitle": {
+    "message": "هنگام تبلیغ، تب را فعال کن"
+  },
+  "adFocusDescription": {
+    "message": "شمارش معکوس تبلیغ در تب‌های پس‌زمینه متوقف می‌شود. هنگام پخش تبلیغ، تبِ فارم را کوتاه‌مدت فعال می‌کند تا شمارش ادامه یابد، سپس به تبِ قبلی برمی‌گردد."
+  },
+  "off": {
+    "message": "خاموش"
+  },
+  "tabOnly": {
+    "message": "فقط تب"
+  },
+  "tabAndWindow": {
+    "message": "تب و پنجره"
+  },
+  "advancedTitle": {
+    "message": "پیشرفته"
+  },
+  "advancedDescription": {
+    "message": "فقط اگر می‌دانید چه می‌کنید این گزینه‌ها را تغییر دهید؛ آن‌ها رفتار زمان‌بند و ثبت گزارش در سطح پایین را کنترل می‌کنند."
+  },
+  "settingsGroupAdvanced": {
+    "message": "پیشرفته"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "پیشرفته و سازگاری"
+  },
+  "twitchSectionDescription": {
+    "message": "اولویت منبع تماشا، امتیاز کانال، دسته‌بندی‌ها، کانال‌های مستثنا و سازگاری با Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "اولویت منبع تماشا، چالش‌های روزانه، دسته‌بندی‌ها، کانال‌های مستثنا و سازگاری با Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "دسترس‌پذیری کمپین‌ها و روش‌های ارتباطی ضربان و موجودی که Lurkloot استفاده می‌کند. فقط وقتی Twitch از کار افتاد تغییر دهید."
+  },
+  "kickAdvancedDescription": {
+    "message": "روش باز کردن پیوندهای دریافت Kick توسط Lurkloot و نمایهٔ رفتاری آن. فقط وقتی Kick از کار افتاد تغییر دهید."
+  },
+  "schedulerIntervalTitle": {
+    "message": "فاصلهٔ اجرای زمان‌بند"
+  },
+  "schedulerIntervalDescription": {
+    "message": "وضعیت کمپین‌ها و استریمرها هر چند وقت یک‌بار تازه شود."
+  },
+  "postClaimHandoffTitle": {
+    "message": "رفتن سریع به پاداش بعدی"
+  },
+  "postClaimHandoffDescription": {
+    "message": "پس از دریافت دراپ، به‌جای انتظار تا نوبت برنامه‌ریزی‌شدهٔ بعدی، برای مدت کوتاهی پاداش بعدی کمپین را بررسی می‌کند. فقط Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "فاصلهٔ بررسی پاداش بعدی"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "فاصلهٔ انتظار بین بررسی‌های پاداش بعدی."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "محدودیت زمان بررسی"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "پس از این مدت، بررسی را رها می‌کند و به برنامهٔ عادی برمی‌گردد."
+  },
+  "secondsSuffix": {
+    "message": "ثانیه"
+  },
+  "deadlineSafetyMarginTitle": {
+    "message": "حاشیهٔ امن مهلت"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "دقایق اضافه‌ای که پیش از فارم‌کردن یک پاداش لازم است."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "برای تغییر حاشیهٔ امن، پالایش بر اساس مهلت را فعال کنید."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "رد پاداش‌های تکمیل‌نشدنی"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "پاداش‌هایی را فارم نکن که زمان تماشای باقی‌مانده‌شان از زمان مانده تا مهلت بیشتر است."
+  },
+  "minutesSuffix": {
+    "message": "دقیقه"
+  },
+  "insufficientTimeRemaining": {
+    "message": "زمان کافی باقی نمانده است"
+  },
+  "campaignRejectionExcluded": {
+    "message": "این کمپین از فارم مستثنا شده است."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "این کمپین هنوز شروع نشده است."
+  },
+  "campaignRejectionExpired": {
+    "message": "این کمپین به پایان رسیده است."
+  },
+  "campaignRejectionCompleted": {
+    "message": "همهٔ پاداش‌های این کمپین تکمیل شده‌اند."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "کمپین‌های بدون حساب پیوندشده روی «رد کردن» تنظیم شده‌اند."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "برای این کمپین Twitch باید حساب را پیوند دهید."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "این کمپین با دسته‌بندی‌های انتخاب‌شده مطابقت ندارد."
+  },
+  "campaignRejectionCategoryBlocked": {
+    "message": "این بازی مسدود شده است، بنابراین کمپین‌هایش هرگز فارم نمی‌شوند."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "فعلاً فقط کمپین‌های سنجاق‌شده فارم می‌شوند."
+  },
+  "campaignRejectionRewardKind": {
+    "message": "چیزی در اینجا با نوع پاداش شما مطابقت ندارد ($1)."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "پاداش‌های آن به اشتراک نیاز دارند و شما آن‌ها را رد می‌کنید."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "این کمپین پاداش اشتراکی ندارد و شما فقط همان‌ها را فارم می‌کنید."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "پاداش‌های این کمپین از نوع‌هایی که فارم می‌کنید دریافت شده‌اند."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "این کمپین پاداش قابل فارم ندارد."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "این کمپین پاداش دریافت‌نشده‌ای ندارد."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 منتظر پاداش یا شرط قبلی است."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 هنوز در دسترس نیست."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 دیگر در دسترس نیست."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 پیش از مهلتش تکمیل نمی‌شود."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 به اشتراک واجد شرایط نیاز دارد."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "برای $1 باید کاری غیر از تماشا انجام دهید."
+  },
+  "campaignRejectionThen": {
+    "message": "بعد از آن: $1"
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "فعلاً هیچ پاداشی در این کمپین قابل فارم نیست."
+  },
+  "automationSectionTitle": {
+    "message": "خودکارسازی"
+  },
+  "farmOnPlatform": {
+    "message": "دراپ‌ها را فارم کن و کانال‌های فهرست تماشا را در $1 تماشا کن."
+  },
+  "enabled": {
+    "message": "فعال"
+  },
+  "watchlistEditHint": {
+    "message": "پس از انتخاب $1، آن را از تبِ فهرست تماشا ویرایش کنید."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "دریافت خودکار امتیاز کانال"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "هنگام فارم در این پلتفرم، پاداش امتیاز کانال را دریافت کن."
+  },
+  "channelPointsPushClaimTitle": {
+    "message": "دریافت امتیاز کانال از رویدادهای زنده"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "به‌محض اینکه Twitch آن را در دسترس قرار داد، پاداش را دریافت کن. خاموشش کن تا فقط هر دقیقه یک‌بار بررسی شود."
+  },
+  "alwaysEnterChatTitle": {
+    "message": "همیشه وارد گفت‌وگوی کانال شو"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "به گفت‌وگوی هر کانالی که تماشا می‌شود بپیوند. استریمرها و ناظران می‌توانند نامت را در فهرست بینندگان گفت‌وگو ببینند. هیچ پیامی ارسال نمی‌شود."
+  },
+  "chatPresenceJoined": {
+    "message": "در گفت‌وگو"
+  },
+  "chatPresenceJoining": {
+    "message": "در حال پیوستن به گفت‌وگو…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "گفت‌وگو در دسترس نیست"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "گفت‌وگو در دسترس نیست: دوباره وارد Twitch شوید"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "دسترس‌پذیری دقیق کمپین"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "کمپین را فقط در کانال‌هایی فارم کن که Twitch برایشان فهرست کرده است. Twitch اغلب کمپین‌های قابل فارم را جا می‌اندازد و ممکن است دراپ‌ها فارم نشوند."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "دریافت خودکار چالش‌های روزانه"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "پس از رسیدن زمان تماشای لازم، پاداش چالش روزانهٔ Kick را دریافت کن."
+  },
+  "settingsGroupExcludedChannels": {
+    "message": "کانال‌های مستثنا"
+  },
+  "excludedChannelsTitle": {
+    "message": "کانال‌های مستثنا از دراپ"
+  },
+  "excludedChannelsDescription": {
+    "message": "این استریمرها هنگام فارم کمپین رد می‌شوند."
+  },
+  "excludedChannelsEmpty": {
+    "message": "کانال مستثناشده‌ای برای دراپ وجود ندارد."
+  },
+  "settingsGroupCategories": {
+    "message": "دسته‌بندی‌ها"
+  },
+  "categoryModeTitle": {
+    "message": "فیلتر دسته‌بندی"
+  },
+  "categoryModeDescription": {
+    "message": "همهٔ دسته‌بندی‌های $1 را فارم کن، فقط دسته‌بندی‌های انتخاب‌شده را در نظر بگیر یا آن‌ها را مستثنا کن."
+  },
+  "categoryModeAll": {
+    "message": "همهٔ دسته‌بندی‌ها"
+  },
+  "categoryModeInclude": {
+    "message": "فقط انتخاب‌شده‌ها"
+  },
+  "includeCategoriesInstruction": {
+    "message": "در $1 فقط این دسته‌بندی‌ها فارم می‌شوند."
+  },
+  "categoriesToFarm": {
+    "message": "دسته‌بندی‌های قابل فارم"
+  },
+  "noCategoriesSelected": {
+    "message": "دسته‌بندی‌ای انتخاب نشده است — در $1 چیزی فارم نمی‌شود. دسته‌بندی‌ها را در پایین اضافه کنید."
+  },
+  "hasActiveDrops": {
+    "message": "دراپ فعال دارد"
+  },
+  "otherCategories": {
+    "message": "دسته‌بندی‌های دیگر"
+  },
+  "searchCategories": {
+    "message": "جست‌وجوی دسته‌بندی‌های $1"
+  },
+  "searching": {
+    "message": "در حال جست‌وجو…"
+  },
+  "noCategoriesFound": {
+    "message": "دسته‌بندی‌ای پیدا نشد."
+  },
+  "alreadyAdded": {
+    "message": "از قبل اضافه شده است."
+  },
+  "activityLogLevelsTitle": {
+    "message": "سطح‌های گزارش فعالیت"
+  },
+  "activityLogLevelsDescription": {
+    "message": "مشخص کن کدام سطح‌ها در گزارش فعالیت ثبت شوند. خطاها همیشه نگه داشته می‌شوند."
+  },
+  "rewardFilterTitle": {
+    "message": "پاداش‌های قابل فارم"
+  },
+  "rewardFilterDescription": {
+    "message": "Lurkloot در $1 چه چیزهایی را فارم می‌کند. منوی فیلتر صف همین تنظیم را تغییر می‌دهد."
+  },
+  "rewardKindsTitle": {
+    "message": "نوع پاداش"
+  },
+  "rewardKindsDescription": {
+    "message": "اگر هر بخشی از پاداش با انتخابت جور باشد، فارم می‌شود."
+  },
+  "rewardKindItem": {
+    "message": "آیتم‌های درون‌بازی"
+  },
+  "rewardKindBadge": {
+    "message": "نشان‌ها"
+  },
+  "rewardKindEmote": {
+    "message": "شکلک‌ها"
+  },
+  "rewardKindItemShort": {
+    "message": "آیتم‌ها"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "پاداش‌های اشتراکی"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "پاداش‌هایی که به اشتراک کانال نیاز دارند."
+  },
+  "subscriptionModeInclude": {
+    "message": "شامل شود"
+  },
+  "subscriptionModeSkip": {
+    "message": "رد شود"
+  },
+  "subscriptionModeOnly": {
+    "message": "فقط همین‌ها"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "پاداش‌های اشتراکی همراه بقیه فارم می‌شوند."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "پاداش‌هایی که به اشتراک نیاز دارند فارم نمی‌شوند."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "فقط پاداش‌هایی فارم می‌شوند که به اشتراک نیاز دارند."
+  },
+  "unlinkedCampaignsTitle": {
+    "message": "کمپین‌های بدون حساب پیوندشده"
+  },
+  "unlinkedCampaignsDescription": {
+    "message": "کمپین‌هایی را که نیاز به پیوند حساب بازی دارند فارم کن، رد کن یا آخر از همه فارم کن. ممکن است قوانین پلتفرم برای دریافت پاداش همچنان پیوند حساب را لازم بدانند."
+  },
+  "unlinkedModeInclude": {
+    "message": "شامل شود"
+  },
+  "unlinkedModeSkip": {
+    "message": "رد شود"
+  },
+  "unlinkedModeLast": {
+    "message": "آخر از همه فارم شود"
+  },
+  "unlinkedModeIncludeHint": {
+    "message": "همراه بقیه فارم می‌شوند. برای دریافت پاداش‌هایشان حساب را پیوند دهید."
+  },
+  "unlinkedModeSkipHint": {
+    "message": "حتی اگر سنجاق شده باشند، هرگز فارم نمی‌شوند."
+  },
+  "unlinkedModeLastHint": {
+    "message": "فقط وقتی فارم می‌شوند که کمپین پیوندشده‌ای نمانده باشد. کمپین‌های سنجاق‌شده و بازی‌های محبوب جایگاهشان را حفظ می‌کنند."
+  },
+  "rewardFilterNoUnlinked": {
+    "message": "رد کردنِ بدون پیوند"
+  },
+  "rewardFilterUnlinkedLast": {
+    "message": "بدون پیوند در آخر"
+  },
+  "queueGroupUnlinked": {
+    "message": "بدون پیوند · آخر از همه فارم می‌شود"
+  },
+  "rankReasonUnlinked": {
+    "message": "حساب پیوند نشده است"
+  },
+  "queueFixFarmLast": {
+    "message": "آخر از همه فارم شود"
+  },
+  "rewardFilterAll": {
+    "message": "همهٔ پاداش‌ها"
+  },
+  "rewardFilterAllKinds": {
+    "message": "همه"
+  },
+  "rewardFilterNoSub": {
+    "message": "بدون اشتراک"
+  },
+  "rewardFilterSubOnly": {
+    "message": "فقط اشتراکی"
+  },
+  "rewardFilterPinnedOnly": {
+    "message": "فقط سنجاق‌شده"
+  },
+  "rewardFilterReset": {
+    "message": "بازنشانی به همهٔ پاداش‌ها"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "فقط کمپین‌های سنجاق‌شده فارم شوند"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "در $1 فقط کمپین‌هایی فارم می‌شوند که در صف سنجاق کرده‌اید."
+  },
+  "forgetExcludedTitle": {
+    "message": "فراموش‌کردن کمپین‌های مستثناشده"
+  },
+  "forgetExcludedDescription": {
+    "message": "همهٔ کمپین‌هایی را که از فارم مستثنا کرده‌اید پاک کن."
+  },
+  "forget": {
+    "message": "فراموش کن"
+  },
+  "unknownGame": {
+    "message": "بازی ناشناخته"
+  },
+  "noCategory": {
+    "message": "بدون دسته‌بندی"
+  },
+  "dropsCampaign": {
+    "message": "کمپین دراپ‌ها"
+  },
+  "later": {
+    "message": "بعداً"
+  },
+  "ended": {
+    "message": "پایان‌یافته"
+  },
+  "notificationRewardClaimed": {
+    "message": "پاداش دریافت شد"
+  },
+  "notificationRewardEarned": {
+    "message": "پاداش به دست آمد"
+  },
+  "notificationNoDropsLeft": {
+    "message": "دراپی نمانده است"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 از $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "پاداش چالش دریافت شد"
+  },
+  "notificationChallengeReward": {
+    "message": "شما یک کارت $1 از چالش $2 برنده شدید."
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 دراپ واجد شرایطی برای فارم ندارد."
+  },
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
+  },
+  "screenshotHeroHeadline": {
+    "message": "دراپ‌ها را فارم کن و به کارهای دیگرت برس."
+  },
+  "screenshotHeroSubcopy": {
+    "message": "از نشست خودت که واردش شده‌ای، دریافت خودکار کن. بدون گذرواژه."
+  },
+  "screenshotExtrasEyebrow": {
+    "message": "فراتر از کمپین‌ها"
+  },
+  "screenshotExtrasHeadline": {
+    "message": "بیش از دراپ."
+  },
+  "screenshotExtrasSubcopy": {
+    "message": "امتیاز کانال، چالش‌های Kick و دراپ‌های ۲دقیقه‌ای — آن‌ها هم برایت دریافت می‌شوند. وقتی چیزی برای فارم نمانده، یک فهرست تماشا از کانال‌های خودت آماده است."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "امتیاز کانال"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · برایت دریافت می‌شود"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "چالش‌های روزانه"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · برایت دریافت می‌شود"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "فهرست تماشا"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "بین کمپین‌ها استریمرهایت را تماشا می‌کند"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "دراپ‌های ۲دقیقه‌ای"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · به‌محض ارائه دریافت می‌شوند"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "استفادهٔ آسان"
+  },
+  "screenshotEasyHeadline": {
+    "message": "به همین سادگی."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "نصب"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "فروشگاه وب Chrome. بدون حساب."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "سنجاقش کن"
+  },
+  "screenshotEasyPinSub": {
+    "message": "پنجرهٔ افزونه را با یک کلیک در دسترس نگه دار."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "یک پلتفرم را فعال کن"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch، Kick یا هر دو."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "حالا لذت ببر"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "افزونه فارم می‌کند؛ تو به کارهای دیگرت برس."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "قواعد تو"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "دقیقاً همان‌طور که می‌خواهی فارم کن."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "اولویت‌ها، بازی‌ها، حالت بدون تب و دریافت خودکار — برای هر پلتفرم جداگانه."
+  },
+  "screenshotUpdatedEyebrow": {
+    "message": "متن‌باز"
+  },
+  "screenshotUpdatedHeadline": {
+    "message": "پر از قابلیت. همیشه به‌روز."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "انتشارهای پی‌درپی با تغییر Twitch و Kick — و پذیرای ایده‌ها و بهبودها."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "مرورگرهای مبتنی بر Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "در فهرست فروشگاه وب Chrome. همان افزونه."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "بدون رابط گرافیکی. همان موتور."
+  },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "همان موتور در یک کانتینر."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
+  },
+  "autoClaimReady": {
+    "message": "آمادهٔ دریافت خودکار"
+  },
+  "attributionLinks": {
+    "message": "پیوندهای منابع"
+  },
+  "githubAttribution": {
+    "message": "Lurkloot در GitHub"
+  },
+  "githubAttributionShort": {
+    "message": "GitHub"
+  },
+  "chromeWebStoreAttribution": {
+    "message": "Lurkloot در فروشگاه وب Chrome"
+  },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
+  "siteAttribution": {
+    "message": "وب‌سایت Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "وب‌سایت"
+  },
+  "updateNoticeTitle": {
+    "message": "Lurkloot به‌روزرسانی شد به $1"
+  },
+  "updateNoticeBody": {
+    "message": "ببینید چه چیزهای تازه‌ای اضافه شده و چه چیزهایی تغییر کرده‌اند."
+  },
+  "updateNoticeAction": {
+    "message": "دیدن تغییرات"
+  },
+  "updateNoticeDismiss": {
+    "message": "بستن اعلان به‌روزرسانی"
+  },
+  "rateNudgeTitle": {
+    "message": "از Lurkloot راضی هستید؟"
+  },
+  "rateNudgeBody": {
+    "message": "یک نظر کوتاه در فروشگاه وب Chrome خیلی کمک می‌کند."
+  },
+  "rateNudgeAction": {
+    "message": "امتیاز بده"
+  },
+  "rateNudgeDismiss": {
+    "message": "فعلاً نه"
+  },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot متن‌باز است"
+  },
+  "githubStarNudgeBody": {
+    "message": "اگر برایتان مفید بوده، ستاره‌ای در GitHub کمک می‌کند دیگران پیدایش کنند. مشارکت‌ها، به‌ویژه قابلیت‌ها و ترجمه‌ها، خوش‌آمدند."
+  },
+  "githubStarNudgeAction": {
+    "message": "در GitHub ستاره بده"
+  },
+  "removeItem": {
+    "message": "حذف $1"
+  },
+  "cliExportTitle": {
+    "message": "CLI بدون رابط گرافیکی"
+  },
+  "cliExportDescription": {
+    "message": "با CLI مربوط به Lurkloot، فارم دراپ را روی سرور یا در Docker و با نشست واردشدهٔ این مرورگر اجرا کنید."
+  },
+  "cliExportHint": {
+    "message": "نشست‌های Twitch و Kick شما را صادر می‌کند تا دستور «login --import» در CLI از آن‌ها استفاده کند. فایل را خصوصی نگه دارید؛ هرکس آن را داشته باشد می‌تواند از نشست‌هایتان استفاده کند."
+  },
+  "cliExportConfirm": {
+    "message": "این کار نشست‌های Twitch و Kick شما را در فایلی دانلود می‌کند. هرکس این فایل را داشته باشد می‌تواند از طرف شما در آن سایت‌ها اقدام کند. ادامه می‌دهید؟"
+  },
+  "cliExportCancel": {
+    "message": "لغو"
+  },
+  "cliExportConfirmButton": {
+    "message": "تأیید خروجی‌گرفتن"
+  },
+  "cliExportButton": {
+    "message": "خروجی‌گرفتن از اطلاعات ورود"
+  },
+  "settingsExportTitle": {
+    "message": "واردکردن / خروجی‌گرفتن از تنظیمات"
+  },
+  "settingsExportHint": {
+    "message": "تنظیماتتان را در فایل ذخیره کنید یا در مرورگر دیگری بارگذاری کنید. اطلاعات ورود Twitch یا Kick هرگز در فایل قرار نمی‌گیرد."
+  },
+  "settingsExportButton": {
+    "message": "خروجی‌گرفتن از تنظیمات"
+  },
+  "settingsImportButton": {
+    "message": "واردکردن تنظیمات"
+  },
+  "settingsImportConfirm": {
+    "message": "این کار تنظیمات فعلی شما را با تنظیمات فایل انتخاب‌شده جایگزین می‌کند. ادامه می‌دهید؟"
+  },
+  "settingsImportCancel": {
+    "message": "لغو"
+  },
+  "settingsImportConfirmButton": {
+    "message": "انتخاب فایل و واردکردن"
+  },
+  "settingsImportFailed": {
+    "message": "این فایل خروجی معتبر تنظیمات Lurkloot نیست."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot نتوانست از تنظیماتتان خروجی بگیرد. دوباره تلاش کنید."
+  },
+  "factoryResetTitle": {
+    "message": "بازنشانی Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "همهٔ تنظیمات Lurkloot، پیشرفت فارم و سابقهٔ فعالیت را پاک می‌کند. حساب‌های Twitch و Kick شما همچنان واردشده می‌مانند."
+  },
+  "factoryResetButton": {
+    "message": "بازنشانی Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "این کار فارم را متوقف می‌کند، تب‌های بازشده توسط Lurkloot را می‌بندد و همهٔ داده‌های Lurkloot را برای همیشه پاک می‌کند. نشست Twitch و Kick باقی می‌ماند."
+  },
+  "factoryResetCancel": {
+    "message": "لغو"
+  },
+  "factoryResetConfirmButton": {
+    "message": "بازنشانی همه‌چیز"
+  },
+  "factoryResetProgress": {
+    "message": "در حال بازنشانی…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot نتوانست بازنشانی را کامل کند. دوباره تلاش کنید."
+  },
+  "factoryResetRetry": {
+    "message": "تلاش دوباره برای بازنشانی"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "گزارش‌های عیب‌یابی را هم ثبت کن"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "جزئیات فنی بیشتری ثبت می‌کند که به تشخیص مشکل کمک می‌کنند. فعالیت‌های عادی همیشه ثبت می‌شوند."
+  },
+  "activityFarmingStarted": {
+    "message": "فارم‌کردن $1 از $2 شروع شد."
+  },
+  "activityFarmingStopped": {
+    "message": "فارم‌کردن $1 از $2 متوقف شد: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "$1 از $2 دریافت شد."
+  },
+  "activityChallengeClaimed": {
+    "message": "کارت $1 از چالش $2 دریافت شد"
+  },
+  "activityWatchStreakCredited": {
+    "message": "Twitch تداوم تماشا را در $1 تأیید کرد"
+  },
+  "activityWatchStreakNotConfirmed": {
+    "message": "تداوم تماشا در $1 به‌موقع تأیید نشد؛ ادامه داده شد"
+  },
+  "activityAuthHealthChanged": {
+    "message": "وضعیت احراز هویت $1 از $2 به $3 تغییر کرد."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 کار نمی‌کند: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "خطای بحرانی $1 رد شد؛ تلاش دوباره در حال انجام است."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "با وجود خطاهای مکرر، پیشرفتی حاصل نشد"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "یک تب مرتب دوباره باز می‌شد"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot از کار افتاده است"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "برای مدت زیادی خطاهای مکرر رخ داده و پیشرفتی در دراپ‌ها نبوده است. احتمالاً چیزی در این پلتفرم تغییر کرده و افزونه دیگر نمی‌تواند دراپ بگیرد."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "یک تب بارها و بارها باز می‌شد. بازشدن دوباره متوقف شده تا بتوانید مرورگرتان را عادی استفاده کنید؛ فارم این پلتفرم نیز موقتاً متوقف است."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "کپی گزارش‌ها و ثبت مشکل"
+  },
+  "criticalFailureDismiss": {
+    "message": "رد کن و دوباره تلاش کن"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "کپی خودکار ممکن نشد. این متن را انتخاب و کپی کنید، سپس مشکلی ثبت کنید."
+  },
+  "activityPageContextOpened": {
+    "message": "یک زمینهٔ پس‌زمینه در $1 باز شد؛ دلیل: $2."
+  },
+  "activityPageContextClosed": {
+    "message": "یک زمینهٔ پس‌زمینه در $1 بسته شد؛ دلیل: $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick درخواست اجرای بدون تب را نپذیرفت"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "زمینه قبلی پس‌زمینه قابل استفاده نبود"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "درخواست‌های بدون تب دوباره کار می‌کنند"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "یک تب باز Kick در دسترس قرار گرفت"
+  },
+  "activityInterruption": {
+    "message": "فارم متوقف شد: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "فارم متوقف شد: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "خودکارسازی غیرفعال شد"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "پلتفرم غیرفعال شد"
+  },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "احراز هویت در دسترس نیست"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "پلتفرم موقتاً در حالت انتظار است"
+  },
+  "activityReasonPlatformError": {
+    "message": "خطایی در پلتفرم رخ داد"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "این کمپین دیگر واجد شرایط نیست"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "کانال مستثنا شده است"
+  },
+  "activityReasonChannelOffline": {
+    "message": "کانال آفلاین شد"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "کانال دیگر مطابقت ندارد"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "بررسی سلامت تماشا ناموفق بود"
+  },
+  "activityReasonNoProgress": {
+    "message": "کانال هیچ پیشرفتی در دراپ نداشت"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "جایزه‌ای با اولویت بالاتر جای آن را گرفت"
+  },
+  "activityReasonHigherPriorityWatchlist": {
+    "message": "کانالی با اولویت بالاتر از فهرست تماشا در دسترس قرار گرفت"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "شرط تماشا کامل شد"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "افزونه دوباره راه‌اندازی شد"
+  },
+  "activityReasonTargetChanged": {
+    "message": "هدف فارم تغییر کرد"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "یک خطای بحرانی شناسایی شد"
+  },
+  "activityReasonManualWatch": {
+    "message": "تماشای دستی جای آن را گرفت"
+  },
+  "loadMoreActivity": {
+    "message": "فعالیت‌های بیشتر"
+  },
+  "clearActivityHistory": {
+    "message": "پاک کردن تاریخچه"
+  },
+  "confirmClearActivityHistory": {
+    "message": "تأیید پاک کردن"
+  },
+  "clearActivityFailed": {
+    "message": "پاک کردن تاریخچه فعالیت‌ها ممکن نشد. دوباره تلاش کنید."
+  },
+  "copyActivityLog": {
+    "message": "کپی گزارش"
+  },
+  "copyLoadedActivityLog": {
+    "message": "کپی موارد بارشده"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 رویداد کپی شد"
+  },
+  "copyActivityLogFailed": {
+    "message": "کپی گزارش ممکن نشد. دوباره تلاش کنید."
+  },
+  "exportAllDiagnostics": {
+    "message": "خروجی گرفتن از همه"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "از $1 رویداد خروجی گرفته شد"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "خروجی گرفتن از گزارش ممکن نشد. دوباره تلاش کنید."
+  },
+  "activityViewTab": {
+    "message": "فعالیت"
+  },
+  "diagnosticsViewTab": {
+    "message": "عیب‌یابی"
+  },
+  "compatibilityAutomatic": {
+    "message": "خودکار"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "نمایه سازگاری Twitch"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "یک نمایه Twitch همراه افزونه انتخاب کنید یا انتخاب آن را به Lurkloot بسپارید."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "نمایه سازگاری Kick"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "یک نمایه Kick همراه افزونه انتخاب کنید یا انتخاب آن را به Lurkloot بسپارید."
+  },
+  "compatibilitySectionTitle": {
+    "message": "سازگاری"
+  },
+  "compatibilitySectionDescription": {
+    "message": "فقط وقتی Twitch یا Kick درست کار نمی‌کند این گزینه‌ها را تغییر دهید؛ شاید به رفع مشکلات پلتفرم کمک کنند."
+  },
+  "compatibilityComponentProfile": {
+    "message": "نمایه"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "روش ارسال ضربان تماشا"
+  },
+  "compatibilityComponentInventory": {
+    "message": "پرس‌وجوی موجودی"
+  },
+  "compatibilityComponentClaim": {
+    "message": "مدیریت دریافت جایزه"
+  },
+  "compatibilityFromProfile": {
+    "message": "از نمایه"
+  },
+  "compatibilityOverridden": {
+    "message": "جایگزین شده"
+  },
+  "compatibilityReplacedBy": {
+    "message": "جایگزین‌شده با $1"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "روش ضربان تماشای Twitch"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "روش همراه افزونه برای ضربان تماشای Twitch را جایگزین کنید."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "پرس‌وجوی موجودی Twitch"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "پرس‌وجوی موجودی Twitch همراه افزونه را جایگزین کنید."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "مدیریت پیوند دریافت جایزه Kick"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "مدیریت پیوند حساب Kick همراه افزونه را جایگزین کنید."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "پیشنهادی"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "قدیمی"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "آزمایشی"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "جایگزینی‌های دستی سازگاری فعال‌اند. ممکن است با تغییر پلتفرم‌ها از کار بیفتند."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "بازگردانی سازگاری خودکار"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch، ژوئیه ۲۰۲۶"
+  },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch، اکتبر ۲۰۲۶"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "ضربان GraphQL نسخه ۱"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "ضربان Spade نسخه ۱"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "ضربان HLS + Spade نسخه ۱"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "ضربان Trowel نسخه ۱"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "پرس‌وجوی موجودی نسخه ۱"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "پرس‌وجوی موجودی نسخه ۲"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick، ژوئیه ۲۰۲۶"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "مدیریت دریافت جایزه نسخه ۱"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "مدیریت دریافت جایزه نسخه ۲"
+  },
+  "automationChecking": {
+    "message": "در حال بررسی"
+  },
+  "automationNeedsSignIn": {
+    "message": "نیاز به ورود"
+  },
+  "automationBlocked": {
+    "message": "مسدود"
+  },
+  "automationUnavailable": {
+    "message": "در دسترس نیست"
+  },
+  "authCheckingDetail": {
+    "message": "در حال بررسی نشست واردشده شما…"
+  },
+  "authSignInMissing": {
+    "message": "برای ادامه فارم دراپ‌ها وارد حساب شوید."
+  },
+  "authSignInRejected": {
+    "message": "نشست شما دیگر معتبر نیست. برای ادامه دوباره وارد شوید."
+  },
+  "signInToTwitch": {
+    "message": "ورود به Twitch"
+  },
+  "signInToKick": {
+    "message": "ورود به Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick این نمایه مرورگر را نپذیرفت. صرفاً ورود به حساب ممکن است مشکل را حل نکند."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "بررسی نشست مرورگر ممکن نشد. Lurkloot خودکار دوباره تلاش می‌کند."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "شبکه موقتاً در دسترس نیست. Lurkloot خودکار دوباره تلاش می‌کند."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "پلتفرم موقتاً در دسترس نیست. Lurkloot خودکار دوباره تلاش می‌کند."
+  },
+  "automationPausedTabClosed": {
+    "message": "مکث شد — تب بسته است"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "تب فارم را بستید، بنابراین Lurkloot فارم را در اینجا متوقف کرد."
+  },
+  "resumeFarming": {
+    "message": "ادامه فارم"
+  },
+  "activityReasonManualTabClose": {
+    "message": "تب فارم بسته شد"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "مجوز لازم مرورگر وجود ندارد؛ برای اعطای آن، پلتفرم را دوباره روشن کنید"
+  },
+  "automationPausedManualWatch": {
+    "message": "تماشای دستی"
+  },
+  "manualWatchPauseDetail": {
+    "message": "هنگامی که خودتان استریمی را تماشا می‌کنید، فارم مکث می‌شود. برای ازسرگیری خودکار در بررسی بعدی، آن را مکث کنید، ببندید یا از آن تب خارج شوید."
+  },
+  "manualWatchPauseDetailNamed": {
+    "message": "هنگامی که خودتان استریمی را تماشا می‌کنید، فارم مکث می‌شود."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— برای ازسرگیری، آن را مکث کنید، ببندید یا از آن خارج شوید."
+  },
+  "reorderItem": {
+    "message": "تغییر ترتیب $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "پیمایش جایزه‌ها به چپ"
+  },
+  "scrollRewardsRight": {
+    "message": "پیمایش جایزه‌ها به راست"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "در قرعه‌کشی $1 در $2 شرکت کرد"
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "یک اسپریت $1 در $2 گرفت"
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "تسخیر $1 را از $2 آغاز کرد"
+  },
+  "extensionSettingsTitle": {
+    "message": "اکستنشن‌های Twitch"
+  },
+  "extensionDropsTitle": {
+    "message": "اکستنشن‌ها"
+  },
+  "extensionSettingsHint": {
+    "message": "جایزه‌های اکستنشن را بدون تب‌های Twitch فارم کنید. خودکارسازی Twitch، موارد مستثنا و مکث دستی همچنان اعمال می‌شوند."
+  },
+  "extensionNoPixelHint": {
+    "message": "بسته‌های روزانه بگیرید و در قرعه‌کشی‌ها شرکت کنید. کسب زمان تماشا شما را وارد گفت‌وگوی کانال تماشاشده می‌کند، پس در فهرست بینندگان آن دیده می‌شوید."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "در گفت‌وگو نیستید: تا وقتی حضور در گفت‌وگو برقرار نشود، زمان تماشای NoPixel کسب نمی‌شود"
+  },
+  "extensionFortniteHint": {
+    "message": "اسپریت‌ها را جمع کنید و جایزه‌های هر مرحله را بگیرید."
+  },
+  "extensionIdentityRequired": {
+    "message": "حساب اکستنشن خود را پیوند دهید"
+  },
+  "extensionPermissionRequired": {
+    "message": "برای فعال‌سازی، دسترسی ارائه‌دهنده را مجاز کنید"
+  },
+  "extensionAuthRequired": {
+    "message": "وارد Twitch شوید"
+  },
+  "extensionChannelRequired": {
+    "message": "در حال یافتن کانال واجد شرایط"
+  },
+  "extensionComplete": {
+    "message": "جایزه‌ها کسب شد"
+  },
+  "extensionFarming": {
+    "message": "در حال فارم"
+  },
+  "extensionPhaseClosed": {
+    "message": "هیچ مرحله تعاملی بازی باز نیست"
+  },
+  "extensionConnecting": {
+    "message": "در حال اتصال"
+  },
+  "extensionUnavailable": {
+    "message": "موقتاً در دسترس نیست"
+  },
+  "extensionIdle": {
+    "message": "در انتظار"
+  },
+  "extensionDailyPackProgress": {
+    "message": "بسته روزانه: $1/$2 دقیقه"
+  },
+  "extensionCaptureProgress": {
+    "message": "مجموعه: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "اجازه تسخیرهای Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "در مرحله‌های تعاملی، تسخیرهای واجد شرایط را آغاز کنید. به‌طور پیش‌فرض خاموش است."
+  },
+  "extensionAccountSetup": {
+    "message": "راه‌اندازی حساب"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "بررسی قرعه‌کشی در دسترس نیست"
+  },
+  "extensionGiveawayEntered": {
+    "message": "در قرعه‌کشی شرکت داده شد"
+  },
+  "extensionGiveawayOpen": {
+    "message": "قرعه‌کشی باز است"
+  },
+  "extensionRewardProgress": {
+    "message": "جایزه‌ها: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "تسخیر فعال است"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "زمان تماشا کامل شد"
+  },
+  "extensionUnopenedPacks": {
+    "message": "بسته‌های بازنشده: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "بررسی تحویل بسته در دسترس نیست"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "باز کردن خودکار بسته‌های NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "کارت‌های بسته‌های بازنشده را آشکار کنید. هر بسته مصرف می‌شود و این کار برگشت‌پذیر نیست."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 یک بسته کارت در $2 باز کرد"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "اولویت منابع تماشا"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "از اولین منبع در دسترس تماشا می‌شود. منابع غیرفعال یا غیرقابل‌دسترس رد می‌شوند."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 را بالاتر ببر"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 را پایین‌تر ببر"
+  },
+  "watchSourcePriorityReset": {
+    "message": "بازنشانی اولویت"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 اکنون اولویت $2 است."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "اولویت منابع تماشا بازنشانی شد."
+  },
+  "watchSourceDrops": {
+    "message": "دراپ‌ها"
+  },
+  "watchSourceWatchlist": {
+    "message": "فهرست تماشا"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "watchSourceWatchStreaks": {
+    "message": "تداوم‌های تماشا"
+  },
+  "gamesStarHint": {
+    "message": "★ یک بازی را بالاتر از راهبرد قرار می‌دهد"
+  },
+  "gamesFavourite": {
+    "message": "$1 را بالاتر از راهبرد قرار بده"
+  },
+  "gamesUnfavourite": {
+    "message": "دیگر $1 را بالاتر از راهبرد قرار نده"
+  },
+  "gamesBlock": {
+    "message": "هرگز $1 را فارم نکن"
+  },
+  "gamesUnblock": {
+    "message": "رفع مسدودی"
+  },
+  "gamesBlocked": {
+    "message": "مسدود"
+  },
+  "gamesBlockedHint": {
+    "message": "در هیچ‌یک از حالت‌ها فارم نمی‌شود"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "فارم نمی‌شود · ستاره برای بعد حفظ می‌شود"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 کمپین زنده"
+  },
+  "gamesCampaignCountOne": {
+    "message": "۱ کمپین زنده"
+  },
+  "gamesNoCampaigns": {
+    "message": "فعلاً کمپینی نیست"
+  },
+  "gamesFarmGame": {
+    "message": "فارم $1"
+  },
+  "gamesEmpty": {
+    "message": "فعلاً هیچ کمپین زنده‌ای برای $1 نیست."
+  },
+  "inPageOpenPanel": {
+    "message": "باز کردن Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "افزودن $1 به فهرست تماشا"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "حذف $1 از فهرست تماشا"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "هیچ بازی‌ای مسدود نیست. برای کنار گذاشتن یک بازی از فارم در هر دو حالت، علامت ⊘ آن را بزنید."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 از $2 جایزه"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 باقی مانده"
+  },
+  "campaignFactStarts": {
+    "message": "شروع"
+  },
+  "campaignFactStarted": {
+    "message": "شروع‌شده"
+  },
+  "campaignFactEnds": {
+    "message": "پایان"
+  },
+  "relativeIn": {
+    "message": "تا $1 دیگر"
+  },
+  "relativeAgo": {
+    "message": "$1 پیش"
+  },
+  "campaignLasts": {
+    "message": "به‌مدت $1 ادامه دارد"
+  },
+  "campaignFactEnded": {
+    "message": "پایان‌یافته"
+  },
+  "campaignFactWatching": {
+    "message": "در حال تماشا"
+  },
+  "campaignFactChannels": {
+    "message": "کانال‌ها"
+  },
+  "campaignFactNextReward": {
+    "message": "جایزه بعدی"
+  },
+  "campaignFactWhyRank": {
+    "message": "دلیل این رتبه"
+  },
+  "campaignMoreChannels": {
+    "message": "$1 کانال دیگر"
+  },
+  "campaignFewerChannels": {
+    "message": "نمایش کمتر"
+  },
+  "campaignExclude": {
+    "message": "مستثنا کردن"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 مسدود شد"
+  },
+  "campaignPinToTop": {
+    "message": "سنجاق کردن در بالا"
+  },
+  "campaignPinnedAt": {
+    "message": "سنجاق‌شده · $1"
+  },
+  "campaignFavourite": {
+    "message": "افزودن $1 به محبوب‌ها"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 جزو محبوب‌هاست"
+  },
+  "campaignExcludeThis": {
+    "message": "فقط همین کمپین"
+  },
+  "campaignExcludeThisHint": {
+    "message": "کمپین‌های دیگر $1 به فارم ادامه می‌دهند"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "برای بازگرداندن کمپین به صف، دوباره آن را انتخاب کنید"
+  },
+  "campaignExcludeCategory": {
+    "message": "دسته «$1»"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "همه کمپین‌های $1 را، اکنون و در آینده، مسدود می‌کند"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "برای رفع مسدودی بازی، دوباره آن را انتخاب کنید"
+  },
+  "rewardMissed": {
+    "message": "به‌موقع کسب نشد"
+  },
+  "rankReasonPinned": {
+    "message": "در $1 سنجاق شده"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 محبوب شماره $2 است"
+  },
+  "rankReasonEnding": {
+    "message": "زودتر از موارد پایین‌تر تمام می‌شود"
+  },
+  "rankReasonAvailability": {
+    "message": "کانال‌هایش از موارد پایین‌تر کمتر است"
+  },
+  "queueEditFavourites": {
+    "message": "ویرایش"
+  },
+  "navWatchingNow": {
+    "message": "اکنون در حال تماشا"
+  },
+  "gamesFavouritesGroup": {
+    "message": "بازی‌های محبوب"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "به این ترتیب، بالاتر از راهبرد اولویت‌بندی شده‌اند"
+  },
+  "gamesOtherGroup": {
+    "message": "بازی‌های دیگر"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "همه فارم می‌شوند، جز موارد مسدودشده"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "فقط در صورت انتخاب، فارم می‌شوند"
+  },
+  "watchSourcePlace": {
+    "message": "جایگاه در ترتیب تماشا: $1 از $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "پیش از همه منابع دیگر تماشا می‌شود."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "وقتی $1 چیزی برای تماشا نداشته باشند، تماشا می‌شود."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "تغییر ترتیب"
+  },
+  "railWhatsNew": {
+    "message": "تازه‌ها"
+  },
+  "campaignShowDetails": {
+    "message": "نمایش جزئیات"
+  },
+  "campaignHideDetails": {
+    "message": "پنهان کردن جزئیات"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "بازی‌ها و دسته‌ها"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "انتخاب کنید کدام بازی‌های $1 فارم شوند، به مواردی که باید در اولویت باشند ستاره بدهید یا آن‌ها را مسدود کنید."
+  },
+  "settingsGamesPointerAction": {
+    "message": "باز کردن بازی‌ها"
+  },
+  "watchlistAddPlaceholder": {
+    "message": "نام کانال یا پیوند"
+  },
+  "watchlistFull": {
+    "message": "فهرست پر است ($1 کانال). برای افزودن کانال دیگری، یکی را حذف کنید."
+  },
+  "watchlistInvalid": {
+    "message": "نام کانال یا پیوند آن را وارد کنید."
+  },
+  "watchlistDuplicate": {
+    "message": "$1 از قبل در فهرست است."
+  },
+  "watchlistOrderTitle": {
+    "message": "ترتیب تماشا"
+  },
+  "watchlistOrderHint": {
+    "message": "اولین کانال زنده تماشا می‌شود"
+  },
+  "watchlistStreakHint": {
+    "message": "ردیف‌های تداوم در جایگاه «تداوم‌های تماشا» در ترتیب تماشا می‌شوند؛ هرکدام تا وقتی Twitch تداوم را تأیید کند یا $1 دقیقه بگذرد."
+  },
+  "watchlistStreakToggle": {
+    "message": "حفظ تداوم تماشا در $1"
+  },
+  "watchStreakPending": {
+    "message": "تداوم در انتظار"
+  },
+  "watchStreakWatching": {
+    "message": "حفظ تداوم"
+  },
+  "watchStreakCredited": {
+    "message": "تداوم تأیید شد"
+  },
+  "watchStreakNotConfirmed": {
+    "message": "تأیید نشد"
+  },
+  "watchStreakUnavailable": {
+    "message": "تداوم در دسترس نیست"
+  },
+  "gamesModeAllDescription": {
+    "message": "همه بازی‌هایی که دراپ زنده دارند فارم می‌شوند، به‌جز موارد مسدودشده."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "فقط بازی‌هایی که انتخاب می‌کنید فارم می‌شوند."
+  },
+  "gamesStarLegend": {
+    "message": "بازی را بالاتر از راهبرد اولویت‌بندی می‌کند"
+  },
+  "gamesBlockLegend": {
+    "message": "هرگز فارم نمی‌شود"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "یافتن یا افزودن بازی $1"
+  },
+  "gamesAddGroup": {
+    "message": "افزودن از $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "با افزودن بازی، انتخاب می‌شود"
+  },
+  "gamesAddAllHint": {
+    "message": "با افزودن بازی، ستاره‌دار می‌شود"
+  },
+  "gamesAddActionFarm": {
+    "message": "فارم"
+  },
+  "gamesAddActionFavourite": {
+    "message": "افزودن به محبوب‌ها"
+  },
+  "gamesNoMoreResults": {
+    "message": "بازی دیگری پیدا نشد."
+  },
+  "navBeta": {
+    "message": "بتا"
+  },
+  "navExtensions": {
+    "message": "اکستنشن‌ها"
+  },
+  "navGroupOthers": {
+    "message": "سایر موارد"
+  },
+  "kickLevelSummary": {
+    "message": "سطح Kick $1 · $2٪ تا سطح $3"
+  },
+  "kickLevelShort": {
+    "message": "سطح $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1 روز پیاپی تماشا"
+  }
+}

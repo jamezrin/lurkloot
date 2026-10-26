@@ -46,6 +46,7 @@ export const SUPPORTED_LOCALES: SupportedLocale[] = [
   "ko",
   "uk",
   "cs",
+  "fa",
 ];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
@@ -85,7 +86,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
     twitch: {
       enabled: false,
       watchSourcePriority: [...DEFAULT_WATCH_SOURCE_PRIORITY.twitch],
-      idleWatchlistChannels: [],
+      watchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
       rewardFilter: defaultRewardFilter("twitch"),
@@ -98,12 +99,13 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       autoClaimChannelPoints: true,
       strictCampaignAvailability: false,
       channelPointsPushClaim: true,
+      watchlistStreakChannels: [],
       alwaysEnterChat: false,
     },
     kick: {
       enabled: false,
       watchSourcePriority: [...DEFAULT_WATCH_SOURCE_PRIORITY.kick],
-      idleWatchlistChannels: [],
+      watchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
       rewardFilter: defaultRewardFilter("kick"),
@@ -172,9 +174,11 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
 
 // Normalizes the universal engine contract. The engine (packages/core) and any
 // non-extension host (CLI) merge through this; host-only fields are not touched.
-// Legacy property names are not read here. Hosts run migrateSettings() from
-// @lurkloot/shared/settingsSchema on the raw payload first; by the time a value
-// reaches normalization it only carries current names.
+// Hosts run migrateSettings() from @lurkloot/shared/settingsSchema on the raw
+// payload first, so by the time a value reaches normalization it carries
+// current names. The one legacy input still read is idleWatchlistFallbackOnly,
+// which stays a stored setting: it decides watchSourcePriority for a platform
+// block that has none, which migration 6 materializes for every stored one.
 export function mergeEngineSettings(value: Partial<EngineSettings> | undefined): EngineSettings {
   const platform = value?.platform;
   const compatibility = value?.compatibility;
@@ -219,8 +223,8 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
           platform?.twitch,
           value?.idleWatchlistFallbackOnly,
         ),
-        idleWatchlistChannels: normalizeChannelList(
-          platform?.twitch?.idleWatchlistChannels,
+        watchlistChannels: normalizeChannelList(
+          watchlistField(platform?.twitch, "watchlistChannels"),
           IDLE_WATCHLIST_LIMIT,
         ),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
@@ -248,6 +252,13 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
           platform?.twitch?.channelPointsPushClaim,
           DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim,
         ),
+        watchlistStreakChannels: normalizeWatchStreakChannels(
+          watchlistField(platform?.twitch, "watchlistStreakChannels"),
+          normalizeChannelList(
+            watchlistField(platform?.twitch, "watchlistChannels"),
+            IDLE_WATCHLIST_LIMIT,
+          ),
+        ),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
@@ -256,8 +267,8 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
           platform?.kick,
           value?.idleWatchlistFallbackOnly,
         ),
-        idleWatchlistChannels: normalizeChannelList(
-          platform?.kick?.idleWatchlistChannels,
+        watchlistChannels: normalizeChannelList(
+          watchlistField(platform?.kick, "watchlistChannels"),
           IDLE_WATCHLIST_LIMIT,
         ),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
@@ -530,7 +541,7 @@ export function normalizeSubscriptionMarks(value: string[] | undefined): string[
   });
 }
 
-// The Idle Watchlist's cap. The popup printed "n/20" long before anything
+// The Watchlist's cap. The popup printed "n/20" long before anything
 // enforced it, so an in-page add could exceed a limit the UI claimed to have
 // (#563). Enforced here, where every host's writes converge, rather than in one
 // of the two surfaces that can add a channel.
@@ -547,6 +558,47 @@ export function normalizeChannelList(value: string[] | undefined, limit?: number
     ),
   ];
   return limit === undefined ? channels : channels.slice(0, limit);
+}
+
+// The healthy watch time a watch-streak attempt gets before it ends as not
+// confirmed (#897). A safety budget, not Twitch's own credit threshold.
+export const WATCH_STREAK_BUDGET_MINUTES = 15;
+
+// Watch-streak opt-ins (#897) only name channels still on the watchlist, so
+// removing a row clears its opt-in and reordering keeps it. Kept in watchlist
+// order.
+export function normalizeWatchStreakChannels(
+  value: string[] | undefined,
+  watchlist: readonly string[],
+): string[] {
+  const optedIn = new Set(normalizeChannelList(value));
+  return watchlist.filter((channel) => optedIn.has(channel));
+}
+
+// Only Twitch maintains watch streaks; every other platform reads as none, so
+// the scheduler can ask without knowing which platform does.
+// The watchlist keys were idleWatchlistChannels and idleWatchlistStreakChannels
+// before schema 10. Migration renames them; reading the old name too means a
+// document that skipped migration still keeps its channels.
+const LEGACY_WATCHLIST_FIELDS = {
+  watchlistChannels: "idleWatchlistChannels",
+  watchlistStreakChannels: "idleWatchlistStreakChannels",
+} as const;
+
+function watchlistField(
+  block: unknown,
+  key: keyof typeof LEGACY_WATCHLIST_FIELDS,
+): string[] | undefined {
+  if (block === null || typeof block !== "object") return undefined;
+  const record = block as Record<string, unknown>;
+  // Typed as the stored shape, like the other fields; normalization validates it.
+  return (Object.hasOwn(record, key) ? record[key] : record[LEGACY_WATCHLIST_FIELDS[key]]) as
+    | string[]
+    | undefined;
+}
+
+export function watchStreakChannelsFor(settings: EngineSettings, platform: Platform): string[] {
+  return platform === "twitch" ? (settings.platform.twitch.watchlistStreakChannels ?? []) : [];
 }
 
 // The claim toggles are per-platform, so a scheduler loop holding `platform` as a
