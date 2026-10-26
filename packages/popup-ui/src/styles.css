@@ -19,6 +19,13 @@
    times per click. The popup has one fixed size and needs no breakpoints. */
 @source not inline("container");
 
+/* Inside a right-to-left scope, read from the `dir` attribute of the nearest
+   ancestor that sets one. Not :dir(rtl): the build lowers :dir() to a :lang()
+   list, and the popup sets only `dir`, so it never matched. Tailwind's rtl:
+   matches any RTL ancestor, so it also flips an LTR section inside an RTL
+   page; the :not() here keeps that section left-to-right, one level deep. */
+@custom-variant dir-rtl (&:where([dir="rtl"], [dir="rtl"] *):not([dir="rtl"] [dir="ltr"], [dir="rtl"] [dir="ltr"] *));
+
 @theme {
   /* Archivo for names and headings, Geist for text, Geist Mono for numbers —
      the prototype's pairing. fonts.css bundles all three; the plain names

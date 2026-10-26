@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { compile } from "@tailwindcss/node";
@@ -7,6 +8,7 @@ import { Scanner } from "@tailwindcss/oxide";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { chromium, type Browser, type Page } from "playwright";
+import { build } from "vite";
 import { Toggle } from "../../popup-ui/src/primitives";
 
 const stylesPath = resolve(
@@ -24,6 +26,32 @@ async function buildPopupCss(): Promise<string> {
   });
   const scanner = new Scanner({ sources: compiler.sources });
   return compiler.build(scanner.scan());
+}
+
+// Then lowers it the way the extension build does. Vite minifies CSS with
+// Lightning CSS for its default browser targets, which rewrites some selectors:
+// :dir(rtl) becomes a :lang() list, which never matches a popup that sets only
+// `dir`. Raw Tailwind output would hide that.
+async function lowerAsBuilt(css: string): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "lurkloot-popup-css-"));
+  try {
+    const entry = join(root, "popup.css");
+    await writeFile(entry, css);
+    const result = await build({
+      root,
+      configFile: false,
+      logLevel: "silent",
+      build: { write: false, rollupOptions: { input: entry } },
+    });
+    const outputs = (Array.isArray(result) ? result : [result]).flatMap((bundle) =>
+      "output" in bundle ? bundle.output : [],
+    );
+    const sheet = outputs.find((output) => output.fileName.endsWith(".css"));
+    if (!sheet || sheet.type !== "asset") throw new Error("Vite must emit the stylesheet");
+    return String(sheet.source);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 }
 
 describe("popup stylesheet", () => {
@@ -46,7 +74,7 @@ describe("toggle layout", () => {
   let css: string;
 
   beforeAll(async () => {
-    css = await buildPopupCss();
+    css = await lowerAsBuilt(await buildPopupCss());
     browser = await chromium.launch({ executablePath: process.env.CWS_CHROME_BINARY });
     page = await browser.newPage({ viewport: { width: 320, height: 160 } });
     await page.emulateMedia({ reducedMotion: "reduce" });
