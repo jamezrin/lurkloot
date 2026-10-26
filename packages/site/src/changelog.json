@@ -30,7 +30,8 @@
         "kind": "fixed",
         "text": "In Arabic and Persian, switches no longer slide out of their track when turned on."
       }
-    ]
+    ],
+    "date": "2026-10-26"
   },
   {
     "version": "1.19.0",
