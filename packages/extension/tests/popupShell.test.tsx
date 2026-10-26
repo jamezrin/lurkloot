@@ -308,8 +308,8 @@ describe("popup workspace shell", () => {
     go(container, "fortnite");
 
     const place = container.querySelector("[data-watch-source-place='fortnite']");
-    expect(place?.textContent).toContain("3 of 5");
-    expect(place?.textContent).toContain("Drops, NoPixelV");
+    expect(place?.textContent).toContain("4 of 5");
+    expect(place?.textContent).toContain("Watch streaks, Drops, NoPixelV");
 
     act(() => place!.querySelector<HTMLButtonElement>("button")!.click());
     expect(currentView(container)).toBe("settings");

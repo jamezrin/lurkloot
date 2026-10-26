@@ -17,10 +17,10 @@ describe("CLI watch-source priority", () => {
       },
     });
     expect(settings.platform.twitch.watchSourcePriority).toEqual([
+      "watch_streaks",
       "fortnite",
       "nopixel",
       "drops",
-      "watch_streaks",
       "watchlist",
     ]);
     expect(settings.platform.kick.watchSourcePriority).toEqual(["watchlist", "drops"]);
@@ -48,10 +48,10 @@ describe("CLI watch-source priority", () => {
     const template = defaultConfigJsonc();
     const config = parseConfig(parse(template), "/tmp/watch-source-config.jsonc");
     expect(config.settings.platform.twitch.watchSourcePriority).toEqual([
+      "watch_streaks",
       "drops",
       "nopixel",
       "fortnite",
-      "watch_streaks",
       "watchlist",
     ]);
     expect(config.settings.platform.kick.watchSourcePriority).toEqual(["drops", "watchlist"]);
