@@ -131,20 +131,20 @@ describe("parseConfig", () => {
     ]);
   });
 
-  it("keeps the first 20 watchlist channels and names the ones it drops", () => {
-    const channels = Array.from({ length: 23 }, (_, index) => `channel${index + 1}`);
+  it("keeps the first 30 watchlist channels and names the ones it drops", () => {
+    const channels = Array.from({ length: 33 }, (_, index) => `channel${index + 1}`);
     const config = parseConfig(
       { settings: { platform: { kick: { watchlistChannels: channels } } } },
       CONFIG_PATH,
     );
-    expect(config.settings.platform.kick.watchlistChannels).toEqual(channels.slice(0, 20));
+    expect(config.settings.platform.kick.watchlistChannels).toEqual(channels.slice(0, 30));
     expect(config.warnings).toEqual([
-      "settings.platform.kick.watchlistChannels: The kick watchlist holds at most 20 channels; ignoring the other 3: channel21, channel22, channel23",
+      "settings.platform.kick.watchlistChannels: The kick watchlist holds at most 30 channels; ignoring the other 3: channel31, channel32, channel33",
     ]);
   });
 
   it("does not warn for an watchlist at the limit, counting duplicates once", () => {
-    const channels = Array.from({ length: 20 }, (_, index) => `channel${index + 1}`);
+    const channels = Array.from({ length: 30 }, (_, index) => `channel${index + 1}`);
     const config = parseConfig(
       {
         settings: {
@@ -155,6 +155,21 @@ describe("parseConfig", () => {
     );
     expect(config.settings.platform.twitch.watchlistChannels).toEqual(channels);
     expect(config.warnings).toEqual([]);
+  });
+
+  it("moves top-level campaign pins and exclusions onto both platforms, warning", () => {
+    const config = parseConfig(
+      { settings: { campaignPins: ["pin"], excludedCampaignIds: ["skip"] } },
+      CONFIG_PATH,
+    );
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(config.settings.platform[platform].campaignPins).toEqual(["pin"]);
+      expect(config.settings.platform[platform].excludedCampaignIds).toEqual(["skip"]);
+    }
+    expect(config.warnings).toEqual([
+      "settings.campaignPins moved to platform.twitch.campaignPins and platform.kick.campaignPins",
+      "settings.excludedCampaignIds moved to platform.twitch.excludedCampaignIds and platform.kick.excludedCampaignIds",
+    ]);
   });
 
   it("has no config warnings by default", () => {

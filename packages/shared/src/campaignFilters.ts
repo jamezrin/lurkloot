@@ -120,7 +120,7 @@ export function campaignEligibleClass(campaign: DropCampaign, settings: EngineSe
     && campaign.eligibility !== "account_not_linked"
   )
     return false;
-  if (settings.excludedCampaignIds.includes(campaign.id)) return false;
+  if (settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id)) return false;
   if (!campaignPassesFarmingEligibility(campaign, settings.platform[campaign.platform]))
     return false;
   if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) return false;

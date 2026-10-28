@@ -578,9 +578,9 @@ function keyDownRankInput(input: HTMLInputElement, key: string): void {
 }
 
 // Views of the given campaigns with `pins` pinned, in that order, the way the
-// popup builds them from settings.campaignPins.
+// popup builds them from the Kick campaigns' settings.platform.kick.campaignPins.
 function pinnedFeasibility(pins: string[]) {
-  const settings = mergeSettings({ campaignPins: pins } as never);
+  const settings = mergeSettings({ platform: { kick: { campaignPins: pins } } } as never);
   return {
     skipUnfinishableRewards: settings.skipUnfinishableRewards,
     deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,

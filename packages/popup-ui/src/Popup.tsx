@@ -66,7 +66,9 @@ import {
   gameItemsFromCampaigns,
   campaignSection,
   pinCampaignAt,
+  platformPins,
   rankCampaigns,
+  replacePlatformPins,
   unpinCampaign,
   streamerItemFromFallback,
 } from "./viewModels";
@@ -1104,7 +1106,7 @@ export function PopupFrame({
     : undefined;
 
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
-  const excludedIds = new Set(settings.excludedCampaignIds);
+  const excludedIds = new Set(settings.platform[platform].excludedCampaignIds);
   // Every campaign the platform reported, in scheduler order. Each view picks
   // the sections it owns (campaignSection), so a campaign is never missing from
   // the popup entirely — it is in the Queue, under Skipped or Upcoming, or in
@@ -1118,6 +1120,29 @@ export function PopupFrame({
     settings.criticalFailurePromptEnabled && criticalFailure?.status === "flagged"
       ? criticalFailure.reason
       : undefined;
+  // Pins are stored for both platforms in one list, but the Queue only shows
+  // this platform's live ones: its pin positions, its "Unpin all" count, and its
+  // writes leave every other pin alone. A completed or expired campaign has no
+  // pin control, so its pin is out of scope too.
+  const platformCampaignIds = new Set(
+    snapshot.state.campaigns[platform]
+      .filter((campaign) => {
+        const section = campaignSection(campaign, settings);
+        return section !== "completed" && section !== "expired";
+      })
+      .map((campaign) => campaign.id),
+  );
+  const storedPins = settings.platform[platform].campaignPins;
+  const pins = platformPins(storedPins, platformCampaignIds);
+  const savePlatformPins = (next: string[]) =>
+    updateSettings(
+      {
+        platform: {
+          [platform]: { campaignPins: replacePlatformPins(storedPins, platformCampaignIds, next) },
+        },
+      },
+      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+    );
   const derivationInputs = [
     snapshot.state.campaigns[platform],
     snapshot.settings,
@@ -1135,7 +1160,13 @@ export function PopupFrame({
           campaignViewFromCampaign(campaign, index, session, excludedIds.has(campaign.id), {
             skipUnfinishableRewards: settings.skipUnfinishableRewards,
             deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-            settings,
+            settings: {
+              ...settings,
+              platform: {
+                ...settings.platform,
+                [platform]: { ...settings.platform[platform], campaignPins: pins },
+              },
+            },
           }),
         ),
       )
@@ -1662,7 +1693,7 @@ export function PopupFrame({
                                 focus={campaignFocus}
                                 refreshing={refreshing}
                                 strategy={settings.priorityMode}
-                                pinnedCount={settings.campaignPins.length}
+                                pinnedCount={pins.length}
                                 farmPinnedOnly={settings.platform[platform].farmPinnedOnly}
                                 unlinkedCampaigns={settings.platform[platform].unlinkedCampaigns}
                                 platform={platform}
@@ -1678,9 +1709,7 @@ export function PopupFrame({
                                 onStrategyChange={(priorityMode) =>
                                   void updateSettings({ priorityMode }, { tickAfterSave: true })
                                 }
-                                onUnpinAll={() =>
-                                  void updateSettings({ campaignPins: [] }, { tickAfterSave: true })
-                                }
+                                onUnpinAll={() => void savePlatformPins([])}
                                 onFarmPinnedOnlyChange={(farmPinnedOnly) =>
                                   void updateSettings(
                                     { platform: { [platform]: { farmPinnedOnly } } },
@@ -1695,27 +1724,23 @@ export function PopupFrame({
                                 }
                                 onRefreshCampaign={() => refreshNow()}
                                 onPinChange={(campaignId, position) =>
-                                  updateSettings(
-                                    {
-                                      campaignPins:
-                                        position == null
-                                          ? unpinCampaign(settings.campaignPins, campaignId)
-                                          : pinCampaignAt(
-                                              settings.campaignPins,
-                                              campaignId,
-                                              position,
-                                            ),
-                                    },
-                                    { tickAfterSave: true },
+                                  savePlatformPins(
+                                    position == null
+                                      ? unpinCampaign(pins, campaignId)
+                                      : pinCampaignAt(pins, campaignId, position),
                                   )
                                 }
                                 onToggleExclude={(id) => {
-                                  const next = new Set(settings.excludedCampaignIds);
+                                  const next = new Set(
+                                    settings.platform[platform].excludedCampaignIds,
+                                  );
                                   if (next.has(id)) next.delete(id);
                                   else next.add(id);
                                   return updateSettings(
-                                    { excludedCampaignIds: [...next] },
-                                    { tickAfterSave: true },
+                                    {
+                                      platform: { [platform]: { excludedCampaignIds: [...next] } },
+                                    },
+                                    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                                   );
                                 }}
                                 onToggleFavouriteCategory={(category) =>

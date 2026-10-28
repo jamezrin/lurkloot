@@ -165,7 +165,7 @@ describe("scheduler campaign selection", () => {
       snapshot: fixture.snapshot,
       previous: fixture.previous,
       previousCampaigns: [fixture.higher, fixture.current],
-      settings: settings({ campaignPins: ["higher"] }),
+      settings: settings({ platform: { twitch: { campaignPins: ["higher"] } } }),
     } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
 
     expect(
@@ -180,7 +180,7 @@ describe("scheduler campaign selection", () => {
       snapshot: { ...fixture.snapshot, revision: 2 },
       previous: fixture.previous,
       previousCampaigns: [fixture.higher, fixture.current],
-      settings: settings({ campaignPins: ["higher"] }),
+      settings: settings({ platform: { twitch: { campaignPins: ["higher"] } } }),
       previousBackoff: (first as unknown as { backoff: unknown }).backoff,
     } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
 
@@ -196,7 +196,7 @@ describe("scheduler campaign selection", () => {
       snapshot: fixture.snapshot,
       previous: fixture.previous,
       previousCampaigns: [fixture.higher, fixture.current],
-      settings: settings({ campaignPins: ["higher"] }),
+      settings: settings({ platform: { twitch: { campaignPins: ["higher"] } } }),
       previousBackoff: {
         campaignId: "higher",
         retryAt: "2026-09-08T04:05:00.000Z",
@@ -214,7 +214,7 @@ describe("scheduler campaign selection", () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-08T04:00:00.000Z");
     const fixture = negativeSearchFixture();
-    const originalSettings = settings({ campaignPins: ["higher"] });
+    const originalSettings = settings({ platform: { twitch: { campaignPins: ["higher"] } } });
     const first = await selectWatchTargetFromSnapshot({
       snapshot: fixture.snapshot,
       previous: fixture.previous,
@@ -228,7 +228,7 @@ describe("scheduler campaign selection", () => {
       {
         snapshot: fixture.snapshot,
         previous: fixture.previous,
-        settings: settings({ campaignPins: ["higher", "other"] }),
+        settings: settings({ platform: { twitch: { campaignPins: ["higher", "other"] } } }),
         expectedCandidates: 2,
       },
       {
@@ -291,7 +291,7 @@ describe("scheduler campaign selection", () => {
       snapshot: ambiguous.snapshot,
       previous: ambiguous.previous,
       previousCampaigns: [ambiguous.higher, ambiguous.current],
-      settings: settings({ campaignPins: ["higher"] }),
+      settings: settings({ platform: { twitch: { campaignPins: ["higher"] } } }),
     });
     const kick = await selectWatchTargetFromSnapshot({
       snapshot: {
@@ -307,7 +307,7 @@ describe("scheduler campaign selection", () => {
         ...item,
         platform: "kick",
       })),
-      settings: settings({ campaignPins: ["higher"] }),
+      settings: settings({ platform: { kick: { campaignPins: ["higher"] } } }),
     });
 
     expect((twitch as unknown as { backoff?: unknown }).backoff).toBeUndefined();
@@ -552,7 +552,10 @@ describe("scheduler campaign selection", () => {
     const first = campaign("first", { endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { endsAt: "2026-07-01T00:00:00.000Z" });
 
-    const sorted = rankCampaigns([first, second], settings({ campaignPins: ["second"] }));
+    const sorted = rankCampaigns(
+      [first, second],
+      settings({ platform: { twitch: { campaignPins: ["second"] } } }),
+    );
 
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
@@ -829,7 +832,7 @@ describe("scheduler campaign selection", () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("pinned"), campaign("unlisted")],
-      settings({ campaignPins: ["pinned"], platform: { twitch: { farmPinnedOnly: true } } }),
+      settings({ platform: { twitch: { campaignPins: ["pinned"], farmPinnedOnly: true } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({
@@ -1959,9 +1962,11 @@ describe("scheduler tick", () => {
         existingState,
         settings({
           priorityMode: "ending_soonest",
-          campaignPins: ["ordinary"],
           deadlineSafetyMarginMinutes: 0,
-          platform: { twitch: { enabled: true }, kick: { enabled: false } },
+          platform: {
+            twitch: { enabled: true, campaignPins: ["ordinary"] },
+            kick: { enabled: false },
+          },
         }),
         { twitch, kick: adapter("kick", [], []) },
         { platforms: ["twitch"] },
@@ -3055,7 +3060,13 @@ describe("scheduler tick", () => {
       const decision = await chooseCampaignDecision(
         "kick",
         [unlinked, linked],
-        { ...kickSettings, campaignPins: ["unlinked"] },
+        {
+          ...kickSettings,
+          platform: {
+            ...kickSettings.platform,
+            kick: { ...kickSettings.platform.kick, campaignPins: ["unlinked"] },
+          },
+        },
         kick,
       );
 
@@ -3086,9 +3097,8 @@ describe("scheduler tick", () => {
         },
       },
       settings({
-        campaignPins: ["urgent"],
         platform: {
-          twitch: { enabled: true, watchlistChannels: [] },
+          twitch: { enabled: true, watchlistChannels: [], campaignPins: ["urgent"] },
           kick: { enabled: false, watchlistChannels: [] },
         },
       }),

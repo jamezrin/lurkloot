@@ -60,7 +60,7 @@ describe("background controller", () => {
 
       await env.controller.handleMessage({
         type: "saveSettings",
-        settingsPatch: { campaignPins: ["later"] },
+        settingsPatch: { platform: { twitch: { campaignPins: ["later"] } } },
         tickAfterSave: true,
         tickAfterSavePlatforms: ["twitch"],
       });
@@ -73,10 +73,13 @@ describe("background controller", () => {
       const env = harness(
         farming({
           ...DEFAULT_SETTINGS,
-          campaignPins: ["sooner"],
           platform: {
             ...DEFAULT_SETTINGS.platform,
-            twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: true },
+            twitch: {
+              ...DEFAULT_SETTINGS.platform.twitch,
+              campaignPins: ["sooner"],
+              farmPinnedOnly: true,
+            },
           },
         }),
       );
@@ -86,7 +89,7 @@ describe("background controller", () => {
 
       await env.controller.handleMessage({
         type: "saveSettings",
-        settingsPatch: { campaignPins: ["later", "sooner"] },
+        settingsPatch: { platform: { twitch: { campaignPins: ["later", "sooner"] } } },
         tickAfterSave: true,
         tickAfterSavePlatforms: ["twitch"],
       });
@@ -104,12 +107,18 @@ describe("background controller", () => {
           twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: true },
         },
       };
-      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ platform: { twitch: { campaignPins: ["a"] } } }, off)).toBe(true);
       expect(isRankingOnlyPatch({ priorityMode: "lowest_availability" }, off)).toBe(true);
       expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [] } } }, off)).toBe(
         true,
       );
-      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, pinnedOnly)).toBe(false);
+      expect(
+        isRankingOnlyPatch({ platform: { twitch: { campaignPins: ["a"] } } }, pinnedOnly),
+      ).toBe(false);
+      // Only the platform farming pinned only needs its pins rediscovered.
+      expect(isRankingOnlyPatch({ platform: { kick: { campaignPins: ["a"] } } }, pinnedOnly)).toBe(
+        true,
+      );
       expect(isRankingOnlyPatch({ platform: { twitch: { farmPinnedOnly: true } } }, off)).toBe(
         false,
       );

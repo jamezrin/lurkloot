@@ -393,18 +393,17 @@ describe("state transaction", () => {
       expect(
         settingsPatchEffects({ platform: { twitch: { watchlistChannels: [] } } }, off),
       ).toEqual({ twitch: "discovery" });
-      expect(settingsPatchEffects({ campaignPins: ["a"] }, off)).toEqual({
-        twitch: "selection",
+      // A pin touches only its own platform.
+      expect(settingsPatchEffects({ platform: { kick: { campaignPins: ["a"] } } }, off)).toEqual({
         kick: "selection",
       });
-      // A pin is not ranking-only while either platform farms pinned only.
-      for (const current of [pinnedOnly(true, false), pinnedOnly(false, true)]) {
-        expect(isRankingOnlyPatch({ campaignPins: ["a"] }, current)).toBe(false);
-        expect(settingsPatchEffects({ campaignPins: ["a"] }, current)).toEqual({
-          twitch: "discovery",
-          kick: "discovery",
-        });
-      }
+      // A pin is not ranking-only while its platform farms pinned only.
+      const kickPin = { platform: { kick: { campaignPins: ["a"] } } };
+      expect(isRankingOnlyPatch(kickPin, pinnedOnly(true, false))).toBe(true);
+      expect(isRankingOnlyPatch(kickPin, pinnedOnly(false, true))).toBe(false);
+      expect(settingsPatchEffects(kickPin, pinnedOnly(false, true))).toEqual({
+        kick: "discovery",
+      });
       expect(settingsPatchEffects({ pollIntervalMinutes: 5 }, off)).toEqual({
         twitch: "discovery",
         kick: "discovery",

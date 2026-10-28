@@ -9,7 +9,7 @@ import { isRecord } from "./records";
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 10;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 11;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -83,6 +83,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 8, migrate: migrateToV8 },
   { to: 9, migrate: migrateToV9 },
   { to: 10, migrate: migrateToV10 },
+  { to: 11, migrate: migrateToV11 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -510,6 +511,32 @@ function migrateToV10(raw: Record<string, unknown>, diagnose: Diagnose): Record<
   return raw;
 }
 
+// Campaign pins and exclusions move from one list for both platforms onto each
+// platform (#930). A stored id carries no platform, and campaign ids are opaque
+// strings each platform's API chooses, so the list is copied onto both: an id
+// only ever matches a campaign of its own platform, so the copy on the other
+// one is inert and nothing a user pinned or excluded is lost. A current
+// per-platform key always wins.
+function migrateToV11(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  for (const key of ["campaignPins", "excludedCampaignIds"] as const) {
+    if (!Object.hasOwn(raw, key)) continue;
+    const legacy = raw[key];
+    delete raw[key];
+    diagnose({
+      code: "moved_property",
+      path: key,
+      replacements: [`platform.twitch.${key}`, `platform.kick.${key}`],
+      message: `${key} moved to platform.twitch.${key} and platform.kick.${key}`,
+    });
+    for (const platform of ["twitch", "kick"] as const) {
+      const block = ensurePlatformBlock(raw, platform);
+      if (block && !Object.hasOwn(block, key))
+        block[key] = Array.isArray(legacy) ? [...legacy] : legacy;
+    }
+  }
+  return raw;
+}
+
 // Creates a nested block only when it is safe to do so; a pre-existing malformed
 // block is left untouched so validation can report it verbatim.
 function ensureBlock(
@@ -627,6 +654,7 @@ export function migrateSettings(raw: unknown): SettingsMigrationResult {
 // A rename a later migration renames again (watchQueueChannels became
 // idleWatchlistChannels in migration 1, then watchlistChannels in migration
 // 10) names the key the value ends up under, not the intermediate one.
+// One a later migration copies onto both platforms names both.
 function finalReplacements(
   kept: SettingsMigrationDiagnostic[],
   all: SettingsMigrationDiagnostic[],
@@ -640,6 +668,17 @@ function finalReplacements(
       const next = byPath.get(replacement)?.replacement;
       if (!next) break;
       replacement = next;
+    }
+    // A later migration may move the value onto both platforms (migration 11
+    // moving the campaignPins migration 7 wrote), leaving no single path.
+    const spread = replacement ? byPath.get(replacement)?.replacements : undefined;
+    if (spread) {
+      const { replacement: _single, ...rest } = diagnostic;
+      return {
+        ...rest,
+        replacements: spread,
+        message: diagnostic.message.split(diagnostic.replacement!).join(spread.join(" and ")),
+      };
     }
     if (!replacement || replacement === diagnostic.replacement) return diagnostic;
     return {

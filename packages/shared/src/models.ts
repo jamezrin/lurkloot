@@ -454,6 +454,12 @@ export interface PlatformSettings {
   // stays listed, skipped with the reason. Per platform, as each platform has
   // its own Queue and its own reward kinds.
   rewardFilter: RewardFilter;
+  // Ordered ids of this platform's campaigns the user placed by hand. Sparse by
+  // design: dragging one campaign pins that campaign and leaves every other one
+  // to the tiers below. Per platform since schema version 11 (#930).
+  campaignPins: string[];
+  // This platform's campaigns the user excluded: never farmed.
+  excludedCampaignIds: string[];
   // Eligibility switch: farm only this platform's pinned campaigns. Separate
   // from the pin list itself so pinning never doubles as "allowed to farm".
   farmPinnedOnly: boolean;
@@ -553,10 +559,6 @@ export interface EngineSettings {
   priorityMode: PriorityMode;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
-  // Ordered campaign ids the user placed by hand. Sparse by design: dragging one
-  // campaign pins that campaign and leaves every other one to the tiers below.
-  campaignPins: string[];
-  excludedCampaignIds: string[];
   offlineRetryLimit: number;
   // Consecutive failed tabless heartbeats before falling back to a watch tab.
   tablessFallbackFailureLimit: number;

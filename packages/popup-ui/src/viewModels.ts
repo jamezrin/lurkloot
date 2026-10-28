@@ -71,6 +71,8 @@ export {
   campaignRankTier,
   pinCampaignAt,
   unpinCampaign,
+  platformPins,
+  replacePlatformPins,
   type CampaignRankTier,
 } from "@lurkloot/shared/ranking";
 import { campaignRankTier } from "@lurkloot/shared/ranking";
@@ -287,8 +289,12 @@ export function campaignViewFromCampaign(
     title: campaign.name,
     status: campaign.status,
     lifecycle: campaignLifecycleState(campaign),
-    pinned: settings ? settings.campaignPins.includes(campaign.id) : false,
-    pinIndex: settings ? indexOrUndefined(settings.campaignPins.indexOf(campaign.id)) : undefined,
+    pinned: settings
+      ? settings.platform[campaign.platform].campaignPins.includes(campaign.id)
+      : false,
+    pinIndex: settings
+      ? indexOrUndefined(settings.platform[campaign.platform].campaignPins.indexOf(campaign.id))
+      : undefined,
     category: campaignCategory(campaign),
     favouriteIndex: settings
       ? indexOrUndefined(favouriteCategoryIndex(campaign, settings.platform[campaign.platform]))

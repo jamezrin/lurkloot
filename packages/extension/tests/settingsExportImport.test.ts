@@ -23,14 +23,15 @@ describe("settings export/import", () => {
           watchlistChannels: ["someone"],
           rewardFilter: { kinds: ["badge", "emote"], subscriptions: "only" },
           farmPinnedOnly: true,
+          excludedCampaignIds: ["abc123"],
         },
         kick: {
           ...DEFAULT_SETTINGS.platform.kick,
           rewardFilter: { kinds: ["item"], subscriptions: "skip" },
           unlinkedCampaigns: "last",
+          campaignPins: ["kick-pin"],
         },
       },
-      excludedCampaignIds: ["abc123"],
       languageOverride: "es",
     });
 
