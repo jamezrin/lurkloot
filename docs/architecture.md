@@ -726,7 +726,11 @@ and for campaigns of a favourite game; `kinds` is every other campaign's. A
 campaign's group is its ranking tier (`campaignRewardGroup`): a pinned campaign
 of a favourite game is pinned, and an unlinked one farmed last is one of the
 rest. `campaignRewardFilter` is the only way to read the filter for one
-campaign; every eligibility, scope and active-reward check goes through it. A
+campaign; every eligibility, scope and active-reward check goes through it.
+Farming pinned only, an unpinned campaign is judged by the pinned kinds
+(`farmingRewardFilter`), the group a pin would move it into, so `not_pinned`
+still names exactly the campaigns a pin would start farming (#731); the
+Queue card words its skip from the same filter. A
 filter saved without the group lists normalizes them to `kinds`, so nothing
 changes until the user edits a group, and no schema migration is needed.
 Because a pin or a star can then move a campaign onto other kinds,

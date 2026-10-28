@@ -6,7 +6,6 @@ import type {
   RewardFilter,
   WatchSession,
 } from "@lurkloot/shared/models";
-import { campaignRewardFilter } from "@lurkloot/shared/rewardFilter";
 import {
   NO_CATEGORY_ID,
   categoryListIndex,
@@ -30,6 +29,7 @@ import {
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
 import {
   campaignFarmingBlockers,
+  farmingRewardFilter,
   OUTSIDE_ACTION_REJECTION_CODES,
 } from "@lurkloot/shared/campaignFarming";
 export {
@@ -295,7 +295,11 @@ export function campaignViewFromCampaign(
       ? indexOrUndefined(settings.platform[campaign.platform].campaignPins.indexOf(campaign.id))
       : undefined,
     category: campaignCategory(campaign),
-    rewardFilter: settings ? campaignRewardFilter(campaign, settings) : undefined,
+    // The same filter campaignFarmingBlockers judged it by, so a skip names
+    // the kinds that skipped it.
+    rewardFilter: settings
+      ? farmingRewardFilter(campaign, settings, { includePinnedOnly: true })
+      : undefined,
     favouriteIndex: settings
       ? indexOrUndefined(favouriteCategoryIndex(campaign, settings.platform[campaign.platform]))
       : undefined,

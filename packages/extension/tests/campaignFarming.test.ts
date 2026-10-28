@@ -227,6 +227,29 @@ describe("evaluateCampaignFarming", () => {
     });
   });
 
+  it("says not pinned when a pin would farm it under pinned only (#731, #932)", () => {
+    const pinnedOnly = settings(
+      {},
+      {
+        farmPinnedOnly: true,
+        rewardFilter: {
+          kinds: ["badge"],
+          subscriptions: "include",
+          pinnedKinds: ["item", "badge", "emote"],
+          favouriteKinds: ["badge"],
+        },
+      },
+    );
+    expect(
+      evaluateCampaignFarming(campaign(), pinnedOnly, { now: NOW, includePinnedOnly: true }),
+    ).toMatchObject({ farmable: false, code: "not_pinned" });
+    // Pinning it, the one fix offered, farms it.
+    const pinned = settings({}, { ...pinnedOnly.platform.twitch, campaignPins: ["campaign"] });
+    expect(
+      evaluateCampaignFarming(campaign(), pinned, { now: NOW, includePinnedOnly: true }),
+    ).toEqual({ farmable: true });
+  });
+
   it("never lets a pin rescue a campaign eligibility already rejected", () => {
     const currentSettings = settings({}, { campaignPins: ["campaign"], farmPinnedOnly: true });
     currentSettings.platform.twitch = {

@@ -112,12 +112,13 @@ export function campaignRewardGroup(campaign: DropCampaign, settings: EngineSett
 export function campaignRewardFilter(
   campaign: DropCampaign,
   settings: EngineSettings,
+  group: RewardGroup = campaignRewardGroup(campaign, settings),
 ): RewardFilter {
   const filter = normalizeRewardFilter(
     settings.platform[campaign.platform].rewardFilter,
     campaign.platform,
   );
-  const kinds = rewardGroupKinds(filter, campaignRewardGroup(campaign, settings));
+  const kinds = rewardGroupKinds(filter, group);
   return {
     kinds: [...kinds],
     subscriptions: filter.subscriptions,

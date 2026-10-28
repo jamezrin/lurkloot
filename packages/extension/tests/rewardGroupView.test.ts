@@ -74,4 +74,30 @@ describe("campaign view reward group", () => {
     // The rest farm items, so the same reward is not skipped there.
     expect(view(itemCampaign("plain", "game")).farmingRejection).toBeUndefined();
   });
+
+  it("names the pinned kinds for an unpinned campaign while only pins are farmed", () => {
+    const pinnedOnly = mergeSettings({
+      platform: {
+        twitch: {
+          farmPinnedOnly: true,
+          rewardFilter: {
+            kinds: ["item", "badge", "emote"],
+            subscriptions: "include",
+            pinnedKinds: ["badge"],
+            favouriteKinds: ["item"],
+          },
+        },
+      },
+    } as never);
+    const plain = campaignViewFromCampaign(itemCampaign("plain", "game"), 0, idleSession, false, {
+      skipUnfinishableRewards: pinnedOnly.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: pinnedOnly.deadlineSafetyMarginMinutes,
+      settings: pinnedOnly,
+    });
+    // A pin would judge it by badges, which its item reward misses.
+    expect(plain.farmingRejection?.code).toBe("reward_type_filtered");
+    expect(campaignRejectionMessage(plain.farmingRejection!, plain.rewardFilter!, t, "en")).toBe(
+      "campaignRejectionRewardKind(rewardKindBadge)",
+    );
+  });
 });

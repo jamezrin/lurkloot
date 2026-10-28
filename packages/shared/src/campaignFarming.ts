@@ -105,6 +105,23 @@ export function rewardsInFarmingScope(
   return campaign.rewards.filter((reward) => scoped.has(reward.id));
 }
 
+// The reward filter a campaign is judged by: its Queue group's kinds (#932).
+// Farming pinned only, an unpinned campaign is judged by the pinned kinds, the
+// group a pin would move it into: its own group's kinds are not farmed, and
+// "not pinned" must name every campaign a pin would start farming (#731).
+export function farmingRewardFilter(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+  options: Pick<CampaignFarmingEvaluationOptions, "includePinnedOnly"> = {},
+): RewardFilter {
+  const platformSettings = settings.platform[campaign.platform];
+  const unpinnedUnderPinnedOnly =
+    options.includePinnedOnly
+    && platformSettings.farmPinnedOnly
+    && !platformSettings.campaignPins.includes(campaign.id);
+  return campaignRewardFilter(campaign, settings, unpinnedUnderPinnedOnly ? "pinned" : undefined);
+}
+
 export function evaluateCampaignFarming(
   campaign: DropCampaign,
   settings: EngineSettings,
@@ -136,8 +153,7 @@ export function evaluateCampaignFarming(
   // A campaign without rewards has nothing to filter; it is reported as such.
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards")
     return rejected("no_rewards");
-  // The kinds of the campaign's Queue group (#932): pinned, favourite or other.
-  const filter = campaignRewardFilter(campaign, settings);
+  const filter = farmingRewardFilter(campaign, settings, options);
   const filteredBy = campaignFilterMiss(campaign, filter);
   if (filteredBy) return { farmable: false, code: "reward_type_filtered", filteredBy };
   const unclaimed = rewardsInFarmingScope(campaign, filter).filter(
@@ -283,7 +299,14 @@ function withBlockerLifted(
     case "reward_types_obtained":
       // The default filter cannot lift a miss it would make itself (a reward of
       // a kind the platform never farms); ending here keeps the replay finite.
-      if (!isRewardFilterNarrowed(campaignRewardFilter(campaign, settings), campaign.platform))
+      // Reset clears every group, so it can lift a miss while any part of the
+      // filter is narrowed.
+      if (
+        !isRewardFilterNarrowed(
+          settings.platform[campaign.platform].rewardFilter,
+          campaign.platform,
+        )
+      )
         return undefined;
       return withPlatform({ rewardFilter: defaultRewardFilter(campaign.platform) });
     case "unlinked_campaigns_disabled":
