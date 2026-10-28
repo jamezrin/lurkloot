@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "تُفارَم المكافأة إذا تطابق أي جزء منها."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "اختر أنواع المكافآت التي يتم فارمها في كل جزء من قائمة الانتظار."
+  },
+  "rewardGroupPinned": {
+    "message": "الحملات المثبتة"
+  },
+  "rewardGroupFavourite": {
+    "message": "الألعاب المفضلة"
+  },
+  "rewardGroupOther": {
+    "message": "حملات أخرى"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 لـ $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "تُفارَم الحملات المثبتة فقط حالياً، لذلك لا تؤثر الأعمدة الأخرى."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "أنواع مختلطة"
+  },
   "rewardKindItem": {
     "message": "عناصر داخل اللعبة"
   },

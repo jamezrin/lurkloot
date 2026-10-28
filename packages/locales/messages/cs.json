@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Odměna se farmí, pokud odpovídá alespoň její část."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Vyberte, které typy odměn se farmí v jednotlivých částech fronty."
+  },
+  "rewardGroupPinned": {
+    "message": "Připnuté kampaně"
+  },
+  "rewardGroupFavourite": {
+    "message": "Oblíbené hry"
+  },
+  "rewardGroupOther": {
+    "message": "Ostatní kampaně"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 pro $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Právě se farmí jen připnuté kampaně, takže ostatní sloupce nemají žádný vliv."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Smíšené typy"
+  },
   "rewardKindItem": {
     "message": "Předměty ve hře"
   },

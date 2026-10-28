@@ -894,9 +894,56 @@ describe("scheduler campaign selection", () => {
       id,
       ...patch,
     });
-    const badgesOnly = { kinds: ["badge" as const], subscriptions: "include" as const };
+    const badgesOnly = {
+      kinds: ["badge" as const],
+      subscriptions: "include" as const,
+      pinnedKinds: ["badge" as const],
+      favouriteKinds: ["badge" as const],
+    };
     const badgeReward = (id: string, patch: Partial<DropReward> = {}): DropReward =>
       item(id, { benefits: [{ id: `${id}-benefit`, distributionType: "BADGE" }], ...patch });
+
+    // #917/#932: items are off for most campaigns but on for a starred game.
+    it("farms a favourite game's item campaign while items are off for the rest", async () => {
+      const starredItems = campaign("starred-items", {
+        categoryId: "starred",
+        gameName: "Starred",
+        endsAt: "2099-06-01T00:00:00.000Z",
+      });
+      const plainItems = campaign("plain-items", { endsAt: "2098-01-01T00:00:00.000Z" });
+      const configured = settings({
+        platform: {
+          twitch: {
+            favouriteCategories: [{ id: "starred", name: "Starred" }],
+            rewardFilter: { ...badgesOnly, favouriteKinds: ["item", "badge", "emote"] },
+          },
+        },
+      });
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [plainItems, starredItems],
+        configured,
+        live,
+      );
+      expect(decision.action).toBe("watch");
+      expect(decision.campaign?.id).toBe("starred-items");
+      // The same item campaign outside the starred game is not farmed.
+      const rest = await chooseCampaignDecision("twitch", [plainItems], configured, live);
+      expect(rest.action).not.toBe("watch");
+
+      // Pinned with items off for pins, the same campaign is skipped.
+      const pinned = settings({
+        platform: {
+          twitch: {
+            campaignPins: ["starred-items"],
+            favouriteCategories: [{ id: "starred", name: "Starred" }],
+            rewardFilter: { ...badgesOnly, favouriteKinds: ["item", "badge", "emote"] },
+          },
+        },
+      });
+      const skipped = await chooseCampaignDecision("twitch", [starredItems], pinned, live);
+      expect(skipped.action).not.toBe("watch");
+    });
 
     it("farms only badge campaigns, and only toward their badges", async () => {
       // The item comes first and is shorter; the strategy would pick it.
@@ -1741,7 +1788,12 @@ describe("campaign filters gate farming", () => {
       ],
     });
 
-  const skipSubscriptions = { kinds: ["item" as const], subscriptions: "skip" as const };
+  const skipSubscriptions = {
+    kinds: ["item" as const],
+    subscriptions: "skip" as const,
+    pinnedKinds: ["item" as const],
+    favouriteKinds: ["item" as const],
+  };
 
   it("skips a campaign whose only reward needs a subscription under skip", async () => {
     const subscriptionOnly = campaign("sub-only", {

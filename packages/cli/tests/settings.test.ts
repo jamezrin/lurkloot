@@ -50,18 +50,28 @@ describe("parseCliSettings", () => {
 
   it("defaults preferKnownChannels to on and honors an explicit override", () => {
     expect(DEFAULT_CLI_SETTINGS.preferKnownChannels).toBe(true);
+    const all = ["item", "badge", "emote"];
     expect(parseCliSettings({}).platform.twitch.rewardFilter).toEqual({
-      kinds: ["item", "badge", "emote"],
+      kinds: all,
       subscriptions: "include",
+      pinnedKinds: all,
+      favouriteKinds: all,
     });
     const badgesOnly = { kinds: ["badge"], subscriptions: "skip" };
     const typed = parseCliSettings({
       platform: { twitch: { rewardFilter: badgesOnly }, kick: { rewardFilter: badgesOnly } },
     });
-    expect(typed.platform.twitch.rewardFilter).toEqual(badgesOnly);
+    // Without their own lists, pinned and favourite campaigns follow kinds.
+    const badgesEverywhere = { ...badgesOnly, pinnedKinds: ["badge"], favouriteKinds: ["badge"] };
+    expect(typed.platform.twitch.rewardFilter).toEqual(badgesEverywhere);
     // Kick reports no badges, so its kinds fall back to every kind it has.
-    expect(typed.platform.kick.rewardFilter).toEqual({ kinds: ["item"], subscriptions: "skip" });
-    expect(toEngineSettings(typed).platform.twitch.rewardFilter).toEqual(badgesOnly);
+    expect(typed.platform.kick.rewardFilter).toEqual({
+      kinds: ["item"],
+      subscriptions: "skip",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    });
+    expect(toEngineSettings(typed).platform.twitch.rewardFilter).toEqual(badgesEverywhere);
     expect(parseCliSettings({}).preferKnownChannels).toBe(true);
     expect(parseCliSettings({ preferKnownChannels: false }).preferKnownChannels).toBe(false);
     expect(
@@ -578,7 +588,29 @@ describe("category modes", () => {
       expect(settings.platform.kick.rewardFilter).toEqual({
         kinds: ["item"],
         subscriptions: "skip",
+        pinnedKinds: ["item"],
+        favouriteKinds: ["item"],
       });
+    });
+
+    it("accepts the pinned and favourite kinds lists (#932)", () => {
+      const settings = parseFilter({
+        kinds: ["badge"],
+        pinnedKinds: ["item", "badge"],
+        favouriteKinds: ["emote", "item"],
+      });
+      expect(settings.platform.twitch.rewardFilter).toMatchObject({
+        kinds: ["badge"],
+        pinnedKinds: ["item", "badge"],
+        favouriteKinds: ["item", "emote"],
+      });
+    });
+
+    it("rejects a pinned or favourite kinds list that names nothing", () => {
+      expect(() => parseFilter({ pinnedKinds: "item" })).toThrow(/rewardFilter\.pinnedKinds/);
+      expect(() => parseFilter({ favouriteKinds: ["sticker"] })).toThrow(
+        /rewardFilter\.favouriteKinds/,
+      );
     });
   });
 

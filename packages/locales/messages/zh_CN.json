@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "奖励的任一部分符合时即会挂机。"
   },
+  "rewardKindsGroupsDescription": {
+    "message": "选择队列各部分要挂机的奖励类型。"
+  },
+  "rewardGroupPinned": {
+    "message": "已置顶的活动"
+  },
+  "rewardGroupFavourite": {
+    "message": "收藏的游戏"
+  },
+  "rewardGroupOther": {
+    "message": "其他活动"
+  },
+  "rewardKindForGroup": {
+    "message": "$2的$1"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "目前只挂机已置顶的活动，因此其他列不会生效。"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "混合类型"
+  },
   "rewardKindItem": {
     "message": "游戏内物品"
   },

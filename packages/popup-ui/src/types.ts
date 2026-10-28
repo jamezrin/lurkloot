@@ -5,6 +5,7 @@ import type {
   CompatibilitySettings,
   DropCampaign,
   Platform,
+  RewardFilter,
   RewardRequirementType,
   RewardStatus,
   SupportedLocale,
@@ -158,6 +159,9 @@ export type CampaignView = {
   // "why this rank" line reads these.
   pinIndex?: number;
   favouriteIndex?: number;
+  // The reward filter this campaign is judged by: its Queue group's kinds and
+  // the shared subscription mode (#932). Absent without settings.
+  rewardFilter?: RewardFilter;
   // The campaign's category as the settings lists store it, for starring or
   // blocking the game from the card. Absent for uncategorized campaigns.
   category?: CategorySelection;

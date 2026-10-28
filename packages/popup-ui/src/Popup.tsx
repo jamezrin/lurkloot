@@ -15,7 +15,6 @@ import type {
   ExtensionSettings,
   LanguageOverride,
   Platform,
-  RewardKind,
   TwitchExtensionProviderId,
   WatchSourceId,
 } from "@lurkloot/shared/models";
@@ -57,7 +56,6 @@ import type {
 import { type OnboardingAudience, variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
-  rewardKindCounts as countRewardKinds,
   showsSubscriptionChoice,
   reuseIfUnchanged,
   reuseUnchangedViews,
@@ -1047,7 +1045,6 @@ export function PopupFrame({
     inputs?: readonly unknown[];
     campaigns?: CampaignView[];
     gameMap?: Record<string, GameItem>;
-    rewardKindCounts?: Record<RewardKind, number>;
     subscriptionChoice?: Record<Platform, boolean>;
   }>({});
 
@@ -1182,12 +1179,6 @@ export function PopupFrame({
     derived.current.gameMap,
     Object.fromEntries(games.map((game) => [game.id, game])),
   );
-  const rewardKindCounts = inputsChanged
-    ? reuseIfUnchanged(
-        derived.current.rewardKindCounts,
-        countRewardKinds(snapshot.state.campaigns[platform], settings, platform),
-      )
-    : derived.current.rewardKindCounts!;
   // Per platform, whether the reward filter asks about subscription rewards.
   // Kept by value: Settings rebuilds its registry whenever this changes identity.
   const subscriptionChoice = reuseIfUnchanged(derived.current.subscriptionChoice, {
@@ -1204,7 +1195,6 @@ export function PopupFrame({
     inputs: derivationInputs,
     campaigns,
     gameMap,
-    rewardKindCounts,
     subscriptionChoice,
   };
   const watchlistChannels = settings.platform[platform].watchlistChannels;
@@ -1698,7 +1688,6 @@ export function PopupFrame({
                                 unlinkedCampaigns={settings.platform[platform].unlinkedCampaigns}
                                 platform={platform}
                                 rewardFilter={settings.platform[platform].rewardFilter}
-                                rewardKindCounts={rewardKindCounts}
                                 showSubscriptionChoice={subscriptionChoice[platform]}
                                 onRewardFilterChange={(rewardFilter) =>
                                   void updateSettings(

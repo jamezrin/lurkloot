@@ -5,6 +5,7 @@ import type React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { SettingsView } from "../../popup-ui/src/settings";
@@ -354,7 +355,8 @@ describe("deadline feasibility setting", () => {
     expect(group).not.toBeNull();
     expect(group.textContent).toContain("Rewards to farm");
     expect(group.textContent).toContain("What Lurkloot farms on Twitch.");
-    expect(group.querySelectorAll("[data-reward-kind]")).toHaveLength(3);
+    // One cell per reward kind and Queue group (#932).
+    expect(group.querySelectorAll('[role="checkbox"][data-reward-kind]')).toHaveLength(9);
     expect(
       group.querySelector('[role="switch"][aria-label="Farm pinned campaigns only"]'),
     ).not.toBeNull();
@@ -377,7 +379,7 @@ describe("deadline feasibility setting", () => {
     expect(onSettingsChange).toHaveBeenCalledWith(
       {
         platform: {
-          twitch: { rewardFilter: { kinds: ["item", "badge", "emote"], subscriptions: "skip" } },
+          twitch: { rewardFilter: { ...defaultRewardFilter("twitch"), subscriptions: "skip" } },
         },
       },
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },

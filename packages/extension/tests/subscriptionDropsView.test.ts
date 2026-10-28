@@ -557,7 +557,12 @@ describe("subscription drop popup views", () => {
     expect(evaluateCampaignFarming(source, settings)).toMatchObject({
       code: "subscription_required",
     });
-    settings.platform.twitch.rewardFilter = { kinds: ["item"], subscriptions: "skip" };
+    settings.platform.twitch.rewardFilter = {
+      kinds: ["item"],
+      subscriptions: "skip",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    };
     expect(campaignSection(source, settings)).toBe("skipped");
     expect(evaluateCampaignFarming(source, settings)).toMatchObject({
       code: "reward_type_filtered",

@@ -346,8 +346,14 @@ export type PriorityMode = "ending_soonest" | "lowest_availability";
 export type RewardKind = "item" | "badge" | "emote";
 export type SubscriptionRewardMode = "include" | "skip" | "only";
 export interface RewardFilter {
+  // Reward kinds farmed from campaigns that are neither pinned nor of a
+  // favourite game.
   kinds: RewardKind[];
   subscriptions: SubscriptionRewardMode;
+  // Reward kinds farmed from pinned campaigns, and from campaigns of a
+  // favourite game (#932). A campaign uses its Queue group's list.
+  pinnedKinds: RewardKind[];
+  favouriteKinds: RewardKind[];
 }
 export type RewardFilterMiss = "kind" | "subscription";
 

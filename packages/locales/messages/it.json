@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Una ricompensa viene farmata se una sua parte corrisponde."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Scegli quali tipi di ricompensa farma ogni parte della Coda."
+  },
+  "rewardGroupPinned": {
+    "message": "Campagne fissate"
+  },
+  "rewardGroupFavourite": {
+    "message": "Giochi preferiti"
+  },
+  "rewardGroupOther": {
+    "message": "Altre campagne"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 per $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Al momento vengono farmate solo le campagne fissate, quindi le altre colonne non hanno effetto."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Tipi misti"
+  },
   "rewardKindItem": {
     "message": "Oggetti in gioco"
   },

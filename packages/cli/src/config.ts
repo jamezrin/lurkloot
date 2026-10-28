@@ -116,9 +116,11 @@ export function defaultConfigJsonc(): string {
         // listed below. Neither mode ranks.
         "categoryMode": ${json(twitch.categoryMode)},
         // Which rewards to farm. "kinds": any of "item", "badge", "emote"
-        // ([] means all). "subscriptions": "include" farms subscription rewards
-        // too, "skip" leaves them out, "only" farms just subscription rewards
-        // (they wait on you subscribing to the channel). Only matching
+        // ([] means all). "pinnedKinds" and "favouriteKinds" choose the kinds
+        // for pinned campaigns and for campaigns of a favourite game; left out,
+        // they follow "kinds". "subscriptions": "include" farms subscription
+        // rewards too, "skip" leaves them out, "only" farms just subscription
+        // rewards (they wait on you subscribing to the channel). Only matching
         // rewards (and what they wait on) are farmed, and a campaign is left
         // once those are earned.
         "rewardFilter": ${json(twitch.rewardFilter)},

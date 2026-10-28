@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Hadiah di-farm jika ada bagian yang cocok."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Pilih jenis hadiah yang di-farm oleh setiap bagian Antrean."
+  },
+  "rewardGroupPinned": {
+    "message": "Kampanye disematkan"
+  },
+  "rewardGroupFavourite": {
+    "message": "Game favorit"
+  },
+  "rewardGroupOther": {
+    "message": "Kampanye lainnya"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 untuk $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Saat ini hanya kampanye yang disematkan yang di-farm, jadi kolom lainnya tidak berpengaruh."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Jenis campuran"
+  },
   "rewardKindItem": {
     "message": "Item dalam game"
   },

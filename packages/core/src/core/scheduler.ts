@@ -19,7 +19,7 @@ import type {
 } from "@lurkloot/shared/models";
 import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
-import { campaignFilterMiss } from "@lurkloot/shared/rewardFilter";
+import { campaignFilterMiss, campaignRewardFilter } from "@lurkloot/shared/rewardFilter";
 import {
   evaluateCampaignFarming,
   rewardsInFarmingScope,
@@ -105,10 +105,7 @@ export function challengePollDue(state: SchedulerState, platform: Platform, now:
 }
 
 function activeReward(campaign: DropCampaign, settings: EngineSettings): DropReward | undefined {
-  const earnable = rewardsInFarmingScope(
-    campaign,
-    settings.platform[campaign.platform].rewardFilter,
-  ).filter(
+  const earnable = rewardsInFarmingScope(campaign, campaignRewardFilter(campaign, settings)).filter(
     (reward) =>
       reward.preconditionsMet !== false
       && isRewardAvailableToEarn(reward)
@@ -673,8 +670,7 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   if (
     notExcluded.every(
       (campaign) =>
-        campaignFilterMiss(campaign, settings.platform[campaign.platform].rewardFilter)
-        !== undefined,
+        campaignFilterMiss(campaign, campaignRewardFilter(campaign, settings)) !== undefined,
     )
   ) {
     return "No campaigns have rewards your reward filter allows";

@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "報酬の一部でも一致すればファームされます。"
   },
+  "rewardKindsGroupsDescription": {
+    "message": "キューの各グループでファームする報酬の種類を選択します。"
+  },
+  "rewardGroupPinned": {
+    "message": "ピン留めのキャンペーン"
+  },
+  "rewardGroupFavourite": {
+    "message": "お気に入りゲーム"
+  },
+  "rewardGroupOther": {
+    "message": "その他のキャンペーン"
+  },
+  "rewardKindForGroup": {
+    "message": "$1（$2）"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "現在はピン留めしたキャンペーンだけをファームしているため、他の列は効果がありません。"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "複数の種類"
+  },
   "rewardKindItem": {
     "message": "ゲーム内アイテム"
   },

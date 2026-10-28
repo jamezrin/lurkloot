@@ -7,7 +7,6 @@ import type {
   Platform,
   PriorityMode,
   RewardFilter,
-  RewardKind,
   UnlinkedCampaignMode,
 } from "@lurkloot/shared/models";
 import { defaultRewardFilter, isRewardFilterNarrowed } from "@lurkloot/shared/rewardFilter";
@@ -66,7 +65,6 @@ export function QueuePanel({
   unlinkedCampaigns,
   platform,
   rewardFilter: liveRewardFilter,
-  rewardKindCounts,
   showSubscriptionChoice,
   onRewardFilterChange,
   onStrategyChange,
@@ -92,8 +90,6 @@ export function QueuePanel({
   // The platform the queue lists; its reward filter is the toolbar's menu.
   platform: Platform;
   rewardFilter: RewardFilter;
-  // How many campaigns each kind alone would queue (viewModels' rewardKindCounts).
-  rewardKindCounts?: Partial<Record<RewardKind, number>>;
   // Whether the menu asks about subscription rewards (showsSubscriptionChoice).
   showSubscriptionChoice: boolean;
   onRewardFilterChange(filter: RewardFilter): void | Promise<void>;
@@ -114,7 +110,11 @@ export function QueuePanel({
   const { locale } = React.useContext(I18nContext);
   // Rows are memoised on their props, and a poll can hand over an equal filter
   // as a new object: keep the same one while its contents are unchanged.
-  const kindsKey = liveRewardFilter.kinds.join(",");
+  const kindsKey = [
+    liveRewardFilter.pinnedKinds,
+    liveRewardFilter.favouriteKinds,
+    liveRewardFilter.kinds,
+  ].join("|");
   const rewardFilter = useMemo(() => liveRewardFilter, [kindsKey, liveRewardFilter.subscriptions]);
   const rewardFilterNarrowed = isRewardFilterNarrowed(rewardFilter, platform);
   const [query, setQuery] = useState("");
@@ -317,7 +317,6 @@ export function QueuePanel({
           platform={platform}
           filter={rewardFilter}
           showSubscriptions={showSubscriptionChoice}
-          counts={rewardKindCounts}
           farmPinnedOnly={farmPinnedOnly}
           unlinkedCampaigns={unlinkedCampaigns}
           onChange={(filter) => void onRewardFilterChange(filter)}
@@ -495,7 +494,12 @@ export function QueuePanel({
                           const rejection = campaign.farmingRejection;
                           return (
                             rejection
-                            && campaignRejectionMessage(rejection, rewardFilter, t, locale)
+                            && campaignRejectionMessage(
+                              rejection,
+                              campaign.rewardFilter ?? rewardFilter,
+                              t,
+                              locale,
+                            )
                           );
                         }),
                       ),

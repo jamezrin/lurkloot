@@ -115,7 +115,12 @@ export type CampaignCardProps = {
 };
 
 type Rejection = NonNullable<CampaignView["farmingRejection"]>;
-const NO_REWARD_FILTER: RewardFilter = { kinds: [], subscriptions: "include" };
+const NO_REWARD_FILTER: RewardFilter = {
+  kinds: [],
+  subscriptions: "include",
+  pinnedKinds: [],
+  favouriteKinds: [],
+};
 
 /** One campaign. Collapsed, a row: rank, name, progress, when it ends, a pin.
  * Opened, everything about it and everything that can be done to it, so no
@@ -165,14 +170,16 @@ export function CampaignCard({
   const farmingNow = isFarming && campaign.hasWatchRewards;
   const upcoming = !finished && campaign.status === "upcoming";
   const farmingRejection = isFarming || finished ? undefined : campaign.farmingRejection;
+  // A skip names the kinds of the campaign's own Queue group (#932).
+  const campaignFilter = campaign.rewardFilter ?? rewardFilter;
   const farmingRejectionMessage = farmingRejection
-    ? campaignRejectionMessage(farmingRejection, rewardFilter, t, locale)
+    ? campaignRejectionMessage(farmingRejection, campaignFilter, t, locale)
     : undefined;
   // Fixing the first reason is not always enough (#677): say what comes next,
   // so a fix that leaves the campaign skipped does not look like it failed.
   const nextBlocker = farmingRejection ? campaign.laterBlockers?.[0] : undefined;
   const nextBlockerMessage = nextBlocker
-    ? t("campaignRejectionThen", campaignRejectionMessage(nextBlocker, rewardFilter, t, locale))
+    ? t("campaignRejectionThen", campaignRejectionMessage(nextBlocker, campaignFilter, t, locale))
     : undefined;
   const emphasized = !finished && (isFarming || (!anyFarming && index === 0 && !farmingRejection));
   const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";

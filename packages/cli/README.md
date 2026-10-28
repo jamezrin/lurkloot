@@ -58,6 +58,9 @@ campaigns and is eligibility, not order — a strategy is always in effect. Each
 platform's `rewardFilter` is `{ "kinds": [...], "subscriptions": "..." }`.
 `kinds` lists the reward kinds to farm: any of `item`, `badge` and `emote` on
 Twitch, only `item` on Kick, combined as any-of; `[]` farms every kind.
+Optional `pinnedKinds` and `favouriteKinds` choose the kinds for pinned
+campaigns and for campaigns of a `favouriteCategories` game instead; left out,
+they follow `kinds`. A pinned campaign of a favourite game uses `pinnedKinds`.
 `subscriptions` is `include` (the default), `skip` to leave out rewards that
 need a channel subscription, or `only` to farm just those. Only matching
 rewards (and what they wait on) are farmed, and a campaign is left once those

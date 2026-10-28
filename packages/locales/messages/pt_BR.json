@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Uma recompensa é farmada se qualquer parte dela corresponder."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Escolha quais tipos de recompensa cada parte da Fila vai farmar."
+  },
+  "rewardGroupPinned": {
+    "message": "Campanhas fixadas"
+  },
+  "rewardGroupFavourite": {
+    "message": "Jogos favoritos"
+  },
+  "rewardGroupOther": {
+    "message": "Outras campanhas"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 para $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "No momento, só as campanhas fixadas são farmadas, então as outras colunas não têm efeito."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Tipos misturados"
+  },
   "rewardKindItem": {
     "message": "Itens no jogo"
   },

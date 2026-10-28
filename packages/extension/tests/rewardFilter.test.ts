@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { DropCampaign, DropReward, RewardFilter } from "@lurkloot/shared/models";
 import {
   campaignFilterMiss,
+  campaignRewardFilter,
+  campaignRewardGroup,
   defaultRewardFilter,
   isRewardFilterNarrowed,
   normalizeRewardFilter,
+  rewardGroupsDiffer,
   rewardKinds,
   rewardMatchesFilter,
 } from "@lurkloot/shared/rewardFilter";
+import { mergeEngineSettings } from "@lurkloot/shared/settings";
 
 function reward(patch: Partial<DropReward> = {}): DropReward {
   return {
@@ -23,6 +27,8 @@ function reward(patch: Partial<DropReward> = {}): DropReward {
 const filter = (patch: Partial<RewardFilter> = {}): RewardFilter => ({
   kinds: ["item", "badge", "emote"],
   subscriptions: "include",
+  pinnedKinds: ["item", "badge", "emote"],
+  favouriteKinds: ["item", "badge", "emote"],
   ...patch,
 });
 
@@ -87,12 +93,19 @@ describe("reward filter", () => {
     expect(normalizeRewardFilter({ kinds: ["badge"] }, "kick")).toEqual({
       kinds: ["item"],
       subscriptions: "include",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
     });
     expect(normalizeRewardFilter({ kinds: [] }, "twitch")).toEqual(defaultRewardFilter("twitch"));
     expect(normalizeRewardFilter("junk", "twitch")).toEqual(defaultRewardFilter("twitch"));
     expect(
       normalizeRewardFilter({ kinds: ["emote", "badge"], subscriptions: "only" }, "twitch"),
-    ).toEqual({ kinds: ["badge", "emote"], subscriptions: "only" });
+    ).toEqual({
+      kinds: ["badge", "emote"],
+      subscriptions: "only",
+      pinnedKinds: ["badge", "emote"],
+      favouriteKinds: ["badge", "emote"],
+    });
   });
 
   it("knows when a filter is narrowed", () => {
@@ -100,8 +113,100 @@ describe("reward filter", () => {
     expect(
       isRewardFilterNarrowed({ ...defaultRewardFilter("twitch"), subscriptions: "skip" }, "twitch"),
     ).toBe(true);
-    const items: RewardFilter = { kinds: ["item"], subscriptions: "include" };
+    const items: RewardFilter = {
+      kinds: ["item"],
+      subscriptions: "include",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    };
     expect(isRewardFilterNarrowed(items, "twitch")).toBe(true);
     expect(isRewardFilterNarrowed(items, "kick")).toBe(false);
+  });
+});
+
+// #932: each Queue group (pinned, favourite games, the rest) picks its kinds.
+describe("reward kinds per Queue group", () => {
+  const campaign = (id: string, categoryId = "game"): DropCampaign =>
+    ({
+      id,
+      platform: "twitch",
+      name: id,
+      status: "active",
+      categoryId,
+      gameName: categoryId,
+      rewards: [reward()],
+    }) as DropCampaign;
+  const settings = mergeEngineSettings({
+    platform: {
+      twitch: {
+        campaignPins: ["pinned", "pinned-starred"],
+        favouriteCategories: [{ id: "starred", name: "starred" }],
+        unlinkedCampaigns: "last",
+        rewardFilter: {
+          kinds: ["badge"],
+          subscriptions: "skip",
+          pinnedKinds: ["item"],
+          favouriteKinds: ["item", "emote"],
+        },
+      },
+    },
+  } as never);
+
+  it("places a campaign in its Queue group, a pin before a star", () => {
+    expect(campaignRewardGroup(campaign("pinned"), settings)).toBe("pinned");
+    expect(campaignRewardGroup(campaign("pinned-starred", "starred"), settings)).toBe("pinned");
+    expect(campaignRewardGroup(campaign("starred", "starred"), settings)).toBe("favourite");
+    expect(campaignRewardGroup(campaign("plain"), settings)).toBe("other");
+    // Unlinked and farmed last is still one of the rest.
+    const unlinked = { ...campaign("unlinked"), accountLinked: false };
+    expect(campaignRewardGroup(unlinked, settings)).toBe("other");
+  });
+
+  it("judges each campaign by its group's kinds and the shared subscription mode", () => {
+    expect(campaignRewardFilter(campaign("pinned"), settings)).toEqual({
+      kinds: ["item"],
+      subscriptions: "skip",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    });
+    expect(campaignRewardFilter(campaign("starred", "starred"), settings).kinds).toEqual([
+      "item",
+      "emote",
+    ]);
+    expect(campaignRewardFilter(campaign("plain"), settings).kinds).toEqual(["badge"]);
+    // An item reward is farmed for the starred game, not for the rest.
+    const item = reward({ benefits: [{ id: "b", distributionType: "DIRECT_ENTITLEMENT" }] });
+    const starred = campaignRewardFilter(campaign("starred", "starred"), settings);
+    expect(rewardMatchesFilter(item, { ...starred, subscriptions: "include" })).toBe(true);
+    expect(
+      rewardMatchesFilter(item, {
+        ...campaignRewardFilter(campaign("plain"), settings),
+        subscriptions: "include",
+      }),
+    ).toBe(false);
+  });
+
+  it("lets a filter saved before the groups follow its kinds in every group", () => {
+    const old = normalizeRewardFilter({ kinds: ["badge"], subscriptions: "include" }, "twitch");
+    expect(old.pinnedKinds).toEqual(["badge"]);
+    expect(old.favouriteKinds).toEqual(["badge"]);
+    expect(rewardGroupsDiffer(old, "twitch")).toBe(false);
+    // A group list that names nothing the platform has follows kinds too.
+    expect(
+      normalizeRewardFilter({ kinds: ["item"], pinnedKinds: ["badge"] }, "kick").pinnedKinds,
+    ).toEqual(["item"]);
+  });
+
+  it("counts a narrowed group as narrowing the filter", () => {
+    const pinnedNarrowed = { ...defaultRewardFilter("twitch"), pinnedKinds: ["badge" as const] };
+    expect(isRewardFilterNarrowed(pinnedNarrowed, "twitch")).toBe(true);
+    expect(rewardGroupsDiffer(pinnedNarrowed, "twitch")).toBe(true);
+    // One campaign's filter is narrowed only by its own group.
+    const wide = mergeEngineSettings({
+      platform: { twitch: { rewardFilter: pinnedNarrowed } },
+    } as never);
+    expect(isRewardFilterNarrowed(campaignRewardFilter(campaign("plain"), wide), "twitch")).toBe(
+      false,
+    );
   });
 });

@@ -452,10 +452,16 @@ describe("queue view", () => {
     expect(trigger.hasAttribute("data-narrowed")).toBe(false);
     await openFilter(container);
 
-    await settle(() => document.querySelector<HTMLElement>('[data-reward-kind="item"]')!.click());
+    await settle(() =>
+      document
+        .querySelector<HTMLElement>('[data-reward-group="other"][data-reward-kind="item"]')!
+        .click(),
+    );
     expect(onRewardFilterChange).toHaveBeenLastCalledWith({
       kinds: ["badge", "emote"],
       subscriptions: "include",
+      pinnedKinds: ["item", "badge", "emote"],
+      favouriteKinds: ["item", "badge", "emote"],
     });
 
     await settle(() =>
@@ -464,6 +470,8 @@ describe("queue view", () => {
     expect(onRewardFilterChange).toHaveBeenLastCalledWith({
       kinds: ["badge", "emote"],
       subscriptions: "skip",
+      pinnedKinds: ["item", "badge", "emote"],
+      favouriteKinds: ["item", "badge", "emote"],
     });
     expect(trigger.hasAttribute("data-narrowed")).toBe(true);
     expect(trigger.textContent).toContain("rewardFilterNoSub");
@@ -504,14 +512,24 @@ describe("queue view", () => {
       });
     };
 
-    const plain = kickQueue({ kinds: ["item"], subscriptions: "include" });
+    const plain = kickQueue({
+      kinds: ["item"],
+      subscriptions: "include",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    });
     await openFilter(plain.container);
     expect(document.querySelector("[data-reward-kind]")).toBeNull();
     expect(document.querySelector("[data-subscription-mode]")).toBeNull();
     act(() => root?.unmount());
     root = undefined;
 
-    const narrowed = kickQueue({ kinds: ["item"], subscriptions: "only" });
+    const narrowed = kickQueue({
+      kinds: ["item"],
+      subscriptions: "only",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    });
     await openFilter(narrowed.container);
     expect(document.querySelectorAll("[data-subscription-mode]")).toHaveLength(1);
   });

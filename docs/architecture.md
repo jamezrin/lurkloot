@@ -708,6 +708,9 @@ acts on. Four tiers, in order:
 
 Eligibility is always decided before ranking (`evaluateCampaignFarming`), so a
 pin can never rescue a campaign an exclusion, a block or a class filter refused.
+The one place a campaign's ranking group feeds eligibility is the reward kinds
+the user chose for that group (#932, below): pinning or starring never makes a
+campaign farmable by itself, only the group's own kinds do.
 Each platform's `farmPinnedOnly` is an eligibility switch, not a mode: a
 strategy is always in effect. Each platform's `unlinkedCampaigns` is
 `include`, `skip` or `last`; only `skip` is eligibility (`unlinked_campaigns_disabled`,
@@ -718,6 +721,20 @@ Skipped row's fix sets it to `last`. Each platform's `rewardFilter`
 Settings) is eligibility too. `kinds` is any of `item`, `badge`, `emote`
 (Twitch supports all three, Kick only `item`; `PLATFORM_REWARD_KINDS`), an
 empty list means every kind, and a benefit with no type counts as `item`.
+`pinnedKinds` and `favouriteKinds` (#932) choose the kinds for pinned campaigns
+and for campaigns of a favourite game; `kinds` is every other campaign's. A
+campaign's group is its ranking tier (`campaignRewardGroup`): a pinned campaign
+of a favourite game is pinned, and an unlinked one farmed last is one of the
+rest. `campaignRewardFilter` is the only way to read the filter for one
+campaign; every eligibility, scope and active-reward check goes through it. A
+filter saved without the group lists normalizes them to `kinds`, so nothing
+changes until the user edits a group, and no schema migration is needed.
+Because a pin or a star can then move a campaign onto other kinds,
+`isRankingOnlyPatch` treats a pin as ranking-only only while the pinned kinds
+match both other groups, and a star only while the favourite kinds match the
+rest. The Queue menu and Settings edit the groups as one grid
+(`RewardKindsGrid`), whose favourite and other columns are disabled while the
+platform farms pinned only.
 `subscriptions` is `include`, `skip` or `only`. A reward matches when any of its
 kinds is selected and it passes the subscription mode; a marked subscription
 reward passes `skip` and

@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "보상의 일부라도 일치하면 파밍합니다."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "대기열의 각 그룹이 파밍할 보상 유형을 선택하세요."
+  },
+  "rewardGroupPinned": {
+    "message": "고정된 캠페인"
+  },
+  "rewardGroupFavourite": {
+    "message": "즐겨찾는 게임"
+  },
+  "rewardGroupOther": {
+    "message": "기타 캠페인"
+  },
+  "rewardKindForGroup": {
+    "message": "$2의 $1"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "현재는 고정된 캠페인만 파밍하므로 다른 열은 적용되지 않습니다."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "혼합 유형"
+  },
   "rewardKindItem": {
     "message": "게임 내 아이템"
   },

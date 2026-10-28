@@ -8,6 +8,7 @@ import type {
 } from "./models";
 import {
   campaignFilterMiss,
+  campaignRewardFilter,
   defaultRewardFilter,
   isRewardFilterNarrowed,
   rewardMatchesFilter,
@@ -135,7 +136,8 @@ export function evaluateCampaignFarming(
   // A campaign without rewards has nothing to filter; it is reported as such.
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards")
     return rejected("no_rewards");
-  const filter = platformSettings.rewardFilter;
+  // The kinds of the campaign's Queue group (#932): pinned, favourite or other.
+  const filter = campaignRewardFilter(campaign, settings);
   const filteredBy = campaignFilterMiss(campaign, filter);
   if (filteredBy) return { farmable: false, code: "reward_type_filtered", filteredBy };
   const unclaimed = rewardsInFarmingScope(campaign, filter).filter(
@@ -281,12 +283,7 @@ function withBlockerLifted(
     case "reward_types_obtained":
       // The default filter cannot lift a miss it would make itself (a reward of
       // a kind the platform never farms); ending here keeps the replay finite.
-      if (
-        !isRewardFilterNarrowed(
-          settings.platform[campaign.platform].rewardFilter,
-          campaign.platform,
-        )
-      )
+      if (!isRewardFilterNarrowed(campaignRewardFilter(campaign, settings), campaign.platform))
         return undefined;
       return withPlatform({ rewardFilter: defaultRewardFilter(campaign.platform) });
     case "unlinked_campaigns_disabled":

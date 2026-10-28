@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Bir ödülün herhangi bir kısmı eşleşirse farmlanır."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Sıranın her bölümünün hangi ödül türlerini farmlayacağını seçin."
+  },
+  "rewardGroupPinned": {
+    "message": "Sabitlenmiş kampanyalar"
+  },
+  "rewardGroupFavourite": {
+    "message": "Favori oyunlar"
+  },
+  "rewardGroupOther": {
+    "message": "Diğer kampanyalar"
+  },
+  "rewardKindForGroup": {
+    "message": "$2 için $1"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Şu anda yalnızca sabitlenmiş kampanyalar farmlanıyor, bu yüzden diğer sütunların etkisi yok."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Karışık türler"
+  },
   "rewardKindItem": {
     "message": "Oyun içi eşyalar"
   },

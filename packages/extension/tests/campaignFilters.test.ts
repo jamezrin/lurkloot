@@ -18,7 +18,12 @@ import type {
 const UNLINKED_FARMED = { unlinkedCampaigns: "include" } as const;
 const UNLINKED_LAST = { unlinkedCampaigns: "last" } as const;
 const UNLINKED_SKIPPED = { unlinkedCampaigns: "skip" } as const;
-const SKIP_SUBSCRIPTIONS: RewardFilter = { kinds: ["item"], subscriptions: "skip" };
+const SKIP_SUBSCRIPTIONS: RewardFilter = {
+  kinds: ["item"],
+  subscriptions: "skip",
+  pinnedKinds: ["item"],
+  favouriteKinds: ["item"],
+};
 
 const FARM_ALL_CATEGORIES: Pick<PlatformSettings, "categoryMode" | "categories"> = {
   categoryMode: "all",

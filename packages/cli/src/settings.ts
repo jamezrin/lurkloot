@@ -328,14 +328,16 @@ function rewardFilterOffenders(platform: string, raw: unknown): string[] {
   }
   const offenders: string[] = [];
   const filter = raw as Record<string, unknown>;
+  const kindLists = ["kinds", "pinnedKinds", "favouriteKinds"];
   for (const key of Object.keys(filter)) {
-    if (key !== "kinds" && key !== "subscriptions")
+    if (!kindLists.includes(key) && key !== "subscriptions")
       offenders.push(`unknown setting "${key}" under ${path}`);
   }
-  if (Object.hasOwn(filter, "kinds")) {
-    const kinds = filter.kinds;
+  for (const key of kindLists) {
+    if (!Object.hasOwn(filter, key)) continue;
+    const kinds = filter[key];
     if (!Array.isArray(kinds) || !kinds.every((kind) => REWARD_KINDS.includes(kind as never))) {
-      offenders.push(`"${path}.kinds" must be an array of: ${REWARD_KINDS.join(", ")}`);
+      offenders.push(`"${path}.${key}" must be an array of: ${REWARD_KINDS.join(", ")}`);
     }
   }
   if (

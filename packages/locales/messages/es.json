@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Una recompensa se farmea si cualquier parte de ella coincide."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Elige qué tipos de recompensa farmea cada parte de la cola."
+  },
+  "rewardGroupPinned": {
+    "message": "Campañas fijadas"
+  },
+  "rewardGroupFavourite": {
+    "message": "Juegos favoritos"
+  },
+  "rewardGroupOther": {
+    "message": "Otras campañas"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 para $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Ahora mismo solo se farmean las campañas fijadas, así que las demás columnas no tienen efecto."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Tipos mixtos"
+  },
   "rewardKindItem": {
     "message": "Objetos del juego"
   },

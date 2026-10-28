@@ -5,7 +5,7 @@ import type React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RewardFilter, UnlinkedCampaignMode } from "@lurkloot/shared/models";
+import type { RewardFilter, RewardKind, UnlinkedCampaignMode } from "@lurkloot/shared/models";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { I18nContext } from "../../popup-ui/src/context";
 import {
@@ -16,6 +16,20 @@ import {
 import type { TFunction } from "../../popup-ui/src/types";
 
 const t: TFunction = (key) => key;
+
+// A filter whose groups farm `kinds` unless given their own (#932).
+function filterOf(
+  kinds: RewardKind[],
+  subscriptions: RewardFilter["subscriptions"] = "include",
+  groups: { pinned?: RewardKind[]; favourite?: RewardKind[] } = {},
+): RewardFilter {
+  return {
+    kinds,
+    subscriptions,
+    pinnedKinds: groups.pinned ?? kinds,
+    favouriteKinds: groups.favourite ?? kinds,
+  };
+}
 
 let root: Root | undefined;
 
@@ -45,18 +59,13 @@ describe("rewardFilterLabel", () => {
   });
 
   it("names the kinds kept", () => {
-    const filter: RewardFilter = { kinds: ["badge"], subscriptions: "include" };
-    const label = rewardFilterLabel(filter, "twitch", t);
+    const label = rewardFilterLabel(filterOf(["badge"]), "twitch", t);
     expect(label).toContain("rewardKindBadge");
     expect(label).not.toContain("rewardFilterNoSub");
   });
 
   it("names the kinds and then the subscription mode", () => {
-    const label = rewardFilterLabel(
-      { kinds: ["badge", "emote"], subscriptions: "skip" },
-      "twitch",
-      t,
-    );
+    const label = rewardFilterLabel(filterOf(["badge", "emote"], "skip"), "twitch", t);
     expect(label).toContain("rewardKindBadge");
     expect(label).toContain("rewardKindEmote");
     expect(label).toContain("rewardFilterNoSub");
@@ -64,37 +73,46 @@ describe("rewardFilterLabel", () => {
   });
 
   it("says All for the kinds when only the subscription mode narrows", () => {
+    const label = rewardFilterLabel(filterOf(["item", "badge", "emote"], "only"), "twitch", t);
+    expect(label).toContain("rewardFilterAllKinds");
+    expect(label).toContain("rewardFilterSubOnly");
+  });
+
+  it("says mixed types while the Queue groups farm different kinds", () => {
     const label = rewardFilterLabel(
-      { kinds: ["item", "badge", "emote"], subscriptions: "only" },
+      filterOf(["badge"], "skip", { favourite: ["item", "badge", "emote"] }),
       "twitch",
       t,
     );
-    expect(label).toContain("rewardFilterAllKinds");
-    expect(label).toContain("rewardFilterSubOnly");
+    expect(label).toBe("rewardFilterMixedTypes · rewardFilterNoSub");
   });
 });
 
 describe("RewardFilterFields", () => {
-  it("cannot uncheck the last kind", () => {
+  const cell = (container: HTMLElement, group: string, kind: string) =>
+    container.querySelector<HTMLElement>(
+      `[role="checkbox"][data-reward-group="${group}"][data-reward-kind="${kind}"]`,
+    )!;
+
+  it("cannot uncheck a group's last kind", () => {
     const onChange = vi.fn();
     const container = mount(
       <RewardFilterFields
         platform="twitch"
-        filter={{ kinds: ["badge"], subscriptions: "include" }}
+        filter={filterOf(["badge"], "include", { pinned: ["item", "badge"] })}
         showSubscriptions
+        farmPinnedOnly={false}
         onChange={onChange}
       />,
     );
 
-    const badge = container.querySelector<HTMLElement>('[data-reward-kind="badge"]')!;
-    expect(badge).not.toBeNull();
+    const badge = cell(container, "other", "badge");
     expect(badge.hasAttribute("data-disabled")).toBe(true);
     act(() => badge.click());
     expect(onChange).not.toHaveBeenCalled();
-    // The others stay free to add.
-    expect(
-      container.querySelector('[data-reward-kind="item"]')!.hasAttribute("data-disabled"),
-    ).toBe(false);
+    // Another group with two kinds can drop either, and the others stay free to add.
+    expect(cell(container, "pinned", "badge").hasAttribute("data-disabled")).toBe(false);
+    expect(cell(container, "other", "item").hasAttribute("data-disabled")).toBe(false);
   });
 
   it("hides the kinds on a platform with one kind", () => {
@@ -103,31 +121,45 @@ describe("RewardFilterFields", () => {
         platform="kick"
         filter={defaultRewardFilter("kick")}
         showSubscriptions
+        farmPinnedOnly={false}
         onChange={() => undefined}
       />,
     );
 
-    expect(container.querySelector("[data-reward-kind]")).toBeNull();
+    expect(container.querySelector("[data-reward-kinds-grid]")).toBeNull();
     expect(container.querySelector("[data-subscription-mode]")).not.toBeNull();
   });
 
-  it("labels the kinds as a checkbox group and the modes as a radio group", () => {
+  it("lays out kinds by Queue group, labelled, and the modes as a radio group", () => {
     const container = mount(
       <RewardFilterFields
         platform="twitch"
-        filter={{ kinds: ["item", "badge", "emote"], subscriptions: "skip" }}
+        filter={filterOf(["item", "badge", "emote"], "skip")}
         showSubscriptions
-        counts={{ item: 9, badge: 3, emote: 1 }}
+        farmPinnedOnly={false}
         onChange={() => undefined}
       />,
     );
 
-    const group = container.querySelector<HTMLElement>('[role="group"][aria-labelledby]')!;
-    expect(document.getElementById(group.getAttribute("aria-labelledby")!)?.textContent).toBe(
+    const grid = container.querySelector<HTMLElement>("[data-reward-kinds-grid]")!;
+    expect(document.getElementById(grid.getAttribute("aria-labelledby")!)?.textContent).toBe(
       "rewardKindsTitle",
     );
-    expect(group.querySelectorAll('[role="checkbox"]')).toHaveLength(3);
-    expect(container.querySelector('[data-reward-kind="item"]')?.textContent).toContain("9");
+    // Columns in Queue order, rows in the platform's order.
+    expect(
+      [...grid.querySelectorAll<HTMLElement>("thead th[data-reward-group]")].map(
+        (heading) => heading.dataset.rewardGroup,
+      ),
+    ).toEqual(["pinned", "favourite", "other"]);
+    expect(
+      [...grid.querySelectorAll<HTMLElement>('tbody th[scope="row"]')].map(
+        (heading) => heading.textContent,
+      ),
+    ).toEqual(["rewardKindItem", "rewardKindBadge", "rewardKindEmote"]);
+    expect(grid.querySelectorAll('[role="checkbox"]')).toHaveLength(9);
+    expect(cell(container, "favourite", "emote").getAttribute("aria-label")).toBe(
+      "rewardKindForGroup",
+    );
 
     const radios = container.querySelector<HTMLElement>('[role="radiogroup"]')!;
     expect(document.getElementById(radios.getAttribute("aria-labelledby")!)?.textContent).toBe(
@@ -137,20 +169,44 @@ describe("RewardFilterFields", () => {
     expect(container.textContent).toContain("subscriptionModeSkipHint");
   });
 
-  it("adds a kind in the platform's order", () => {
+  it("adds a kind to one group only, in the platform's order", () => {
     const onChange = vi.fn();
     const container = mount(
       <RewardFilterFields
         platform="twitch"
-        filter={{ kinds: ["emote"], subscriptions: "include" }}
+        filter={filterOf(["emote"])}
         showSubscriptions={false}
+        farmPinnedOnly={false}
         onChange={onChange}
       />,
     );
 
-    act(() => container.querySelector<HTMLElement>('[data-reward-kind="item"]')!.click());
-    expect(onChange).toHaveBeenCalledWith({ kinds: ["item", "emote"], subscriptions: "include" });
+    act(() => cell(container, "favourite", "item").click());
+    expect(onChange).toHaveBeenCalledWith(
+      filterOf(["emote"], "include", { favourite: ["item", "emote"] }),
+    );
     expect(container.querySelector("[data-subscription-mode]")).toBeNull();
+  });
+
+  it("disables the favourite and other columns while only pins are farmed", () => {
+    const container = mount(
+      <RewardFilterFields
+        platform="twitch"
+        filter={filterOf(["item", "badge", "emote"])}
+        showSubscriptions={false}
+        farmPinnedOnly
+        onChange={() => undefined}
+      />,
+    );
+
+    for (const kind of ["item", "badge", "emote"]) {
+      expect(cell(container, "pinned", kind).hasAttribute("data-disabled")).toBe(false);
+      expect(cell(container, "favourite", kind).hasAttribute("data-disabled")).toBe(true);
+      expect(cell(container, "other", kind).hasAttribute("data-disabled")).toBe(true);
+    }
+    expect(container.querySelector("[data-reward-kinds-pinned-only]")?.textContent).toBe(
+      "rewardKindsPinnedOnlyHint",
+    );
   });
 });
 
@@ -185,7 +241,7 @@ describe("RewardFilterMenu trigger", () => {
   });
 
   it("appends pinned only after the narrowing", () => {
-    const button = trigger({ kinds: ["badge"], subscriptions: "skip" }, true);
+    const button = trigger(filterOf(["badge"], "skip"), true);
     expect(button.textContent).toBe("rewardKindBadge · rewardFilterNoSub · rewardFilterPinnedOnly");
   });
 
@@ -199,7 +255,7 @@ describe("RewardFilterMenu trigger", () => {
     expect(trigger(defaultRewardFilter("twitch"), false, "skip").textContent).toBe(
       "rewardFilterAll · rewardFilterNoUnlinked",
     );
-    const last = trigger({ kinds: ["badge"], subscriptions: "include" }, true, "last");
+    const last = trigger(filterOf(["badge"]), true, "last");
     expect(last.textContent).toBe(
       "rewardKindBadge · rewardFilterUnlinkedLast · rewardFilterPinnedOnly",
     );
@@ -247,9 +303,24 @@ describe("RewardFilterMenu menu", () => {
     expect(pinnedRow()!.className).toContain("border-t");
   });
 
-  it("separates the unlinked choice from the filter fields", () => {
+  it("puts the kinds beside the other questions, and separates those two", () => {
     openMenu("twitch", true);
-    expect(unlinkedSection()!.className).toContain("border-t");
+    const grid = document.querySelector<HTMLElement>("[data-reward-kinds-grid]")!;
+    const unlinked = document.querySelector<HTMLElement>("[data-unlinked-mode]")!;
+    const subscriptions = document.querySelector<HTMLElement>("[data-subscription-mode]")!;
+    const column = (element: HTMLElement) => element.closest<HTMLElement>(".border-s");
+    expect(column(grid)).toBeNull();
+    expect(column(unlinked)).not.toBeNull();
+    expect(column(unlinked)).toBe(column(subscriptions));
+    expect(unlinked.closest<HTMLElement>(".border-t")).not.toBeNull();
+  });
+
+  it("keeps the narrow menu on a platform with one kind", () => {
+    openMenu("kick", true);
+    expect(document.querySelector("[data-reward-kinds-grid]")).toBeNull();
+    expect(document.querySelector<HTMLElement>("[role=dialog]")!.className).toContain(
+      "w-[15.5rem]",
+    );
   });
 
   it("offers include, skip and farm last for unlinked campaigns", () => {
@@ -330,7 +401,7 @@ describe("RewardFilterMenu reset", () => {
     const container = mount(
       <RewardFilterMenu
         platform="twitch"
-        filter={{ kinds: ["badge"], subscriptions: "include" }}
+        filter={filterOf(["badge"])}
         showSubscriptions
         farmPinnedOnly={false}
         onChange={() => undefined}

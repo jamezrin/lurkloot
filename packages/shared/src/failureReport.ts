@@ -86,7 +86,12 @@ function settingsSummary(settings: EngineSettings, platform: Platform): string {
 }
 
 function rewardFilterSummary(filter: RewardFilter): string {
-  return `${filter.kinds.join(", ")} · ${filter.subscriptions}`;
+  return [
+    `pinned ${filter.pinnedKinds.join(", ")}`,
+    `favourite ${filter.favouriteKinds.join(", ")}`,
+    `other ${filter.kinds.join(", ")}`,
+    filter.subscriptions,
+  ].join(" · ");
 }
 
 export function buildFailureReport(input: FailureReportInput): string {

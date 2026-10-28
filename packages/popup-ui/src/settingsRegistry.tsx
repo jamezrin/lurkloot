@@ -641,6 +641,9 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           "rewardKindItem",
           "rewardKindBadge",
           "rewardKindEmote",
+          "rewardGroupPinned",
+          "rewardGroupFavourite",
+          "rewardGroupOther",
           "subscriptionRewardsTitle",
           "subscriptionRewardsDescription",
           "subscriptionModeInclude",
@@ -653,6 +656,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
               platform={platform}
               filter={rewardFilter}
               showSubscriptions={showSubscriptions}
+              farmPinnedOnly={platformSettings.farmPinnedOnly}
               onChange={(next) => void platformPatch(platform, { rewardFilter: next })}
             />
           </div>

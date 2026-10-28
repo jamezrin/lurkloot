@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "A reward is farmed if any part of it matches."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Choose which reward types each part of the Queue farms."
+  },
+  "rewardGroupPinned": {
+    "message": "Pinned campaigns"
+  },
+  "rewardGroupFavourite": {
+    "message": "Favourite games"
+  },
+  "rewardGroupOther": {
+    "message": "Other campaigns"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 for $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Only pinned campaigns are farmed right now, so the other columns have no effect."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Mixed types"
+  },
   "rewardKindItem": {
     "message": "In-game items"
   },

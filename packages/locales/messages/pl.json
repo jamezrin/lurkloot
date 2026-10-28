@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Nagroda jest farmiona, jeśli pasuje choć jedna jej część."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Wybierz, jakie typy nagród farmuje każda część kolejki."
+  },
+  "rewardGroupPinned": {
+    "message": "Przypięte kampanie"
+  },
+  "rewardGroupFavourite": {
+    "message": "Ulubione gry"
+  },
+  "rewardGroupOther": {
+    "message": "Pozostałe kampanie"
+  },
+  "rewardKindForGroup": {
+    "message": "$1: $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Obecnie farmowane są tylko przypięte kampanie, więc pozostałe kolumny nie mają wpływu."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Mieszane typy"
+  },
   "rewardKindItem": {
     "message": "Przedmioty w grze"
   },

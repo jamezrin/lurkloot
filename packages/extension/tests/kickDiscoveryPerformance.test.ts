@@ -677,7 +677,12 @@ describe("Kick static discovery gate", () => {
         rewards: [{ ...reward, requirement: "subscription", requiredSubs: 1, isWatchBased: false }],
       },
       (settings) => {
-        settings.platform.kick.rewardFilter = { kinds: ["item"], subscriptions: "skip" };
+        settings.platform.kick.rewardFilter = {
+          kinds: ["item"],
+          subscriptions: "skip",
+          pinnedKinds: ["item"],
+          favouriteKinds: ["item"],
+        };
       },
     ],
     [

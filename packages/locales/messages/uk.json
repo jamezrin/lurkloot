@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Нагорода фармиться, якщо підходить будь-яка її частина."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Виберіть, які типи нагород фармить кожна частина черги."
+  },
+  "rewardGroupPinned": {
+    "message": "Закріплені кампанії"
+  },
+  "rewardGroupFavourite": {
+    "message": "Улюблені ігри"
+  },
+  "rewardGroupOther": {
+    "message": "Інші кампанії"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 — $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Наразі фармляться лише закріплені кампанії, тож інші стовпці не діють."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Змішані типи"
+  },
   "rewardKindItem": {
     "message": "Внутрішньоігрові предмети"
   },

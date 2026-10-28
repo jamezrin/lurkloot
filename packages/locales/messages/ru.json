@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Награда фармится, если подходит хотя бы её часть."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Выберите, какие типы наград фармит каждая часть очереди."
+  },
+  "rewardGroupPinned": {
+    "message": "Закреплённые кампании"
+  },
+  "rewardGroupFavourite": {
+    "message": "Любимые игры"
+  },
+  "rewardGroupOther": {
+    "message": "Остальные кампании"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 — $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Сейчас фармятся только закреплённые кампании, поэтому остальные столбцы не действуют."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Смешанные типы"
+  },
   "rewardKindItem": {
     "message": "Внутриигровые предметы"
   },

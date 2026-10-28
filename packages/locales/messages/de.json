@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "Eine Belohnung wird gefarmt, wenn irgendein Teil davon passt."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Wähle, welche Belohnungstypen jeder Bereich der Warteschlange farmt."
+  },
+  "rewardGroupPinned": {
+    "message": "Angeheftete Kampagnen"
+  },
+  "rewardGroupFavourite": {
+    "message": "Lieblingsspiele"
+  },
+  "rewardGroupOther": {
+    "message": "Andere Kampagnen"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 für $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "Gerade werden nur angeheftete Kampagnen gefarmt, daher haben die anderen Spalten keine Wirkung."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Gemischte Typen"
+  },
   "rewardKindItem": {
     "message": "Ingame-Items"
   },

@@ -1076,6 +1076,27 @@
   "rewardKindsDescription": {
     "message": "اگر هر بخشی از پاداش با انتخابت جور باشد، فارم می‌شود."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "انتخاب کنید هر بخش صف کدام نوع پاداش را فارم کند."
+  },
+  "rewardGroupPinned": {
+    "message": "کمپین‌های سنجاق‌شده"
+  },
+  "rewardGroupFavourite": {
+    "message": "بازی‌های محبوب"
+  },
+  "rewardGroupOther": {
+    "message": "سایر کمپین‌ها"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 برای $2"
+  },
+  "rewardKindsPinnedOnlyHint": {
+    "message": "در حال حاضر فقط کمپین‌های سنجاق‌شده فارم می‌شوند، بنابراین ستون‌های دیگر بی‌اثرند."
+  },
+  "rewardFilterMixedTypes": {
+    "message": "انواع ترکیبی"
+  },
   "rewardKindItem": {
     "message": "آیتم‌های درون‌بازی"
   },
