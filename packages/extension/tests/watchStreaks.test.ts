@@ -768,6 +768,16 @@ describe("watch-streak scheduling", () => {
 });
 
 describe("watch-streak source in a selection that resolves Drops itself", () => {
+  // The drop's window is relative to T0, so the clock is too: on the real clock
+  // its 100 hours stop fitting before it ends and the drop reads as unfinishable.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(T0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const ORDER: WatchSourceId[] = ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"];
 
   function decide(options: { verdict: WatchStreakVerdict; drop: boolean; subscription?: boolean }) {

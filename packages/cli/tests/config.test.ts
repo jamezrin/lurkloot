@@ -131,20 +131,20 @@ describe("parseConfig", () => {
     ]);
   });
 
-  it("keeps the first 20 watchlist channels and names the ones it drops", () => {
-    const channels = Array.from({ length: 23 }, (_, index) => `channel${index + 1}`);
+  it("keeps the first 30 watchlist channels and names the ones it drops", () => {
+    const channels = Array.from({ length: 33 }, (_, index) => `channel${index + 1}`);
     const config = parseConfig(
       { settings: { platform: { kick: { watchlistChannels: channels } } } },
       CONFIG_PATH,
     );
-    expect(config.settings.platform.kick.watchlistChannels).toEqual(channels.slice(0, 20));
+    expect(config.settings.platform.kick.watchlistChannels).toEqual(channels.slice(0, 30));
     expect(config.warnings).toEqual([
-      "settings.platform.kick.watchlistChannels: The kick watchlist holds at most 20 channels; ignoring the other 3: channel21, channel22, channel23",
+      "settings.platform.kick.watchlistChannels: The kick watchlist holds at most 30 channels; ignoring the other 3: channel31, channel32, channel33",
     ]);
   });
 
   it("does not warn for an watchlist at the limit, counting duplicates once", () => {
-    const channels = Array.from({ length: 20 }, (_, index) => `channel${index + 1}`);
+    const channels = Array.from({ length: 30 }, (_, index) => `channel${index + 1}`);
     const config = parseConfig(
       {
         settings: {

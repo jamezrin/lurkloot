@@ -544,8 +544,11 @@ export function normalizeSubscriptionMarks(value: string[] | undefined): string[
 // The Watchlist's cap. The popup printed "n/20" long before anything
 // enforced it, so an in-page add could exceed a limit the UI claimed to have
 // (#563). Enforced here, where every host's writes converge, rather than in one
-// of the two surfaces that can add a channel.
-export const IDLE_WATCHLIST_LIMIT = 20;
+// of the two surfaces that can add a channel. Raised from 20 to 30 on request.
+// Kick checks rows one at a time until one is live, so an all-offline Kick list
+// costs up to this many page fetches per selection; keep that in mind before
+// raising it again.
+export const IDLE_WATCHLIST_LIMIT = 30;
 
 export function normalizeChannelList(value: string[] | undefined, limit?: number): string[] {
   if (!Array.isArray(value)) return [];
