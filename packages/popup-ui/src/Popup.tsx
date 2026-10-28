@@ -1121,10 +1121,16 @@ export function PopupFrame({
       ? criticalFailure.reason
       : undefined;
   // Pins are stored for both platforms in one list, but the Queue only shows
-  // this platform's: its pin positions, its "Unpin all" count, and its writes
-  // leave the other platform's pins alone.
+  // this platform's live ones: its pin positions, its "Unpin all" count, and its
+  // writes leave every other pin alone. A completed or expired campaign has no
+  // pin control, so its pin is out of scope too.
   const platformCampaignIds = new Set(
-    snapshot.state.campaigns[platform].map((campaign) => campaign.id),
+    snapshot.state.campaigns[platform]
+      .filter((campaign) => {
+        const section = campaignSection(campaign, settings);
+        return section !== "completed" && section !== "expired";
+      })
+      .map((campaign) => campaign.id),
   );
   const pins = platformPins(settings.campaignPins, platformCampaignIds);
   const savePlatformPins = (next: string[]) =>

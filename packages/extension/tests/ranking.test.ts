@@ -231,6 +231,20 @@ describe("platform pins", () => {
     expect(replacePlatformPins(pins, twitchIds, [])).toEqual(["k1", "gone", "k2"]);
   });
 
+  it("keeps an unreported pin in its slot when a pin is added", () => {
+    // t-missing was skipped by this discovery; it must still rank above t2 when
+    // it comes back.
+    const stored = ["t1", "t-missing", "t2"];
+    const next = replacePlatformPins(stored, twitchIds, ["t1", "t2", "t3"]);
+    expect(next).toEqual(["t1", "t-missing", "t2", "t3"]);
+    expect(platformPins(next, new Set([...twitchIds, "t-missing"]))).toEqual([
+      "t1",
+      "t-missing",
+      "t2",
+      "t3",
+    ]);
+  });
+
   it("places a drag by its position among the platform's own pins", () => {
     const next = replacePlatformPins(
       pins,
@@ -247,6 +261,6 @@ describe("platform pins", () => {
       twitchIds,
       unpinCampaign(platformPins(pins, twitchIds), "t1"),
     );
-    expect(next).toEqual(["k1", "gone", "k2", "t2"]);
+    expect(next).toEqual(["k1", "t2", "gone", "k2"]);
   });
 });
