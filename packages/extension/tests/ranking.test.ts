@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { DropCampaign, EngineSettings } from "@lurkloot/shared/models";
 import { mergeEngineSettings } from "@lurkloot/shared/settings";
-import { campaignRankTier, rankCampaigns } from "@lurkloot/shared/ranking";
+import {
+  campaignRankTier,
+  pinCampaignAt,
+  platformPins,
+  rankCampaigns,
+  replacePlatformPins,
+  unpinCampaign,
+} from "@lurkloot/shared/ranking";
 
 const hour = 60 * 60 * 1000;
 const now = Date.parse("2026-09-20T00:00:00.000Z");
@@ -207,5 +214,39 @@ describe("rankCampaigns with unlinked campaigns farmed last", () => {
   it("applies only to the platform set to farm last", () => {
     const kickUnlinked = campaign("kick-unlinked", { platform: "kick", accountLinked: false });
     expect(campaignRankTier(kickUnlinked, last())).toBe("strategy");
+  });
+});
+
+// One pin list serves both platforms; the Queue's controls act on one of them.
+describe("platform pins", () => {
+  const twitchIds = new Set(["t1", "t2", "t3"]);
+  // Kick's k1/k2 interleaved with Twitch's, plus an ended campaign no list reports.
+  const pins = ["k1", "t1", "gone", "k2", "t2"];
+
+  it("reads only the platform's pins, in pin order", () => {
+    expect(platformPins(pins, twitchIds)).toEqual(["t1", "t2"]);
+  });
+
+  it("unpins all on one platform and keeps the other's pins and unknown ids", () => {
+    expect(replacePlatformPins(pins, twitchIds, [])).toEqual(["k1", "gone", "k2"]);
+  });
+
+  it("places a drag by its position among the platform's own pins", () => {
+    const next = replacePlatformPins(
+      pins,
+      twitchIds,
+      pinCampaignAt(platformPins(pins, twitchIds), "t3", 1),
+    );
+    expect(platformPins(next, twitchIds)).toEqual(["t1", "t3", "t2"]);
+    expect(platformPins(next, new Set(["k1", "k2"]))).toEqual(["k1", "k2"]);
+  });
+
+  it("unpins one campaign without touching the other platform", () => {
+    const next = replacePlatformPins(
+      pins,
+      twitchIds,
+      unpinCampaign(platformPins(pins, twitchIds), "t1"),
+    );
+    expect(next).toEqual(["k1", "gone", "k2", "t2"]);
   });
 });

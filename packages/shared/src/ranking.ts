@@ -105,3 +105,22 @@ export function pinCampaignAt(pins: string[], campaignId: string, position: numb
 export function unpinCampaign(pins: string[], campaignId: string): string[] {
   return pins.filter((id) => id !== campaignId);
 }
+
+// campaignPins is one list for both platforms, but every pin control acts on one
+// platform's queue: its positions, its count, its "Unpin all". A control reads
+// the pins of the campaigns that platform reported and writes back only those,
+// so it never moves or drops the other platform's pins, nor an id no list
+// reports right now (an ended campaign, or a platform whose list failed to load).
+// Ranking only ever compares pins of one platform, so where the two groups sit
+// relative to each other in the stored list does not matter.
+export function platformPins(pins: string[], campaignIds: ReadonlySet<string>): string[] {
+  return pins.filter((id) => campaignIds.has(id));
+}
+
+export function replacePlatformPins(
+  pins: string[],
+  campaignIds: ReadonlySet<string>,
+  next: string[],
+): string[] {
+  return [...pins.filter((id) => !campaignIds.has(id)), ...next];
+}

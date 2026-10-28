@@ -71,6 +71,8 @@ export {
   campaignRankTier,
   pinCampaignAt,
   unpinCampaign,
+  platformPins,
+  replacePlatformPins,
   type CampaignRankTier,
 } from "@lurkloot/shared/ranking";
 import { campaignRankTier } from "@lurkloot/shared/ranking";
