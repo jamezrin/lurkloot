@@ -66,7 +66,9 @@ import {
   gameItemsFromCampaigns,
   campaignSection,
   pinCampaignAt,
+  platformPins,
   rankCampaigns,
+  replacePlatformPins,
   unpinCampaign,
   streamerItemFromFallback,
 } from "./viewModels";
@@ -1118,6 +1120,24 @@ export function PopupFrame({
     settings.criticalFailurePromptEnabled && criticalFailure?.status === "flagged"
       ? criticalFailure.reason
       : undefined;
+  // Pins are stored for both platforms in one list, but the Queue only shows
+  // this platform's live ones: its pin positions, its "Unpin all" count, and its
+  // writes leave every other pin alone. A completed or expired campaign has no
+  // pin control, so its pin is out of scope too.
+  const platformCampaignIds = new Set(
+    snapshot.state.campaigns[platform]
+      .filter((campaign) => {
+        const section = campaignSection(campaign, settings);
+        return section !== "completed" && section !== "expired";
+      })
+      .map((campaign) => campaign.id),
+  );
+  const pins = platformPins(settings.campaignPins, platformCampaignIds);
+  const savePlatformPins = (next: string[]) =>
+    updateSettings(
+      { campaignPins: replacePlatformPins(settings.campaignPins, platformCampaignIds, next) },
+      { tickAfterSave: true },
+    );
   const derivationInputs = [
     snapshot.state.campaigns[platform],
     snapshot.settings,
@@ -1135,7 +1155,7 @@ export function PopupFrame({
           campaignViewFromCampaign(campaign, index, session, excludedIds.has(campaign.id), {
             skipUnfinishableRewards: settings.skipUnfinishableRewards,
             deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-            settings,
+            settings: { ...settings, campaignPins: pins },
           }),
         ),
       )
@@ -1662,7 +1682,7 @@ export function PopupFrame({
                                 focus={campaignFocus}
                                 refreshing={refreshing}
                                 strategy={settings.priorityMode}
-                                pinnedCount={settings.campaignPins.length}
+                                pinnedCount={pins.length}
                                 farmPinnedOnly={settings.platform[platform].farmPinnedOnly}
                                 unlinkedCampaigns={settings.platform[platform].unlinkedCampaigns}
                                 platform={platform}
@@ -1678,9 +1698,7 @@ export function PopupFrame({
                                 onStrategyChange={(priorityMode) =>
                                   void updateSettings({ priorityMode }, { tickAfterSave: true })
                                 }
-                                onUnpinAll={() =>
-                                  void updateSettings({ campaignPins: [] }, { tickAfterSave: true })
-                                }
+                                onUnpinAll={() => void savePlatformPins([])}
                                 onFarmPinnedOnlyChange={(farmPinnedOnly) =>
                                   void updateSettings(
                                     { platform: { [platform]: { farmPinnedOnly } } },
@@ -1695,18 +1713,10 @@ export function PopupFrame({
                                 }
                                 onRefreshCampaign={() => refreshNow()}
                                 onPinChange={(campaignId, position) =>
-                                  updateSettings(
-                                    {
-                                      campaignPins:
-                                        position == null
-                                          ? unpinCampaign(settings.campaignPins, campaignId)
-                                          : pinCampaignAt(
-                                              settings.campaignPins,
-                                              campaignId,
-                                              position,
-                                            ),
-                                    },
-                                    { tickAfterSave: true },
+                                  savePlatformPins(
+                                    position == null
+                                      ? unpinCampaign(pins, campaignId)
+                                      : pinCampaignAt(pins, campaignId, position),
                                   )
                                 }
                                 onToggleExclude={(id) => {

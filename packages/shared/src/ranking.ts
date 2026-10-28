@@ -105,3 +105,30 @@ export function pinCampaignAt(pins: string[], campaignId: string, position: numb
 export function unpinCampaign(pins: string[], campaignId: string): string[] {
   return pins.filter((id) => id !== campaignId);
 }
+
+// campaignPins is one list for both platforms, but every pin control acts on one
+// platform's queue: its positions, its count, its "Unpin all". A control reads
+// the pins of the campaigns it can act on and writes back only those, so it
+// never drops or reorders any other id: the other platform's pins, or one no
+// list reports right now (a campaign discovery skipped this time, a platform
+// whose list failed to load). Those keep their slots, so a campaign that comes
+// back still ranks where it did.
+export function platformPins(pins: string[], campaignIds: ReadonlySet<string>): string[] {
+  return pins.filter((id) => campaignIds.has(id));
+}
+
+// `next` fills the scoped slots in order; extra ids go last, and slots left
+// over when `next` is shorter are dropped.
+export function replacePlatformPins(
+  pins: string[],
+  campaignIds: ReadonlySet<string>,
+  next: string[],
+): string[] {
+  const queue = [...next];
+  const result: string[] = [];
+  for (const id of pins) {
+    if (!campaignIds.has(id)) result.push(id);
+    else if (queue.length > 0) result.push(queue.shift()!);
+  }
+  return [...result, ...queue];
+}

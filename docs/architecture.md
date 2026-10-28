@@ -681,7 +681,12 @@ acts on. Four tiers, in order:
 
 1. `campaignPins` — an ordered, sparse list of campaign ids the user placed by
    hand. Dragging a card, or typing a rank, pins that one campaign; everything
-   else keeps the tier it had.
+   else keeps the tier it had. The list is shared by both platforms, but every
+   Queue pin control (drag, rank, unpin, Unpin all and its count) acts only on
+   the pins of the open platform's live campaigns (`platformPins` /
+   `replacePlatformPins`, #922). Every other id keeps its slot: the other
+   platform's pins, a finished campaign's, and one discovery did not report this
+   time, so it ranks where it did when it comes back.
 2. `platform[platform].favouriteCategories` — campaigns of starred games, in the
    user's order. A new star goes last; the Games view reorders favourites the
    way the Queue reorders pins, by dragging or typing a number (#847). A
