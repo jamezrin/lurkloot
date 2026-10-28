@@ -55,11 +55,6 @@ import type {
 export interface CliSettings {
   autoClaim: boolean;
   priorityMode: PriorityMode;
-  // Ordered campaign ids that rank above everything the strategy places. The
-  // extension writes this by dragging a card; headless, it is hand-edited, so
-  // order is the data and no numeric weights are involved.
-  campaignPins: string[];
-  excludedCampaignIds: string[];
   /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
   // See EngineSettings.preferKnownChannels. Applies to campaign channel
@@ -97,8 +92,6 @@ const PLATFORMS: Platform[] = ["twitch", "kick"];
 export const DEFAULT_CLI_SETTINGS: CliSettings = {
   autoClaim: DEFAULT_SETTINGS.autoClaim,
   priorityMode: DEFAULT_SETTINGS.priorityMode,
-  campaignPins: [...DEFAULT_SETTINGS.campaignPins],
-  excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
   idleWatchlistFallbackOnly: DEFAULT_SETTINGS.idleWatchlistFallbackOnly,
   preferKnownChannels: DEFAULT_SETTINGS.preferKnownChannels,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
@@ -128,8 +121,6 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
 const CLI_SETTING_KEYS = new Set<string>([
   "autoClaim",
   "priorityMode",
-  "campaignPins",
-  "excludedCampaignIds",
   "idleWatchlistFallbackOnly",
   "preferKnownChannels",
   "offlineRetryLimit",
@@ -157,6 +148,8 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
+    "campaignPins",
+    "excludedCampaignIds",
     "farmPinnedOnly",
     "unlinkedCampaigns",
     "categories",
@@ -176,6 +169,8 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
+    "campaignPins",
+    "excludedCampaignIds",
     "farmPinnedOnly",
     "unlinkedCampaigns",
     "categories",
@@ -461,8 +456,6 @@ function parseMigratedCliSettings(
     priorityMode: PRIORITY_MODES.includes(v.priorityMode as PriorityMode)
       ? (v.priorityMode as PriorityMode)
       : DEFAULT_CLI_SETTINGS.priorityMode,
-    campaignPins: normalizeIdList(v.campaignPins),
-    excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
     idleWatchlistFallbackOnly: booleanOr(
       v.idleWatchlistFallbackOnly,
       DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly,
@@ -549,6 +542,10 @@ function normalizePlatform(
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),
         rewardFilter: normalizeRewardFilter(ps.rewardFilter, platform),
+        // Ordered campaign ids that rank above everything the strategy places.
+        // Hand-edited headless, so order is the data.
+        campaignPins: normalizeIdList(ps.campaignPins),
+        excludedCampaignIds: normalizeIdList(ps.excludedCampaignIds),
         farmPinnedOnly: booleanOr(ps.farmPinnedOnly, defaults.farmPinnedOnly),
         unlinkedCampaigns: normalizeUnlinkedCampaignMode(ps.unlinkedCampaigns),
         categories: normalizeCategorySelections(ps.categories),

@@ -1106,7 +1106,7 @@ export function PopupFrame({
     : undefined;
 
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
-  const excludedIds = new Set(settings.excludedCampaignIds);
+  const excludedIds = new Set(settings.platform[platform].excludedCampaignIds);
   // Every campaign the platform reported, in scheduler order. Each view picks
   // the sections it owns (campaignSection), so a campaign is never missing from
   // the popup entirely — it is in the Queue, under Skipped or Upcoming, or in
@@ -1132,11 +1132,16 @@ export function PopupFrame({
       })
       .map((campaign) => campaign.id),
   );
-  const pins = platformPins(settings.campaignPins, platformCampaignIds);
+  const storedPins = settings.platform[platform].campaignPins;
+  const pins = platformPins(storedPins, platformCampaignIds);
   const savePlatformPins = (next: string[]) =>
     updateSettings(
-      { campaignPins: replacePlatformPins(settings.campaignPins, platformCampaignIds, next) },
-      { tickAfterSave: true },
+      {
+        platform: {
+          [platform]: { campaignPins: replacePlatformPins(storedPins, platformCampaignIds, next) },
+        },
+      },
+      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
     );
   const derivationInputs = [
     snapshot.state.campaigns[platform],
@@ -1155,7 +1160,13 @@ export function PopupFrame({
           campaignViewFromCampaign(campaign, index, session, excludedIds.has(campaign.id), {
             skipUnfinishableRewards: settings.skipUnfinishableRewards,
             deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-            settings: { ...settings, campaignPins: pins },
+            settings: {
+              ...settings,
+              platform: {
+                ...settings.platform,
+                [platform]: { ...settings.platform[platform], campaignPins: pins },
+              },
+            },
           }),
         ),
       )
@@ -1720,12 +1731,16 @@ export function PopupFrame({
                                   )
                                 }
                                 onToggleExclude={(id) => {
-                                  const next = new Set(settings.excludedCampaignIds);
+                                  const next = new Set(
+                                    settings.platform[platform].excludedCampaignIds,
+                                  );
                                   if (next.has(id)) next.delete(id);
                                   else next.add(id);
                                   return updateSettings(
-                                    { excludedCampaignIds: [...next] },
-                                    { tickAfterSave: true },
+                                    {
+                                      platform: { [platform]: { excludedCampaignIds: [...next] } },
+                                    },
+                                    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                                   );
                                 }}
                                 onToggleFavouriteCategory={(category) =>

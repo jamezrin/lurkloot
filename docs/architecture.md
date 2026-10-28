@@ -633,7 +633,7 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `autoStartDropFarming` and per-platform `enabled`. Farming is active while any platform is enabled; there is no master switch.
-- Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
+- Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, and per platform `campaignPins`, `excludedCampaignIds`, `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
 - Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].watchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
 `categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
@@ -679,14 +679,15 @@ product. The scheduler picks from it, the keep-watching comparison reads it, and
 the popup's Queue renders it, so the rank on a card is the position the engine
 acts on. Four tiers, in order:
 
-1. `campaignPins` — an ordered, sparse list of campaign ids the user placed by
-   hand. Dragging a card, or typing a rank, pins that one campaign; everything
-   else keeps the tier it had. The list is shared by both platforms, but every
-   Queue pin control (drag, rank, unpin, Unpin all and its count) acts only on
-   the pins of the open platform's live campaigns (`platformPins` /
-   `replacePlatformPins`, #922). Every other id keeps its slot: the other
-   platform's pins, a finished campaign's, and one discovery did not report this
-   time, so it ranks where it did when it comes back.
+1. `platform[platform].campaignPins` — an ordered, sparse list of the
+   platform's campaign ids the user placed by hand (one list for both platforms
+   before schema 11, #930). Dragging a card, or typing a rank, pins that one
+   campaign; everything else keeps the tier it had. Every Queue pin control
+   (drag, rank, unpin, Unpin all and its count) acts only on the pins of the
+   open platform's live campaigns (`platformPins` / `replacePlatformPins`,
+   #922). Every other id in the list keeps its slot: a finished campaign's, one
+   discovery did not report this time, so it ranks where it did when it comes
+   back, and one migration 11 copied in from the other platform.
 2. `platform[platform].favouriteCategories` — campaigns of starred games, in the
    user's order. A new star goes last; the Games view reorders favourites the
    way the Queue reorders pins, by dragging or typing a number (#847). A
@@ -879,6 +880,19 @@ carry `idle_watchlist_selected`, `higher_priority_idle_watchlist` or
 them, applied by `mergeSchedulerState` and the popup's stop-reason labels. The
 tabless heartbeat cadence key keeps `idle_watchlist`, so a persisted cadence
 still matches.
+
+Migration 11 moves the top-level `campaignPins` and `excludedCampaignIds` onto
+each platform (#930). A stored campaign id names no platform, and each
+platform's API chooses its own opaque ids, so the migration cannot sort them:
+it copies each list onto both platforms. An id only ever matches a campaign of
+its own platform, so the copy on the other one is inert, and nothing the user
+pinned or excluded is lost. A current per-platform list wins over the shared
+one. The Queue's pin controls only act on the open platform's live campaigns, so
+an inert copy never shows or counts; Settings → Forget excluded campaigns counts
+distinct ids across both lists and clears both. A pin save is now scoped to its
+platform (`settingsPatchEffects`), and is ranking-only unless that platform
+farms pinned only. A diagnostic for a v6 `campaignPriorities` map, which
+migration 7 turned into `campaignPins`, names both platform paths.
 
 ## Scheduler Flow
 

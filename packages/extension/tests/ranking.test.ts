@@ -64,7 +64,7 @@ describe("rankCampaigns", () => {
   it("puts pinned campaigns first, in pin order", () => {
     const ranked = rankCampaigns(
       [endingSoon, endingLate, scarce],
-      settings({ campaignPins: ["ending-late", "scarce"] }),
+      settings({ platform: { twitch: { campaignPins: ["ending-late", "scarce"] } } }),
     );
     expect(ids(ranked)).toEqual(["ending-late", "scarce", "ending-soon"]);
   });
@@ -73,8 +73,12 @@ describe("rankCampaigns", () => {
     const ranked = rankCampaigns(
       [endingSoon, endingLate, scarce],
       settings({
-        campaignPins: ["ending-late"],
-        platform: { twitch: { favouriteCategories: [{ id: "delta", name: "Delta Force" }] } },
+        platform: {
+          twitch: {
+            campaignPins: ["ending-late"],
+            favouriteCategories: [{ id: "delta", name: "Delta Force" }],
+          },
+        },
       }),
     );
     expect(ids(ranked)).toEqual(["ending-late", "scarce", "ending-soon"]);
@@ -136,8 +140,12 @@ describe("rankCampaigns", () => {
 
   it("reports which tier ranked a campaign", () => {
     const configured = settings({
-      campaignPins: ["ending-late"],
-      platform: { twitch: { favouriteCategories: [{ id: "delta", name: "Delta Force" }] } },
+      platform: {
+        twitch: {
+          campaignPins: ["ending-late"],
+          favouriteCategories: [{ id: "delta", name: "Delta Force" }],
+        },
+      },
     });
     expect(campaignRankTier(endingLate, configured)).toBe("pinned");
     expect(campaignRankTier(scarce, configured)).toBe("favourite");
@@ -197,8 +205,8 @@ describe("rankCampaigns with unlinked campaigns farmed last", () => {
 
   it("keeps a pinned or favourite unlinked campaign in its own tier", () => {
     const configured = last(
-      { campaignPins: ["unlinked-late"] },
-      { favouriteCategories: [{ id: "rust", name: "Rust" }] },
+      {},
+      { campaignPins: ["unlinked-late"], favouriteCategories: [{ id: "rust", name: "Rust" }] },
     );
     // ending-soon is also a Rust campaign, so it shares the favourite tier.
     expect(ids(rankCampaigns(all, configured))).toEqual([

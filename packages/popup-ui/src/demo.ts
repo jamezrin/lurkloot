@@ -134,6 +134,8 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
     platform: {
       twitch: {
         enabled: true,
+        campaignPins: ["tw-marathon"],
+        excludedCampaignIds: [],
         watchSourcePriority: [...DEFAULT_SETTINGS.platform.twitch.watchSourcePriority],
         watchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
@@ -158,6 +160,8 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
       },
       kick: {
         enabled: true,
+        campaignPins: [],
+        excludedCampaignIds: [],
         watchSourcePriority: [...DEFAULT_SETTINGS.platform.kick.watchSourcePriority],
         watchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
@@ -173,7 +177,6 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         autoClaimChallenges: true,
       },
     },
-    campaignPins: ["tw-marathon"],
   });
 
   const twitchCampaigns: DropCampaign[] = [

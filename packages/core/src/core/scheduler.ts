@@ -614,7 +614,7 @@ async function chooseWatchlistSourcesDecision(
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
   if (campaigns.length === 0) return "No campaigns discovered";
   const notExcluded = campaigns.filter(
-    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+    (campaign) => !settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id),
   );
   if (notExcluded.length === 0) return "All campaigns are excluded";
   if (
@@ -723,7 +723,7 @@ function onlyWaitingSubscriptionCampaigns(
   settings: EngineSettings,
 ): boolean {
   const notExcluded = campaigns.filter(
-    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+    (campaign) => !settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id),
   );
   return (
     notExcluded.length > 0
@@ -742,7 +742,7 @@ function onlyWaitingSubscriptionCampaigns(
 
 function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
   const notExcluded = campaigns.filter(
-    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+    (campaign) => !settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id),
   );
   return (
     notExcluded.length > 0
@@ -1171,9 +1171,8 @@ export function campaignSearchFingerprint(
   return stableHash({
     campaign,
     settings: {
-      campaignPins: settings.campaignPins,
-      excludedCampaignIds: settings.excludedCampaignIds,
       priorityMode: settings.priorityMode,
+      // Carries this platform's pins and exclusions.
       platform: settings.platform[campaign.platform],
     },
   });
