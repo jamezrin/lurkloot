@@ -615,7 +615,7 @@ tested too (#598).
 | No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
-| Watch streaks: maintained rows first, terminal attempts never reselected, unhealthy and budget bounds end the opens, payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
+| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
 
 ## Runtime Messages
 
@@ -1000,7 +1000,7 @@ claims to know the user's streak count.
 - **Terminal outcomes.** An attempt ends as `not_confirmed` after 15 minutes of healthy watching
   (`WATCH_STREAK_BUDGET_MS`), or after 10 unhealthy checks. A watch that is still settling (a tab
   in its playback grace, a tabless watch with no heartbeat yet) counts as neither. The unhealthy
-  bound is what stops a row that never plays from reopening forever. An attempt ends as `credited` when Twitch reports
+  bound is what stops a row that never plays from reopening ahead of the other sources. An attempt ends as `credited` when Twitch reports
   the payout. A terminal attempt is never reopened for that broadcast, and toggles and reorders do
   not reset it. A new broadcast gets a new attempt.
 - **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
@@ -1009,11 +1009,13 @@ claims to know the user's streak count.
   `watch_streaks`, ordered by the user in watch-source priority (default: first, ahead of Drops, and
   first too in an order saved before it existed). `chooseWatchStreakDecision` tries
   the rows the plan can attribute (`prioritized`) in the user's order; without an observer or an
-  account id that list is empty, and maintained rows keep their ordinary place. In the Idle
-  Watchlist source a maintained row whose attempt is terminal is skipped outright, so it never
-  becomes an ordinary row for the same broadcast; one whose broadcast is unattributable is
-  watched as an ordinary row. See [watch-source priority](watch-source-priority.md). Retention goes
-  through the same chooser, so a finished row is switched away from on the next tick. Discovery
+  account id that list is empty, and maintained rows keep their ordinary place. In the
+  Watchlist source a maintained row whose attempt is terminal is an ordinary row again, in the
+  user's order, as is one whose broadcast is unattributable. Only `watch_streaks` lifts a row
+  above the others, and it skips terminal attempts, so a finished row leaves the front on the next
+  tick but is never taken out of rotation: when it is the only live row it keeps being watched.
+  Skipping it in the Watchlist source too (1.20.0) left nothing to watch in that case. See
+  [watch-source priority](watch-source-priority.md). Retention goes through the same chooser. Discovery
   observes maintained rows first (`orderIdleWatchlist`), and the selection cache key
   includes the attempts.
 - **Observation.** The existing Hermes connection follows `community-points-user-v1.<id>`

@@ -480,16 +480,16 @@ async function chooseIdleWatchlistDecision(
     return idleWatchlistDecision(platform, fallback, false);
   }
   // Rows in the user's order. A maintained row whose attempt for this broadcast
-  // has ended is skipped outright: it never falls back to ordinary watching for
-  // the same broadcast, so the toggle cannot keep a channel on top all day. One
-  // whose attempt is still running is watched here too when the Watch streaks
-  // source sits below this one.
+  // has ended is an ordinary row again: only the Watch streaks source lifts it
+  // above the others, and that source skips it once the attempt ends, so the
+  // toggle cannot keep a channel on top all day. Skipping it here as well left
+  // nothing to watch when it was the only live row. One whose attempt is still
+  // running is watched here too when the Watch streaks source sits below this one.
   const prioritized = new Set(streaks.prioritized);
   for (const username of channels) {
     const channel = await liveIdleWatchlistRow(platform, username, adapter, signal, onCheck);
     if (!channel) continue;
     const verdict = prioritized.has(username) ? streaks.verdict(channel) : "unavailable";
-    if (verdict === "credited" || verdict === "not_confirmed") continue;
     return idleWatchlistDecision(platform, channel, verdict === "pending");
   }
   return undefined;
