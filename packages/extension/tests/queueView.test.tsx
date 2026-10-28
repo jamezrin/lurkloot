@@ -63,7 +63,7 @@ function views(sources: DropCampaign[], settings: ExtensionSettings): CampaignVi
       source,
       index,
       idleSession,
-      settings.excludedCampaignIds.includes(source.id),
+      settings.platform.twitch.excludedCampaignIds.includes(source.id),
       {
         skipUnfinishableRewards: settings.skipUnfinishableRewards,
         deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
@@ -105,7 +105,7 @@ function queue(
       gameMap={{}}
       refreshing={false}
       strategy={settings.priorityMode}
-      pinnedCount={settings.campaignPins.length}
+      pinnedCount={settings.platform.twitch.campaignPins.length}
       farmPinnedOnly={settings.platform.twitch.farmPinnedOnly}
       unlinkedCampaigns={settings.platform.twitch.unlinkedCampaigns}
       platform="twitch"
@@ -157,8 +157,12 @@ const rows = (container: Element, group: string): string[] =>
 describe("queue view", () => {
   it("labels one group per ranking tier, and only the populated ones", () => {
     const settings = mergeSettings({
-      campaignPins: ["pinned"],
-      platform: { twitch: { favouriteCategories: [{ id: "starred", name: "starred" }] } },
+      platform: {
+        twitch: {
+          campaignPins: ["pinned"],
+          favouriteCategories: [{ id: "starred", name: "starred" }],
+        },
+      },
     } as never);
     const { container } = queue(
       views([campaign("pinned"), campaign("starred"), campaign("ordinary")], settings),
@@ -179,7 +183,7 @@ describe("queue view", () => {
   });
 
   it("numbers the rows with the rank the scheduler uses", () => {
-    const settings = mergeSettings({ campaignPins: ["second"] } as never);
+    const settings = mergeSettings({ platform: { twitch: { campaignPins: ["second"] } } } as never);
     const { container } = queue(views([campaign("first"), campaign("second")], settings), settings);
 
     const ranks = [...container.querySelectorAll("[data-campaign-rank]")].map((node) => [
@@ -193,7 +197,9 @@ describe("queue view", () => {
   });
 
   it("groups skipped campaigns under the queue with their reason", () => {
-    const settings = mergeSettings({ excludedCampaignIds: ["hidden"] } as never);
+    const settings = mergeSettings({
+      platform: { twitch: { excludedCampaignIds: ["hidden"] } },
+    } as never);
     const { container } = queue(
       views([campaign("farmed"), campaign("hidden")], settings),
       settings,
@@ -208,7 +214,9 @@ describe("queue view", () => {
   });
 
   it("offers the one-click fix a skipped campaign needs", () => {
-    const settings = mergeSettings({ excludedCampaignIds: ["hidden"] } as never);
+    const settings = mergeSettings({
+      platform: { twitch: { excludedCampaignIds: ["hidden"] } },
+    } as never);
     const onToggleExclude = vi.fn();
     const { container } = queue(views([campaign("hidden")], settings), settings, {
       onToggleExclude,
@@ -336,8 +344,12 @@ describe("queue view", () => {
 
   it("counts the campaigns the reward filter skipped on the Skipped divider", () => {
     const settings = mergeSettings({
-      excludedCampaignIds: ["hidden"],
-      platform: { twitch: { rewardFilter: { kinds: ["badge"], subscriptions: "include" } } },
+      platform: {
+        twitch: {
+          excludedCampaignIds: ["hidden"],
+          rewardFilter: { kinds: ["badge"], subscriptions: "include" },
+        },
+      },
     } as never);
     const { container } = queue(
       views([badgeOnly("keep"), campaign("a"), campaign("b"), campaign("hidden")], settings),
@@ -347,7 +359,9 @@ describe("queue view", () => {
       c.querySelector('[data-queue-disclosure="skipped"] span:nth-of-type(2)')?.textContent;
     expect(hint(container)).toBe("queueSkippedByFilter:2");
 
-    const plain = mergeSettings({ excludedCampaignIds: ["hidden"] } as never);
+    const plain = mergeSettings({
+      platform: { twitch: { excludedCampaignIds: ["hidden"] } },
+    } as never);
     act(() => root?.unmount());
     root = undefined;
     const unfiltered = queue(views([campaign("hidden")], plain), plain);
@@ -538,7 +552,9 @@ describe("queue view", () => {
   });
 
   it("lists a campaign only an outside action can unblock under Action required, apart from Skipped (#677)", () => {
-    const settings = mergeSettings({ excludedCampaignIds: ["excluded"] } as never);
+    const settings = mergeSettings({
+      platform: { twitch: { excludedCampaignIds: ["excluded"] } },
+    } as never);
     const subscriptionReward = {
       id: "sub",
       name: "Sub badge",
@@ -563,7 +579,9 @@ describe("queue view", () => {
   });
 
   it("says what will still block a skipped campaign once its fix is applied (#677)", () => {
-    const settings = mergeSettings({ excludedCampaignIds: ["both"] } as never);
+    const settings = mergeSettings({
+      platform: { twitch: { excludedCampaignIds: ["both"] } },
+    } as never);
     const subscriptionReward = {
       id: "sub",
       name: "Sub badge",
@@ -588,7 +606,9 @@ describe("queue view", () => {
   });
 
   it("clears every pin from one control", () => {
-    const settings = mergeSettings({ campaignPins: ["one", "two"] } as never);
+    const settings = mergeSettings({
+      platform: { twitch: { campaignPins: ["one", "two"] } },
+    } as never);
     const onUnpinAll = vi.fn();
     const { container } = queue(views([campaign("one"), campaign("two")], settings), settings, {
       onUnpinAll,
@@ -618,8 +638,7 @@ describe("queue view", () => {
 
   it("lists unlinked campaigns in their own group after the strategy when farmed last", () => {
     const settings = mergeSettings({
-      campaignPins: ["pinned-unlinked"],
-      platform: { twitch: { unlinkedCampaigns: "last" } },
+      platform: { twitch: { campaignPins: ["pinned-unlinked"], unlinkedCampaigns: "last" } },
     } as never);
     const unlinked = (id: string) =>
       campaign(id, { accountLinked: false } as Partial<DropCampaign>);
@@ -799,7 +818,7 @@ describe("campaign card actions", () => {
   });
 
   it("lets only the pins be dragged or given a rank", () => {
-    const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
+    const settings = mergeSettings({ platform: { twitch: { campaignPins: ["pinned"] } } } as never);
     const { container } = queue(
       views([campaign("pinned"), campaign("ordinary")], settings),
       settings,
@@ -816,8 +835,12 @@ describe("campaign card actions", () => {
 
   it("places a searched pin by its real rank while the reward filter skips other pins", () => {
     const settings = mergeSettings({
-      campaignPins: ["badge", "d1", "d2"],
-      platform: { twitch: { rewardFilter: { kinds: ["item"], subscriptions: "skip" } } },
+      platform: {
+        twitch: {
+          campaignPins: ["badge", "d1", "d2"],
+          rewardFilter: { kinds: ["item"], subscriptions: "skip" },
+        },
+      },
     } as never);
     const badge = campaign("badge", {
       rewards: [
@@ -870,8 +893,7 @@ describe("campaign card actions", () => {
     // With "farm pinned only" on, an unpinned campaign is skipped and its fix
     // is pinning it; search used to show it with no way to do that.
     const settings = mergeSettings({
-      campaignPins: ["pinned"],
-      platform: { twitch: { farmPinnedOnly: true } },
+      platform: { twitch: { campaignPins: ["pinned"], farmPinnedOnly: true } },
     } as never);
     const { container } = queue(views([campaign("pinned"), campaign("loose")], settings), settings);
 
@@ -881,7 +903,7 @@ describe("campaign card actions", () => {
   });
 
   it("pins a queued campaign from its own row", () => {
-    const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
+    const settings = mergeSettings({ platform: { twitch: { campaignPins: ["pinned"] } } } as never);
     const onPinChange = vi.fn();
     const { container } = queue(
       views([campaign("pinned"), campaign("ordinary")], settings),
@@ -900,8 +922,12 @@ describe("campaign card actions", () => {
 
   it("says which layer of the ranking placed each row", () => {
     const settings = mergeSettings({
-      campaignPins: ["pinned"],
-      platform: { twitch: { favouriteCategories: [{ id: "starred", name: "Starred" }] } },
+      platform: {
+        twitch: {
+          campaignPins: ["pinned"],
+          favouriteCategories: [{ id: "starred", name: "Starred" }],
+        },
+      },
     } as never);
     const { container } = queue(
       views([campaign("pinned"), campaign("starred"), campaign("ordinary")], settings),

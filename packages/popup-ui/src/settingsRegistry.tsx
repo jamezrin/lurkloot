@@ -295,9 +295,24 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             descriptionKey: "forgetExcludedDescription",
             render: () => (
               <ForgetExcludedCampaignsRow
-                count={settings.excludedCampaignIds.length}
+                // Distinct ids: migration 11 copied the old shared list onto
+                // both platforms.
+                count={
+                  new Set([
+                    ...settings.platform.twitch.excludedCampaignIds,
+                    ...settings.platform.kick.excludedCampaignIds,
+                  ]).size
+                }
                 onForget={() =>
-                  void onSettingsChange({ excludedCampaignIds: [] }, { tickAfterSave: true })
+                  void onSettingsChange(
+                    {
+                      platform: {
+                        twitch: { excludedCampaignIds: [] },
+                        kick: { excludedCampaignIds: [] },
+                      },
+                    },
+                    { tickAfterSave: true },
+                  )
                 }
               />
             ),

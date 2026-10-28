@@ -660,7 +660,7 @@ describe("Kick static discovery gate", () => {
       "excluded",
       {},
       (settings) => {
-        settings.excludedCampaignIds = ["campaign"];
+        settings.platform.kick.excludedCampaignIds = ["campaign"];
       },
     ],
     ["infeasible", { endsAt: "2026-09-09T10:30:00Z" }, () => {}],

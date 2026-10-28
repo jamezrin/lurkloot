@@ -24,7 +24,7 @@ flowchart TD
     C -- yes --> N1
     C -- no --> D{"eligibility set<br/>and neither eligible<br/>nor account_not_linked?"}
     D -- yes --> N1
-    D -- no --> E{"id in<br/>excludedCampaignIds?"}
+    D -- no --> E{"id in the platform's<br/>excludedCampaignIds?"}
     E -- yes --> N1
     E -- no --> F{"class allowed?<br/>unlinked campaign and<br/>unlinkedCampaigns = skip?"}
     F -- no --> N1

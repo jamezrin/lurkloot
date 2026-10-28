@@ -44,14 +44,14 @@ function settings(
   const categorySelection = overrides.categorySelection ?? FARM_ALL_CATEGORIES;
   return {
     ...base,
-    excludedCampaignIds: overrides.excludedCampaignIds ?? [],
-    campaignPins: overrides.campaignPins ?? [],
     platform: {
       twitch: {
         ...base.platform.twitch,
         ...categorySelection,
         unlinkedCampaigns: overrides.unlinkedCampaigns ?? "include",
         farmPinnedOnly: overrides.farmPinnedOnly ?? false,
+        excludedCampaignIds: overrides.excludedCampaignIds ?? [],
+        campaignPins: overrides.campaignPins ?? [],
         rewardFilter: overrides.rewardFilter ?? base.platform.twitch.rewardFilter,
       },
       kick: {
@@ -59,6 +59,8 @@ function settings(
         ...categorySelection,
         unlinkedCampaigns: overrides.unlinkedCampaigns ?? "include",
         farmPinnedOnly: overrides.farmPinnedOnly ?? false,
+        excludedCampaignIds: overrides.excludedCampaignIds ?? [],
+        campaignPins: overrides.campaignPins ?? [],
         rewardFilter: overrides.rewardFilter ?? base.platform.kick.rewardFilter,
       },
     },

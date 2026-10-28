@@ -14,9 +14,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-// #922: campaignPins is one list for both platforms, so Unpin all on one
-// platform's Queue must leave the other platform's pins, and ids no list
-// reports, where they are.
+// #922/#930: Unpin all on one platform's Queue saves only that platform's pins,
+// and keeps every id in its list the Queue does not show: one migration 11
+// copied in from the other platform, or one no list reports.
 describe("popup Unpin all", () => {
   it("removes only the open platform's pins", async () => {
     const { document, window } = parseHTML("<div id=app></div>");
@@ -31,15 +31,20 @@ describe("popup Unpin all", () => {
 
     const pins = ["kick-arena", "tw-marathon", "ended-campaign", "tw-starfall"];
     const demo = createDemoPopupAdapter();
-    const saved: string[][] = [];
+    const patches: unknown[] = [];
     const adapter: PopupAdapter = {
       ...demo,
       send: async <T,>(message: RuntimeMessage): Promise<T> => {
         const reply = await demo.send<RuntimeSnapshot | undefined>(message);
-        if (message.type === "saveSettings" && message.settingsPatch.campaignPins)
-          saved.push(message.settingsPatch.campaignPins);
-        if (message.type === "getSnapshot" && reply)
-          return { ...reply, settings: { ...reply.settings, campaignPins: pins } } as T;
+        if (message.type === "saveSettings") patches.push(message.settingsPatch);
+        if (message.type === "getSnapshot" && reply) {
+          const twitch = { ...reply.settings.platform.twitch, campaignPins: pins };
+          const kick = { ...reply.settings.platform.kick, campaignPins: ["kick-arena"] };
+          return {
+            ...reply,
+            settings: { ...reply.settings, platform: { twitch, kick } },
+          } as T;
+        }
         return reply as T;
       },
     };
@@ -63,6 +68,8 @@ describe("popup Unpin all", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
-    expect(saved).toEqual([["kick-arena", "ended-campaign"]]);
+    expect(patches).toEqual([
+      { platform: { twitch: { campaignPins: ["kick-arena", "ended-campaign"] } } },
+    ]);
   });
 });

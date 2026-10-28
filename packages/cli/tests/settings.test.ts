@@ -117,13 +117,18 @@ describe("parseCliSettings", () => {
     const settings = parseCliSettings({
       autoClaim: false,
       pollIntervalMinutes: 9,
-      excludedCampaignIds: [" Foo ", "Foo", "bar"],
-      platform: { twitch: { enabled: false, watchlistChannels: ["@Streamer", "streamer"] } },
+      platform: {
+        twitch: {
+          enabled: false,
+          watchlistChannels: ["@Streamer", "streamer"],
+          excludedCampaignIds: [" Foo ", "Foo", "bar"],
+        },
+      },
     });
     expect(settings.autoClaim).toBe(false);
     expect(settings.pollIntervalMinutes).toBe(9);
     // Campaign ids are trimmed + deduped (case-sensitive).
-    expect(settings.excludedCampaignIds).toEqual(["Foo", "bar"]);
+    expect(settings.platform.twitch.excludedCampaignIds).toEqual(["Foo", "bar"]);
     // Channels are lowercased, @-stripped and deduped.
     expect(settings.platform.twitch.enabled).toBe(false);
     expect(settings.platform.twitch.watchlistChannels).toEqual(["streamer"]);
@@ -451,8 +456,9 @@ describe("CLI settings export/import", () => {
   it("round-trips a customized settings object", () => {
     const settings = parseCliSettings({
       autoClaim: false,
-      excludedCampaignIds: ["abc123"],
-      platform: { twitch: { enabled: true, watchlistChannels: ["someone"] } },
+      platform: {
+        twitch: { enabled: true, watchlistChannels: ["someone"], excludedCampaignIds: ["abc123"] },
+      },
     });
     const payload = buildCliSettingsExportPayload(settings);
     expect(payload.kind).toBe(SETTINGS_EXPORT_KIND);

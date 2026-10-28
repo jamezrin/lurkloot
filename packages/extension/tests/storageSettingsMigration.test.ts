@@ -220,7 +220,8 @@ describe("settings storage migration", () => {
 
     const settings = await loadSettings();
 
-    expect(settings.campaignPins).toEqual(["campaign-high", "campaign-low"]);
+    expect(settings.platform.twitch.campaignPins).toEqual(["campaign-high", "campaign-low"]);
+    expect(settings.platform.kick.campaignPins).toEqual(["campaign-high", "campaign-low"]);
     expect(settings.platform.twitch.farmPinnedOnly).toBe(true);
     expect(settings.platform.kick.farmPinnedOnly).toBe(true);
     expect(settings.priorityMode).toBe("ending_soonest");

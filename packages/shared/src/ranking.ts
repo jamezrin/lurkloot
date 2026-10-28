@@ -34,7 +34,7 @@ export function campaignRankTier(
 // user never placed by hand is ranked by the tiers below, which is what lets a
 // newly discovered campaign surface without a reordering of the whole list.
 export function pinIndex(campaign: DropCampaign, settings: EngineSettings): number {
-  return settings.campaignPins.indexOf(campaign.id);
+  return settings.platform[campaign.platform].campaignPins.indexOf(campaign.id);
 }
 
 function favouriteIndex(campaign: DropCampaign, settings: EngineSettings): number {
@@ -106,13 +106,13 @@ export function unpinCampaign(pins: string[], campaignId: string): string[] {
   return pins.filter((id) => id !== campaignId);
 }
 
-// campaignPins is one list for both platforms, but every pin control acts on one
-// platform's queue: its positions, its count, its "Unpin all". A control reads
-// the pins of the campaigns it can act on and writes back only those, so it
-// never drops or reorders any other id: the other platform's pins, or one no
-// list reports right now (a campaign discovery skipped this time, a platform
-// whose list failed to load). Those keep their slots, so a campaign that comes
-// back still ranks where it did.
+// Every pin control acts on the Queue's live campaigns: its positions, its
+// count, its "Unpin all". A control reads the pins of the campaigns it can act
+// on and writes back only those, so it never drops or reorders any other id in
+// the platform's list: a finished campaign's, one discovery skipped this time,
+// or one migration 11 copied in from the old shared list that belongs to the
+// other platform. Those keep their slots, so a campaign that comes back still
+// ranks where it did.
 export function platformPins(pins: string[], campaignIds: ReadonlySet<string>): string[] {
   return pins.filter((id) => campaignIds.has(id));
 }

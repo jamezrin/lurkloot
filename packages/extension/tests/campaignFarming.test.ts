@@ -54,7 +54,7 @@ function campaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
 
 describe("evaluateCampaignFarming", () => {
   it.each([
-    ["excluded", campaign(), settings({ excludedCampaignIds: ["campaign"] })],
+    ["excluded", campaign(), settings({}, { excludedCampaignIds: ["campaign"] })],
     ["upcoming", campaign({ status: "upcoming" }), settings()],
     ["expired", campaign({ status: "expired" }), settings()],
     ["completed", campaign({ status: "completed" }), settings()],
@@ -86,7 +86,7 @@ describe("evaluateCampaignFarming", () => {
       evaluateCampaignFarming(source, settings({}, { unlinkedCampaigns: "last" }), { now: NOW }),
     ).toEqual({ farmable: true });
     // Skip means never farm it: a pin ranks, it never makes a campaign eligible.
-    const pinnedSkip = settings({ campaignPins: ["campaign"] }, { unlinkedCampaigns: "skip" });
+    const pinnedSkip = settings({}, { campaignPins: ["campaign"], unlinkedCampaigns: "skip" });
     expect(
       evaluateCampaignFarming(source, pinnedSkip, { now: NOW, includePinnedOnly: true }),
     ).toMatchObject({ farmable: false, code: "unlinked_campaigns_disabled" });
@@ -200,7 +200,7 @@ describe("evaluateCampaignFarming", () => {
   });
 
   it("never lets a pin rescue a campaign eligibility already rejected", () => {
-    const currentSettings = settings({ campaignPins: ["campaign"] }, { farmPinnedOnly: true });
+    const currentSettings = settings({}, { campaignPins: ["campaign"], farmPinnedOnly: true });
     currentSettings.platform.twitch = {
       ...currentSettings.platform.twitch,
       blockedCategories: [{ id: "game", name: "Game" }],
@@ -263,7 +263,7 @@ describe("campaignFarmingBlockers (#677)", () => {
   };
 
   it("lists each blocker a user meets in turn, ending at one no setting lifts", () => {
-    const current = settings({ excludedCampaignIds: ["campaign"] }, { farmPinnedOnly: true });
+    const current = settings({}, { excludedCampaignIds: ["campaign"], farmPinnedOnly: true });
     const blockers = campaignFarmingBlockers(campaign({ rewards: [subscription] }), current, {
       includePinnedOnly: true,
       now: NOW,
@@ -285,7 +285,7 @@ describe("campaignFarmingBlockers (#677)", () => {
   it("stops once the campaign would be farmable", () => {
     const blockers = campaignFarmingBlockers(
       campaign(),
-      settings({ excludedCampaignIds: ["campaign"] }),
+      settings({}, { excludedCampaignIds: ["campaign"] }),
       { now: NOW },
     );
 
@@ -466,7 +466,7 @@ describe("rewardKindCounts", () => {
 
   it("counts only pins while farming pinned campaigns only", () => {
     const sources = [campaign({ id: "pinned" }), campaign({ id: "loose" })];
-    const pinnedOnly = settings({ campaignPins: ["pinned"] }, { farmPinnedOnly: true });
+    const pinnedOnly = settings({}, { campaignPins: ["pinned"], farmPinnedOnly: true });
     expect(rewardKindCounts(sources, pinnedOnly, "twitch").item).toBe(1);
   });
 

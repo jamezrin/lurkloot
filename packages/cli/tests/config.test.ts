@@ -157,6 +157,21 @@ describe("parseConfig", () => {
     expect(config.warnings).toEqual([]);
   });
 
+  it("moves top-level campaign pins and exclusions onto both platforms, warning", () => {
+    const config = parseConfig(
+      { settings: { campaignPins: ["pin"], excludedCampaignIds: ["skip"] } },
+      CONFIG_PATH,
+    );
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(config.settings.platform[platform].campaignPins).toEqual(["pin"]);
+      expect(config.settings.platform[platform].excludedCampaignIds).toEqual(["skip"]);
+    }
+    expect(config.warnings).toEqual([
+      "settings.campaignPins moved to platform.twitch.campaignPins and platform.kick.campaignPins",
+      "settings.excludedCampaignIds moved to platform.twitch.excludedCampaignIds and platform.kick.excludedCampaignIds",
+    ]);
+  });
+
   it("has no config warnings by default", () => {
     expect(parseConfig({}, CONFIG_PATH).warnings).toEqual([]);
   });

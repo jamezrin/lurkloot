@@ -110,7 +110,8 @@ export function evaluateCampaignFarming(
   options: CampaignFarmingEvaluationOptions = {},
 ): CampaignFarmingEvaluation {
   const now = options.now ?? Date.now();
-  if (settings.excludedCampaignIds.includes(campaign.id)) return rejected("excluded");
+  if (settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id))
+    return rejected("excluded");
   if (campaign.status === "upcoming" || campaign.eligibility === "upcoming")
     return rejected("upcoming");
   if (campaign.status === "expired" || campaign.eligibility === "expired")
@@ -154,7 +155,7 @@ export function evaluateCampaignFarming(
   if (
     options.includePinnedOnly
     && platformSettings.farmPinnedOnly
-    && !settings.campaignPins.includes(campaign.id)
+    && !platformSettings.campaignPins.includes(campaign.id)
   ) {
     return rejected("not_pinned");
   }
@@ -267,12 +268,15 @@ function withBlockerLifted(
   });
   switch (code) {
     case "excluded":
-      return {
-        ...settings,
-        excludedCampaignIds: settings.excludedCampaignIds.filter((id) => id !== campaign.id),
-      };
+      return withPlatform({
+        excludedCampaignIds: settings.platform[campaign.platform].excludedCampaignIds.filter(
+          (id) => id !== campaign.id,
+        ),
+      });
     case "not_pinned":
-      return { ...settings, campaignPins: [...settings.campaignPins, campaign.id] };
+      return withPlatform({
+        campaignPins: [...settings.platform[campaign.platform].campaignPins, campaign.id],
+      });
     case "reward_type_filtered":
     case "reward_types_obtained":
       // The default filter cannot lift a miss it would make itself (a reward of

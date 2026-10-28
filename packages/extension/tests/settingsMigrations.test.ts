@@ -762,6 +762,78 @@ describe("schema v8 and v9", () => {
   });
 });
 
+describe("schema v11", () => {
+  const platformOf = (settings: Record<string, unknown>, platform: "twitch" | "kick") =>
+    (settings.platform as Record<string, Record<string, unknown>>)[platform];
+
+  it("copies the shared pins and exclusions onto both platforms", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion({ campaignPins: ["t1", "k1"], excludedCampaignIds: ["t2"] }, 10),
+    );
+
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(platformOf(migrated.settings, platform)).toEqual({
+        campaignPins: ["t1", "k1"],
+        excludedCampaignIds: ["t2"],
+      });
+    }
+    expect(migrated.settings.campaignPins).toBeUndefined();
+    expect(migrated.settings.excludedCampaignIds).toBeUndefined();
+    expect(migrated.diagnostics).toEqual([
+      {
+        code: "moved_property",
+        path: "campaignPins",
+        replacements: ["platform.twitch.campaignPins", "platform.kick.campaignPins"],
+        message:
+          "campaignPins moved to platform.twitch.campaignPins and platform.kick.campaignPins",
+      },
+      {
+        code: "moved_property",
+        path: "excludedCampaignIds",
+        replacements: ["platform.twitch.excludedCampaignIds", "platform.kick.excludedCampaignIds"],
+        message:
+          "excludedCampaignIds moved to platform.twitch.excludedCampaignIds and platform.kick.excludedCampaignIds",
+      },
+    ]);
+  });
+
+  it("keeps a current per-platform list over the shared one, still reporting it", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        { campaignPins: ["old"], platform: { kick: { campaignPins: ["current"] } } },
+        10,
+      ),
+    );
+
+    expect(platformOf(migrated.settings, "twitch").campaignPins).toEqual(["old"]);
+    expect(platformOf(migrated.settings, "kick").campaignPins).toEqual(["current"]);
+    expect(migrated.diagnostics.map((entry) => entry.path)).toEqual(["campaignPins"]);
+  });
+
+  it("normalizes into per-platform lists and leaves a v11 document alone", () => {
+    const migrated = migrateSettings(withSchemaVersion({ campaignPins: [" a ", "a"] }, 10));
+    const settings = mergeSettings(migrated.settings as never);
+    expect(settings.platform.twitch.campaignPins).toEqual(["a"]);
+    expect(settings.platform.kick.campaignPins).toEqual(["a"]);
+
+    const again = migrateSettings(withSchemaVersion(migrated.settings));
+    expect(again.changed).toBe(false);
+    expect(again.diagnostics).toEqual([]);
+    expect(again.settings).toEqual(migrated.settings);
+  });
+
+  it("names both platforms for a v6 priority map that ends up as pins", () => {
+    const migrated = migrateSettings(withSchemaVersion({ campaignPriorities: { a: 2 } }, 6));
+    expect(migrated.diagnostics).toContainEqual(
+      expect.objectContaining({
+        path: "campaignPriorities",
+        replacements: ["platform.twitch.campaignPins", "platform.kick.campaignPins"],
+      }),
+    );
+    expect(platformOf(migrated.settings, "kick").campaignPins).toEqual(["a"]);
+  });
+});
+
 describe("migration diagnostics", () => {
   // One document per legacy shape, each at the version that last wrote it.
   const legacyDocuments: Array<[string, Record<string, unknown>]> = [
@@ -813,6 +885,10 @@ describe("migration diagnostics", () => {
     [
       "v8 unlinked switch",
       withSchemaVersion({ platform: { kick: { farmUnlinkedCampaigns: true } } }, 8),
+    ],
+    [
+      "v10 shared campaign lists",
+      withSchemaVersion({ campaignPins: ["a"], excludedCampaignIds: ["b"] }, 10),
     ],
   ];
 
