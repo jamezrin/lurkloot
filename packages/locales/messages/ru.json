@@ -384,7 +384,7 @@
     "message": "Выберите, что фармить"
   },
   "tourRewardFilterBody": {
-    "message": "Откройте «Все награды», чтобы выбрать типы наград, которые фармят закреплённые кампании, любимые игры и остальные кампании, и что делать с кампаниями без привязанного аккаунта."
+    "message": "Откройте «Награды для фарма», чтобы выбрать типы наград, которые фармят закреплённые кампании, любимые игры и остальные кампании, и что делать с кампаниями без привязанного аккаунта."
   },
   "tourCompletedTitle": {
     "message": "Завершённые и истёкшие"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Награды для фарма"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Награды для фарма (изменено)"
+  },
+  "rewardGridTickAll": {
+    "message": "Отметить все для $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Снять все для $1"
+  },
   "rewardFilterDescription": {
     "message": "Что Lurkloot фармит на $1. Меню фильтра в очереди меняет ту же настройку."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 — $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Смешанные типы"
-  },
   "rewardKindItem": {
     "message": "Внутриигровые предметы"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Эмоуты"
-  },
-  "rewardKindItemShort": {
-    "message": "Предметы"
   },
   "subscriptionRewardsTitle": {
     "message": "Награды за подписку"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Фармятся, только когда ни одна кампания с привязанным аккаунтом не может фармиться. Закреплённые кампании и любимые игры сохраняют своё место."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "пропускать без привязки"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "без привязки в конце"
-  },
   "queueGroupUnlinked": {
     "message": "Без привязки · фармятся последними"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Фармить последними"
-  },
-  "rewardFilterAll": {
-    "message": "Все награды"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Все"
-  },
-  "rewardFilterNoSub": {
-    "message": "без подп."
-  },
-  "rewardFilterSubOnly": {
-    "message": "только подп."
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "только закреплённые"
   },
   "rewardFilterReset": {
     "message": "Сбросить: все награды"

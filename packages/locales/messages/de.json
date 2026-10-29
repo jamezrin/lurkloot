@@ -384,7 +384,7 @@
     "message": "Wähle, was gefarmt wird"
   },
   "tourRewardFilterBody": {
-    "message": "Öffne „Alle Belohnungen“, um festzulegen, welche Belohnungstypen angeheftete Kampagnen, Lieblingsspiele und andere Kampagnen farmen und was mit Kampagnen ohne verknüpftes Konto passiert."
+    "message": "Öffne „Zu farmende Belohnungen“, um festzulegen, welche Belohnungstypen angeheftete Kampagnen, Lieblingsspiele und andere Kampagnen farmen und was mit Kampagnen ohne verknüpftes Konto passiert."
   },
   "tourCompletedTitle": {
     "message": "Abgeschlossen und abgelaufen"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Zu farmende Belohnungen"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Zu farmende Belohnungen (angepasst)"
+  },
+  "rewardGridTickAll": {
+    "message": "Alle für $1 auswählen"
+  },
+  "rewardGridUntickAll": {
+    "message": "Alle für $1 abwählen"
+  },
   "rewardFilterDescription": {
     "message": "Was Lurkloot auf $1 farmt. Das Filtermenü in der Warteschlange ändert dieselbe Einstellung."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 für $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Gemischte Typen"
-  },
   "rewardKindItem": {
     "message": "Ingame-Items"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emotes"
-  },
-  "rewardKindItemShort": {
-    "message": "Items"
   },
   "subscriptionRewardsTitle": {
     "message": "Abo-Belohnungen"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Wird nur gefarmt, wenn keine verknüpfte Kampagne gefarmt werden kann. Angeheftete Kampagnen und Lieblingsspiele behalten ihren Platz."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "unverknüpfte auslassen"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "unverknüpft zuletzt"
-  },
   "queueGroupUnlinked": {
     "message": "Unverknüpft · zuletzt gefarmt"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Zuletzt farmen"
-  },
-  "rewardFilterAll": {
-    "message": "Alle Belohnungen"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Alle"
-  },
-  "rewardFilterNoSub": {
-    "message": "ohne Abo"
-  },
-  "rewardFilterSubOnly": {
-    "message": "nur Abo"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "nur angeheftet"
   },
   "rewardFilterReset": {
     "message": "Auf alle Belohnungen zurücksetzen"

@@ -100,6 +100,46 @@ export function farmsPinnedOnly(filter: RewardFilter, platform: Platform): boole
   return normalized.favouriteKinds.length === 0 && normalized.kinds.length === 0;
 }
 
+function tickedKinds(filter: RewardFilter): number {
+  return REWARD_GROUPS.reduce((count, group) => count + rewardGroupKinds(filter, group).length, 0);
+}
+
+// The filter after ticking a whole Queue group (#934): every kind the platform
+// has, or none when the group already farms all of them. Undefined when that
+// would leave the whole filter farming nothing, which the grid never allows.
+export function toggleRewardGroup(
+  filter: RewardFilter,
+  platform: Platform,
+  group: RewardGroup,
+): RewardFilter | undefined {
+  const all = PLATFORM_REWARD_KINDS[platform];
+  const kinds = rewardGroupKinds(filter, group);
+  const full = all.every((kind) => kinds.includes(kind));
+  const next = withRewardGroupKinds(filter, group, full ? [] : [...all]);
+  return tickedKinds(next) === 0 ? undefined : next;
+}
+
+// The filter after ticking one kind in every Queue group (#934), or unticking
+// it everywhere when every group already farms it. Undefined when that would
+// leave the whole filter farming nothing.
+export function toggleRewardKind(
+  filter: RewardFilter,
+  platform: Platform,
+  kind: RewardKind,
+): RewardFilter | undefined {
+  if (!PLATFORM_REWARD_KINDS[platform].includes(kind)) return undefined;
+  const full = REWARD_GROUPS.every((group) => rewardGroupKinds(filter, group).includes(kind));
+  const next = REWARD_GROUPS.reduce((current, group) => {
+    const kinds = rewardGroupKinds(current, group);
+    return withRewardGroupKinds(
+      current,
+      group,
+      REWARD_KINDS.filter((entry) => (entry === kind ? !full : kinds.includes(entry))),
+    );
+  }, filter);
+  return tickedKinds(next) === 0 ? undefined : next;
+}
+
 // Whether the Queue groups farm different kinds from one another.
 export function rewardGroupsDiffer(filter: RewardFilter, platform: Platform): boolean {
   const normalized = normalizeRewardFilter(filter, platform);

@@ -384,7 +384,7 @@
     "message": "Choisissez ce que vous farmez"
   },
   "tourRewardFilterBody": {
-    "message": "Ouvrez « Toutes les récompenses » pour choisir les types de récompenses que farment vos campagnes épinglées, vos jeux favoris et les autres campagnes, et ce qu'il faut faire des campagnes sans compte lié."
+    "message": "Ouvrez « Récompenses à farmer » pour choisir les types de récompenses que farment vos campagnes épinglées, vos jeux favoris et les autres campagnes, et ce qu'il faut faire des campagnes sans compte lié."
   },
   "tourCompletedTitle": {
     "message": "Terminées et expirées"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Récompenses à farmer"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Récompenses à farmer (personnalisé)"
+  },
+  "rewardGridTickAll": {
+    "message": "Tout cocher pour $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Tout décocher pour $1"
+  },
   "rewardFilterDescription": {
     "message": "Ce que Lurkloot farme sur $1. Le menu de filtre dans la File modifie le même réglage."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 pour $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Types mixtes"
-  },
   "rewardKindItem": {
     "message": "Objets en jeu"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Émotes"
-  },
-  "rewardKindItemShort": {
-    "message": "Objets"
   },
   "subscriptionRewardsTitle": {
     "message": "Récompenses d’abonnement"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Farmée seulement lorsqu’aucune campagne liée ne peut l’être. Les campagnes épinglées et les jeux favoris gardent leur place."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "ignorer non liées"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "non liées en dernier"
-  },
   "queueGroupUnlinked": {
     "message": "Non liées · farmées en dernier"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Farmer en dernier"
-  },
-  "rewardFilterAll": {
-    "message": "Toutes les récompenses"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Tous"
-  },
-  "rewardFilterNoSub": {
-    "message": "sans abo"
-  },
-  "rewardFilterSubOnly": {
-    "message": "abo uniquement"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "épinglées seulement"
   },
   "rewardFilterReset": {
     "message": "Réinitialiser toutes les récompenses"

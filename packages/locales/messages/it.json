@@ -384,7 +384,7 @@
     "message": "Scegli cosa farmare"
   },
   "tourRewardFilterBody": {
-    "message": "Apri «Tutte le ricompense» per scegliere quali tipi di ricompensa farmano le campagne fissate, i giochi preferiti e le altre campagne, e cosa fare delle campagne senza account collegato."
+    "message": "Apri «Ricompense da farmare» per scegliere quali tipi di ricompensa farmano le campagne fissate, i giochi preferiti e le altre campagne, e cosa fare delle campagne senza account collegato."
   },
   "tourCompletedTitle": {
     "message": "Completate e scadute"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Ricompense da farmare"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Ricompense da farmare (personalizzato)"
+  },
+  "rewardGridTickAll": {
+    "message": "Seleziona tutto per $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Deseleziona tutto per $1"
+  },
   "rewardFilterDescription": {
     "message": "Cosa farma Lurkloot su $1. Il menu filtri nella Coda modifica la stessa impostazione."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 per $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Tipi misti"
-  },
   "rewardKindItem": {
     "message": "Oggetti in gioco"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emote"
-  },
-  "rewardKindItemShort": {
-    "message": "Oggetti"
   },
   "subscriptionRewardsTitle": {
     "message": "Ricompense per abbonamento"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Viene farmata solo quando nessuna campagna collegata può esserlo. Le campagne fissate e i giochi preferiti mantengono la loro posizione."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "salta non collegate"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "non collegate per ultime"
-  },
   "queueGroupUnlinked": {
     "message": "Non collegate · farmate per ultime"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Farma per ultime"
-  },
-  "rewardFilterAll": {
-    "message": "Tutte le ricompense"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Tutti"
-  },
-  "rewardFilterNoSub": {
-    "message": "senza abb."
-  },
-  "rewardFilterSubOnly": {
-    "message": "solo abb."
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "solo fissate"
   },
   "rewardFilterReset": {
     "message": "Ripristina tutte le ricompense"

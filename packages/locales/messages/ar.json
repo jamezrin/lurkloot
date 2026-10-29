@@ -384,7 +384,7 @@
     "message": "اختر ما ستفارمه"
   },
   "tourRewardFilterBody": {
-    "message": "افتح «كل المكافآت» لتختار أنواع المكافآت التي تُفارَم في كل من الحملات المثبتة والألعاب المفضلة والحملات الأخرى، وما يحدث للحملات دون حساب مرتبط."
+    "message": "افتح «المكافآت للفارم» لتختار أنواع المكافآت التي تُفارَم في كل من الحملات المثبتة والألعاب المفضلة والحملات الأخرى، وما يحدث للحملات دون حساب مرتبط."
   },
   "tourCompletedTitle": {
     "message": "المنتهية والمنتهية الصلاحية"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "المكافآت للفارم"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "المكافآت للفارم (مخصّصة)"
+  },
+  "rewardGridTickAll": {
+    "message": "تحديد الكل لـ $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "إلغاء تحديد الكل لـ $1"
+  },
   "rewardFilterDescription": {
     "message": "ما يفارمه Lurkloot على $1. قائمة التصفية في قائمة الانتظار تغيّر الإعداد نفسه."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 لـ $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "أنواع مختلطة"
-  },
   "rewardKindItem": {
     "message": "عناصر داخل اللعبة"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "إيموتات"
-  },
-  "rewardKindItemShort": {
-    "message": "عناصر"
   },
   "subscriptionRewardsTitle": {
     "message": "مكافآت الاشتراك"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "تُفارَم فقط عندما لا يمكن فارم أي حملة مرتبطة. تحتفظ الحملات المثبتة والألعاب المفضلة بمكانها."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "تخطي غير المرتبط"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "غير المرتبط أخيرًا"
-  },
   "queueGroupUnlinked": {
     "message": "غير مرتبط · يُفارَم أخيرًا"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "فارم أخيرًا"
-  },
-  "rewardFilterAll": {
-    "message": "كل المكافآت"
-  },
-  "rewardFilterAllKinds": {
-    "message": "الكل"
-  },
-  "rewardFilterNoSub": {
-    "message": "بدون اشتراك"
-  },
-  "rewardFilterSubOnly": {
-    "message": "اشتراك فقط"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "المثبتة فقط"
   },
   "rewardFilterReset": {
     "message": "إعادة الضبط إلى كل المكافآت"

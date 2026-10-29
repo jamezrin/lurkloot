@@ -443,8 +443,8 @@ describe("queue view", () => {
     );
 
     const trigger = container.querySelector<HTMLButtonElement>("[data-reward-filter]")!;
-    expect(trigger.textContent).toContain("rewardFilterAll");
-    expect(trigger.getAttribute("aria-label")).toBe("rewardFilterTitle: rewardFilterAll");
+    expect(trigger.textContent).toBe("rewardFilterTitle");
+    expect(trigger.getAttribute("aria-label")).toBe("rewardFilterTitle");
     expect(trigger.hasAttribute("data-narrowed")).toBe(false);
     await openFilter(container);
 
@@ -470,7 +470,7 @@ describe("queue view", () => {
       favouriteKinds: ["item", "badge", "emote"],
     });
     expect(trigger.hasAttribute("data-narrowed")).toBe(true);
-    expect(trigger.textContent).toContain("rewardFilterNoSub");
+    expect(trigger.getAttribute("aria-label")).toBe("rewardFilterTitleCustomized");
 
     // Reset appears once narrowed, and restores every reward.
     await settle(() => document.querySelector<HTMLElement>("[data-reward-filter-reset]")!.click());

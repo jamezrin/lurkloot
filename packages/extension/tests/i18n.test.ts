@@ -406,7 +406,7 @@ describe("i18n", () => {
 
     // Loanwords that are correct as written in these languages.
     const loanwords: Record<string, Set<string>> = {
-      de: new Set(["rewardKindEmote", "rewardKindItemShort"]),
+      de: new Set(["rewardKindEmote"]),
       es: new Set(["rewardKindEmote"]),
       pt_BR: new Set(["rewardKindEmote"]),
       fr: new Set(["rewardKindBadge"]),

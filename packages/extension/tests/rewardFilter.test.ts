@@ -10,6 +10,8 @@ import {
   rewardGroupsDiffer,
   rewardKinds,
   rewardMatchesFilter,
+  toggleRewardGroup,
+  toggleRewardKind,
 } from "@lurkloot/shared/rewardFilter";
 import { mergeEngineSettings } from "@lurkloot/shared/settings";
 
@@ -220,5 +222,50 @@ describe("reward kinds per Queue group", () => {
     expect(isRewardFilterNarrowed(campaignRewardFilter(campaign("plain"), wide), "twitch")).toBe(
       false,
     );
+  });
+});
+
+// #934: a grid heading ticks or unticks its whole column or row.
+describe("toggling a reward group or kind", () => {
+  const ALL = ["item", "badge", "emote"] as const;
+  const of = (kinds: string[], pinned: string[], favourite: string[]) =>
+    ({
+      kinds,
+      subscriptions: "skip",
+      pinnedKinds: pinned,
+      favouriteKinds: favourite,
+    }) as RewardFilter;
+
+  it("fills a column that is not full, and empties a full one", () => {
+    expect(toggleRewardGroup(of(["badge"], [...ALL], []), "twitch", "other")).toEqual(
+      of([...ALL], [...ALL], []),
+    );
+    expect(toggleRewardGroup(of([...ALL], [...ALL], []), "twitch", "pinned")).toEqual(
+      of([...ALL], [], []),
+    );
+  });
+
+  it("adds a kind to every group, or drops it from all of them", () => {
+    expect(toggleRewardKind(of(["badge"], [], ["item"]), "twitch", "item")).toEqual(
+      of(["item", "badge"], ["item"], ["item"]),
+    );
+    expect(toggleRewardKind(of([...ALL], [...ALL], [...ALL]), "twitch", "badge")).toEqual(
+      of(["item", "emote"], ["item", "emote"], ["item", "emote"]),
+    );
+  });
+
+  it("refuses a toggle that would leave the filter farming nothing", () => {
+    expect(toggleRewardGroup(of([], [...ALL], []), "twitch", "pinned")).toBeUndefined();
+    expect(
+      toggleRewardKind(of(["emote"], ["emote"], ["emote"]), "twitch", "emote"),
+    ).toBeUndefined();
+    // A kind the platform lacks is never toggled.
+    expect(toggleRewardKind(of(["item"], ["item"], ["item"]), "kick", "badge")).toBeUndefined();
+  });
+
+  it("keeps the subscription mode", () => {
+    expect(
+      toggleRewardGroup(of(["item"], ["item"], ["item"]), "kick", "other")?.subscriptions,
+    ).toBe("skip");
   });
 });
