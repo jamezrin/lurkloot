@@ -222,8 +222,15 @@ describe("settings storage migration", () => {
 
     expect(settings.platform.twitch.campaignPins).toEqual(["campaign-high", "campaign-low"]);
     expect(settings.platform.kick.campaignPins).toEqual(["campaign-high", "campaign-low"]);
-    expect(settings.platform.twitch.farmPinnedOnly).toBe(true);
-    expect(settings.platform.kick.farmPinnedOnly).toBe(true);
+    // Priority-list-only became farm pinned only (v7, v8), then only the pinned
+    // group farming (v12, #932).
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(settings.platform[platform].rewardFilter).toMatchObject({
+        kinds: [],
+        favouriteKinds: [],
+      });
+      expect(settings.platform[platform].rewardFilter.pinnedKinds.length).toBeGreaterThan(0);
+    }
     expect(settings.priorityMode).toBe("ending_soonest");
     expect(settings.platform.twitch.categoryMode).toBe("all");
     expect(settings.platform.twitch.blockedCategories).toEqual([

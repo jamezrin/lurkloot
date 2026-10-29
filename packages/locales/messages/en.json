@@ -384,7 +384,7 @@
     "message": "Choose what to farm"
   },
   "tourRewardFilterBody": {
-    "message": "Open All rewards to choose which reward types to farm, what to do with campaigns without a linked account, and whether to farm pinned campaigns only."
+    "message": "Open All rewards to choose which reward types your pinned campaigns, favourite games and other campaigns each farm, and what to do with campaigns without a linked account."
   },
   "tourCompletedTitle": {
     "message": "Finished and expired"
@@ -906,7 +906,10 @@
     "message": "This game is blocked, so its campaigns are never farmed."
   },
   "campaignRejectionNotPinned": {
-    "message": "Only pinned campaigns are farmed right now."
+    "message": "Its Queue group farms no reward types. Pin it to farm it."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Its Queue group farms no reward types."
   },
   "campaignRejectionRewardKind": {
     "message": "Nothing here matches your reward types ($1)."
@@ -1076,6 +1079,24 @@
   "rewardKindsDescription": {
     "message": "A reward is farmed if any part of it matches."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Choose which reward types each part of the Queue farms."
+  },
+  "rewardGroupPinned": {
+    "message": "Pinned campaigns"
+  },
+  "rewardGroupFavourite": {
+    "message": "Favourite games"
+  },
+  "rewardGroupOther": {
+    "message": "Other campaigns"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 for $2"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Mixed types"
+  },
   "rewardKindItem": {
     "message": "In-game items"
   },
@@ -1168,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Reset to all rewards"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "Forget excluded campaigns"

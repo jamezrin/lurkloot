@@ -181,7 +181,6 @@ describe("settings", () => {
   it("keeps campaign pins as an ordered, deduplicated id list", () => {
     expect(DEFAULT_SETTINGS.platform.twitch.campaignPins).toEqual([]);
     expect(DEFAULT_SETTINGS.platform.kick.campaignPins).toEqual([]);
-    expect(DEFAULT_SETTINGS.platform.twitch.farmPinnedOnly).toBe(false);
     expect(
       mergeSettings({
         platform: { kick: { campaignPins: [" first ", "second", "first"] } },
@@ -579,9 +578,9 @@ describe("per-platform eligibility in the engine contract", () => {
     for (const platform of ["twitch", "kick"] as const) {
       expect(DEFAULT_ENGINE_SETTINGS.platform[platform]).toMatchObject({
         rewardFilter: defaultRewardFilter(platform),
-        farmPinnedOnly: false,
         unlinkedCampaigns: "include",
       });
+      expect(DEFAULT_ENGINE_SETTINGS.platform[platform]).not.toHaveProperty("farmPinnedOnly");
     }
   });
 
@@ -593,7 +592,6 @@ describe("per-platform eligibility in the engine contract", () => {
       },
     } as never);
     expect(merged.platform.kick.unlinkedCampaigns).toBe("last");
-    expect(merged.platform.kick.farmPinnedOnly).toBe(false);
     expect(merged.platform.kick.rewardFilter).toEqual(defaultRewardFilter("kick"));
     expect(merged.platform.twitch.unlinkedCampaigns).toBe("include");
   });

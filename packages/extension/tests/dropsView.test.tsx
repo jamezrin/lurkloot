@@ -89,7 +89,6 @@ function mount(
             refreshing={false}
             strategy="ending_soonest"
             pinnedCount={0}
-            farmPinnedOnly={false}
             unlinkedCampaigns="include"
             platform="twitch"
             rewardFilter={defaultRewardFilter("twitch")}
@@ -97,7 +96,6 @@ function mount(
             onRewardFilterChange={() => undefined}
             onStrategyChange={() => undefined}
             onUnpinAll={() => undefined}
-            onFarmPinnedOnlyChange={() => undefined}
             onUnlinkedCampaignsChange={() => undefined}
             onRefreshCampaign={() => undefined}
             onPinChange={() => undefined}
@@ -194,7 +192,6 @@ function renderDropsPanel(
           refreshing={false}
           strategy="ending_soonest"
           pinnedCount={pinnedCount}
-          farmPinnedOnly={false}
           unlinkedCampaigns="include"
           platform="twitch"
           rewardFilter={defaultRewardFilter("twitch")}
@@ -202,7 +199,6 @@ function renderDropsPanel(
           onRewardFilterChange={() => undefined}
           onStrategyChange={() => undefined}
           onUnpinAll={() => undefined}
-          onFarmPinnedOnlyChange={() => undefined}
           onUnlinkedCampaignsChange={() => undefined}
           onRefreshCampaign={() => undefined}
           onPinChange={() => undefined}
@@ -261,7 +257,6 @@ function mountCampaignList(
             refreshing={false}
             strategy="ending_soonest"
             pinnedCount={0}
-            farmPinnedOnly={false}
             unlinkedCampaigns="include"
             platform="twitch"
             rewardFilter={defaultRewardFilter("twitch")}
@@ -269,7 +264,6 @@ function mountCampaignList(
             onRewardFilterChange={() => undefined}
             onStrategyChange={() => undefined}
             onUnpinAll={() => undefined}
-            onFarmPinnedOnlyChange={() => undefined}
             onUnlinkedCampaignsChange={() => undefined}
             onRefreshCampaign={() => undefined}
             onPinChange={onPinChange}
@@ -638,7 +632,6 @@ describe("campaign rank input", () => {
               refreshing={false}
               strategy="ending_soonest"
               pinnedCount={2}
-              farmPinnedOnly={false}
               unlinkedCampaigns="include"
               platform="twitch"
               rewardFilter={defaultRewardFilter("twitch")}
@@ -646,7 +639,6 @@ describe("campaign rank input", () => {
               onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
-              onFarmPinnedOnlyChange={() => undefined}
               onUnlinkedCampaignsChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={onPinChange}
@@ -727,7 +719,6 @@ describe("campaign rank input", () => {
               refreshing={false}
               strategy="ending_soonest"
               pinnedCount={2}
-              farmPinnedOnly={false}
               unlinkedCampaigns="include"
               platform="twitch"
               rewardFilter={defaultRewardFilter("twitch")}
@@ -735,7 +726,6 @@ describe("campaign rank input", () => {
               onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
-              onFarmPinnedOnlyChange={() => undefined}
               onUnlinkedCampaignsChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={onPinChange}
@@ -873,7 +863,6 @@ describe("initial drops expansion", () => {
               refreshing={false}
               strategy="ending_soonest"
               pinnedCount={0}
-              farmPinnedOnly={false}
               unlinkedCampaigns="include"
               platform="twitch"
               rewardFilter={defaultRewardFilter("twitch")}
@@ -881,7 +870,6 @@ describe("initial drops expansion", () => {
               onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
-              onFarmPinnedOnlyChange={() => undefined}
               onUnlinkedCampaignsChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={() => undefined}
@@ -939,7 +927,6 @@ describe("initial drops expansion", () => {
               refreshing={false}
               strategy="ending_soonest"
               pinnedCount={0}
-              farmPinnedOnly={false}
               unlinkedCampaigns="include"
               platform="twitch"
               rewardFilter={defaultRewardFilter("twitch")}
@@ -947,7 +934,6 @@ describe("initial drops expansion", () => {
               onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
-              onFarmPinnedOnlyChange={() => undefined}
               onUnlinkedCampaignsChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={() => undefined}

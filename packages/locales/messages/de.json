@@ -384,7 +384,7 @@
     "message": "Wähle, was gefarmt wird"
   },
   "tourRewardFilterBody": {
-    "message": "Öffne Alle Belohnungen, um Belohnungstypen auszuwählen, festzulegen, was mit Kampagnen ohne verknüpftes Konto passiert, und ob nur angeheftete Kampagnen gefarmt werden."
+    "message": "Öffne „Alle Belohnungen“, um festzulegen, welche Belohnungstypen angeheftete Kampagnen, Lieblingsspiele und andere Kampagnen farmen und was mit Kampagnen ohne verknüpftes Konto passiert."
   },
   "tourCompletedTitle": {
     "message": "Abgeschlossen und abgelaufen"
@@ -906,7 +906,10 @@
     "message": "Dieses Spiel ist blockiert, seine Kampagnen werden nie gefarmt."
   },
   "campaignRejectionNotPinned": {
-    "message": "Derzeit werden nur angeheftete Kampagnen gefarmt."
+    "message": "Ihre Warteschlangen-Gruppe farmt keine Belohnungstypen. Zum Farmen anheften."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Ihre Warteschlangen-Gruppe farmt keine Belohnungstypen."
   },
   "campaignRejectionRewardKind": {
     "message": "Nichts hier passt zu deinen Belohnungstypen ($1)."
@@ -1076,6 +1079,24 @@
   "rewardKindsDescription": {
     "message": "Eine Belohnung wird gefarmt, wenn irgendein Teil davon passt."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Wähle, welche Belohnungstypen jeder Bereich der Warteschlange farmt."
+  },
+  "rewardGroupPinned": {
+    "message": "Angeheftete Kampagnen"
+  },
+  "rewardGroupFavourite": {
+    "message": "Lieblingsspiele"
+  },
+  "rewardGroupOther": {
+    "message": "Andere Kampagnen"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 für $2"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Gemischte Typen"
+  },
   "rewardKindItem": {
     "message": "Ingame-Items"
   },
@@ -1168,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Auf alle Belohnungen zurücksetzen"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Nur angeheftete Kampagnen farmen"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Auf $1 werden nur Kampagnen gefarmt, die du in der Warteschlange angeheftet hast."
   },
   "forgetExcludedTitle": {
     "message": "Ausgeschlossene Kampagnen vergessen"

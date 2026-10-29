@@ -7,6 +7,7 @@ import {
 } from "@lurkloot/core/controller";
 import type { DropCampaign } from "@lurkloot/shared/models";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
+import type { RewardFilter } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS, IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
 import {
   asSnapshot,
@@ -20,6 +21,14 @@ import {
 } from "../helpers/backgroundController";
 
 // Settings commits and the transitions they start.
+
+// Farming only pins (#932): the favourite and other groups farm no kinds.
+const PINS_ONLY: RewardFilter = {
+  kinds: [],
+  subscriptions: "include",
+  pinnedKinds: ["item", "badge", "emote"],
+  favouriteKinds: [],
+};
 
 describe("background controller", () => {
   afterEach(() => {
@@ -78,7 +87,7 @@ describe("background controller", () => {
             twitch: {
               ...DEFAULT_SETTINGS.platform.twitch,
               campaignPins: ["sooner"],
-              farmPinnedOnly: true,
+              rewardFilter: PINS_ONLY,
             },
           },
         }),
@@ -104,7 +113,7 @@ describe("background controller", () => {
       const pinnedOnly = {
         platform: {
           ...DEFAULT_SETTINGS.platform,
-          twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: true },
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, rewardFilter: PINS_ONLY },
         },
       };
       expect(isRankingOnlyPatch({ platform: { twitch: { campaignPins: ["a"] } } }, off)).toBe(true);
@@ -115,11 +124,11 @@ describe("background controller", () => {
       expect(
         isRankingOnlyPatch({ platform: { twitch: { campaignPins: ["a"] } } }, pinnedOnly),
       ).toBe(false);
-      // Only the platform farming pinned only needs its pins rediscovered.
+      // Only the platform farming only pins needs its pins rediscovered.
       expect(isRankingOnlyPatch({ platform: { kick: { campaignPins: ["a"] } } }, pinnedOnly)).toBe(
         true,
       );
-      expect(isRankingOnlyPatch({ platform: { twitch: { farmPinnedOnly: true } } }, off)).toBe(
+      expect(isRankingOnlyPatch({ platform: { twitch: { rewardFilter: PINS_ONLY } } }, off)).toBe(
         false,
       );
       expect(

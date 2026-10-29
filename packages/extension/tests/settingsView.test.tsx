@@ -5,6 +5,7 @@ import type React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { SettingsView } from "../../popup-ui/src/settings";
@@ -85,8 +86,6 @@ const labels: Record<string, string> = {
   subscriptionModeIncludeHint: "Subscription rewards are farmed with the rest.",
   subscriptionModeSkipHint: "Rewards that need a subscription are not farmed.",
   subscriptionModeOnlyHint: "Only rewards that need a subscription are farmed.",
-  farmPinnedOnlyTitle: "Farm pinned campaigns only",
-  farmPinnedOnlyDescription: "Only campaigns you pinned in the Queue are farmed on $1.",
   notLinked: "Not linked",
   subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
@@ -354,10 +353,12 @@ describe("deadline feasibility setting", () => {
     expect(group).not.toBeNull();
     expect(group.textContent).toContain("Rewards to farm");
     expect(group.textContent).toContain("What Lurkloot farms on Twitch.");
-    expect(group.querySelectorAll("[data-reward-kind]")).toHaveLength(3);
+    // One cell per reward kind and Queue group (#932).
+    expect(group.querySelectorAll('[role="checkbox"][data-reward-kind]')).toHaveLength(9);
+    // Farming only pins is the grid's empty columns (#932), not a switch.
     expect(
       group.querySelector('[role="switch"][aria-label="Farm pinned campaigns only"]'),
-    ).not.toBeNull();
+    ).toBeNull();
     const unlinked = group.querySelector<HTMLElement>("[data-unlinked-mode]")!;
     expect(unlinked.getAttribute("role")).toBe("radiogroup");
     expect(unlinked.getAttribute("data-unlinked-mode")).toBe("include");
@@ -377,7 +378,7 @@ describe("deadline feasibility setting", () => {
     expect(onSettingsChange).toHaveBeenCalledWith(
       {
         platform: {
-          twitch: { rewardFilter: { kinds: ["item", "badge", "emote"], subscriptions: "skip" } },
+          twitch: { rewardFilter: { ...defaultRewardFilter("twitch"), subscriptions: "skip" } },
         },
       },
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
@@ -392,11 +393,11 @@ describe("deadline feasibility setting", () => {
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     );
 
-    // Kick has one kind and, here, no subscription rewards: the unlinked
-    // choice and the pinned-only toggle.
+    // Kick has one kind and, here, no subscription rewards: its one-row grid
+    // of Queue groups (#932) and the unlinked choice.
     const kick = container.querySelector<HTMLElement>('[id="settings-group-kick.rewards"]')!;
     expect(kick.querySelector("[data-unlinked-mode]")).not.toBeNull();
-    expect(kick.querySelector("[data-reward-kind]")).toBeNull();
+    expect(kick.querySelectorAll('[role="checkbox"][data-reward-kind="item"]')).toHaveLength(3);
     expect(kick.querySelector("[data-subscription-mode]")).toBeNull();
     expect(kick.textContent).toContain("What Lurkloot farms on Kick.");
   });

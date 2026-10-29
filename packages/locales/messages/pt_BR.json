@@ -384,7 +384,7 @@
     "message": "Escolha o que farmar"
   },
   "tourRewardFilterBody": {
-    "message": "Abra \"Todas as recompensas\" para escolher quais tipos de recompensa farmar, o que fazer com campanhas sem conta vinculada e se deve farmar apenas as campanhas fixadas."
+    "message": "Abra \"Todas as recompensas\" para escolher quais tipos de recompensa farmam as campanhas fixadas, os jogos favoritos e as outras campanhas, e o que fazer com campanhas sem conta vinculada."
   },
   "tourCompletedTitle": {
     "message": "Concluídas e expiradas"
@@ -906,7 +906,10 @@
     "message": "Este jogo está bloqueado, então suas campanhas nunca são farmadas."
   },
   "campaignRejectionNotPinned": {
-    "message": "No momento, apenas campanhas fixadas são farmadas."
+    "message": "O grupo da fila não farma nenhum tipo de recompensa. Fixe-a para farmá-la."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "O grupo da fila não farma nenhum tipo de recompensa."
   },
   "campaignRejectionRewardKind": {
     "message": "Nada aqui corresponde aos seus tipos de recompensa ($1)."
@@ -1076,6 +1079,24 @@
   "rewardKindsDescription": {
     "message": "Uma recompensa é farmada se qualquer parte dela corresponder."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Escolha quais tipos de recompensa cada parte da Fila vai farmar."
+  },
+  "rewardGroupPinned": {
+    "message": "Campanhas fixadas"
+  },
+  "rewardGroupFavourite": {
+    "message": "Jogos favoritos"
+  },
+  "rewardGroupOther": {
+    "message": "Outras campanhas"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 para $2"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Tipos misturados"
+  },
   "rewardKindItem": {
     "message": "Itens no jogo"
   },
@@ -1168,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Redefinir para todas as recompensas"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmar só campanhas fixadas"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Só as campanhas que você fixou na Fila são farmadas em $1."
   },
   "forgetExcludedTitle": {
     "message": "Esquecer campanhas excluídas"

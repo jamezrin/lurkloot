@@ -1,6 +1,7 @@
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
+import { normalizeRewardFilter, rewardGroupKinds } from "@lurkloot/shared/rewardFilter";
 import type { PlatformAdapter } from "../platforms/adapter";
 import {
   currentManagedPageContextTabs,
@@ -49,11 +50,36 @@ export type SettingsEffects = Partial<Record<Platform, SettingsEffect>>;
 
 // Settings that only decide the order campaigns are farmed in. Discovery does
 // not read them, so saving one keeps the discovered campaigns and channels.
-// A platform's pins are the exception while its "farm pinned only" is on:
-// discovery then skips unpinned campaigns, so a new pin needs its channels
-// found.
+// A pin or a star also decides what is farmed, so it needs its channels found,
+// when its Queue group farms other reward kinds than the group it leaves
+// (#932): pinning or starring then moves the campaign onto a different filter,
+// and an empty group (only pins farming, say) is skipped by discovery.
 const RANKING_SETTING_KEYS = new Set(["priorityMode"]);
 const RANKING_PLATFORM_SETTING_KEYS = new Set(["favouriteCategories", "campaignPins"]);
+
+// Whether moving a campaign into `group` leaves its reward kinds as they were.
+// A pin can move a campaign out of the favourite group as well as out of the
+// rest; a star only moves an unpinned one out of the rest.
+function groupMoveKeepsKinds(
+  current: Pick<EngineSettings, "platform">,
+  platform: Platform,
+  group: "pinned" | "favourite",
+): boolean {
+  const filter = normalizeRewardFilter(current.platform[platform].rewardFilter, platform);
+  const kinds = rewardGroupKinds(filter, group).join();
+  if (kinds !== filter.kinds.join()) return false;
+  return group === "favourite" || kinds === filter.favouriteKinds.join();
+}
+
+function isRankingOnlyPlatformKey(
+  key: string,
+  current: Pick<EngineSettings, "platform">,
+  platform: Platform,
+): boolean {
+  if (!RANKING_PLATFORM_SETTING_KEYS.has(key)) return false;
+  if (key === "campaignPins") return groupMoveKeepsKinds(current, platform, "pinned");
+  return groupMoveKeepsKinds(current, platform, "favourite");
+}
 
 export function isRankingOnlyPatch(
   patch: SettingsPatch,
@@ -66,10 +92,8 @@ export function isRankingOnlyPatch(
     return PLATFORMS.every((platform) => {
       const platformPatch = patch.platform?.[platform];
       if (!platformPatch) return true;
-      return Object.keys(platformPatch).every(
-        (platformKey) =>
-          RANKING_PLATFORM_SETTING_KEYS.has(platformKey)
-          && !(platformKey === "campaignPins" && current.platform[platform].farmPinnedOnly),
+      return Object.keys(platformPatch).every((platformKey) =>
+        isRankingOnlyPlatformKey(platformKey, current, platform),
       );
     });
   });

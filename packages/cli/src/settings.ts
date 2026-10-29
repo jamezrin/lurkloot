@@ -80,10 +80,6 @@ export interface CliSettings {
   compatibility: CompatibilitySettings;
 }
 
-// Per-platform eligibility switches. Their values are checked, not just their
-// names: booleanOr would quietly restore the default for `"farmPinnedOnly": "yes"`
-// and farm the wrong set.
-const PLATFORM_ELIGIBILITY_SWITCHES = ["farmPinnedOnly"] as const;
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
@@ -150,7 +146,6 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "rewardFilter",
     "campaignPins",
     "excludedCampaignIds",
-    "farmPinnedOnly",
     "unlinkedCampaigns",
     "categories",
     "favouriteCategories",
@@ -171,7 +166,6 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "rewardFilter",
     "campaignPins",
     "excludedCampaignIds",
-    "farmPinnedOnly",
     "unlinkedCampaigns",
     "categories",
     "favouriteCategories",
@@ -328,14 +322,16 @@ function rewardFilterOffenders(platform: string, raw: unknown): string[] {
   }
   const offenders: string[] = [];
   const filter = raw as Record<string, unknown>;
+  const kindLists = ["kinds", "pinnedKinds", "favouriteKinds"];
   for (const key of Object.keys(filter)) {
-    if (key !== "kinds" && key !== "subscriptions")
+    if (!kindLists.includes(key) && key !== "subscriptions")
       offenders.push(`unknown setting "${key}" under ${path}`);
   }
-  if (Object.hasOwn(filter, "kinds")) {
-    const kinds = filter.kinds;
+  for (const key of kindLists) {
+    if (!Object.hasOwn(filter, key)) continue;
+    const kinds = filter[key];
     if (!Array.isArray(kinds) || !kinds.every((kind) => REWARD_KINDS.includes(kind as never))) {
-      offenders.push(`"${path}.kinds" must be an array of: ${REWARD_KINDS.join(", ")}`);
+      offenders.push(`"${path}.${key}" must be an array of: ${REWARD_KINDS.join(", ")}`);
     }
   }
   if (
@@ -379,11 +375,7 @@ function parseMigratedCliSettings(
             if (!CLI_PLATFORM_KEYS[name as Platform].has(key))
               offenders.push(`unknown setting "${key}" under platform.${name}`);
           }
-          for (const key of PLATFORM_ELIGIBILITY_SWITCHES) {
-            if (Object.hasOwn(block, key) && typeof block[key] !== "boolean")
-              offenders.push(`"platform.${name}.${key}" must be a boolean`);
-          }
-          // Like the eligibility switches above: normalizeCategoryMode would
+          // Checked by value, not just name: normalizeCategoryMode would
           // quietly fall back to "all" for a typo such as "exclude_all",
           // silently farming the whole directory instead of the chosen subset.
           if (
@@ -546,7 +538,6 @@ function normalizePlatform(
         // Hand-edited headless, so order is the data.
         campaignPins: normalizeIdList(ps.campaignPins),
         excludedCampaignIds: normalizeIdList(ps.excludedCampaignIds),
-        farmPinnedOnly: booleanOr(ps.farmPinnedOnly, defaults.farmPinnedOnly),
         unlinkedCampaigns: normalizeUnlinkedCampaignMode(ps.unlinkedCampaigns),
         categories: normalizeCategorySelections(ps.categories),
         favouriteCategories: normalizeCategorySelections(ps.favouriteCategories),

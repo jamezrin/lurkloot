@@ -4,10 +4,8 @@ import type {
   ExtensionSettings,
   Platform,
   RewardFilter,
-  RewardKind,
   WatchSession,
 } from "@lurkloot/shared/models";
-import { PLATFORM_REWARD_KINDS, REWARD_KINDS } from "@lurkloot/shared/rewardFilter";
 import {
   NO_CATEGORY_ID,
   categoryListIndex,
@@ -31,6 +29,7 @@ import {
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
 import {
   campaignFarmingBlockers,
+  farmingRewardFilter,
   OUTSIDE_ACTION_REJECTION_CODES,
 } from "@lurkloot/shared/campaignFarming";
 export {
@@ -278,10 +277,7 @@ export function campaignViewFromCampaign(
     ? applySubscriptionMarks(source, settings.platform[source.platform].subscribedRewardMarks ?? [])
     : source;
   const farmingBlockers = feasibility?.settings
-    ? campaignFarmingBlockers(campaign, feasibility.settings, {
-        includePinnedOnly: true,
-        now: feasibility.now,
-      })
+    ? campaignFarmingBlockers(campaign, feasibility.settings, { now: feasibility.now })
     : [];
   return {
     id: campaign.id,
@@ -296,6 +292,9 @@ export function campaignViewFromCampaign(
       ? indexOrUndefined(settings.platform[campaign.platform].campaignPins.indexOf(campaign.id))
       : undefined,
     category: campaignCategory(campaign),
+    // The same filter campaignFarmingBlockers judged it by, so a skip names
+    // the kinds that skipped it.
+    rewardFilter: settings ? farmingRewardFilter(campaign, settings) : undefined,
     favouriteIndex: settings
       ? indexOrUndefined(favouriteCategoryIndex(campaign, settings.platform[campaign.platform]))
       : undefined,
@@ -395,41 +394,6 @@ function safeClaimGuidance(guidance: DropCampaign["claimGuidance"]): DropCampaig
   } catch {
     return undefined;
   }
-}
-
-// How many campaigns the Queue would hold with each reward kind selected on
-// its own, keeping the current subscription mode: the Queue's own section
-// test, so a kind's count is the queue it narrows to. Kinds the platform
-// cannot farm count nothing.
-export function rewardKindCounts(
-  campaigns: readonly DropCampaign[],
-  settings: ExtensionSettings,
-  platform: Platform,
-): Record<RewardKind, number> {
-  const platformSettings = settings.platform[platform];
-  const marked = campaigns.map((campaign) =>
-    applySubscriptionMarks(campaign, platformSettings.subscribedRewardMarks ?? []),
-  );
-  const supported = PLATFORM_REWARD_KINDS[platform];
-  return Object.fromEntries(
-    REWARD_KINDS.map((kind) => {
-      if (!supported.includes(kind)) return [kind, 0];
-      const only: ExtensionSettings = {
-        ...settings,
-        platform: {
-          ...settings.platform,
-          [platform]: {
-            ...platformSettings,
-            rewardFilter: { ...platformSettings.rewardFilter, kinds: [kind] },
-          },
-        },
-      };
-      return [
-        kind,
-        marked.filter((campaign) => campaignSection(campaign, only) === "queue").length,
-      ];
-    }),
-  ) as Record<RewardKind, number>;
 }
 
 // Whether the subscription question is worth asking: some campaign has a

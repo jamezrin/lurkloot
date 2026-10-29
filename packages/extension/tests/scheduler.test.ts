@@ -6,6 +6,7 @@ import type {
   ExtensionSettings,
   KickPlatformSettings,
   Platform,
+  RewardFilter,
   SchedulerState,
   TwitchPlatformSettings,
 } from "@lurkloot/shared/models";
@@ -38,6 +39,14 @@ const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   requiredMinutes: 60,
   watchedMinutes: status === "locked" ? 0 : 20,
   status,
+});
+
+// Farming only pins (#932): the favourite and other groups farm no kinds.
+const pinsOnly = (): RewardFilter => ({
+  kinds: [],
+  subscriptions: "include",
+  pinnedKinds: ["item", "badge", "emote"],
+  favouriteKinds: [],
 });
 
 const campaign = (id: string, patch: Partial<DropCampaign> = {}): DropCampaign => ({
@@ -775,13 +784,35 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("farm pinned only skips campaigns the user has not pinned", async () => {
+  // Every campaign pinned is not "only pins farm": with the default filter, a
+  // pinned campaign that cannot finish in time names the deadline.
+  it("names the deadline, not pins, when every campaign is pinned but all kinds farm", async () => {
+    const soon = new Date(Date.now() + 10 * 60_000).toISOString();
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("pinned", { endsAt: soon, rewards: [{ ...reward(), requiredMinutes: 600 }] })],
+      settings({ platform: { twitch: { campaignPins: ["pinned"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
+      },
+    );
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("cannot be completed before their deadline");
+    expect(decision.reason).not.toContain("No pinned campaigns are eligible");
+  });
+
+  it("farming only pins skips campaigns the user has not pinned", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("unlisted", { gameName: "Unlisted Game" })],
-      settings({ platform: { twitch: { farmPinnedOnly: true } } }),
+      settings({ platform: { twitch: { rewardFilter: pinsOnly() } } }),
       {
         listCandidateChannels,
         checkChannel: vi.fn(async (candidate) => ({
@@ -797,18 +828,18 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("farm pinned only ignores the category list (decoupled)", async () => {
+  it("farming only pins ignores the category list (decoupled)", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     // A campaign whose category is allowed but which was never pinned is NOT
-    // farmed under farmPinnedOnly — the two are independent.
+    // farmed while only pins farm: the two are independent.
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("listed", { gameName: "Listed Game" })],
       settings({
         platform: {
           twitch: {
-            farmPinnedOnly: true,
+            rewardFilter: pinsOnly(),
             categoryMode: "include",
             categories: [{ id: "listed game", name: "Listed Game" }],
           },
@@ -828,11 +859,11 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("farm pinned only farms a pinned campaign", async () => {
+  it("farming only pins farms a pinned campaign", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("pinned"), campaign("unlisted")],
-      settings({ platform: { twitch: { campaignPins: ["pinned"], farmPinnedOnly: true } } }),
+      settings({ platform: { twitch: { campaignPins: ["pinned"], rewardFilter: pinsOnly() } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({
@@ -851,7 +882,7 @@ describe("scheduler campaign selection", () => {
     const kick = campaign("kick-campaign", { platform: "kick" });
     const base = settings();
     const unlinkedOff = settings({ platform: { kick: { unlinkedCampaigns: "skip" } } });
-    const twitchChanged = settings({ platform: { twitch: { farmPinnedOnly: true } } });
+    const twitchChanged = settings({ platform: { twitch: { rewardFilter: pinsOnly() } } });
 
     expect(campaignSearchFingerprint(kick, unlinkedOff)).not.toBe(
       campaignSearchFingerprint(kick, base),
@@ -861,11 +892,11 @@ describe("scheduler campaign selection", () => {
     );
   });
 
-  it("farm pinned only on Twitch leaves Kick's unpinned campaigns farmed", async () => {
+  it("farming only pins on Twitch leaves Kick's unpinned campaigns farmed", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [campaign("kick-unpinned", { platform: "kick" })],
-      settings({ platform: { twitch: { farmPinnedOnly: true } } }),
+      settings({ platform: { twitch: { rewardFilter: pinsOnly() } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" })]),
         checkChannel: vi.fn(async (candidate) => ({
@@ -894,9 +925,56 @@ describe("scheduler campaign selection", () => {
       id,
       ...patch,
     });
-    const badgesOnly = { kinds: ["badge" as const], subscriptions: "include" as const };
+    const badgesOnly = {
+      kinds: ["badge" as const],
+      subscriptions: "include" as const,
+      pinnedKinds: ["badge" as const],
+      favouriteKinds: ["badge" as const],
+    };
     const badgeReward = (id: string, patch: Partial<DropReward> = {}): DropReward =>
       item(id, { benefits: [{ id: `${id}-benefit`, distributionType: "BADGE" }], ...patch });
+
+    // #917/#932: items are off for most campaigns but on for a starred game.
+    it("farms a favourite game's item campaign while items are off for the rest", async () => {
+      const starredItems = campaign("starred-items", {
+        categoryId: "starred",
+        gameName: "Starred",
+        endsAt: "2099-06-01T00:00:00.000Z",
+      });
+      const plainItems = campaign("plain-items", { endsAt: "2098-01-01T00:00:00.000Z" });
+      const configured = settings({
+        platform: {
+          twitch: {
+            favouriteCategories: [{ id: "starred", name: "Starred" }],
+            rewardFilter: { ...badgesOnly, favouriteKinds: ["item", "badge", "emote"] },
+          },
+        },
+      });
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [plainItems, starredItems],
+        configured,
+        live,
+      );
+      expect(decision.action).toBe("watch");
+      expect(decision.campaign?.id).toBe("starred-items");
+      // The same item campaign outside the starred game is not farmed.
+      const rest = await chooseCampaignDecision("twitch", [plainItems], configured, live);
+      expect(rest.action).not.toBe("watch");
+
+      // Pinned with items off for pins, the same campaign is skipped.
+      const pinned = settings({
+        platform: {
+          twitch: {
+            campaignPins: ["starred-items"],
+            favouriteCategories: [{ id: "starred", name: "Starred" }],
+            rewardFilter: { ...badgesOnly, favouriteKinds: ["item", "badge", "emote"] },
+          },
+        },
+      });
+      const skipped = await chooseCampaignDecision("twitch", [starredItems], pinned, live);
+      expect(skipped.action).not.toBe("watch");
+    });
 
     it("farms only badge campaigns, and only toward their badges", async () => {
       // The item comes first and is shorter; the strategy would pick it.
@@ -1741,7 +1819,12 @@ describe("campaign filters gate farming", () => {
       ],
     });
 
-  const skipSubscriptions = { kinds: ["item" as const], subscriptions: "skip" as const };
+  const skipSubscriptions = {
+    kinds: ["item" as const],
+    subscriptions: "skip" as const,
+    pinnedKinds: ["item" as const],
+    favouriteKinds: ["item" as const],
+  };
 
   it("skips a campaign whose only reward needs a subscription under skip", async () => {
     const subscriptionOnly = campaign("sub-only", {

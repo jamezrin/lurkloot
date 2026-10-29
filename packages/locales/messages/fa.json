@@ -384,7 +384,7 @@
     "message": "چیزی را که می‌خواهید فارم کنید انتخاب کنید"
   },
   "tourRewardFilterBody": {
-    "message": "«همهٔ پاداش‌ها» را باز کنید تا نوع پاداش، رفتار با کمپین‌های حساب پیوندنخورده و فارم‌کردن فقط کمپین‌های سنجاق‌شده را انتخاب کنید."
+    "message": "«همهٔ پاداش‌ها» را باز کنید تا انتخاب کنید هر یک از کمپین‌های سنجاق‌شده، بازی‌های محبوب و سایر کمپین‌ها چه نوع پاداشی را فارم کنند و با کمپین‌های بدون حساب پیوندشده چه رفتاری شود."
   },
   "tourCompletedTitle": {
     "message": "تمام‌شده و منقضی‌شده"
@@ -906,7 +906,10 @@
     "message": "این بازی مسدود شده است، بنابراین کمپین‌هایش هرگز فارم نمی‌شوند."
   },
   "campaignRejectionNotPinned": {
-    "message": "فعلاً فقط کمپین‌های سنجاق‌شده فارم می‌شوند."
+    "message": "گروه صف آن هیچ نوع پاداشی فارم نمی‌کند. برای فارم‌کردنش سنجاقش کنید."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "گروه صف آن هیچ نوع پاداشی فارم نمی‌کند."
   },
   "campaignRejectionRewardKind": {
     "message": "چیزی در اینجا با نوع پاداش شما مطابقت ندارد ($1)."
@@ -1076,6 +1079,24 @@
   "rewardKindsDescription": {
     "message": "اگر هر بخشی از پاداش با انتخابت جور باشد، فارم می‌شود."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "انتخاب کنید هر بخش صف کدام نوع پاداش را فارم کند."
+  },
+  "rewardGroupPinned": {
+    "message": "کمپین‌های سنجاق‌شده"
+  },
+  "rewardGroupFavourite": {
+    "message": "بازی‌های محبوب"
+  },
+  "rewardGroupOther": {
+    "message": "سایر کمپین‌ها"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 برای $2"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "انواع ترکیبی"
+  },
   "rewardKindItem": {
     "message": "آیتم‌های درون‌بازی"
   },
@@ -1168,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "بازنشانی به همهٔ پاداش‌ها"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "فقط کمپین‌های سنجاق‌شده فارم شوند"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "در $1 فقط کمپین‌هایی فارم می‌شوند که در صف سنجاق کرده‌اید."
   },
   "forgetExcludedTitle": {
     "message": "فراموش‌کردن کمپین‌های مستثناشده"

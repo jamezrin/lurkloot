@@ -18,7 +18,12 @@ import type {
 const UNLINKED_FARMED = { unlinkedCampaigns: "include" } as const;
 const UNLINKED_LAST = { unlinkedCampaigns: "last" } as const;
 const UNLINKED_SKIPPED = { unlinkedCampaigns: "skip" } as const;
-const SKIP_SUBSCRIPTIONS: RewardFilter = { kinds: ["item"], subscriptions: "skip" };
+const SKIP_SUBSCRIPTIONS: RewardFilter = {
+  kinds: ["item"],
+  subscriptions: "skip",
+  pinnedKinds: ["item"],
+  favouriteKinds: ["item"],
+};
 
 const FARM_ALL_CATEGORIES: Pick<PlatformSettings, "categoryMode" | "categories"> = {
   categoryMode: "all",
@@ -49,22 +54,30 @@ function settings(
         ...base.platform.twitch,
         ...categorySelection,
         unlinkedCampaigns: overrides.unlinkedCampaigns ?? "include",
-        farmPinnedOnly: overrides.farmPinnedOnly ?? false,
         excludedCampaignIds: overrides.excludedCampaignIds ?? [],
         campaignPins: overrides.campaignPins ?? [],
-        rewardFilter: overrides.rewardFilter ?? base.platform.twitch.rewardFilter,
+        rewardFilter: rewardFilterOf(overrides, base.platform.twitch.rewardFilter),
       },
       kick: {
         ...base.platform.kick,
         ...categorySelection,
         unlinkedCampaigns: overrides.unlinkedCampaigns ?? "include",
-        farmPinnedOnly: overrides.farmPinnedOnly ?? false,
         excludedCampaignIds: overrides.excludedCampaignIds ?? [],
         campaignPins: overrides.campaignPins ?? [],
-        rewardFilter: overrides.rewardFilter ?? base.platform.kick.rewardFilter,
+        rewardFilter: rewardFilterOf(overrides, base.platform.kick.rewardFilter),
       },
     },
   };
+}
+
+// `farmPinnedOnly` stands for farming only pins (#932): the favourite and other
+// groups farm no kinds.
+function rewardFilterOf(
+  overrides: { rewardFilter?: RewardFilter; farmPinnedOnly?: boolean },
+  base: RewardFilter,
+): RewardFilter {
+  const filter = overrides.rewardFilter ?? base;
+  return overrides.farmPinnedOnly ? { ...filter, kinds: [], favouriteKinds: [] } : filter;
 }
 
 function section(campaign: DropCampaign, overrides: Parameters<typeof settings>[0] = {}): string {

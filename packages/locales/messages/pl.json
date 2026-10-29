@@ -384,7 +384,7 @@
     "message": "Wybierz, co farmić"
   },
   "tourRewardFilterBody": {
-    "message": "Otwórz „Wszystkie nagrody”, aby wybrać typy nagród do farmienia, sposób postępowania z kampaniami bez połączonego konta oraz to, czy farmić wyłącznie przypięte kampanie."
+    "message": "Otwórz „Wszystkie nagrody”, aby wybrać, jakie typy nagród farmią przypięte kampanie, ulubione gry i pozostałe kampanie, oraz co zrobić z kampaniami bez połączonego konta."
   },
   "tourCompletedTitle": {
     "message": "Ukończone i wygasłe"
@@ -906,7 +906,10 @@
     "message": "Ta gra jest zablokowana, więc jej kampanie nigdy nie są farmione."
   },
   "campaignRejectionNotPinned": {
-    "message": "Teraz farmione są tylko przypięte kampanie."
+    "message": "Jej grupa kolejki nie farmi żadnych typów nagród. Przypnij ją, aby ją farmić."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Jej grupa kolejki nie farmi żadnych typów nagród."
   },
   "campaignRejectionRewardKind": {
     "message": "Nic tutaj nie pasuje do wybranych typów nagród ($1)."
@@ -1076,6 +1079,24 @@
   "rewardKindsDescription": {
     "message": "Nagroda jest farmiona, jeśli pasuje choć jedna jej część."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Wybierz, jakie typy nagród farmuje każda część kolejki."
+  },
+  "rewardGroupPinned": {
+    "message": "Przypięte kampanie"
+  },
+  "rewardGroupFavourite": {
+    "message": "Ulubione gry"
+  },
+  "rewardGroupOther": {
+    "message": "Pozostałe kampanie"
+  },
+  "rewardKindForGroup": {
+    "message": "$1: $2"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Mieszane typy"
+  },
   "rewardKindItem": {
     "message": "Przedmioty w grze"
   },
@@ -1168,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Przywróć wszystkie nagrody"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmuj tylko przypięte kampanie"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Na $1 farmowane są tylko kampanie przypięte w Kolejce."
   },
   "forgetExcludedTitle": {
     "message": "Zapomnij wykluczone kampanie"

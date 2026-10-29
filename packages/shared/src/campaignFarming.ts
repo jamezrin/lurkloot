@@ -8,6 +8,8 @@ import type {
 } from "./models";
 import {
   campaignFilterMiss,
+  campaignRewardFilter,
+  campaignRewardGroup,
   defaultRewardFilter,
   isRewardFilterNarrowed,
   rewardMatchesFilter,
@@ -60,9 +62,6 @@ export type CampaignFarmingEvaluation =
     };
 
 export interface CampaignFarmingEvaluationOptions {
-  // Whether to apply the "farm pinned only" switch. The scheduler always does;
-  // the popup asks for it so a skipped campaign can explain itself.
-  includePinnedOnly?: boolean;
   now?: number;
 }
 
@@ -104,6 +103,28 @@ export function rewardsInFarmingScope(
   return campaign.rewards.filter((reward) => scoped.has(reward.id));
 }
 
+// Whether the campaign's Queue group farms nothing (#932) while it is not
+// pinned: then only a pin would farm it, so it is judged by the pinned kinds,
+// the group a pin would move it into, and "not pinned" names exactly the
+// campaigns a pin would start farming (#731).
+function awaitsPin(campaign: DropCampaign, settings: EngineSettings): boolean {
+  const group = campaignRewardGroup(campaign, settings);
+  return group !== "pinned" && campaignRewardFilter(campaign, settings, group).kinds.length === 0;
+}
+
+// The reward filter a campaign is judged by: its Queue group's kinds, or the
+// pinned kinds while its own group farms nothing (awaitsPin).
+export function farmingRewardFilter(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+): RewardFilter {
+  return campaignRewardFilter(
+    campaign,
+    settings,
+    awaitsPin(campaign, settings) ? "pinned" : undefined,
+  );
+}
+
 export function evaluateCampaignFarming(
   campaign: DropCampaign,
   settings: EngineSettings,
@@ -135,7 +156,7 @@ export function evaluateCampaignFarming(
   // A campaign without rewards has nothing to filter; it is reported as such.
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards")
     return rejected("no_rewards");
-  const filter = platformSettings.rewardFilter;
+  const filter = farmingRewardFilter(campaign, settings);
   const filteredBy = campaignFilterMiss(campaign, filter);
   if (filteredBy) return { farmable: false, code: "reward_type_filtered", filteredBy };
   const unclaimed = rewardsInFarmingScope(campaign, filter).filter(
@@ -149,16 +170,10 @@ export function evaluateCampaignFarming(
         : "no_unclaimed_rewards",
     );
   }
-  // Farm pinned only narrows within what the reward filter keeps, so it is
-  // judged after it: an unpinned campaign the filter excludes says so first,
-  // and "not pinned" names only campaigns a pin would start farming (#731).
-  if (
-    options.includePinnedOnly
-    && platformSettings.farmPinnedOnly
-    && !platformSettings.campaignPins.includes(campaign.id)
-  ) {
-    return rejected("not_pinned");
-  }
+  // Its own group farms nothing, but the pinned kinds would farm it: "not
+  // pinned", judged after the filter so a campaign no pin would farm says what
+  // misses first (#731).
+  if (awaitsPin(campaign, settings)) return rejected("not_pinned");
 
   const blockers: Rejection[] = [];
   for (const reward of unclaimed) {
@@ -281,6 +296,8 @@ function withBlockerLifted(
     case "reward_types_obtained":
       // The default filter cannot lift a miss it would make itself (a reward of
       // a kind the platform never farms); ending here keeps the replay finite.
+      // Reset clears every group, so it can lift a miss while any part of the
+      // filter is narrowed.
       if (
         !isRewardFilterNarrowed(
           settings.platform[campaign.platform].rewardFilter,

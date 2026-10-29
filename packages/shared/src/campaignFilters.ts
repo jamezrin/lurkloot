@@ -128,12 +128,9 @@ export function campaignEligibleClass(campaign: DropCampaign, settings: EngineSe
   return campaign.rewards.some((reward) => reward.status !== "claimed");
 }
 
-// The single definition of "is this campaign farmable right now" — everything
-// the engine's isEligible checks EXCEPT the farmPinnedOnly switch. That switch
-// is a farming-strategy choice, not a fact about the campaign itself: a campaign
-// the user has not pinned yet must stay eligible-class here so the popup can
-// still list it (as Skipped, with "not pinned" as the reason) and offer the pin.
-// Strictly narrower than campaignEligibleClass.
+// The single definition of "is this campaign farmable right now", the same
+// test the engine's isEligible applies. Strictly narrower than
+// campaignEligibleClass.
 export function campaignFarmable(campaign: DropCampaign, settings: EngineSettings): boolean {
   return evaluateCampaignFarming(campaign, settings).farmable;
 }
@@ -151,7 +148,5 @@ export function campaignSection(campaign: DropCampaign, settings: EngineSettings
   if (isCampaignFinished(campaign)) return "completed";
   if (isCampaignExpired(campaign)) return "expired";
   if (isCampaignUpcoming(campaign)) return "upcoming";
-  return evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true }).farmable
-    ? "queue"
-    : "skipped";
+  return evaluateCampaignFarming(campaign, settings).farmable ? "queue" : "skipped";
 }

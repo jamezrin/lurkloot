@@ -95,7 +95,6 @@ function renderQueueMarkup(campaigns: CampaignView[], refreshing: boolean): stri
         refreshing,
         strategy: "ending_soonest" as const,
         pinnedCount: 0,
-        farmPinnedOnly: false,
         unlinkedCampaigns: "include" as const,
         platform: "twitch" as const,
         rewardFilter: defaultRewardFilter("twitch"),
@@ -103,7 +102,6 @@ function renderQueueMarkup(campaigns: CampaignView[], refreshing: boolean): stri
         onRewardFilterChange: () => {},
         onStrategyChange: () => {},
         onUnpinAll: () => {},
-        onFarmPinnedOnlyChange: () => {},
         onUnlinkedCampaignsChange: () => {},
         onRefreshCampaign: () => {},
         onPinChange: () => {},
@@ -557,7 +555,12 @@ describe("subscription drop popup views", () => {
     expect(evaluateCampaignFarming(source, settings)).toMatchObject({
       code: "subscription_required",
     });
-    settings.platform.twitch.rewardFilter = { kinds: ["item"], subscriptions: "skip" };
+    settings.platform.twitch.rewardFilter = {
+      kinds: ["item"],
+      subscriptions: "skip",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    };
     expect(campaignSection(source, settings)).toBe("skipped");
     expect(evaluateCampaignFarming(source, settings)).toMatchObject({
       code: "reward_type_filtered",
@@ -727,7 +730,6 @@ describe("the exclude button on a campaign with nothing to watch", () => {
           refreshing: false,
           strategy: "ending_soonest" as const,
           pinnedCount: 0,
-          farmPinnedOnly: false,
           unlinkedCampaigns: "include" as const,
           platform: "twitch" as const,
           rewardFilter: defaultRewardFilter("twitch"),
@@ -735,7 +737,6 @@ describe("the exclude button on a campaign with nothing to watch", () => {
           onRewardFilterChange: () => {},
           onStrategyChange: () => {},
           onUnpinAll: () => {},
-          onFarmPinnedOnlyChange: () => {},
           onUnlinkedCampaignsChange: () => {},
           onRefreshCampaign: () => {},
           onPinChange: () => {},

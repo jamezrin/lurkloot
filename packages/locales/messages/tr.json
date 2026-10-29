@@ -384,7 +384,7 @@
     "message": "Neyi farmlayacağını seç"
   },
   "tourRewardFilterBody": {
-    "message": "\"Tüm ödüller\"i açarak hangi ödül türlerini farmlayacağını, hesap bağlantısı olmayan kampanyalarla ne yapılacağını ve yalnızca sabitlenmiş kampanyaların farmlanıp farmlanmayacağını seçebilirsin."
+    "message": "\"Tüm ödüller\"i açarak sabitlenmiş kampanyaların, favori oyunların ve diğer kampanyaların hangi ödül türlerini farmlayacağını ve hesap bağlantısı olmayan kampanyalarla ne yapılacağını seçebilirsin."
   },
   "tourCompletedTitle": {
     "message": "Tamamlanan ve süresi dolan"
@@ -906,7 +906,10 @@
     "message": "Bu oyun engellendi, bu yüzden kampanyaları hiç farmlanmaz."
   },
   "campaignRejectionNotPinned": {
-    "message": "Şu anda yalnızca sabitlenmiş kampanyalar farmlanıyor."
+    "message": "Sıra grubu hiçbir ödül türünü farmlamıyor. Farmlamak için sabitleyin."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Sıra grubu hiçbir ödül türünü farmlamıyor."
   },
   "campaignRejectionRewardKind": {
     "message": "Burada seçtiğin ödül türlerine ($1) uyan bir şey yok."
@@ -1076,6 +1079,24 @@
   "rewardKindsDescription": {
     "message": "Bir ödülün herhangi bir kısmı eşleşirse farmlanır."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Sıranın her bölümünün hangi ödül türlerini farmlayacağını seçin."
+  },
+  "rewardGroupPinned": {
+    "message": "Sabitlenmiş kampanyalar"
+  },
+  "rewardGroupFavourite": {
+    "message": "Favori oyunlar"
+  },
+  "rewardGroupOther": {
+    "message": "Diğer kampanyalar"
+  },
+  "rewardKindForGroup": {
+    "message": "$2 için $1"
+  },
+  "rewardFilterMixedTypes": {
+    "message": "Karışık türler"
+  },
   "rewardKindItem": {
     "message": "Oyun içi eşyalar"
   },
@@ -1168,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Tüm ödüllere sıfırla"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Yalnızca sabitlenmiş kampanyaları farmla"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "$1 üzerinde yalnızca Sıra'da sabitlediğin kampanyalar farmlanır."
   },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"

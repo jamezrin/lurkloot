@@ -112,7 +112,6 @@ function mount(campaigns: CampaignView[]): {
           refreshing={false}
           strategy="ending_soonest"
           pinnedCount={0}
-          farmPinnedOnly={false}
           unlinkedCampaigns="include"
           platform="twitch"
           rewardFilter={defaultRewardFilter("twitch")}

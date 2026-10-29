@@ -77,12 +77,17 @@ describe("parseConfig", () => {
     ]);
   });
 
-  it("loads a top-level farmPinnedOnly with one warning, pinning both platforms", () => {
+  it("loads a top-level farmPinnedOnly with one warning, farming only pins on both platforms", () => {
     const config = parseConfig({ settings: { farmPinnedOnly: true } }, CONFIG_PATH);
-    expect(config.settings.platform.twitch.farmPinnedOnly).toBe(true);
-    expect(config.settings.platform.kick.farmPinnedOnly).toBe(true);
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(config.settings.platform[platform].rewardFilter).toMatchObject({
+        kinds: [],
+        favouriteKinds: [],
+      });
+      expect(config.settings.platform[platform]).not.toHaveProperty("farmPinnedOnly");
+    }
     expect(config.warnings).toEqual([
-      "settings.farmPinnedOnly moved to platform.twitch and platform.kick farmPinnedOnly",
+      "settings.farmPinnedOnly moved to platform.twitch and platform.kick farmPinnedOnly; then platform.twitch.farmPinnedOnly is now empty favouriteKinds and kinds in platform.twitch.rewardFilter; then platform.kick.farmPinnedOnly is now empty favouriteKinds and kinds in platform.kick.rewardFilter",
     ]);
   });
 
@@ -378,7 +383,6 @@ describe("loadConfig", () => {
       const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
       expect(platforms[platform]).toMatchObject({
         rewardFilter: defaults.rewardFilter,
-        farmPinnedOnly: defaults.farmPinnedOnly,
         unlinkedCampaigns: defaults.unlinkedCampaigns,
       });
     }

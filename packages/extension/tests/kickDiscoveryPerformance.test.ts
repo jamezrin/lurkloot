@@ -677,7 +677,12 @@ describe("Kick static discovery gate", () => {
         rewards: [{ ...reward, requirement: "subscription", requiredSubs: 1, isWatchBased: false }],
       },
       (settings) => {
-        settings.platform.kick.rewardFilter = { kinds: ["item"], subscriptions: "skip" };
+        settings.platform.kick.rewardFilter = {
+          kinds: ["item"],
+          subscriptions: "skip",
+          pinnedKinds: ["item"],
+          favouriteKinds: ["item"],
+        };
       },
     ],
     [
@@ -691,7 +696,13 @@ describe("Kick static discovery gate", () => {
       "not pinned",
       {},
       (settings) => {
-        settings.platform.kick.farmPinnedOnly = true;
+        // Only pins farm (#932): the other groups farm no kinds.
+        settings.platform.kick.rewardFilter = {
+          kinds: [],
+          subscriptions: "include",
+          pinnedKinds: ["item"],
+          favouriteKinds: [],
+        };
       },
     ],
     ["no rewards", { rewards: [] }, () => {}],
