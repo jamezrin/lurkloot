@@ -742,7 +742,12 @@ match both other groups, and a star only while the favourite kinds match the
 rest; an empty group is skipped by discovery before any channel work, as
 pinned-only was. The Queue menu and Settings edit the groups as one grid
 (`RewardKindsGrid`), Kick's included, which keeps one kind ticked across the
-grid so something is always farmed.
+grid so something is always farmed. Each grid heading ticks its whole column
+or row, or unticks it when all of it is ticked (`toggleRewardGroup`,
+`toggleRewardKind`, #934); a toggle that would empty the grid is disabled.
+The Queue's menu button always reads "Rewards to farm" and only marks, with
+its accent and a dot, that something differs from the defaults: no short label
+can say what the grid and the other questions hold.
 `subscriptions` is `include`, `skip` or `only`. A reward matches when any of its
 kinds is selected and it passes the subscription mode; a marked subscription
 reward passes `skip` and

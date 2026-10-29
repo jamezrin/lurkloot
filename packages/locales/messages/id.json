@@ -384,7 +384,7 @@
     "message": "Pilih yang akan di-farm"
   },
   "tourRewardFilterBody": {
-    "message": "Buka \"Semua hadiah\" untuk memilih jenis hadiah yang di-farm oleh kampanye yang disematkan, game favorit, dan kampanye lainnya, serta apa yang dilakukan pada kampanye tanpa akun tertaut."
+    "message": "Buka \"Hadiah untuk di-farm\" untuk memilih jenis hadiah yang di-farm oleh kampanye yang disematkan, game favorit, dan kampanye lainnya, serta apa yang dilakukan pada kampanye tanpa akun tertaut."
   },
   "tourCompletedTitle": {
     "message": "Selesai dan kedaluwarsa"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Hadiah untuk di-farm"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Hadiah untuk di-farm (dikustomisasi)"
+  },
+  "rewardGridTickAll": {
+    "message": "Centang semua untuk $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Hapus centang semua untuk $1"
+  },
   "rewardFilterDescription": {
     "message": "Yang di-farm Lurkloot di $1. Menu filter di Antrean mengubah pengaturan yang sama."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 untuk $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Jenis campuran"
-  },
   "rewardKindItem": {
     "message": "Item dalam game"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emote"
-  },
-  "rewardKindItemShort": {
-    "message": "Item"
   },
   "subscriptionRewardsTitle": {
     "message": "Hadiah langganan"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Di-farm hanya saat tidak ada kampanye tertaut yang bisa di-farm. Kampanye yang disematkan dan game favorit tetap pada posisinya."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "lewati tak tertaut"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "tak tertaut terakhir"
-  },
   "queueGroupUnlinked": {
     "message": "Tanpa tautan · di-farm terakhir"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Farm terakhir"
-  },
-  "rewardFilterAll": {
-    "message": "Semua hadiah"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Semua"
-  },
-  "rewardFilterNoSub": {
-    "message": "tanpa sub"
-  },
-  "rewardFilterSubOnly": {
-    "message": "hanya sub"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "hanya disematkan"
   },
   "rewardFilterReset": {
     "message": "Atur ulang ke semua hadiah"

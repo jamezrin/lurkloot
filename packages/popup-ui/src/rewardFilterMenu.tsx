@@ -19,11 +19,11 @@ import {
   REWARD_KINDS,
   SUBSCRIPTION_REWARD_MODES,
   defaultRewardFilter,
-  farmsPinnedOnly,
   isRewardFilterNarrowed,
   normalizeRewardFilter,
   rewardGroupKinds,
-  rewardGroupsDiffer,
+  toggleRewardGroup,
+  toggleRewardKind,
   withRewardGroupKinds,
   type RewardGroup,
 } from "@lurkloot/shared/rewardFilter";
@@ -32,24 +32,14 @@ import {
   UNLINKED_CAMPAIGN_MODES,
 } from "@lurkloot/shared/unlinkedCampaigns";
 import { useT } from "./context";
-
-// Re-exported for the menu's callers and tests; the rule lives in shared.
-export { farmsPinnedOnly };
 import { FLOATING_POPUP_CLASS } from "./dropdown";
 import { usePortalContainer } from "./portal";
 import { useCloseOnOutsideScroll } from "./outsideScroll";
 import { cn } from "./primitives";
-import type { TFunction } from "./types";
+import { Tip } from "./tooltip";
 
 const KIND_KEYS: Record<RewardKind, string> = {
   item: "rewardKindItem",
-  badge: "rewardKindBadge",
-  emote: "rewardKindEmote",
-};
-
-// The trigger has little room, so it names items by the short form.
-const KIND_SHORT_KEYS: Record<RewardKind, string> = {
-  item: "rewardKindItemShort",
   badge: "rewardKindBadge",
   emote: "rewardKindEmote",
 };
@@ -72,11 +62,6 @@ const MODE_HINT_KEYS: Record<SubscriptionRewardMode, string> = {
   only: "subscriptionModeOnlyHint",
 };
 
-const MODE_LABEL_KEYS: Partial<Record<SubscriptionRewardMode, string>> = {
-  skip: "rewardFilterNoSub",
-  only: "rewardFilterSubOnly",
-};
-
 const UNLINKED_MODE_KEYS: Record<UnlinkedCampaignMode, string> = {
   include: "unlinkedModeInclude",
   skip: "unlinkedModeSkip",
@@ -87,11 +72,6 @@ const UNLINKED_MODE_HINT_KEYS: Record<UnlinkedCampaignMode, string> = {
   include: "unlinkedModeIncludeHint",
   skip: "unlinkedModeSkipHint",
   last: "unlinkedModeLastHint",
-};
-
-const UNLINKED_MODE_LABEL_KEYS: Partial<Record<UnlinkedCampaignMode, string>> = {
-  skip: "rewardFilterNoUnlinked",
-  last: "rewardFilterUnlinkedLast",
 };
 
 const SECTION_TITLE_CLASS =
@@ -181,33 +161,6 @@ export function UnlinkedCampaignsField({
   );
 }
 
-/** The filter in a few words: only what is narrowed, kinds first and then the
- * subscription mode ("Badges, Emotes · no sub"), or "All rewards". When the
- * Queue groups farm different kinds the kinds read "Mixed types": naming each
- * group's kinds would not fit the button. Farming only pins names the pinned
- * kinds; the menu adds "pinned only" after everything else. */
-export function rewardFilterLabel(filter: RewardFilter, platform: Platform, t: TFunction): string {
-  const current = normalizeRewardFilter(filter, platform);
-  const all = PLATFORM_REWARD_KINDS[platform].length;
-  const mode = MODE_LABEL_KEYS[current.subscriptions];
-  const named = (kinds: readonly RewardKind[]) =>
-    kinds.length === all
-      ? t("rewardFilterAllKinds")
-      : kinds.map((kind) => t(KIND_SHORT_KEYS[kind])).join(", ");
-  let kinds: string;
-  if (farmsPinnedOnly(current, platform)) {
-    if (current.pinnedKinds.length === all && !mode) return t("rewardFilterAll");
-    kinds = named(current.pinnedKinds);
-  } else if (!isRewardFilterNarrowed(current, platform)) {
-    return t("rewardFilterAll");
-  } else {
-    kinds = rewardGroupsDiffer(current, platform)
-      ? t("rewardFilterMixedTypes")
-      : named(current.kinds);
-  }
-  return mode ? `${kinds} · ${t(mode)}` : kinds;
-}
-
 function GroupHeading({ group }: { group: RewardGroup }): React.ReactElement {
   const t = useT();
   const iconClass = "shrink-0 text-zinc-700 dark:text-zinc-200";
@@ -231,11 +184,20 @@ function GroupHeading({ group }: { group: RewardGroup }): React.ReactElement {
   );
 }
 
+// A grid line a heading acts on, so its cells can be highlighted while the
+// heading is hovered or focused.
+type GridLine = { group: RewardGroup } | { kind: RewardKind };
+
+const HEADING_BUTTON_CLASS =
+  "rounded-md outline-none hover:bg-[var(--ink-soft)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:cursor-not-allowed disabled:hover:bg-transparent";
+
 /** Which reward kinds each Queue group farms (#932): kinds as rows, the
  * Queue's groups as columns, in Queue order. An empty column farms nothing
  * from its group, so farming only pins is the favourite and other columns
  * left empty. The grid as a whole keeps one kind, so something is always
- * farmed. */
+ * farmed. Each heading is a button that ticks its whole column or row, or
+ * unticks it when all of it is ticked (#934); one that would empty the grid
+ * is disabled. */
 function RewardKindsGrid({
   platform,
   filter,
@@ -248,11 +210,20 @@ function RewardKindsGrid({
   const t = useT();
   const titleId = useId();
   const hintId = useId();
+  const [line, setLine] = useState<GridLine | null>(null);
   const available = PLATFORM_REWARD_KINDS[platform];
   const ticked = REWARD_GROUPS.reduce(
     (count, group) => count + rewardGroupKinds(filter, group).length,
     0,
   );
+  const lit = (group: RewardGroup, kind: RewardKind) =>
+    line !== null && ("group" in line ? line.group === group : line.kind === kind);
+  const watch = (target: GridLine) => ({
+    onMouseEnter: () => setLine(target),
+    onMouseLeave: () => setLine(null),
+    onFocus: () => setLine(target),
+    onBlur: () => setLine(null),
+  });
   return (
     <div className="space-y-1">
       <div id={titleId} className={SECTION_TITLE_CLASS}>
@@ -270,73 +241,119 @@ function RewardKindsGrid({
         <thead>
           <tr>
             <td />
-            {REWARD_GROUPS.map((group) => (
-              <th
-                key={group}
-                scope="col"
-                data-reward-group={group}
-                className="w-16 px-0.5 pb-1.5 align-top text-[10px] font-semibold text-zinc-500 dark:text-zinc-400"
-              >
-                <GroupHeading group={group} />
-              </th>
-            ))}
+            {REWARD_GROUPS.map((group) => {
+              const kinds = rewardGroupKinds(filter, group);
+              const full = available.every((kind) => kinds.includes(kind));
+              const next = toggleRewardGroup(filter, platform, group);
+              const action = t(
+                full ? "rewardGridUntickAll" : "rewardGridTickAll",
+                t(GROUP_KEYS[group]),
+              );
+              return (
+                <th
+                  key={group}
+                  scope="col"
+                  data-reward-group={group}
+                  className="w-16 px-0.5 pb-1.5 align-top text-[10px] font-semibold text-zinc-500 dark:text-zinc-400"
+                >
+                  <Tip label={action}>
+                    <button
+                      type="button"
+                      aria-label={action}
+                      disabled={!next}
+                      data-reward-group-toggle={group}
+                      onClick={() => next && onChange(next)}
+                      {...watch({ group })}
+                      className={cn(HEADING_BUTTON_CLASS, "w-full px-0.5 pt-0.5")}
+                    >
+                      <GroupHeading group={group} />
+                    </button>
+                  </Tip>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
-          {available.map((kind) => (
-            <tr key={kind} className="group/row">
-              <th
-                scope="row"
-                className="truncate rounded-s-md py-1 ps-1 text-start text-[11.5px] font-normal text-zinc-700 group-hover/row:bg-[var(--ink-soft)] dark:text-zinc-200"
-              >
-                {t(KIND_KEYS[kind])}
-              </th>
-              {REWARD_GROUPS.map((group, index) => {
-                const kinds = rewardGroupKinds(filter, group);
-                const checked = kinds.includes(kind);
-                return (
-                  <td
-                    key={group}
-                    className={cn(
-                      "py-1 text-center group-hover/row:bg-[var(--ink-soft)]",
-                      index === REWARD_GROUPS.length - 1 && "rounded-e-md",
-                    )}
-                  >
-                    <Checkbox.Root
-                      checked={checked}
-                      // The last kind left in the grid stays: something is
-                      // always farmed.
-                      disabled={checked && ticked === 1}
-                      aria-label={t("rewardKindForGroup", [
-                        t(KIND_KEYS[kind]),
-                        t(GROUP_KEYS[group]),
-                      ])}
-                      data-reward-group={group}
-                      data-reward-kind={kind}
-                      onCheckedChange={(value) =>
-                        onChange(
-                          withRewardGroupKinds(
-                            filter,
-                            group,
-                            REWARD_KINDS.filter((entry) =>
-                              entry === kind ? value : kinds.includes(entry),
-                            ),
-                          ),
-                        )
-                      }
-                      className="group inline-flex cursor-default rounded-[5px] align-middle outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:cursor-not-allowed"
+          {available.map((kind) => {
+            const full = REWARD_GROUPS.every((group) =>
+              rewardGroupKinds(filter, group).includes(kind),
+            );
+            const next = toggleRewardKind(filter, platform, kind);
+            const action = t(
+              full ? "rewardGridUntickAll" : "rewardGridTickAll",
+              t(KIND_KEYS[kind]),
+            );
+            return (
+              <tr key={kind} className="group/row">
+                <th
+                  scope="row"
+                  className="rounded-s-md py-0.5 text-start text-[11.5px] font-normal text-zinc-700 group-hover/row:bg-[var(--ink-soft)] dark:text-zinc-200"
+                >
+                  <Tip label={action}>
+                    <button
+                      type="button"
+                      aria-label={action}
+                      disabled={!next}
+                      data-reward-kind-toggle={kind}
+                      onClick={() => next && onChange(next)}
+                      {...watch({ kind })}
+                      className={cn(HEADING_BUTTON_CLASS, "w-full truncate px-1 py-0.5 text-start")}
                     >
-                      <span className={BOX_CLASS}>
-                        <Checkbox.Indicator className="flex">
-                          <Check size={10} strokeWidth={3} aria-hidden />
-                        </Checkbox.Indicator>
-                      </span>
-                    </Checkbox.Root>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+                      {t(KIND_KEYS[kind])}
+                    </button>
+                  </Tip>
+                </th>
+                {REWARD_GROUPS.map((group, index) => {
+                  const kinds = rewardGroupKinds(filter, group);
+                  const checked = kinds.includes(kind);
+                  return (
+                    <td
+                      key={group}
+                      data-reward-cell-lit={lit(group, kind) ? "" : undefined}
+                      className={cn(
+                        "py-1 text-center group-hover/row:bg-[var(--ink-soft)]",
+                        index === REWARD_GROUPS.length - 1 && "rounded-e-md",
+                        lit(group, kind)
+                          && "bg-[var(--accent-soft)] group-hover/row:bg-[var(--accent-soft)]",
+                      )}
+                    >
+                      <Checkbox.Root
+                        checked={checked}
+                        // The last kind left in the grid stays: something is
+                        // always farmed.
+                        disabled={checked && ticked === 1}
+                        aria-label={t("rewardKindForGroup", [
+                          t(KIND_KEYS[kind]),
+                          t(GROUP_KEYS[group]),
+                        ])}
+                        data-reward-group={group}
+                        data-reward-kind={kind}
+                        onCheckedChange={(value) =>
+                          onChange(
+                            withRewardGroupKinds(
+                              filter,
+                              group,
+                              REWARD_KINDS.filter((entry) =>
+                                entry === kind ? value : kinds.includes(entry),
+                              ),
+                            ),
+                          )
+                        }
+                        className="group inline-flex cursor-default rounded-[5px] align-middle outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:cursor-not-allowed"
+                      >
+                        <span className={BOX_CLASS}>
+                          <Checkbox.Indicator className="flex">
+                            <Check size={10} strokeWidth={3} aria-hidden />
+                          </Checkbox.Indicator>
+                        </span>
+                      </Checkbox.Root>
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -393,9 +410,11 @@ export function RewardFilterFields({
   );
 }
 
-/** The Queue's "Rewards to farm" button and menu. The button names what the
- * filter narrows; the menu edits the same per-platform setting as Settings:
- * the kinds grid on the left, the other questions on the right.
+/** The Queue's "Rewards to farm" button and menu. The button always reads
+ * "Rewards to farm" (#934): no short label can say what the grid and the other
+ * questions hold, so it only shows, with its accent and a dot, that something
+ * differs from the defaults. The menu edits the same per-platform setting as
+ * Settings: the kinds grid on the left, the other questions on the right.
  *
  * It is non-modal, like Dropdown: a modal popover locks page scroll by
  * restyling the body, and every body restyle makes Chrome re-measure the
@@ -421,30 +440,28 @@ export function RewardFilterMenu({
   const [open, setOpen] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
   useCloseOnOutsideScroll(open, () => setOpen(false), popupRef, container);
-  // The unlinked mode changes what is farmed as much as the filter does, and
-  // the closed button is the only place the Queue says so.
+  // The unlinked mode changes what is farmed as much as the filter does, so
+  // it counts as customised too.
   const unlinkedChanged = unlinkedCampaigns !== DEFAULT_UNLINKED_CAMPAIGN_MODE;
-  const pinnedOnly = farmsPinnedOnly(filter, platform);
   const narrowed = unlinkedChanged || isRewardFilterNarrowed(filter, platform);
-  const unlinkedLabelKey = UNLINKED_MODE_LABEL_KEYS[unlinkedCampaigns];
-  const label = [
-    rewardFilterLabel(filter, platform, t),
-    ...(unlinkedLabelKey ? [t(unlinkedLabelKey)] : []),
-    ...(pinnedOnly ? [t("rewardFilterPinnedOnly")] : []),
-  ].join(" · ");
   return (
     <Popover.Root modal={false} open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         ref={portalRef}
         data-reward-filter=""
         data-tour="reward-filter"
-        // The visible label names only the narrowing; the name says what it is.
-        aria-label={`${t("rewardFilterTitle")}: ${label}`}
+        aria-label={t(narrowed ? "rewardFilterTitleCustomized" : "rewardFilterTitle")}
         {...(narrowed ? { "data-narrowed": "" } : {})}
-        title={t("rewardFilterTitle")}
         className="flex max-w-[11rem] shrink-0 items-center gap-1 rounded-xl border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-zinc-700 outline-none transition-colors hover:border-zinc-400 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[narrowed]:border-[var(--accent-ring)] data-[narrowed]:bg-[var(--accent-soft)] data-[narrowed]:text-[var(--accent-text)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600"
       >
-        <span className="min-w-0 truncate">{label}</span>
+        {narrowed ? (
+          <span
+            aria-hidden
+            data-reward-filter-dot=""
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]"
+          />
+        ) : null}
+        <span className="min-w-0 truncate">{t("rewardFilterTitle")}</span>
         <ChevronDown
           size={12}
           aria-hidden

@@ -384,7 +384,7 @@
     "message": "Vyberte, co farmit"
   },
   "tourRewardFilterBody": {
-    "message": "Otevřete „Všechny odměny“ a vyberte, které typy odměn farmí připnuté kampaně, oblíbené hry a ostatní kampaně a co se stane s kampaněmi bez propojeného účtu."
+    "message": "Otevřete „Odměny k farmení“ a vyberte, které typy odměn farmí připnuté kampaně, oblíbené hry a ostatní kampaně a co se stane s kampaněmi bez propojeného účtu."
   },
   "tourCompletedTitle": {
     "message": "Dokončené a vypršelé"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Odměny k farmení"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Odměny k farmení (upraveno)"
+  },
+  "rewardGridTickAll": {
+    "message": "Zaškrtnout vše pro $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Odškrtnout vše pro $1"
+  },
   "rewardFilterDescription": {
     "message": "Co Lurkloot farmí na $1. Filtr ve Frontě mění stejné nastavení."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 pro $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Smíšené typy"
-  },
   "rewardKindItem": {
     "message": "Předměty ve hře"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emotikony"
-  },
-  "rewardKindItemShort": {
-    "message": "Předměty"
   },
   "subscriptionRewardsTitle": {
     "message": "Odměny za předplatné"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Farmí se jen tehdy, když nejde farmit žádná propojená kampaň. Připnuté kampaně a oblíbené hry si drží pozici."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "přeskočit nepropojené"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "nepropojené naposled"
-  },
   "queueGroupUnlinked": {
     "message": "Bez propojení · farmí se naposledy"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Farmit naposledy"
-  },
-  "rewardFilterAll": {
-    "message": "Všechny odměny"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Vše"
-  },
-  "rewardFilterNoSub": {
-    "message": "bez subu"
-  },
-  "rewardFilterSubOnly": {
-    "message": "jen sub"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "jen připnuté"
   },
   "rewardFilterReset": {
     "message": "Obnovit všechny odměny"

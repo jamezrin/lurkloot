@@ -8,12 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RewardFilter, RewardKind, UnlinkedCampaignMode } from "@lurkloot/shared/models";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { I18nContext } from "../../popup-ui/src/context";
-import {
-  RewardFilterFields,
-  RewardFilterMenu,
-  farmsPinnedOnly,
-  rewardFilterLabel,
-} from "../../popup-ui/src/rewardFilterMenu";
+import { RewardFilterFields, RewardFilterMenu } from "../../popup-ui/src/rewardFilterMenu";
 import type { TFunction } from "../../popup-ui/src/types";
 
 const t: TFunction = (key) => key;
@@ -52,56 +47,6 @@ function mount(node: React.ReactElement): HTMLElement {
   });
   return container;
 }
-
-describe("rewardFilterLabel", () => {
-  it("names nothing while every reward is farmed", () => {
-    expect(rewardFilterLabel(defaultRewardFilter("twitch"), "twitch", t)).toBe("rewardFilterAll");
-    expect(rewardFilterLabel(defaultRewardFilter("kick"), "kick", t)).toBe("rewardFilterAll");
-  });
-
-  it("names the kinds kept", () => {
-    const label = rewardFilterLabel(filterOf(["badge"]), "twitch", t);
-    expect(label).toContain("rewardKindBadge");
-    expect(label).not.toContain("rewardFilterNoSub");
-  });
-
-  it("names the kinds and then the subscription mode", () => {
-    const label = rewardFilterLabel(filterOf(["badge", "emote"], "skip"), "twitch", t);
-    expect(label).toContain("rewardKindBadge");
-    expect(label).toContain("rewardKindEmote");
-    expect(label).toContain("rewardFilterNoSub");
-    expect(label.indexOf("rewardKindEmote")).toBeLessThan(label.indexOf("rewardFilterNoSub"));
-  });
-
-  it("says All for the kinds when only the subscription mode narrows", () => {
-    const label = rewardFilterLabel(filterOf(["item", "badge", "emote"], "only"), "twitch", t);
-    expect(label).toContain("rewardFilterAllKinds");
-    expect(label).toContain("rewardFilterSubOnly");
-  });
-
-  it("says mixed types while the Queue groups farm different kinds", () => {
-    const label = rewardFilterLabel(
-      filterOf(["badge"], "skip", { favourite: ["item", "badge", "emote"] }),
-      "twitch",
-      t,
-    );
-    expect(label).toBe("rewardFilterMixedTypes · rewardFilterNoSub");
-  });
-
-  it("names the pinned kinds when only pins farm, and All rewards for all of them", () => {
-    const ALL: RewardKind[] = ["item", "badge", "emote"];
-    expect(
-      rewardFilterLabel(filterOf([], "include", { pinned: ALL, favourite: [] }), "twitch", t),
-    ).toBe("rewardFilterAll");
-    expect(
-      rewardFilterLabel(filterOf([], "skip", { pinned: ["badge"], favourite: [] }), "twitch", t),
-    ).toBe("rewardKindBadge · rewardFilterNoSub");
-    expect(farmsPinnedOnly(filterOf([], "include", { pinned: ALL, favourite: [] }), "twitch")).toBe(
-      true,
-    );
-    expect(farmsPinnedOnly(filterOf([], "include", { favourite: ["item"] }), "twitch")).toBe(false);
-  });
-});
 
 describe("RewardFilterFields", () => {
   const cell = (container: HTMLElement, group: string, kind: string) =>
@@ -218,6 +163,103 @@ describe("RewardFilterFields", () => {
   });
 });
 
+describe("RewardFilterFields heading toggles (#934)", () => {
+  const columnToggle = (group: string) =>
+    document.querySelector<HTMLButtonElement>(`[data-reward-group-toggle="${group}"]`)!;
+  const rowToggle = (kind: string) =>
+    document.querySelector<HTMLButtonElement>(`[data-reward-kind-toggle="${kind}"]`)!;
+  const mountGrid = (filter: RewardFilter, onChange = vi.fn()) => {
+    mount(
+      <RewardFilterFields
+        platform="twitch"
+        filter={filter}
+        showSubscriptions={false}
+        onChange={onChange}
+      />,
+    );
+    return onChange;
+  };
+  const ALL: RewardKind[] = ["item", "badge", "emote"];
+
+  it("unticks a full column, and says so", () => {
+    const onChange = mountGrid(filterOf(ALL));
+    expect(columnToggle("favourite").getAttribute("aria-label")).toBe("rewardGridUntickAll");
+    act(() => columnToggle("favourite").click());
+    expect(onChange).toHaveBeenCalledWith(filterOf(ALL, "include", { favourite: [] }));
+  });
+
+  it("ticks a column that is not full", () => {
+    const onChange = mountGrid(filterOf(["badge"]));
+    expect(columnToggle("other").getAttribute("aria-label")).toBe("rewardGridTickAll");
+    act(() => columnToggle("other").click());
+    expect(onChange).toHaveBeenCalledWith(
+      filterOf(ALL, "include", { pinned: ["badge"], favourite: ["badge"] }),
+    );
+  });
+
+  it("ticks or unticks a kind across every column", () => {
+    const onChange = mountGrid(filterOf(ALL));
+    act(() => rowToggle("item").click());
+    expect(onChange).toHaveBeenLastCalledWith(filterOf(["badge", "emote"]));
+
+    const partial = mountGrid(filterOf(["badge"], "include", { pinned: ["item", "badge"] }));
+    act(() => rowToggle("item").click());
+    expect(partial).toHaveBeenLastCalledWith(filterOf(["item", "badge"]));
+  });
+
+  it("disables a heading that would empty the grid", () => {
+    const onChange = mountGrid(filterOf([], "include", { pinned: ALL, favourite: [] }));
+    // Unticking the only farming column would farm nothing.
+    expect(columnToggle("pinned").disabled).toBe(true);
+    act(() => columnToggle("pinned").click());
+    expect(onChange).not.toHaveBeenCalled();
+    // Ticking another column, or a kind across them, stays possible.
+    expect(columnToggle("other").disabled).toBe(false);
+    expect(rowToggle("badge").disabled).toBe(false);
+  });
+
+  it("disables a kind's heading when that kind is all the grid farms", () => {
+    mountGrid(filterOf(["emote"]));
+    expect(rowToggle("emote").disabled).toBe(true);
+    expect(rowToggle("item").disabled).toBe(false);
+  });
+
+  it("highlights the cells a heading acts on while it is hovered or focused", () => {
+    mountGrid(filterOf(ALL));
+    const lit = () =>
+      [...document.querySelectorAll<HTMLElement>("[data-reward-cell-lit]")].map(
+        (cell) => cell.querySelector<HTMLElement>("[role=checkbox]")!.dataset,
+      );
+    act(() => columnToggle("pinned").focus());
+    expect(lit().map((cell) => cell.rewardGroup)).toEqual(["pinned", "pinned", "pinned"]);
+    act(() => columnToggle("pinned").blur());
+    expect(lit()).toEqual([]);
+    act(() => {
+      rowToggle("badge").dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    expect(lit().map((cell) => cell.rewardKind)).toEqual(["badge", "badge", "badge"]);
+  });
+
+  it("toggles Kick's one row and each of its columns", () => {
+    const onChange = vi.fn();
+    mount(
+      <RewardFilterFields
+        platform="kick"
+        filter={defaultRewardFilter("kick")}
+        showSubscriptions={false}
+        onChange={onChange}
+      />,
+    );
+    act(() => columnToggle("other").click());
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...defaultRewardFilter("kick"),
+      kinds: [],
+    });
+    // The row is all the grid has, so it cannot be unticked.
+    expect(rowToggle("item").disabled).toBe(true);
+  });
+});
+
 describe("RewardFilterMenu trigger", () => {
   const trigger = (filter: RewardFilter, unlinkedCampaigns: UnlinkedCampaignMode = "include") => {
     const container = mount(
@@ -232,38 +274,35 @@ describe("RewardFilterMenu trigger", () => {
     );
     return container.querySelector<HTMLElement>("[data-reward-filter]")!;
   };
-  const pinsOnly = (pinned: RewardKind[] = ["item", "badge", "emote"]) =>
-    filterOf([], "include", { pinned, favourite: [] });
 
-  it("says pinned only on the closed button and accents it", () => {
-    const button = trigger(pinsOnly());
-    expect(button.textContent).toBe("rewardFilterAll · rewardFilterPinnedOnly");
-    expect(button.getAttribute("aria-label")).toBe(
-      "rewardFilterTitle: rewardFilterAll · rewardFilterPinnedOnly",
-    );
-    expect(button.hasAttribute("data-narrowed")).toBe(true);
-  });
-
-  it("appends pinned only after the pinned kinds and the subscription mode", () => {
-    const button = trigger({ ...pinsOnly(["badge"]), subscriptions: "skip" });
-    expect(button.textContent).toBe("rewardKindBadge · rewardFilterNoSub · rewardFilterPinnedOnly");
-  });
-
-  it("stays plain when every reward is farmed and unlinked campaigns are included", () => {
+  it("always reads Rewards to farm, plain while everything is default", () => {
     const button = trigger(defaultRewardFilter("twitch"));
-    expect(button.textContent).toBe("rewardFilterAll");
+    expect(button.textContent).toBe("rewardFilterTitle");
+    expect(button.getAttribute("aria-label")).toBe("rewardFilterTitle");
     expect(button.hasAttribute("data-narrowed")).toBe(false);
+    expect(button.querySelector("[data-reward-filter-dot]")).toBeNull();
   });
 
-  it("names the unlinked mode between the filter and pinned only, and accents it", () => {
-    expect(trigger(defaultRewardFilter("twitch"), "skip").textContent).toBe(
-      "rewardFilterAll · rewardFilterNoUnlinked",
-    );
-    const last = trigger(pinsOnly(["badge"]), "last");
-    expect(last.textContent).toBe(
-      "rewardKindBadge · rewardFilterUnlinkedLast · rewardFilterPinnedOnly",
-    );
-    expect(last.hasAttribute("data-narrowed")).toBe(true);
+  it.each([
+    [
+      "only pins farming",
+      filterOf([], "include", { pinned: ["item", "badge", "emote"], favourite: [] }),
+      "include",
+    ],
+    [
+      "only favourites farming",
+      filterOf([], "include", { pinned: [], favourite: ["item"] }),
+      "include",
+    ],
+    ["a narrowed kind", filterOf(["badge"]), "include"],
+    ["a subscription mode", { ...defaultRewardFilter("twitch"), subscriptions: "skip" }, "include"],
+    ["the unlinked mode", defaultRewardFilter("twitch"), "last"],
+  ] as const)("marks the button customised for %s, with the same label", (_, filter, unlinked) => {
+    const button = trigger(filter as RewardFilter, unlinked as UnlinkedCampaignMode);
+    expect(button.textContent).toBe("rewardFilterTitle");
+    expect(button.getAttribute("aria-label")).toBe("rewardFilterTitleCustomized");
+    expect(button.hasAttribute("data-narrowed")).toBe(true);
+    expect(button.querySelector("[data-reward-filter-dot]")).not.toBeNull();
   });
 });
 

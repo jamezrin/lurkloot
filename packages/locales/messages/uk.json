@@ -384,7 +384,7 @@
     "message": "Оберіть, що фармити"
   },
   "tourRewardFilterBody": {
-    "message": "Відкрийте «Усі нагороди», щоб вибрати, які типи нагород фармлять закріплені кампанії, улюблені ігри й інші кампанії, і що робити з кампаніями без прив’язаного облікового запису."
+    "message": "Відкрийте «Нагороди для фарму», щоб вибрати, які типи нагород фармлять закріплені кампанії, улюблені ігри й інші кампанії, і що робити з кампаніями без прив’язаного облікового запису."
   },
   "tourCompletedTitle": {
     "message": "Завершені й минулі"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Нагороди для фарму"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Нагороди для фарму (змінено)"
+  },
+  "rewardGridTickAll": {
+    "message": "Позначити всі для $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Зняти всі для $1"
+  },
   "rewardFilterDescription": {
     "message": "Що Lurkloot фармить на $1. Меню фільтра в черзі змінює те саме налаштування."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 — $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Змішані типи"
-  },
   "rewardKindItem": {
     "message": "Внутрішньоігрові предмети"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Емоути"
-  },
-  "rewardKindItemShort": {
-    "message": "Предмети"
   },
   "subscriptionRewardsTitle": {
     "message": "Нагороди за підписку"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Фармляться, лише коли жодна кампанія з прив’язаним обліковим записом не може фармитися. Закріплені кампанії та улюблені ігри зберігають своє місце."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "пропустити без прив’язки"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "без прив’язки в кінці"
-  },
   "queueGroupUnlinked": {
     "message": "Без прив’язки · фармляться останніми"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Фармити останніми"
-  },
-  "rewardFilterAll": {
-    "message": "Усі нагороди"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Усі"
-  },
-  "rewardFilterNoSub": {
-    "message": "без підписки"
-  },
-  "rewardFilterSubOnly": {
-    "message": "лише з підпискою"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "лише закріплені"
   },
   "rewardFilterReset": {
     "message": "Скинути до всіх нагород"

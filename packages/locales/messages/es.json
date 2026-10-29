@@ -384,7 +384,7 @@
     "message": "Elige qué farmear"
   },
   "tourRewardFilterBody": {
-    "message": "Abre «Todas las recompensas» para elegir qué tipos de recompensa farmean las campañas fijadas, los juegos favoritos y otras campañas, y qué hacer con las campañas sin cuenta vinculada."
+    "message": "Abre «Recompensas a farmear» para elegir qué tipos de recompensa farmean las campañas fijadas, los juegos favoritos y otras campañas, y qué hacer con las campañas sin cuenta vinculada."
   },
   "tourCompletedTitle": {
     "message": "Completadas y caducadas"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Recompensas a farmear"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Recompensas a farmear (personalizado)"
+  },
+  "rewardGridTickAll": {
+    "message": "Marcar todo para $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Desmarcar todo para $1"
+  },
   "rewardFilterDescription": {
     "message": "Lo que Lurkloot farmea en $1. El menú de filtros de la Cola cambia el mismo ajuste."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$1 para $2"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Tipos mixtos"
-  },
   "rewardKindItem": {
     "message": "Objetos del juego"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emotes"
-  },
-  "rewardKindItemShort": {
-    "message": "Objetos"
   },
   "subscriptionRewardsTitle": {
     "message": "Recompensas por suscripción"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Solo se farmea cuando ninguna campaña vinculada puede farmearse. Las campañas fijadas y los juegos favoritos mantienen su lugar."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "omitir sin vincular"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "sin vincular al final"
-  },
   "queueGroupUnlinked": {
     "message": "Sin vincular · farmeadas al final"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "Farmear al final"
-  },
-  "rewardFilterAll": {
-    "message": "Todas las recompensas"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Todas"
-  },
-  "rewardFilterNoSub": {
-    "message": "sin sub"
-  },
-  "rewardFilterSubOnly": {
-    "message": "solo sub"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "solo fijadas"
   },
   "rewardFilterReset": {
     "message": "Restablecer a todas las recompensas"

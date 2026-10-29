@@ -384,7 +384,7 @@
     "message": "Neyi farmlayacağını seç"
   },
   "tourRewardFilterBody": {
-    "message": "\"Tüm ödüller\"i açarak sabitlenmiş kampanyaların, favori oyunların ve diğer kampanyaların hangi ödül türlerini farmlayacağını ve hesap bağlantısı olmayan kampanyalarla ne yapılacağını seçebilirsin."
+    "message": "\"Farmlanacak ödüller\"i açarak sabitlenmiş kampanyaların, favori oyunların ve diğer kampanyaların hangi ödül türlerini farmlayacağını ve hesap bağlantısı olmayan kampanyalarla ne yapılacağını seçebilirsin."
   },
   "tourCompletedTitle": {
     "message": "Tamamlanan ve süresi dolan"
@@ -1070,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Farmlanacak ödüller"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Farmlanacak ödüller (özelleştirildi)"
+  },
+  "rewardGridTickAll": {
+    "message": "$1 için tümünü işaretle"
+  },
+  "rewardGridUntickAll": {
+    "message": "$1 için tümünün işaretini kaldır"
+  },
   "rewardFilterDescription": {
     "message": "Lurkloot $1 üzerinde neyi farmlar. Sıra'daki filtre menüsü aynı ayarı değiştirir."
   },
@@ -1094,9 +1103,6 @@
   "rewardKindForGroup": {
     "message": "$2 için $1"
   },
-  "rewardFilterMixedTypes": {
-    "message": "Karışık türler"
-  },
   "rewardKindItem": {
     "message": "Oyun içi eşyalar"
   },
@@ -1105,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emote'ler"
-  },
-  "rewardKindItemShort": {
-    "message": "Eşyalar"
   },
   "subscriptionRewardsTitle": {
     "message": "Abonelik ödülleri"
@@ -1157,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Yalnızca bağlı bir kampanya farmlanamadığında farmlanır. Sabitlenmiş kampanyalar ve favori oyunlar yerini korur."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "bağlantısız atla"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "bağlantısız sonda"
-  },
   "queueGroupUnlinked": {
     "message": "Bağlantısız · en son farmlanır"
   },
@@ -1171,21 +1168,6 @@
   },
   "queueFixFarmLast": {
     "message": "En son farmla"
-  },
-  "rewardFilterAll": {
-    "message": "Tüm ödüller"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Tümü"
-  },
-  "rewardFilterNoSub": {
-    "message": "abonesiz"
-  },
-  "rewardFilterSubOnly": {
-    "message": "yalnız abonelik"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "yalnızca sabitlenmiş"
   },
   "rewardFilterReset": {
     "message": "Tüm ödüllere sıfırla"
