@@ -9,7 +9,7 @@ import { isRecord } from "./records";
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 11;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 12;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -84,6 +84,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 9, migrate: migrateToV9 },
   { to: 10, migrate: migrateToV10 },
   { to: 11, migrate: migrateToV11 },
+  { to: 12, migrate: migrateToV12 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -537,6 +538,54 @@ function migrateToV11(raw: Record<string, unknown>, diagnose: Diagnose): Record<
   return raw;
 }
 
+// Reward kinds became a choice per Queue group (#932), which folds in "farm
+// pinned only": it is the favourite and other groups farming nothing. Two
+// readings change, so both are rewritten while the old meaning is known:
+// - an empty kinds list meant every kind; from now on it means none, so an
+//   empty list stored before this version becomes every kind (normalization
+//   drops the ones a platform lacks);
+// - farmPinnedOnly: true becomes empty favouriteKinds and kinds, with the pins
+//   keeping the kinds the platform farmed. false is the default and needs no
+//   lists. Any other value only reports the key.
+// A current pinned or favourite list always wins, as renameProperty does.
+const EVERY_REWARD_KIND = ["item", "badge", "emote"];
+const REWARD_KIND_LISTS = ["kinds", "pinnedKinds", "favouriteKinds"] as const;
+
+function migrateToV12(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  for (const platform of ["twitch", "kick"] as const) {
+    const block = platformBlock(raw, platform);
+    if (!block) continue;
+    const stored = block.rewardFilter;
+    if (isRecord(stored)) {
+      for (const key of REWARD_KIND_LISTS) {
+        const list = stored[key];
+        if (Array.isArray(list) && list.length === 0) stored[key] = [...EVERY_REWARD_KIND];
+      }
+    }
+    if (!Object.hasOwn(block, "farmPinnedOnly")) continue;
+    const pinnedOnly = block.farmPinnedOnly;
+    delete block.farmPinnedOnly;
+    diagnose({
+      code: "moved_property",
+      path: `platform.${platform}.farmPinnedOnly`,
+      replacements: [
+        `platform.${platform}.rewardFilter.favouriteKinds`,
+        `platform.${platform}.rewardFilter.kinds`,
+      ],
+      message: `platform.${platform}.farmPinnedOnly is now empty favouriteKinds and kinds in platform.${platform}.rewardFilter`,
+    });
+    if (pinnedOnly !== true) continue;
+    if (Object.hasOwn(block, "rewardFilter") && !isRecord(stored)) continue;
+    const filter: Record<string, unknown> = isRecord(stored) ? stored : {};
+    block.rewardFilter = filter;
+    if (!Object.hasOwn(filter, "pinnedKinds"))
+      filter.pinnedKinds = Array.isArray(filter.kinds) ? [...filter.kinds] : [...EVERY_REWARD_KIND];
+    filter.favouriteKinds = [];
+    filter.kinds = [];
+  }
+  return raw;
+}
+
 // Creates a nested block only when it is safe to do so; a pre-existing malformed
 // block is left untouched so validation can report it verbatim.
 function ensureBlock(
@@ -661,6 +710,25 @@ function finalReplacements(
 ): SettingsMigrationDiagnostic[] {
   const byPath = new Map(all.map((diagnostic) => [diagnostic.path, diagnostic]));
   return kept.map((diagnostic) => {
+    // A value already spread over several paths that a later migration moves
+    // again (migration 8 copying farmPinnedOnly onto each platform, which
+    // migration 12 turns into reward kinds) names where it ends up, and says
+    // both steps.
+    if (diagnostic.replacements) {
+      const moved = diagnostic.replacements
+        .map((path) => byPath.get(path))
+        .filter((later): later is SettingsMigrationDiagnostic => later !== undefined);
+      if (moved.length === 0) return diagnostic;
+      const replacements = diagnostic.replacements.flatMap((path) => {
+        const later = byPath.get(path);
+        return later?.replacements ?? (later?.replacement ? [later.replacement] : [path]);
+      });
+      return {
+        ...diagnostic,
+        replacements,
+        message: [diagnostic.message, ...moved.map((later) => later.message)].join("; then "),
+      };
+    }
     let replacement = diagnostic.replacement;
     const visited = new Set<string>();
     while (replacement && !visited.has(replacement)) {

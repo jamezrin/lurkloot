@@ -11,8 +11,6 @@ describe("ranking settings", () => {
   it("defaults to an empty pin list, no favourites and no blocks", () => {
     expect(DEFAULT_SETTINGS.platform.twitch.campaignPins).toEqual([]);
     expect(DEFAULT_SETTINGS.platform.kick.excludedCampaignIds).toEqual([]);
-    expect(DEFAULT_SETTINGS.platform.twitch.farmPinnedOnly).toBe(false);
-    expect(DEFAULT_SETTINGS.platform.kick.farmPinnedOnly).toBe(false);
     expect(DEFAULT_SETTINGS.platform.twitch.favouriteCategories).toEqual([]);
     expect(DEFAULT_SETTINGS.platform.kick.blockedCategories).toEqual([]);
   });
@@ -52,14 +50,13 @@ describe("settings migration to pins and favourites", () => {
     expect(result.diagnostics.map((entry) => entry.path)).toContain("campaignPriorities");
   });
 
-  it("turns priority-list-only mode into the farm-pinned-only switch", () => {
+  it("turns priority-list-only mode into farming only pins", () => {
     const result = migrate({ priorityMode: "priority_list_only", campaignPriorities: { kept: 3 } });
     expect(result.settings.priorityMode).toBe("ending_soonest");
-    // v8 then moves the switch onto each platform.
-    expect(result.settings.platform).toMatchObject({
-      twitch: { farmPinnedOnly: true },
-      kick: { farmPinnedOnly: true },
-    });
+    // v8 moves the switch onto each platform, and v12 makes it the favourite
+    // and other groups farming nothing.
+    const onlyPins = { rewardFilter: { kinds: [], favouriteKinds: [] } };
+    expect(result.settings.platform).toMatchObject({ twitch: onlyPins, kick: onlyPins });
     expect(platformList(result.settings, "twitch", "campaignPins")).toEqual(["kept"]);
   });
 

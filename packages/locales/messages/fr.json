@@ -384,7 +384,7 @@
     "message": "Choisissez ce que vous farmez"
   },
   "tourRewardFilterBody": {
-    "message": "Ouvrez « Toutes les récompenses » pour choisir les types de récompenses à farmer, ce qu'il faut faire des campagnes sans compte lié, et si vous voulez farmer uniquement les campagnes épinglées."
+    "message": "Ouvrez « Toutes les récompenses » pour choisir les types de récompenses que farment vos campagnes épinglées, vos jeux favoris et les autres campagnes, et ce qu'il faut faire des campagnes sans compte lié."
   },
   "tourCompletedTitle": {
     "message": "Terminées et expirées"
@@ -906,7 +906,10 @@
     "message": "Ce jeu est bloqué, ses campagnes ne sont donc jamais farmées."
   },
   "campaignRejectionNotPinned": {
-    "message": "Seules les campagnes épinglées sont farmées pour l'instant."
+    "message": "Son groupe de la file ne farme aucun type de récompense. Épinglez-la pour la farmer."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Son groupe de la file ne farme aucun type de récompense."
   },
   "campaignRejectionRewardKind": {
     "message": "Rien ici ne correspond à vos types de récompenses ($1)."
@@ -1091,9 +1094,6 @@
   "rewardKindForGroup": {
     "message": "$1 pour $2"
   },
-  "rewardKindsPinnedOnlyHint": {
-    "message": "Seules les campagnes épinglées sont farmées pour le moment, les autres colonnes n'ont donc aucun effet."
-  },
   "rewardFilterMixedTypes": {
     "message": "Types mixtes"
   },
@@ -1189,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Réinitialiser toutes les récompenses"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmer uniquement les campagnes épinglées"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Seules les campagnes épinglées dans la File sont farmées sur $1."
   },
   "forgetExcludedTitle": {
     "message": "Oublier les campagnes exclues"

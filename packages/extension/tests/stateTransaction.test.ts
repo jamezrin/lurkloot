@@ -7,7 +7,12 @@ import {
   LockOrderError,
   settingsPatchEffects,
 } from "@lurkloot/core/background/stateTransaction";
-import type { ExtensionSettings, RewardKind, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  ExtensionSettings,
+  RewardFilter,
+  RewardKind,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import { createTestLockTracker } from "./helpers/lockTracker";
@@ -48,6 +53,14 @@ function watching(state: SchedulerState, message: string): SchedulerState {
     sessions: { ...state.sessions, twitch: { ...state.sessions.twitch, message } },
   };
 }
+
+// Farming only pins (#932): the favourite and other groups farm no kinds.
+const pinsOnlyFilter = (): RewardFilter => ({
+  kinds: [],
+  subscriptions: "include",
+  pinnedKinds: ["item", "badge", "emote"],
+  favouriteKinds: [],
+});
 
 describe("state transaction", () => {
   describe("commit", () => {
@@ -382,8 +395,14 @@ describe("state transaction", () => {
     it("classifies a patch per platform, with anything unrecognized invalidating discovery", () => {
       const pinnedOnly = (twitch: boolean, kick: boolean) => ({
         platform: {
-          twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: twitch },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, farmPinnedOnly: kick },
+          twitch: {
+            ...DEFAULT_SETTINGS.platform.twitch,
+            ...(twitch ? { rewardFilter: pinsOnlyFilter() } : {}),
+          },
+          kick: {
+            ...DEFAULT_SETTINGS.platform.kick,
+            ...(kick ? { rewardFilter: pinsOnlyFilter() } : {}),
+          },
         },
       });
       const off = pinnedOnly(false, false);

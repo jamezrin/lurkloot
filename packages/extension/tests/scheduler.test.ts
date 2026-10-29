@@ -6,6 +6,7 @@ import type {
   ExtensionSettings,
   KickPlatformSettings,
   Platform,
+  RewardFilter,
   SchedulerState,
   TwitchPlatformSettings,
 } from "@lurkloot/shared/models";
@@ -38,6 +39,14 @@ const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   requiredMinutes: 60,
   watchedMinutes: status === "locked" ? 0 : 20,
   status,
+});
+
+// Farming only pins (#932): the favourite and other groups farm no kinds.
+const pinsOnly = (): RewardFilter => ({
+  kinds: [],
+  subscriptions: "include",
+  pinnedKinds: ["item", "badge", "emote"],
+  favouriteKinds: [],
 });
 
 const campaign = (id: string, patch: Partial<DropCampaign> = {}): DropCampaign => ({
@@ -775,13 +784,13 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("farm pinned only skips campaigns the user has not pinned", async () => {
+  it("farming only pins skips campaigns the user has not pinned", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("unlisted", { gameName: "Unlisted Game" })],
-      settings({ platform: { twitch: { farmPinnedOnly: true } } }),
+      settings({ platform: { twitch: { rewardFilter: pinsOnly() } } }),
       {
         listCandidateChannels,
         checkChannel: vi.fn(async (candidate) => ({
@@ -797,18 +806,18 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("farm pinned only ignores the category list (decoupled)", async () => {
+  it("farming only pins ignores the category list (decoupled)", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     // A campaign whose category is allowed but which was never pinned is NOT
-    // farmed under farmPinnedOnly — the two are independent.
+    // farmed while only pins farm: the two are independent.
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("listed", { gameName: "Listed Game" })],
       settings({
         platform: {
           twitch: {
-            farmPinnedOnly: true,
+            rewardFilter: pinsOnly(),
             categoryMode: "include",
             categories: [{ id: "listed game", name: "Listed Game" }],
           },
@@ -828,11 +837,11 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("farm pinned only farms a pinned campaign", async () => {
+  it("farming only pins farms a pinned campaign", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("pinned"), campaign("unlisted")],
-      settings({ platform: { twitch: { campaignPins: ["pinned"], farmPinnedOnly: true } } }),
+      settings({ platform: { twitch: { campaignPins: ["pinned"], rewardFilter: pinsOnly() } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({
@@ -851,7 +860,7 @@ describe("scheduler campaign selection", () => {
     const kick = campaign("kick-campaign", { platform: "kick" });
     const base = settings();
     const unlinkedOff = settings({ platform: { kick: { unlinkedCampaigns: "skip" } } });
-    const twitchChanged = settings({ platform: { twitch: { farmPinnedOnly: true } } });
+    const twitchChanged = settings({ platform: { twitch: { rewardFilter: pinsOnly() } } });
 
     expect(campaignSearchFingerprint(kick, unlinkedOff)).not.toBe(
       campaignSearchFingerprint(kick, base),
@@ -861,11 +870,11 @@ describe("scheduler campaign selection", () => {
     );
   });
 
-  it("farm pinned only on Twitch leaves Kick's unpinned campaigns farmed", async () => {
+  it("farming only pins on Twitch leaves Kick's unpinned campaigns farmed", async () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [campaign("kick-unpinned", { platform: "kick" })],
-      settings({ platform: { twitch: { farmPinnedOnly: true } } }),
+      settings({ platform: { twitch: { rewardFilter: pinsOnly() } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" })]),
         checkChannel: vi.fn(async (candidate) => ({

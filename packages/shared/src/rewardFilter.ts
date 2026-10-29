@@ -57,13 +57,16 @@ export function defaultRewardFilter(platform: Platform): RewardFilter {
   };
 }
 
-// The platform's kinds the value asks for, in platform order, or undefined
-// when it asks for none it supports.
+// A kinds list as stored, in platform order. An empty list farms nothing from
+// its group (#932); a list naming only kinds the platform lacks farms every
+// kind it has, as it always did; anything that is not a list is undefined, so
+// the caller picks its default.
 function normalizeKinds(value: unknown, platform: Platform): RewardKind[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (value.length === 0) return [];
   const supported = PLATFORM_REWARD_KINDS[platform];
-  const requested = Array.isArray(value) ? value : [];
-  const kinds = REWARD_KINDS.filter((kind) => supported.includes(kind) && requested.includes(kind));
-  return kinds.length > 0 ? kinds : undefined;
+  const kinds = REWARD_KINDS.filter((kind) => supported.includes(kind) && value.includes(kind));
+  return kinds.length > 0 ? kinds : [...supported];
 }
 
 export function normalizeRewardFilter(value: unknown, platform: Platform): RewardFilter {

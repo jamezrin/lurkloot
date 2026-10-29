@@ -51,11 +51,9 @@ export type SettingsEffects = Partial<Record<Platform, SettingsEffect>>;
 // Settings that only decide the order campaigns are farmed in. Discovery does
 // not read them, so saving one keeps the discovered campaigns and channels.
 // A pin or a star also decides what is farmed, so it needs its channels found,
-// when:
-// - its platform farms pinned only (pins), since discovery skips unpinned
-//   campaigns;
-// - its Queue group farms other reward kinds than the rest (#932), since
-//   pinning or starring then moves the campaign onto a different filter.
+// when its Queue group farms other reward kinds than the group it leaves
+// (#932): pinning or starring then moves the campaign onto a different filter,
+// and an empty group (only pins farming, say) is skipped by discovery.
 const RANKING_SETTING_KEYS = new Set(["priorityMode"]);
 const RANKING_PLATFORM_SETTING_KEYS = new Set(["favouriteCategories", "campaignPins"]);
 
@@ -79,10 +77,7 @@ function isRankingOnlyPlatformKey(
   platform: Platform,
 ): boolean {
   if (!RANKING_PLATFORM_SETTING_KEYS.has(key)) return false;
-  if (key === "campaignPins")
-    return (
-      !current.platform[platform].farmPinnedOnly && groupMoveKeepsKinds(current, platform, "pinned")
-    );
+  if (key === "campaignPins") return groupMoveKeepsKinds(current, platform, "pinned");
   return groupMoveKeepsKinds(current, platform, "favourite");
 }
 

@@ -633,7 +633,7 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `autoStartDropFarming` and per-platform `enabled`. Farming is active while any platform is enabled; there is no master switch.
-- Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, and per platform `campaignPins`, `excludedCampaignIds`, `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
+- Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, and per platform `campaignPins`, `excludedCampaignIds`, `rewardFilter` and `unlinkedCampaigns`.
 - Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].watchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
 `categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
@@ -711,8 +711,8 @@ pin can never rescue a campaign an exclusion, a block or a class filter refused.
 The one place a campaign's ranking group feeds eligibility is the reward kinds
 the user chose for that group (#932, below): pinning or starring never makes a
 campaign farmable by itself, only the group's own kinds do.
-Each platform's `farmPinnedOnly` is an eligibility switch, not a mode: a
-strategy is always in effect. Each platform's `unlinkedCampaigns` is
+Which campaigns are farmed at all is eligibility, not a mode: a strategy is
+always in effect. Each platform's `unlinkedCampaigns` is
 `include`, `skip` or `last`; only `skip` is eligibility (`unlinked_campaigns_disabled`,
 which a pin does not lift), and `last` is ranking only. The Queue's Rewards to
 farm menu and Settings edit it with the same `UnlinkedCampaignsField`, and the
@@ -720,25 +720,29 @@ Skipped row's fix sets it to `last`. Each platform's `rewardFilter`
 (`{ kinds, subscriptions }`, edited from the Queue's Rewards to farm menu and
 Settings) is eligibility too. `kinds` is any of `item`, `badge`, `emote`
 (Twitch supports all three, Kick only `item`; `PLATFORM_REWARD_KINDS`), an
-empty list means every kind, and a benefit with no type counts as `item`.
+empty list farms nothing from its group, and a benefit with no type counts as
+`item`.
 `pinnedKinds` and `favouriteKinds` (#932) choose the kinds for pinned campaigns
 and for campaigns of a favourite game; `kinds` is every other campaign's. A
 campaign's group is its ranking tier (`campaignRewardGroup`): a pinned campaign
 of a favourite game is pinned, and an unlinked one farmed last is one of the
 rest. `campaignRewardFilter` is the only way to read the filter for one
 campaign; every eligibility, scope and active-reward check goes through it.
-Farming pinned only, an unpinned campaign is judged by the pinned kinds
-(`farmingRewardFilter`), the group a pin would move it into, so `not_pinned`
-still names exactly the campaigns a pin would start farming (#731); the
-Queue card words its skip from the same filter. A
-filter saved without the group lists normalizes them to `kinds`, so nothing
-changes until the user edits a group, and no schema migration is needed.
-Because a pin or a star can then move a campaign onto other kinds,
+Farming only pins is the favourite and other groups farming nothing; it
+replaced the `farmPinnedOnly` switch (migration 12). An unpinned campaign whose
+own group farms nothing is judged by the pinned kinds (`farmingRewardFilter`),
+the group a pin would move it into, so `not_pinned` still names exactly the
+campaigns a pin would start farming (#731), for the engine and the popup alike;
+the Queue card words its skip from the same filter, and says the group farms
+nothing when even a pin would not farm it. A filter saved without the group
+lists normalizes them to `kinds`, so nothing changes until the user edits a
+group. Because a pin or a star can then move a campaign onto other kinds,
 `isRankingOnlyPatch` treats a pin as ranking-only only while the pinned kinds
 match both other groups, and a star only while the favourite kinds match the
-rest. The Queue menu and Settings edit the groups as one grid
-(`RewardKindsGrid`), whose favourite and other columns are disabled while the
-platform farms pinned only.
+rest; an empty group is skipped by discovery before any channel work, as
+pinned-only was. The Queue menu and Settings edit the groups as one grid
+(`RewardKindsGrid`), Kick's included, which keeps one kind ticked across the
+grid so something is always farmed.
 `subscriptions` is `include`, `skip` or `only`. A reward matches when any of its
 kinds is selected and it passes the subscription mode; a marked subscription
 reward passes `skip` and
@@ -911,9 +915,20 @@ pinned or excluded is lost. A current per-platform list wins over the shared
 one. The Queue's pin controls only act on the open platform's live campaigns, so
 an inert copy never shows or counts; Settings → Forget excluded campaigns counts
 distinct ids across both lists and clears both. A pin save is now scoped to its
-platform (`settingsPatchEffects`), and is ranking-only unless that platform
-farms pinned only. A diagnostic for a v6 `campaignPriorities` map, which
+platform (`settingsPatchEffects`), and is ranking-only unless pinning changes
+the campaign's reward kinds. A diagnostic for a v6 `campaignPriorities` map, which
 migration 7 turned into `campaignPins`, names both platform paths.
+
+Migration 12 makes reward kinds a choice per Queue group (#932) and folds
+`farmPinnedOnly` into it. Two readings change, so both are rewritten while the
+old meaning is known: an empty kinds list stored before it meant every kind and
+becomes every kind (it now means none), and `farmPinnedOnly: true` becomes
+empty `favouriteKinds` and `kinds`, the pins keeping the kinds the platform
+farmed. A current `pinnedKinds` wins. `false` and any other value only report
+the key. Migration 8's diagnostic for a top-level `farmPinnedOnly` follows the
+value on to the reward kinds (`finalReplacements` chains spread replacements).
+An older build reads an empty list as every kind, so a downgrade farms more,
+never less.
 
 ## Scheduler Flow
 
@@ -935,7 +950,7 @@ Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in the user's order, then the single live
 strategy, then name and id, and last the unlinked campaigns of a platform set to
-farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only), `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
+farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only) and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 

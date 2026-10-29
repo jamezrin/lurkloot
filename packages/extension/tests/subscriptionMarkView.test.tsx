@@ -110,7 +110,6 @@ function queue(campaigns: CampaignView[]): React.ReactElement {
       refreshing={false}
       strategy="ending_soonest"
       pinnedCount={0}
-      farmPinnedOnly={false}
       unlinkedCampaigns="include"
       platform="twitch"
       rewardFilter={defaultRewardFilter("twitch")}
@@ -118,7 +117,6 @@ function queue(campaigns: CampaignView[]): React.ReactElement {
       onRewardFilterChange={() => undefined}
       onStrategyChange={() => undefined}
       onUnpinAll={() => undefined}
-      onFarmPinnedOnlyChange={() => undefined}
       onUnlinkedCampaignsChange={() => undefined}
       onRefreshCampaign={() => undefined}
       onPinChange={() => undefined}

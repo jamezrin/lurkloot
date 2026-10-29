@@ -9,6 +9,7 @@ import type {
   ExtensionSettings,
   PlatformSettings,
   RewardFilter,
+  RewardKind,
 } from "@lurkloot/shared/models";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { mergeSettings } from "@lurkloot/shared/settings";
@@ -26,6 +27,13 @@ function settings(
     ...overrides,
     platform: { ...platform, twitch: { ...platform.twitch, ...twitch } },
   };
+}
+
+// Farming only pins (#932): the favourite and other groups farm nothing.
+function pinsOnly(
+  pinnedKinds: RewardKind[] = ["item", "badge", "emote"],
+): Partial<PlatformSettings> {
+  return { rewardFilter: { kinds: [], subscriptions: "include", pinnedKinds, favouriteKinds: [] } };
 }
 
 function campaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
@@ -86,9 +94,10 @@ describe("evaluateCampaignFarming", () => {
     ).toEqual({ farmable: true });
     // Skip means never farm it: a pin ranks, it never makes a campaign eligible.
     const pinnedSkip = settings({}, { campaignPins: ["campaign"], unlinkedCampaigns: "skip" });
-    expect(
-      evaluateCampaignFarming(source, pinnedSkip, { now: NOW, includePinnedOnly: true }),
-    ).toMatchObject({ farmable: false, code: "unlinked_campaigns_disabled" });
+    expect(evaluateCampaignFarming(source, pinnedSkip, { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "unlinked_campaigns_disabled",
+    });
   });
 
   it("lifts a skipped unlinked campaign to farm last, which farms it", () => {
@@ -157,26 +166,20 @@ describe("evaluateCampaignFarming", () => {
     ).toEqual({ farmable: true });
   });
 
-  // #731: with farm pinned only on, the reward filter must still split the
+  // #731: while only pins farm, the reward filter must still split the
   // Skipped list into "not what you farm" and "what you farm, waiting for a pin".
-  it("judges the reward filter before farm pinned only", () => {
-    const badges = {
-      kinds: ["badge" as const],
-      subscriptions: "include" as const,
-      pinnedKinds: ["badge" as const],
-      favouriteKinds: ["badge" as const],
-    };
-    const current = settings({}, { farmPinnedOnly: true, rewardFilter: badges });
-    const options = { now: NOW, includePinnedOnly: true };
+  it("judges the pinned kinds before saying not pinned", () => {
+    const current = settings({}, pinsOnly(["badge"]));
+    const options = { now: NOW };
     const badgeReward = {
       ...campaign().rewards[0],
       id: "badge",
       benefits: [{ id: "b", distributionType: "BADGE" }],
     };
 
+    // Resetting the filter also ends farming only pins, so nothing follows.
     expect(campaignFarmingBlockers(campaign(), current, options).map((b) => b.code)).toEqual([
       "reward_type_filtered",
-      "not_pinned",
     ]);
     expect(evaluateCampaignFarming(campaign(), current, options)).toMatchObject({
       filteredBy: "kind",
@@ -193,14 +196,14 @@ describe("evaluateCampaignFarming", () => {
     ).toMatchObject({ farmable: false, code: "reward_types_obtained" });
   });
 
-  it("returns not_pinned only when the pinned-only switch is evaluated", () => {
-    const currentSettings = settings({}, { farmPinnedOnly: true });
-    expect(
-      evaluateCampaignFarming(campaign(), currentSettings, { now: NOW, includePinnedOnly: true }),
-    ).toMatchObject({ farmable: false, code: "not_pinned" });
-    expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW })).toEqual({
-      farmable: true,
+  it("returns not_pinned while only pins farm, for the engine and the popup alike", () => {
+    const currentSettings = settings({}, pinsOnly());
+    expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "not_pinned",
     });
+    const pinned = settings({}, { ...pinsOnly(), campaignPins: ["campaign"] });
+    expect(evaluateCampaignFarming(campaign(), pinned, { now: NOW })).toEqual({ farmable: true });
   });
 
   it("judges a pinned campaign by the pinned kinds (#932)", () => {
@@ -227,40 +230,36 @@ describe("evaluateCampaignFarming", () => {
     });
   });
 
-  it("says not pinned when a pin would farm it under pinned only (#731, #932)", () => {
+  it("says not pinned when its group farms nothing and a pin would farm it (#731, #932)", () => {
+    // Favourites still farm badges; the rest farm nothing.
     const pinnedOnly = settings(
       {},
       {
-        farmPinnedOnly: true,
         rewardFilter: {
-          kinds: ["badge"],
+          kinds: [],
           subscriptions: "include",
           pinnedKinds: ["item", "badge", "emote"],
           favouriteKinds: ["badge"],
         },
       },
     );
-    expect(
-      evaluateCampaignFarming(campaign(), pinnedOnly, { now: NOW, includePinnedOnly: true }),
-    ).toMatchObject({ farmable: false, code: "not_pinned" });
+    expect(evaluateCampaignFarming(campaign(), pinnedOnly, { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "not_pinned",
+    });
     // Pinning it, the one fix offered, farms it.
     const pinned = settings({}, { ...pinnedOnly.platform.twitch, campaignPins: ["campaign"] });
-    expect(
-      evaluateCampaignFarming(campaign(), pinned, { now: NOW, includePinnedOnly: true }),
-    ).toEqual({ farmable: true });
+    expect(evaluateCampaignFarming(campaign(), pinned, { now: NOW })).toEqual({ farmable: true });
   });
 
   it("never lets a pin rescue a campaign eligibility already rejected", () => {
-    const currentSettings = settings({}, { campaignPins: ["campaign"], farmPinnedOnly: true });
+    const currentSettings = settings({}, { ...pinsOnly(), campaignPins: ["campaign"] });
     currentSettings.platform.twitch = {
       ...currentSettings.platform.twitch,
       blockedCategories: [{ id: "game", name: "Game" }],
     };
     expect(
-      evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, {
-        now: NOW,
-        includePinnedOnly: true,
-      }),
+      evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }),
     ).toMatchObject({ farmable: false, code: "category_blocked" });
   });
 
@@ -314,9 +313,8 @@ describe("campaignFarmingBlockers (#677)", () => {
   };
 
   it("lists each blocker a user meets in turn, ending at one no setting lifts", () => {
-    const current = settings({}, { excludedCampaignIds: ["campaign"], farmPinnedOnly: true });
+    const current = settings({}, { ...pinsOnly(), excludedCampaignIds: ["campaign"] });
     const blockers = campaignFarmingBlockers(campaign({ rewards: [subscription] }), current, {
-      includePinnedOnly: true,
       now: NOW,
     });
 
@@ -326,10 +324,7 @@ describe("campaignFarmingBlockers (#677)", () => {
       "subscription_required",
     ]);
     expect(blockers[0]).toEqual(
-      evaluateCampaignFarming(campaign({ rewards: [subscription] }), current, {
-        includePinnedOnly: true,
-        now: NOW,
-      }),
+      evaluateCampaignFarming(campaign({ rewards: [subscription] }), current, { now: NOW }),
     );
   });
 

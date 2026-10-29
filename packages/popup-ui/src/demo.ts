@@ -144,7 +144,6 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         watchlistStreakChannels: [],
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
-        farmPinnedOnly: false,
         unlinkedCampaigns: "include",
         categories: [
           { id: "marathon legends", name: "Marathon Legends" },
@@ -167,7 +166,6 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         excludedChannels: [],
         categoryMode: "all",
         rewardFilter: defaultRewardFilter("kick"),
-        farmPinnedOnly: false,
         unlinkedCampaigns: "include",
         categories: [{ id: "just chatting", name: "Just Chatting" }],
         favouriteCategories: [],

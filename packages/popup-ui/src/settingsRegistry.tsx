@@ -12,7 +12,6 @@ import {
   type SettingsPatch,
 } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
-import { PLATFORM_REWARD_KINDS } from "@lurkloot/shared/rewardFilter";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
 import {
@@ -625,15 +624,16 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       ),
     };
 
-    // The same setting as the Queue's reward filter menu, with the other two
-    // switches that decide which of this platform's campaigns are farmed.
+    // The same setting as the Queue's reward filter menu, with the unlinked
+    // choice, which also decides which of this platform's campaigns are
+    // farmed. The kinds grid is always shown: even Kick's one kind is chosen
+    // per Queue group (#932).
     const platformSettings = settings.platform[platform];
     const rewardFilter = platformSettings.rewardFilter;
     const showSubscriptions =
       ctx.showSubscriptionChoice?.[platform] === true || rewardFilter.subscriptions !== "include";
-    const rewardEntries: SettingsEntryDef[] = [];
-    if (PLATFORM_REWARD_KINDS[platform].length > 1 || showSubscriptions) {
-      rewardEntries.push({
+    const rewardEntries: SettingsEntryDef[] = [
+      {
         id: `${platform}.rewards.filter`,
         titleKey: "rewardKindsTitle",
         descriptionKey: "rewardKindsDescription",
@@ -656,43 +656,26 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
               platform={platform}
               filter={rewardFilter}
               showSubscriptions={showSubscriptions}
-              farmPinnedOnly={platformSettings.farmPinnedOnly}
               onChange={(next) => void platformPatch(platform, { rewardFilter: next })}
             />
           </div>
         ),
-      });
-    }
-    rewardEntries.push(
-      {
-        id: `${platform}.rewards.pinnedOnly`,
-        titleKey: "farmPinnedOnlyTitle",
-        descriptionKey: "farmPinnedOnlyDescription",
-        descriptionSubstitution: details.label,
-        render: () => (
-          <SettingRow
-            title={t("farmPinnedOnlyTitle")}
-            description={t("farmPinnedOnlyDescription", details.label)}
-            checked={platformSettings.farmPinnedOnly}
-            onChange={(value) => void platformPatch(platform, { farmPinnedOnly: value })}
+      },
+    ];
+    rewardEntries.push({
+      id: `${platform}.rewards.unlinked`,
+      titleKey: "unlinkedCampaignsTitle",
+      descriptionKey: "unlinkedCampaignsDescription",
+      searchKeys: ["unlinkedModeInclude", "unlinkedModeSkip", "unlinkedModeLast"],
+      render: () => (
+        <div className="py-2.5">
+          <UnlinkedCampaignsField
+            value={platformSettings.unlinkedCampaigns}
+            onChange={(next) => void platformPatch(platform, { unlinkedCampaigns: next })}
           />
-        ),
-      },
-      {
-        id: `${platform}.rewards.unlinked`,
-        titleKey: "unlinkedCampaignsTitle",
-        descriptionKey: "unlinkedCampaignsDescription",
-        searchKeys: ["unlinkedModeInclude", "unlinkedModeSkip", "unlinkedModeLast"],
-        render: () => (
-          <div className="py-2.5">
-            <UnlinkedCampaignsField
-              value={platformSettings.unlinkedCampaigns}
-              onChange={(next) => void platformPatch(platform, { unlinkedCampaigns: next })}
-            />
-          </div>
-        ),
-      },
-    );
+        </div>
+      ),
+    });
 
     const groups: SettingsGroupDef[] = [
       {

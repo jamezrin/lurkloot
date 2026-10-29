@@ -277,10 +277,7 @@ export function campaignViewFromCampaign(
     ? applySubscriptionMarks(source, settings.platform[source.platform].subscribedRewardMarks ?? [])
     : source;
   const farmingBlockers = feasibility?.settings
-    ? campaignFarmingBlockers(campaign, feasibility.settings, {
-        includePinnedOnly: true,
-        now: feasibility.now,
-      })
+    ? campaignFarmingBlockers(campaign, feasibility.settings, { now: feasibility.now })
     : [];
   return {
     id: campaign.id,
@@ -297,9 +294,7 @@ export function campaignViewFromCampaign(
     category: campaignCategory(campaign),
     // The same filter campaignFarmingBlockers judged it by, so a skip names
     // the kinds that skipped it.
-    rewardFilter: settings
-      ? farmingRewardFilter(campaign, settings, { includePinnedOnly: true })
-      : undefined,
+    rewardFilter: settings ? farmingRewardFilter(campaign, settings) : undefined,
     favouriteIndex: settings
       ? indexOrUndefined(favouriteCategoryIndex(campaign, settings.platform[campaign.platform]))
       : undefined,

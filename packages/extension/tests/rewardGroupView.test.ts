@@ -79,12 +79,12 @@ describe("campaign view reward group", () => {
     const pinnedOnly = mergeSettings({
       platform: {
         twitch: {
-          farmPinnedOnly: true,
+          // Only pins farm (#932): the other groups farm no kinds.
           rewardFilter: {
-            kinds: ["item", "badge", "emote"],
+            kinds: [],
             subscriptions: "include",
             pinnedKinds: ["badge"],
-            favouriteKinds: ["item"],
+            favouriteKinds: [],
           },
         },
       },
@@ -98,6 +98,30 @@ describe("campaign view reward group", () => {
     expect(plain.farmingRejection?.code).toBe("reward_type_filtered");
     expect(campaignRejectionMessage(plain.farmingRejection!, plain.rewardFilter!, t, "en")).toBe(
       "campaignRejectionRewardKind(rewardKindBadge)",
+    );
+  });
+
+  it("says its group farms nothing when even a pin would not farm it", () => {
+    const nothingPinned = mergeSettings({
+      platform: {
+        twitch: {
+          rewardFilter: {
+            kinds: [],
+            subscriptions: "include",
+            pinnedKinds: [],
+            favouriteKinds: ["item"],
+          },
+        },
+      },
+    } as never);
+    const plain = campaignViewFromCampaign(itemCampaign("plain", "game"), 0, idleSession, false, {
+      skipUnfinishableRewards: nothingPinned.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: nothingPinned.deadlineSafetyMarginMinutes,
+      settings: nothingPinned,
+    });
+    expect(plain.farmingRejection?.code).toBe("reward_type_filtered");
+    expect(campaignRejectionMessage(plain.farmingRejection!, plain.rewardFilter!, t, "en")).toBe(
+      "campaignRejectionGroupOff",
     );
   });
 });

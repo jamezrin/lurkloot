@@ -13,7 +13,8 @@ happen.
 ## 1. Can the engine farm it right now? — `campaignFarmable`
 
 Used by the scheduler's `isEligible`. Structural gates (the class and category
-ones, the per-platform `farmPinnedOnly` switch and the reward filter), then one
+ones and the reward filter, whose per-group kinds also cover farming only
+pins), then one
 timing gate on the rewards themselves.
 
 ```mermaid
@@ -32,8 +33,8 @@ flowchart TD
     G -- yes --> N1
     G -- no --> R{"reward filter misses?<br/>rewardFilter kinds +<br/>subscription mode"}
     R -- yes --> N2["FALSE — reward_type_filtered<br/>(filteredBy: kinds or subscriptions)"]
-    R -- no --> P{"farmPinnedOnly on<br/>(per platform) and<br/>campaign not pinned?"}
-    P -- yes --> N1
+    R -- no --> P{"own Queue group<br/>farms no kinds and<br/>campaign not pinned?"}
+    P -- yes --> N3["FALSE — not_pinned"]
     P -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
     I -- no --> N1
     I -- yes --> Y1["TRUE — engine farms it"]
@@ -46,21 +47,25 @@ them but ranks them after every linked campaign unless they are pinned or of a
 favourite game (see `rankCampaigns`). Only `skip` is a gate in this flowchart;
 `last` changes the order, not whether a campaign is farmable. Their linking
 status remains visible so users can connect their game account for delivery.
-`unlinkedCampaigns` and `farmPinnedOnly` are per-platform settings
-(`platform.<p>.…`), as is `rewardFilter`.
+`unlinkedCampaigns` is a per-platform setting (`platform.<p>.…`), as is
+`rewardFilter`.
 
-The reward filter (`platform.<p>.rewardFilter`) has two halves: `kinds`
-(`item`, `badge`, `emote`, limited to what the platform has) and a
-subscription mode (`include`, `skip`, `only`). A campaign with no reward that
+The reward filter (`platform.<p>.rewardFilter`) has two halves: the kinds of
+each Queue group (`pinnedKinds`, `favouriteKinds` and `kinds` for the rest;
+`item`, `badge`, `emote`, limited to what the platform has, an empty list
+farming nothing from that group) and a subscription mode (`include`, `skip`,
+`only`). A campaign with no reward that
 passes both is rejected as `reward_type_filtered`, and `filteredBy` says which
 half missed so the Queue can name it. Only the rewards in scope (the matching
 ones plus the preconditions they wait on) are farmed; claiming is never narrowed.
-`farmPinnedOnly` is checked only when the evaluation is asked to include it
-(`includePinnedOnly`), so an unpinned campaign stays listed under Skipped as
-`not_pinned`. It is judged after the reward filter and after the check that the
-filtered rewards are not all earned: pinned-only narrows within what the filter
-keeps, so `not_pinned` names only campaigns a pin would start farming, and a
-campaign the filter excludes says that first (#731).
+Farming only pins is the favourite and other groups farming nothing (#932).
+An unpinned campaign whose own group farms nothing is judged by the pinned
+kinds, the group a pin would move it into, and then reported as `not_pinned`:
+after the reward filter and after the check that the filtered rewards are not
+all earned, so `not_pinned` names only campaigns a pin would start farming, and
+a campaign the pinned kinds also exclude says that first (#731). The engine and
+the popup run the same evaluation, so an unpinned campaign stays listed under
+Skipped with the pin as its fix.
 
 `evaluateCampaignFarming` applies these gates and returns either
 `{ farmable: true }` or one stable rejection code plus relevant context such
@@ -101,7 +106,7 @@ flowchart TD
     C -- yes --> S2["expired"]
     C -- no --> D{"upcoming?"}
     D -- yes --> S3["upcoming"]
-    D -- no --> E{"evaluateCampaignFarming<br/>farmable, incl. farmPinnedOnly?"}
+    D -- no --> E{"evaluateCampaignFarming<br/>farmable?"}
     E -- yes --> S4["queue — ranked by rankCampaigns"]
     E -- no --> S5["skipped — with its rejection code<br/>and the action that fixes it"]
 ```

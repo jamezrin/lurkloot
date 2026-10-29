@@ -6,6 +6,7 @@ import {
   migrateSettings,
   withSchemaVersion,
 } from "@lurkloot/shared/settingsSchema";
+import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { mergeSettings } from "@lurkloot/shared/settings";
 
 const defaultSourceSettings = {
@@ -574,13 +575,18 @@ describe("schema v8 and v9", () => {
     );
 
     for (const platform of ["twitch", "kick"] as const) {
-      // v9 then turns the copied switch into the unlinked mode.
+      // v9 then turns the copied switch into the unlinked mode, and v12 the
+      // copied pinned-only switch into reward kinds only pins farm.
       expect(platformOf(migrated.settings, platform)).toMatchObject({
         unlinkedCampaigns: "skip",
-        farmPinnedOnly: true,
+        rewardFilter: {
+          kinds: [],
+          favouriteKinds: [],
+          pinnedKinds: ["item", "badge", "emote"],
+        },
       });
       expect(platformOf(migrated.settings, platform).farmUnlinkedCampaigns).toBeUndefined();
-      expect(platformOf(migrated.settings, platform).rewardFilter).toBeUndefined();
+      expect(platformOf(migrated.settings, platform).farmPinnedOnly).toBeUndefined();
     }
     expect(migrated.settings.farmingEligibility).toBeUndefined();
     expect(migrated.settings.farmPinnedOnly).toBeUndefined();
@@ -701,13 +707,14 @@ describe("schema v8 and v9", () => {
       ),
     );
 
+    // v12: the pinned-only switch the platform kept decides its reward kinds.
     expect(platformOf(migrated.settings, "twitch")).toMatchObject({
       unlinkedCampaigns: "include",
-      farmPinnedOnly: false,
     });
+    expect(platformOf(migrated.settings, "twitch").rewardFilter).toBeUndefined();
     expect(platformOf(migrated.settings, "kick")).toMatchObject({
       unlinkedCampaigns: "skip",
-      farmPinnedOnly: true,
+      rewardFilter: { kinds: [], favouriteKinds: [] },
     });
   });
 
@@ -759,6 +766,108 @@ describe("schema v8 and v9", () => {
 
     expect(platformOf(migrated.settings, "kick")).toEqual({ unlinkedCampaigns: "yes" });
     expect(mergeSettings(migrated.settings).platform.kick.unlinkedCampaigns).toBe("include");
+  });
+});
+
+describe("schema v12", () => {
+  const platformOf = (settings: Record<string, unknown>, platform: "twitch" | "kick") =>
+    (settings.platform as Record<string, Record<string, unknown>>)[platform];
+
+  it("turns farm pinned only into empty favourite and other kinds, pins keeping theirs", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        {
+          platform: {
+            twitch: {
+              farmPinnedOnly: true,
+              rewardFilter: { kinds: ["badge"], subscriptions: "skip" },
+            },
+            kick: { farmPinnedOnly: true },
+          },
+        },
+        11,
+      ),
+    );
+
+    expect(platformOf(migrated.settings, "twitch")).toEqual({
+      rewardFilter: {
+        kinds: [],
+        subscriptions: "skip",
+        pinnedKinds: ["badge"],
+        favouriteKinds: [],
+      },
+    });
+    expect(platformOf(migrated.settings, "kick")).toEqual({
+      rewardFilter: { kinds: [], pinnedKinds: ["item", "badge", "emote"], favouriteKinds: [] },
+    });
+    const settings = mergeSettings(migrated.settings as never);
+    expect(settings.platform.kick.rewardFilter).toEqual({
+      kinds: [],
+      subscriptions: "include",
+      pinnedKinds: ["item"],
+      favouriteKinds: [],
+    });
+    expect(migrated.diagnostics.map((entry) => entry.path)).toEqual([
+      "platform.twitch.farmPinnedOnly",
+      "platform.kick.farmPinnedOnly",
+    ]);
+    expect(migrated.diagnostics[0]).toMatchObject({
+      code: "moved_property",
+      replacements: [
+        "platform.twitch.rewardFilter.favouriteKinds",
+        "platform.twitch.rewardFilter.kinds",
+      ],
+    });
+  });
+
+  it("drops farm pinned only off with a diagnostic and changes nothing else", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion({ platform: { twitch: { farmPinnedOnly: false } } }, 11),
+    );
+    expect(platformOf(migrated.settings, "twitch")).toEqual({});
+    expect(migrated.diagnostics.map((entry) => entry.path)).toEqual([
+      "platform.twitch.farmPinnedOnly",
+    ]);
+  });
+
+  it("keeps an empty kinds list saved before it meaning every kind", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        { platform: { twitch: { rewardFilter: { kinds: [], favouriteKinds: [] } } } },
+        11,
+      ),
+    );
+    expect(mergeSettings(migrated.settings as never).platform.twitch.rewardFilter).toEqual(
+      defaultRewardFilter("twitch"),
+    );
+    // From v12 on, an empty list farms nothing from its group.
+    const current = mergeSettings(withSchemaVersion(migrated.settings) as never);
+    expect(current.platform.twitch.rewardFilter.kinds).toEqual(["item", "badge", "emote"]);
+    expect(
+      mergeSettings({ platform: { twitch: { rewardFilter: { kinds: [] } } } } as never).platform
+        .twitch.rewardFilter.kinds,
+    ).toEqual([]);
+  });
+
+  it("keeps a current pinned list when it turns pinned only into kinds", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        {
+          platform: {
+            twitch: {
+              farmPinnedOnly: true,
+              rewardFilter: { kinds: ["item"], pinnedKinds: ["emote"] },
+            },
+          },
+        },
+        11,
+      ),
+    );
+    expect(platformOf(migrated.settings, "twitch").rewardFilter).toEqual({
+      kinds: [],
+      pinnedKinds: ["emote"],
+      favouriteKinds: [],
+    });
   });
 });
 

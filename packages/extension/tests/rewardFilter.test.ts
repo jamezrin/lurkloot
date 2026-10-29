@@ -96,7 +96,19 @@ describe("reward filter", () => {
       pinnedKinds: ["item"],
       favouriteKinds: ["item"],
     });
-    expect(normalizeRewardFilter({ kinds: [] }, "twitch")).toEqual(defaultRewardFilter("twitch"));
+    // An empty list farms nothing from its group (#932), and the group lists
+    // follow it.
+    expect(normalizeRewardFilter({ kinds: [] }, "twitch")).toEqual({
+      kinds: [],
+      subscriptions: "include",
+      pinnedKinds: [],
+      favouriteKinds: [],
+    });
+    expect(normalizeRewardFilter({ kinds: ["item"], favouriteKinds: [] }, "twitch")).toMatchObject({
+      kinds: ["item"],
+      pinnedKinds: ["item"],
+      favouriteKinds: [],
+    });
     expect(normalizeRewardFilter("junk", "twitch")).toEqual(defaultRewardFilter("twitch"));
     expect(
       normalizeRewardFilter({ kinds: ["emote", "badge"], subscriptions: "only" }, "twitch"),

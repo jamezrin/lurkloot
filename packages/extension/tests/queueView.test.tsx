@@ -106,7 +106,6 @@ function queue(
       refreshing={false}
       strategy={settings.priorityMode}
       pinnedCount={settings.platform.twitch.campaignPins.length}
-      farmPinnedOnly={settings.platform.twitch.farmPinnedOnly}
       unlinkedCampaigns={settings.platform.twitch.unlinkedCampaigns}
       platform="twitch"
       rewardFilter={settings.platform.twitch.rewardFilter}
@@ -114,7 +113,6 @@ function queue(
       onRewardFilterChange={() => undefined}
       onStrategyChange={() => undefined}
       onUnpinAll={() => undefined}
-      onFarmPinnedOnlyChange={() => undefined}
       onUnlinkedCampaignsChange={() => undefined}
       onRefreshCampaign={() => undefined}
       onPinChange={() => undefined}
@@ -400,7 +398,6 @@ describe("queue view", () => {
         refreshing={false}
         strategy={settings.priorityMode}
         pinnedCount={0}
-        farmPinnedOnly={false}
         unlinkedCampaigns="include"
         platform="twitch"
         rewardFilter={filter}
@@ -411,7 +408,6 @@ describe("queue view", () => {
         }}
         onStrategyChange={() => undefined}
         onUnpinAll={() => undefined}
-        onFarmPinnedOnlyChange={() => undefined}
         onUnlinkedCampaignsChange={() => undefined}
         onRefreshCampaign={() => undefined}
         onPinChange={() => undefined}
@@ -519,7 +515,8 @@ describe("queue view", () => {
       favouriteKinds: ["item"],
     });
     await openFilter(plain.container);
-    expect(document.querySelector("[data-reward-kind]")).toBeNull();
+    // Kick's one kind still gets its row of groups (#932).
+    expect(document.querySelectorAll('[role="checkbox"][data-reward-kind="item"]')).toHaveLength(3);
     expect(document.querySelector("[data-subscription-mode]")).toBeNull();
     act(() => root?.unmount());
     root = undefined;
@@ -532,22 +529,6 @@ describe("queue view", () => {
     });
     await openFilter(narrowed.container);
     expect(document.querySelectorAll("[data-subscription-mode]")).toHaveLength(1);
-  });
-
-  it("moves farm pinned only into the menu", async () => {
-    const settings = mergeSettings(undefined);
-    const onFarmPinnedOnlyChange = vi.fn();
-    const { container } = queue(views([campaign("drop")], settings), settings, {
-      onFarmPinnedOnlyChange,
-    });
-
-    expect(container.querySelector("[data-queue-pinned-only]")).toBeNull();
-    await openFilter(container);
-    const pinnedOnly = document.querySelector<HTMLElement>("[data-queue-pinned-only]");
-    expect(pinnedOnly).not.toBeNull();
-    expect(container.contains(pinnedOnly)).toBe(false);
-    await settle(() => pinnedOnly!.click());
-    expect(onFarmPinnedOnlyChange).toHaveBeenCalledWith(true);
   });
 
   it("farms a skipped unlinked campaign last from its fix", () => {
@@ -908,10 +889,15 @@ describe("campaign card actions", () => {
   });
 
   it("keeps a skipped campaign's fix when search finds it", () => {
-    // With "farm pinned only" on, an unpinned campaign is skipped and its fix
+    // While only pins farm (#932), an unpinned campaign is skipped and its fix
     // is pinning it; search used to show it with no way to do that.
     const settings = mergeSettings({
-      platform: { twitch: { campaignPins: ["pinned"], farmPinnedOnly: true } },
+      platform: {
+        twitch: {
+          campaignPins: ["pinned"],
+          rewardFilter: { kinds: [], favouriteKinds: [], pinnedKinds: ["item"] },
+        },
+      },
     } as never);
     const { container } = queue(views([campaign("pinned"), campaign("loose")], settings), settings);
 

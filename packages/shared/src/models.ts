@@ -335,8 +335,8 @@ export interface ManualWatchState {
 }
 
 // The one live strategy that ranks every campaign no pin or favourite game
-// already placed. "Farm pinned only" is an eligibility switch (farmPinnedOnly),
-// not a mode, so a strategy is always in effect.
+// already placed. A strategy is always in effect: which campaigns are farmed at
+// all is the reward filter's per-group choice (#932), not a mode.
 export type PriorityMode = "ending_soonest" | "lowest_availability";
 
 // Per-platform reward filter: which reward kinds a platform farms, and how
@@ -351,7 +351,9 @@ export interface RewardFilter {
   kinds: RewardKind[];
   subscriptions: SubscriptionRewardMode;
   // Reward kinds farmed from pinned campaigns, and from campaigns of a
-  // favourite game (#932). A campaign uses its Queue group's list.
+  // favourite game (#932). A campaign uses its Queue group's list. An empty
+  // list farms nothing from that group: only pins, say, is empty favourite and
+  // other lists (it replaced farmPinnedOnly in schema 12).
   pinnedKinds: RewardKind[];
   favouriteKinds: RewardKind[];
 }
@@ -466,9 +468,6 @@ export interface PlatformSettings {
   campaignPins: string[];
   // This platform's campaigns the user excluded: never farmed.
   excludedCampaignIds: string[];
-  // Eligibility switch: farm only this platform's pinned campaigns. Separate
-  // from the pin list itself so pinning never doubles as "allowed to farm".
-  farmPinnedOnly: boolean;
   // This platform's campaigns with no linked account (real on Kick, which
   // accrues watch progress before linking): farmed, skipped or farmed last.
   unlinkedCampaigns: UnlinkedCampaignMode;

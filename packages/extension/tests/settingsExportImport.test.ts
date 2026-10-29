@@ -27,7 +27,6 @@ describe("settings export/import", () => {
             pinnedKinds: ["badge", "emote"],
             favouriteKinds: ["badge", "emote"],
           },
-          farmPinnedOnly: true,
           excludedCampaignIds: ["abc123"],
         },
         kick: {

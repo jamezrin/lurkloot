@@ -384,7 +384,7 @@
     "message": "파밍할 항목 선택"
   },
   "tourRewardFilterBody": {
-    "message": "\"모든 보상\"을 열어 파밍할 보상 유형, 연결되지 않은 계정의 캠페인 처리 방식, 고정된 캠페인만 파밍할지 여부를 선택하세요."
+    "message": "\"모든 보상\"을 열어 고정된 캠페인, 즐겨찾는 게임, 기타 캠페인이 파밍할 보상 유형과 연결되지 않은 계정의 캠페인 처리 방식을 선택하세요."
   },
   "tourCompletedTitle": {
     "message": "완료 및 만료"
@@ -906,7 +906,10 @@
     "message": "이 게임은 차단되어 캠페인을 파밍하지 않습니다."
   },
   "campaignRejectionNotPinned": {
-    "message": "지금은 고정된 캠페인만 파밍합니다."
+    "message": "이 대기열 그룹은 보상 유형을 파밍하지 않습니다. 고정하면 파밍합니다."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "이 대기열 그룹은 보상 유형을 파밍하지 않습니다."
   },
   "campaignRejectionRewardKind": {
     "message": "이 캠페인에는 선택한 보상 유형($1)이 없습니다."
@@ -1091,9 +1094,6 @@
   "rewardKindForGroup": {
     "message": "$2의 $1"
   },
-  "rewardKindsPinnedOnlyHint": {
-    "message": "현재는 고정된 캠페인만 파밍하므로 다른 열은 적용되지 않습니다."
-  },
   "rewardFilterMixedTypes": {
     "message": "혼합 유형"
   },
@@ -1189,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "모든 보상으로 초기화"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "고정된 캠페인만 파밍"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "대기열에서 고정한 캠페인만 $1에서 파밍합니다."
   },
   "forgetExcludedTitle": {
     "message": "제외한 캠페인 잊기"

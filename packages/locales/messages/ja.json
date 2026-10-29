@@ -384,7 +384,7 @@
     "message": "ファームする内容を選ぶ"
   },
   "tourRewardFilterBody": {
-    "message": "「すべての報酬」を開くと、ファームする報酬の種類、アカウント未連携のキャンペーンの扱い、ピン留めしたキャンペーンのみをファームするかどうかを選べます。"
+    "message": "「すべての報酬」を開くと、ピン留めのキャンペーン、お気に入りゲーム、その他のキャンペーンがファームする報酬の種類と、アカウント未連携のキャンペーンの扱いを選べます。"
   },
   "tourCompletedTitle": {
     "message": "完了と期限切れ"
@@ -906,7 +906,10 @@
     "message": "このゲームはブロックされているため、キャンペーンはファームされません。"
   },
   "campaignRejectionNotPinned": {
-    "message": "現在はピン留めされたキャンペーンのみファームしています。"
+    "message": "そのキューのグループでは報酬の種類をファームしません。ピン留めするとファームされます。"
+  },
+  "campaignRejectionGroupOff": {
+    "message": "そのキューのグループでは報酬の種類をファームしません。"
   },
   "campaignRejectionRewardKind": {
     "message": "ファームする報酬の種類（$1）に一致するものはありません。"
@@ -1091,9 +1094,6 @@
   "rewardKindForGroup": {
     "message": "$1（$2）"
   },
-  "rewardKindsPinnedOnlyHint": {
-    "message": "現在はピン留めしたキャンペーンだけをファームしているため、他の列は効果がありません。"
-  },
   "rewardFilterMixedTypes": {
     "message": "複数の種類"
   },
@@ -1189,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "すべての報酬に戻す"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "ピン留めしたキャンペーンのみファーム"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "キューでピン留めしたキャンペーンだけを $1 でファームします。"
   },
   "forgetExcludedTitle": {
     "message": "除外したキャンペーンを忘れる"

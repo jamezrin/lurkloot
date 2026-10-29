@@ -61,7 +61,6 @@ export function QueuePanel({
   refreshing,
   strategy,
   pinnedCount,
-  farmPinnedOnly,
   unlinkedCampaigns,
   platform,
   rewardFilter: liveRewardFilter,
@@ -69,7 +68,6 @@ export function QueuePanel({
   onRewardFilterChange,
   onStrategyChange,
   onUnpinAll,
-  onFarmPinnedOnlyChange,
   onUnlinkedCampaignsChange,
   onRefreshCampaign,
   onPinChange,
@@ -85,7 +83,6 @@ export function QueuePanel({
   refreshing: boolean;
   strategy: PriorityMode;
   pinnedCount: number;
-  farmPinnedOnly: boolean;
   unlinkedCampaigns: UnlinkedCampaignMode;
   // The platform the queue lists; its reward filter is the toolbar's menu.
   platform: Platform;
@@ -95,7 +92,6 @@ export function QueuePanel({
   onRewardFilterChange(filter: RewardFilter): void | Promise<void>;
   onStrategyChange(strategy: PriorityMode): void | Promise<void>;
   onUnpinAll(): void | Promise<void>;
-  onFarmPinnedOnlyChange(value: boolean): void | Promise<void>;
   onUnlinkedCampaignsChange(value: UnlinkedCampaignMode): void | Promise<void>;
   onRefreshCampaign(id: string): void | Promise<void>;
   onPinChange(campaignId: string, position: number | null): void | Promise<void>;
@@ -317,10 +313,8 @@ export function QueuePanel({
           platform={platform}
           filter={rewardFilter}
           showSubscriptions={showSubscriptionChoice}
-          farmPinnedOnly={farmPinnedOnly}
           unlinkedCampaigns={unlinkedCampaigns}
           onChange={(filter) => void onRewardFilterChange(filter)}
-          onFarmPinnedOnlyChange={(value) => void onFarmPinnedOnlyChange(value)}
           onUnlinkedCampaignsChange={(value) => void onUnlinkedCampaignsChange(value)}
         />
       </div>
@@ -664,7 +658,7 @@ const QueueRow = React.memo(function QueueRow({
       <CampaignCard
         {...props}
         // A skipped result keeps the action that puts it back in the queue
-        // (with "farm pinned only" on, that is pinning it).
+        // (while only pins farm, that is pinning it).
         fix={
           campaign.section === "skipped"
             ? skippedFix(

@@ -384,7 +384,7 @@
     "message": "Vyberte, co farmit"
   },
   "tourRewardFilterBody": {
-    "message": "Otevřete Všechny odměny a vyberte, které typy odměn farmit, co dělat s kampaněmi bez propojeného účtu a zda farmit jen připnuté kampaně."
+    "message": "Otevřete „Všechny odměny“ a vyberte, které typy odměn farmí připnuté kampaně, oblíbené hry a ostatní kampaně a co se stane s kampaněmi bez propojeného účtu."
   },
   "tourCompletedTitle": {
     "message": "Dokončené a vypršelé"
@@ -906,7 +906,10 @@
     "message": "Tato hra je blokovaná, její kampaně se nikdy nefarmí."
   },
   "campaignRejectionNotPinned": {
-    "message": "Teď se farmí jen připnuté kampaně."
+    "message": "Jejich skupina ve frontě nefarmí žádné typy odměn. Připněte ji, aby se farmila."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Jejich skupina ve frontě nefarmí žádné typy odměn."
   },
   "campaignRejectionRewardKind": {
     "message": "Nic tu neodpovídá vašim typům odměn ($1)."
@@ -1091,9 +1094,6 @@
   "rewardKindForGroup": {
     "message": "$1 pro $2"
   },
-  "rewardKindsPinnedOnlyHint": {
-    "message": "Právě se farmí jen připnuté kampaně, takže ostatní sloupce nemají žádný vliv."
-  },
   "rewardFilterMixedTypes": {
     "message": "Smíšené typy"
   },
@@ -1189,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Obnovit všechny odměny"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmit jen připnuté kampaně"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Na $1 se farmí jen kampaně připnuté ve Frontě."
   },
   "forgetExcludedTitle": {
     "message": "Zapomenout vyloučené kampaně"

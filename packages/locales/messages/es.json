@@ -384,7 +384,7 @@
     "message": "Elige qué farmear"
   },
   "tourRewardFilterBody": {
-    "message": "Abre Todas las recompensas para elegir qué tipos de recompensa farmear, qué hacer con las campañas sin cuenta vinculada y si farmear solo las campañas fijadas."
+    "message": "Abre «Todas las recompensas» para elegir qué tipos de recompensa farmean las campañas fijadas, los juegos favoritos y otras campañas, y qué hacer con las campañas sin cuenta vinculada."
   },
   "tourCompletedTitle": {
     "message": "Completadas y caducadas"
@@ -906,7 +906,10 @@
     "message": "Este juego está bloqueado, así que sus campañas nunca se farmean."
   },
   "campaignRejectionNotPinned": {
-    "message": "Ahora mismo solo se farmean las campañas fijadas."
+    "message": "Su grupo de la cola no farmea ningún tipo de recompensa. Fíjala para farmearla."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Su grupo de la cola no farmea ningún tipo de recompensa."
   },
   "campaignRejectionRewardKind": {
     "message": "Nada aquí coincide con tus tipos de recompensa ($1)."
@@ -1091,9 +1094,6 @@
   "rewardKindForGroup": {
     "message": "$1 para $2"
   },
-  "rewardKindsPinnedOnlyHint": {
-    "message": "Ahora mismo solo se farmean las campañas fijadas, así que las demás columnas no tienen efecto."
-  },
   "rewardFilterMixedTypes": {
     "message": "Tipos mixtos"
   },
@@ -1189,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Restablecer a todas las recompensas"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmear solo las campañas fijadas"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Solo se farmean en $1 las campañas que fijaste en la Cola."
   },
   "forgetExcludedTitle": {
     "message": "Olvidar campañas excluidas"

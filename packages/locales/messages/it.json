@@ -384,7 +384,7 @@
     "message": "Scegli cosa farmare"
   },
   "tourRewardFilterBody": {
-    "message": "Apri «Tutte le ricompense» per scegliere quali tipi di ricompensa farmare, cosa fare delle campagne senza account collegato e se farmare solo le campagne fissate."
+    "message": "Apri «Tutte le ricompense» per scegliere quali tipi di ricompensa farmano le campagne fissate, i giochi preferiti e le altre campagne, e cosa fare delle campagne senza account collegato."
   },
   "tourCompletedTitle": {
     "message": "Completate e scadute"
@@ -906,7 +906,10 @@
     "message": "Questo gioco è bloccato, quindi le sue campagne non vengono mai farmate."
   },
   "campaignRejectionNotPinned": {
-    "message": "Al momento vengono farmate solo le campagne fissate."
+    "message": "Il suo gruppo della coda non farma nessun tipo di ricompensa. Fissala per farmarla."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Il suo gruppo della coda non farma nessun tipo di ricompensa."
   },
   "campaignRejectionRewardKind": {
     "message": "Nessuna ricompensa di questa campagna corrisponde ai tipi scelti ($1)."
@@ -1091,9 +1094,6 @@
   "rewardKindForGroup": {
     "message": "$1 per $2"
   },
-  "rewardKindsPinnedOnlyHint": {
-    "message": "Al momento vengono farmate solo le campagne fissate, quindi le altre colonne non hanno effetto."
-  },
   "rewardFilterMixedTypes": {
     "message": "Tipi misti"
   },
@@ -1189,12 +1189,6 @@
   },
   "rewardFilterReset": {
     "message": "Ripristina tutte le ricompense"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farma solo le campagne fissate"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Su $1 vengono farmate solo le campagne fissate nella Coda."
   },
   "forgetExcludedTitle": {
     "message": "Dimentica campagne escluse"

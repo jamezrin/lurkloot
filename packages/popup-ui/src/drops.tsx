@@ -1442,6 +1442,8 @@ export function campaignRejectionMessage(
           : "campaignRejectionSubscriptionSkipped",
       );
     }
+    // A group set to farm nothing (#932) has no kinds to name.
+    if (filter.kinds.length === 0) return t("campaignRejectionGroupOff");
     const labels = filter.kinds.map((kind) => t(REJECTION_KIND_KEYS[kind]));
     return t("campaignRejectionRewardKind", formatDisjunction(labels, locale));
   }
