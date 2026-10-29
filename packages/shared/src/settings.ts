@@ -90,7 +90,8 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       excludedChannels: [],
       categoryMode: "all",
       rewardFilter: defaultRewardFilter("twitch"),
-      farmPinnedOnly: false,
+      campaignPins: [],
+      excludedCampaignIds: [],
       unlinkedCampaigns: DEFAULT_UNLINKED_CAMPAIGN_MODE,
       categories: [],
       favouriteCategories: [],
@@ -109,7 +110,8 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       excludedChannels: [],
       categoryMode: "all",
       rewardFilter: defaultRewardFilter("kick"),
-      farmPinnedOnly: false,
+      campaignPins: [],
+      excludedCampaignIds: [],
       unlinkedCampaigns: DEFAULT_UNLINKED_CAMPAIGN_MODE,
       categories: [],
       favouriteCategories: [],
@@ -130,8 +132,6 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       claimLinkHandling: "auto",
     },
   },
-  campaignPins: [],
-  excludedCampaignIds: [],
   offlineRetryLimit: 3,
   tablessFallbackFailureLimit: 5,
   pollIntervalMinutes: 1,
@@ -230,10 +230,8 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.twitch?.categoryMode),
         rewardFilter: normalizeRewardFilter(platform?.twitch?.rewardFilter, "twitch"),
-        farmPinnedOnly: booleanOr(
-          platform?.twitch?.farmPinnedOnly,
-          DEFAULT_ENGINE_SETTINGS.platform.twitch.farmPinnedOnly,
-        ),
+        campaignPins: normalizeIdList(platform?.twitch?.campaignPins),
+        excludedCampaignIds: normalizeIdList(platform?.twitch?.excludedCampaignIds),
         unlinkedCampaigns: normalizeUnlinkedCampaignMode(platform?.twitch?.unlinkedCampaigns),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.twitch?.favouriteCategories),
@@ -274,10 +272,8 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.kick?.categoryMode),
         rewardFilter: normalizeRewardFilter(platform?.kick?.rewardFilter, "kick"),
-        farmPinnedOnly: booleanOr(
-          platform?.kick?.farmPinnedOnly,
-          DEFAULT_ENGINE_SETTINGS.platform.kick.farmPinnedOnly,
-        ),
+        campaignPins: normalizeIdList(platform?.kick?.campaignPins),
+        excludedCampaignIds: normalizeIdList(platform?.kick?.excludedCampaignIds),
         unlinkedCampaigns: normalizeUnlinkedCampaignMode(platform?.kick?.unlinkedCampaigns),
         categories: normalizeCategorySelections(platform?.kick?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.kick?.favouriteCategories),
@@ -303,8 +299,6 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         claimLinkHandling: compatibilitySelectionOrAuto(compatibility?.kick?.claimLinkHandling),
       },
     },
-    campaignPins: normalizeIdList(value?.campaignPins),
-    excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
     offlineRetryLimit: clampInteger(
       value?.offlineRetryLimit,
       1,
@@ -544,8 +538,11 @@ export function normalizeSubscriptionMarks(value: string[] | undefined): string[
 // The Watchlist's cap. The popup printed "n/20" long before anything
 // enforced it, so an in-page add could exceed a limit the UI claimed to have
 // (#563). Enforced here, where every host's writes converge, rather than in one
-// of the two surfaces that can add a channel.
-export const IDLE_WATCHLIST_LIMIT = 20;
+// of the two surfaces that can add a channel. Raised from 20 to 30 on request.
+// Kick checks rows one at a time until one is live, so an all-offline Kick list
+// costs up to this many page fetches per selection; keep that in mind before
+// raising it again.
+export const IDLE_WATCHLIST_LIMIT = 30;
 
 export function normalizeChannelList(value: string[] | undefined, limit?: number): string[] {
   if (!Array.isArray(value)) return [];

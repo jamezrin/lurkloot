@@ -384,7 +384,7 @@
     "message": "Wybierz, co farmić"
   },
   "tourRewardFilterBody": {
-    "message": "Otwórz „Wszystkie nagrody”, aby wybrać typy nagród do farmienia, sposób postępowania z kampaniami bez połączonego konta oraz to, czy farmić wyłącznie przypięte kampanie."
+    "message": "Otwórz „Nagrody do farmienia”, aby wybrać, jakie typy nagród farmią przypięte kampanie, ulubione gry i pozostałe kampanie, oraz co zrobić z kampaniami bez połączonego konta."
   },
   "tourCompletedTitle": {
     "message": "Ukończone i wygasłe"
@@ -906,7 +906,10 @@
     "message": "Ta gra jest zablokowana, więc jej kampanie nigdy nie są farmione."
   },
   "campaignRejectionNotPinned": {
-    "message": "Teraz farmione są tylko przypięte kampanie."
+    "message": "Jej grupa kolejki nie farmi żadnych typów nagród. Przypnij ją, aby ją farmić."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Jej grupa kolejki nie farmi żadnych typów nagród."
   },
   "campaignRejectionRewardKind": {
     "message": "Nic tutaj nie pasuje do wybranych typów nagród ($1)."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Nagrody do farmienia"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Nagrody do farmienia (zmienione)"
+  },
+  "rewardGridTickAll": {
+    "message": "Zaznacz wszystko dla: $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Odznacz wszystko dla: $1"
+  },
   "rewardFilterDescription": {
     "message": "Co Lurkloot farmi na $1. Menu filtra w Kolejce zmienia to samo ustawienie."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "Nagroda jest farmiona, jeśli pasuje choć jedna jej część."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Wybierz, jakie typy nagród farmuje każda część kolejki."
+  },
+  "rewardGroupPinned": {
+    "message": "Przypięte kampanie"
+  },
+  "rewardGroupFavourite": {
+    "message": "Ulubione gry"
+  },
+  "rewardGroupOther": {
+    "message": "Pozostałe kampanie"
+  },
+  "rewardKindForGroup": {
+    "message": "$1: $2"
+  },
   "rewardKindItem": {
     "message": "Przedmioty w grze"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emotki"
-  },
-  "rewardKindItemShort": {
-    "message": "Przedmioty"
   },
   "subscriptionRewardsTitle": {
     "message": "Nagrody za subskrypcję"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Farmione tylko wtedy, gdy żadna kampania z połączonym kontem nie może być farmiona. Przypięte kampanie i ulubione gry zachowują swoje miejsce."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "pomijaj bez połączenia"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "bez połączenia na końcu"
-  },
   "queueGroupUnlinked": {
     "message": "Bez połączenia · farmione na końcu"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "Farmić na końcu"
   },
-  "rewardFilterAll": {
-    "message": "Wszystkie nagrody"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Wszystkie"
-  },
-  "rewardFilterNoSub": {
-    "message": "bez subów"
-  },
-  "rewardFilterSubOnly": {
-    "message": "tylko suby"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "tylko przypięte"
-  },
   "rewardFilterReset": {
     "message": "Przywróć wszystkie nagrody"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmuj tylko przypięte kampanie"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Na $1 farmowane są tylko kampanie przypięte w Kolejce."
   },
   "forgetExcludedTitle": {
     "message": "Zapomnij wykluczone kampanie"

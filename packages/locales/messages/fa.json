@@ -384,7 +384,7 @@
     "message": "چیزی را که می‌خواهید فارم کنید انتخاب کنید"
   },
   "tourRewardFilterBody": {
-    "message": "«همهٔ پاداش‌ها» را باز کنید تا نوع پاداش، رفتار با کمپین‌های حساب پیوندنخورده و فارم‌کردن فقط کمپین‌های سنجاق‌شده را انتخاب کنید."
+    "message": "«پاداش‌های قابل فارم» را باز کنید تا انتخاب کنید هر یک از کمپین‌های سنجاق‌شده، بازی‌های محبوب و سایر کمپین‌ها چه نوع پاداشی را فارم کنند و با کمپین‌های بدون حساب پیوندشده چه رفتاری شود."
   },
   "tourCompletedTitle": {
     "message": "تمام‌شده و منقضی‌شده"
@@ -906,7 +906,10 @@
     "message": "این بازی مسدود شده است، بنابراین کمپین‌هایش هرگز فارم نمی‌شوند."
   },
   "campaignRejectionNotPinned": {
-    "message": "فعلاً فقط کمپین‌های سنجاق‌شده فارم می‌شوند."
+    "message": "گروه صف آن هیچ نوع پاداشی فارم نمی‌کند. برای فارم‌کردنش سنجاقش کنید."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "گروه صف آن هیچ نوع پاداشی فارم نمی‌کند."
   },
   "campaignRejectionRewardKind": {
     "message": "چیزی در اینجا با نوع پاداش شما مطابقت ندارد ($1)."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "پاداش‌های قابل فارم"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "پاداش‌های قابل فارم (سفارشی‌شده)"
+  },
+  "rewardGridTickAll": {
+    "message": "انتخاب همه برای $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "لغو انتخاب همه برای $1"
+  },
   "rewardFilterDescription": {
     "message": "Lurkloot در $1 چه چیزهایی را فارم می‌کند. منوی فیلتر صف همین تنظیم را تغییر می‌دهد."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "اگر هر بخشی از پاداش با انتخابت جور باشد، فارم می‌شود."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "انتخاب کنید هر بخش صف کدام نوع پاداش را فارم کند."
+  },
+  "rewardGroupPinned": {
+    "message": "کمپین‌های سنجاق‌شده"
+  },
+  "rewardGroupFavourite": {
+    "message": "بازی‌های محبوب"
+  },
+  "rewardGroupOther": {
+    "message": "سایر کمپین‌ها"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 برای $2"
+  },
   "rewardKindItem": {
     "message": "آیتم‌های درون‌بازی"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "شکلک‌ها"
-  },
-  "rewardKindItemShort": {
-    "message": "آیتم‌ها"
   },
   "subscriptionRewardsTitle": {
     "message": "پاداش‌های اشتراکی"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "فقط وقتی فارم می‌شوند که کمپین پیوندشده‌ای نمانده باشد. کمپین‌های سنجاق‌شده و بازی‌های محبوب جایگاهشان را حفظ می‌کنند."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "رد کردنِ بدون پیوند"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "بدون پیوند در آخر"
-  },
   "queueGroupUnlinked": {
     "message": "بدون پیوند · آخر از همه فارم می‌شود"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "آخر از همه فارم شود"
   },
-  "rewardFilterAll": {
-    "message": "همهٔ پاداش‌ها"
-  },
-  "rewardFilterAllKinds": {
-    "message": "همه"
-  },
-  "rewardFilterNoSub": {
-    "message": "بدون اشتراک"
-  },
-  "rewardFilterSubOnly": {
-    "message": "فقط اشتراکی"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "فقط سنجاق‌شده"
-  },
   "rewardFilterReset": {
     "message": "بازنشانی به همهٔ پاداش‌ها"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "فقط کمپین‌های سنجاق‌شده فارم شوند"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "در $1 فقط کمپین‌هایی فارم می‌شوند که در صف سنجاق کرده‌اید."
   },
   "forgetExcludedTitle": {
     "message": "فراموش‌کردن کمپین‌های مستثناشده"

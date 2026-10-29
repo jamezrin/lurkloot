@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { DropCampaign, EngineSettings } from "@lurkloot/shared/models";
 import { mergeEngineSettings } from "@lurkloot/shared/settings";
-import { campaignRankTier, rankCampaigns } from "@lurkloot/shared/ranking";
+import {
+  campaignRankTier,
+  pinCampaignAt,
+  platformPins,
+  rankCampaigns,
+  replacePlatformPins,
+  unpinCampaign,
+} from "@lurkloot/shared/ranking";
 
 const hour = 60 * 60 * 1000;
 const now = Date.parse("2026-09-20T00:00:00.000Z");
@@ -57,7 +64,7 @@ describe("rankCampaigns", () => {
   it("puts pinned campaigns first, in pin order", () => {
     const ranked = rankCampaigns(
       [endingSoon, endingLate, scarce],
-      settings({ campaignPins: ["ending-late", "scarce"] }),
+      settings({ platform: { twitch: { campaignPins: ["ending-late", "scarce"] } } }),
     );
     expect(ids(ranked)).toEqual(["ending-late", "scarce", "ending-soon"]);
   });
@@ -66,8 +73,12 @@ describe("rankCampaigns", () => {
     const ranked = rankCampaigns(
       [endingSoon, endingLate, scarce],
       settings({
-        campaignPins: ["ending-late"],
-        platform: { twitch: { favouriteCategories: [{ id: "delta", name: "Delta Force" }] } },
+        platform: {
+          twitch: {
+            campaignPins: ["ending-late"],
+            favouriteCategories: [{ id: "delta", name: "Delta Force" }],
+          },
+        },
       }),
     );
     expect(ids(ranked)).toEqual(["ending-late", "scarce", "ending-soon"]);
@@ -129,8 +140,12 @@ describe("rankCampaigns", () => {
 
   it("reports which tier ranked a campaign", () => {
     const configured = settings({
-      campaignPins: ["ending-late"],
-      platform: { twitch: { favouriteCategories: [{ id: "delta", name: "Delta Force" }] } },
+      platform: {
+        twitch: {
+          campaignPins: ["ending-late"],
+          favouriteCategories: [{ id: "delta", name: "Delta Force" }],
+        },
+      },
     });
     expect(campaignRankTier(endingLate, configured)).toBe("pinned");
     expect(campaignRankTier(scarce, configured)).toBe("favourite");
@@ -190,8 +205,8 @@ describe("rankCampaigns with unlinked campaigns farmed last", () => {
 
   it("keeps a pinned or favourite unlinked campaign in its own tier", () => {
     const configured = last(
-      { campaignPins: ["unlinked-late"] },
-      { favouriteCategories: [{ id: "rust", name: "Rust" }] },
+      {},
+      { campaignPins: ["unlinked-late"], favouriteCategories: [{ id: "rust", name: "Rust" }] },
     );
     // ending-soon is also a Rust campaign, so it shares the favourite tier.
     expect(ids(rankCampaigns(all, configured))).toEqual([
@@ -207,5 +222,53 @@ describe("rankCampaigns with unlinked campaigns farmed last", () => {
   it("applies only to the platform set to farm last", () => {
     const kickUnlinked = campaign("kick-unlinked", { platform: "kick", accountLinked: false });
     expect(campaignRankTier(kickUnlinked, last())).toBe("strategy");
+  });
+});
+
+// One pin list serves both platforms; the Queue's controls act on one of them.
+describe("platform pins", () => {
+  const twitchIds = new Set(["t1", "t2", "t3"]);
+  // Kick's k1/k2 interleaved with Twitch's, plus an ended campaign no list reports.
+  const pins = ["k1", "t1", "gone", "k2", "t2"];
+
+  it("reads only the platform's pins, in pin order", () => {
+    expect(platformPins(pins, twitchIds)).toEqual(["t1", "t2"]);
+  });
+
+  it("unpins all on one platform and keeps the other's pins and unknown ids", () => {
+    expect(replacePlatformPins(pins, twitchIds, [])).toEqual(["k1", "gone", "k2"]);
+  });
+
+  it("keeps an unreported pin in its slot when a pin is added", () => {
+    // t-missing was skipped by this discovery; it must still rank above t2 when
+    // it comes back.
+    const stored = ["t1", "t-missing", "t2"];
+    const next = replacePlatformPins(stored, twitchIds, ["t1", "t2", "t3"]);
+    expect(next).toEqual(["t1", "t-missing", "t2", "t3"]);
+    expect(platformPins(next, new Set([...twitchIds, "t-missing"]))).toEqual([
+      "t1",
+      "t-missing",
+      "t2",
+      "t3",
+    ]);
+  });
+
+  it("places a drag by its position among the platform's own pins", () => {
+    const next = replacePlatformPins(
+      pins,
+      twitchIds,
+      pinCampaignAt(platformPins(pins, twitchIds), "t3", 1),
+    );
+    expect(platformPins(next, twitchIds)).toEqual(["t1", "t3", "t2"]);
+    expect(platformPins(next, new Set(["k1", "k2"]))).toEqual(["k1", "k2"]);
+  });
+
+  it("unpins one campaign without touching the other platform", () => {
+    const next = replacePlatformPins(
+      pins,
+      twitchIds,
+      unpinCampaign(platformPins(pins, twitchIds), "t1"),
+    );
+    expect(next).toEqual(["k1", "t2", "gone", "k2"]);
   });
 });

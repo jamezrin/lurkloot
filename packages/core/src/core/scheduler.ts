@@ -19,9 +19,14 @@ import type {
 } from "@lurkloot/shared/models";
 import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
-import { campaignFilterMiss } from "@lurkloot/shared/rewardFilter";
+import {
+  campaignFilterMiss,
+  campaignRewardFilter,
+  farmsPinnedOnly,
+} from "@lurkloot/shared/rewardFilter";
 import {
   evaluateCampaignFarming,
+  farmingRewardFilter,
   rewardsInFarmingScope,
   type CampaignFarmingEvaluation,
   type CampaignFarmingRejectionCode,
@@ -105,10 +110,7 @@ export function challengePollDue(state: SchedulerState, platform: Platform, now:
 }
 
 function activeReward(campaign: DropCampaign, settings: EngineSettings): DropReward | undefined {
-  const earnable = rewardsInFarmingScope(
-    campaign,
-    settings.platform[campaign.platform].rewardFilter,
-  ).filter(
+  const earnable = rewardsInFarmingScope(campaign, campaignRewardFilter(campaign, settings)).filter(
     (reward) =>
       reward.preconditionsMet !== false
       && isRewardAvailableToEarn(reward)
@@ -171,14 +173,9 @@ function tablessFallbackExpired(session: WatchSession, now: number): boolean {
 function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   // campaignFarmable is the single shared definition of "is this campaign
   // farmable" (shared with the popup's campaignSection, so display and farming
-  // never drift apart). "Farm pinned only" is the one farming-strategy layer on
-  // top of it: it farms exclusively pinned campaigns, and is deliberately NOT
-  // part of campaignFarmable — an unpinned campaign must stay farmable-shaped
-  // for display so the popup can still offer the pin.
-  if (!campaignFarmable(campaign, settings)) return false;
-  if (settings.platform[campaign.platform].farmPinnedOnly && !isPinned(campaign, settings))
-    return false;
-  return true;
+  // never drift apart). Farming only pins is part of it: the favourite and
+  // other groups farm no reward kinds (#932).
+  return campaignFarmable(campaign, settings);
 }
 
 // Reason codes that mean the watch stopped accruing for an explainable reason
@@ -480,16 +477,16 @@ async function chooseIdleWatchlistDecision(
     return idleWatchlistDecision(platform, fallback, false);
   }
   // Rows in the user's order. A maintained row whose attempt for this broadcast
-  // has ended is skipped outright: it never falls back to ordinary watching for
-  // the same broadcast, so the toggle cannot keep a channel on top all day. One
-  // whose attempt is still running is watched here too when the Watch streaks
-  // source sits below this one.
+  // has ended is an ordinary row again: only the Watch streaks source lifts it
+  // above the others, and that source skips it once the attempt ends, so the
+  // toggle cannot keep a channel on top all day. Skipping it here as well left
+  // nothing to watch when it was the only live row. One whose attempt is still
+  // running is watched here too when the Watch streaks source sits below this one.
   const prioritized = new Set(streaks.prioritized);
   for (const username of channels) {
     const channel = await liveIdleWatchlistRow(platform, username, adapter, signal, onCheck);
     if (!channel) continue;
     const verdict = prioritized.has(username) ? streaks.verdict(channel) : "unavailable";
-    if (verdict === "credited" || verdict === "not_confirmed") continue;
     return idleWatchlistDecision(platform, channel, verdict === "pending");
   }
   return undefined;
@@ -614,7 +611,7 @@ async function chooseWatchlistSourcesDecision(
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
   if (campaigns.length === 0) return "No campaigns discovered";
   const notExcluded = campaigns.filter(
-    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+    (campaign) => !settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id),
   );
   if (notExcluded.length === 0) return "All campaigns are excluded";
   if (
@@ -673,20 +670,25 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   if (
     notExcluded.every(
       (campaign) =>
-        campaignFilterMiss(campaign, settings.platform[campaign.platform].rewardFilter)
-        !== undefined,
+        campaignFilterMiss(campaign, farmingRewardFilter(campaign, settings)) !== undefined,
     )
   ) {
     return "No campaigns have rewards your reward filter allows";
   }
-  // Eligible, not merely pinned: with pins that have all expired, "no pinned
-  // campaigns are eligible" is the accurate and more actionable reason.
+  // Only pins farm (#932): every campaign's platform farms pins only, and each
+  // campaign either waits on a pin or is a pin that is not eligible. With pins
+  // that have all expired, "no pinned campaigns are eligible" is the accurate
+  // and more actionable reason. Without pins-only, a pinned campaign that is
+  // not eligible gets its own reason below (a deadline, say).
   if (
-    notExcluded.every(
-      (campaign) =>
-        settings.platform[campaign.platform].farmPinnedOnly
-        && !(isPinned(campaign, settings) && campaignFarmable(campaign, settings)),
-    )
+    notExcluded.every((campaign) => {
+      if (!farmsPinnedOnly(settings.platform[campaign.platform].rewardFilter, campaign.platform))
+        return false;
+      const evaluation = evaluateCampaignFarming(campaign, settings);
+      return (
+        !evaluation.farmable && (evaluation.code === "not_pinned" || isPinned(campaign, settings))
+      );
+    })
   ) {
     return "No pinned campaigns are eligible";
   }
@@ -723,7 +725,7 @@ function onlyWaitingSubscriptionCampaigns(
   settings: EngineSettings,
 ): boolean {
   const notExcluded = campaigns.filter(
-    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+    (campaign) => !settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id),
   );
   return (
     notExcluded.length > 0
@@ -742,7 +744,7 @@ function onlyWaitingSubscriptionCampaigns(
 
 function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
   const notExcluded = campaigns.filter(
-    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+    (campaign) => !settings.platform[campaign.platform].excludedCampaignIds.includes(campaign.id),
   );
   return (
     notExcluded.length > 0
@@ -1171,9 +1173,8 @@ export function campaignSearchFingerprint(
   return stableHash({
     campaign,
     settings: {
-      campaignPins: settings.campaignPins,
-      excludedCampaignIds: settings.excludedCampaignIds,
       priorityMode: settings.priorityMode,
+      // Carries this platform's pins and exclusions.
       platform: settings.platform[campaign.platform],
     },
   });
@@ -1556,7 +1557,7 @@ function emitCampaignEvaluationDiagnostics(
 ): void {
   const evaluations = campaigns.map((campaign) => ({
     campaign,
-    evaluation: evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true }),
+    evaluation: evaluateCampaignFarming(campaign, settings),
   }));
   const fingerprint = campaignEvaluationFingerprint(evaluations);
   if (fingerprints?.[platform] === fingerprint) return;

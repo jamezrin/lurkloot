@@ -384,7 +384,7 @@
     "message": "तय करें कि क्या फ़ार्म करना है"
   },
   "tourRewardFilterBody": {
-    "message": "“सभी रिवॉर्ड” खोलें और चुनें कि किन रिवॉर्ड प्रकारों को फ़ार्म करना है, बिना लिंक किए खाते वाले कैंपेन के साथ क्या करना है, और क्या केवल पिन किए गए कैंपेन फ़ार्म करने हैं।"
+    "message": "“फ़ार्म करने वाले रिवॉर्ड” खोलें और चुनें कि पिन किए गए कैंपेन, पसंदीदा गेम और अन्य कैंपेन किन रिवॉर्ड प्रकारों को फ़ार्म करें, और बिना लिंक किए खाते वाले कैंपेन के साथ क्या करना है।"
   },
   "tourCompletedTitle": {
     "message": "पूर्ण और समाप्त"
@@ -906,7 +906,10 @@
     "message": "यह गेम ब्लॉक है, इसलिए इसके कैंपेन कभी फ़ार्म नहीं होते।"
   },
   "campaignRejectionNotPinned": {
-    "message": "अभी सिर्फ़ पिन किए गए कैंपेन फ़ार्म होते हैं।"
+    "message": "इसके क़तार-समूह में कोई रिवॉर्ड प्रकार फ़ार्म नहीं होता। फ़ार्म करने के लिए इसे पिन करें।"
+  },
+  "campaignRejectionGroupOff": {
+    "message": "इसके क़तार-समूह में कोई रिवॉर्ड प्रकार फ़ार्म नहीं होता।"
   },
   "campaignRejectionRewardKind": {
     "message": "यहाँ आपके चुने रिवॉर्ड प्रकार ($1) से कुछ भी मेल नहीं खाता।"
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "फ़ार्म करने वाले रिवॉर्ड"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "फ़ार्म करने वाले रिवॉर्ड (बदले गए)"
+  },
+  "rewardGridTickAll": {
+    "message": "$1 के लिए सभी चुनें"
+  },
+  "rewardGridUntickAll": {
+    "message": "$1 के लिए सभी हटाएँ"
+  },
   "rewardFilterDescription": {
     "message": "$1 पर Lurkloot किन रिवॉर्ड को फ़ार्म करता है। क़तार के फ़िल्टर मेनू में भी यही सेटिंग बदलती है।"
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "रिवॉर्ड का कोई भी हिस्सा मेल खाए, तो वह फ़ार्म किया जाता है।"
   },
+  "rewardKindsGroupsDescription": {
+    "message": "चुनें कि कतार का हर हिस्सा किन रिवॉर्ड प्रकारों को फ़ार्म करेगा।"
+  },
+  "rewardGroupPinned": {
+    "message": "पिन किए गए कैंपेन"
+  },
+  "rewardGroupFavourite": {
+    "message": "पसंदीदा गेम"
+  },
+  "rewardGroupOther": {
+    "message": "अन्य कैंपेन"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 के लिए $2"
+  },
   "rewardKindItem": {
     "message": "इन-गेम आइटम"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "इमोट"
-  },
-  "rewardKindItemShort": {
-    "message": "आइटम"
   },
   "subscriptionRewardsTitle": {
     "message": "सदस्यता रिवॉर्ड"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "केवल तभी फ़ार्म किए जाते हैं जब कोई लिंक्ड कैंपेन फ़ार्म न हो सके। पिन किए गए कैंपेन और पसंदीदा गेम अपनी जगह बनाए रखते हैं।"
   },
-  "rewardFilterNoUnlinked": {
-    "message": "बिना लिंक छोड़ें"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "बिना लिंक सबसे बाद"
-  },
   "queueGroupUnlinked": {
     "message": "बिना लिंक · आख़िर में फ़ार्म"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "आख़िर में फ़ार्म"
   },
-  "rewardFilterAll": {
-    "message": "सभी रिवॉर्ड"
-  },
-  "rewardFilterAllKinds": {
-    "message": "सभी"
-  },
-  "rewardFilterNoSub": {
-    "message": "बिना सदस्यता"
-  },
-  "rewardFilterSubOnly": {
-    "message": "केवल सदस्यता"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "केवल पिन किए गए"
-  },
   "rewardFilterReset": {
     "message": "सभी रिवॉर्ड पर वापस जाएँ"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "केवल पिन किए गए कैंपेन फ़ार्म करें"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "$1 पर केवल वे कैंपेन फ़ार्म होंगे जो आपने क़तार में पिन किए हैं।"
   },
   "forgetExcludedTitle": {
     "message": "हटाए गए कैंपेन भूलें"

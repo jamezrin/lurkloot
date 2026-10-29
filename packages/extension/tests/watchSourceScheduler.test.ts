@@ -213,7 +213,7 @@ describe("watch-source scheduler policy", () => {
           },
         ],
       };
-      if (explicitPriority) s.settings.campaignPins = ["replacement"];
+      if (explicitPriority) s.settings.platform[platform].campaignPins = ["replacement"];
       const snapshot = {
         platform,
         revision: 1,
@@ -497,7 +497,7 @@ describe("watch-source scheduler policy", () => {
       drops.state.sessions.twitch.lastHeartbeatOk = true;
       drops.state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
       if (exclusion === "channel") s.settings.platform.twitch.excludedChannels = ["dropper"];
-      else s.settings.excludedCampaignIds = ["drop"];
+      else s.settings.platform.twitch.excludedCampaignIds = ["drop"];
       const result = await runSchedulerTick(
         drops.state,
         s.settings,
@@ -574,7 +574,7 @@ describe("watch-source policy while discovery was discarded", () => {
     const s = setup();
     s.settings.platform.twitch.watchlistChannels = [];
     const drops = await s.tick(s.state, async () => undefined);
-    s.settings.excludedCampaignIds = ["drop"];
+    s.settings.platform.twitch.excludedCampaignIds = ["drop"];
 
     const next = await discardedTick(s, healthy(drops.state), nopixelLive(s));
 
@@ -649,7 +649,7 @@ describe("watch-source policy while discovery was discarded", () => {
   it("keeps a supplemental watch it was already on", async () => {
     const s = setup();
     s.settings.platform.twitch.watchlistChannels = [];
-    s.settings.excludedCampaignIds = ["drop"];
+    s.settings.platform.twitch.excludedCampaignIds = ["drop"];
     const nopixel = await s.tick(s.state, nopixelLive(s));
     expect(nopixel.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
 

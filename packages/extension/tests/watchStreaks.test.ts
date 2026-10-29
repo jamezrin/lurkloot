@@ -521,11 +521,20 @@ describe("watch-streak scheduling", () => {
     expect(order).toEqual(["first", "second", "ordinary"]);
   });
 
-  it("yields to nothing once every maintained row is done and no ordinary row is live", async () => {
-    const s = setup({ channels: ["streaky"], streaks: ["streaky"] });
-    for (let minute = 0; minute < 30; minute += 1) await s.tick();
-    expect(s.state.sessions.twitch.status).toBe("idle");
-    expect(s.watched.at(-1)).toBe("-");
+  // A finished row is an ordinary Watchlist row again, so when it is the only
+  // live one it keeps being watched: one open, no switching away and back.
+  it("keeps watching a finished maintained row as an ordinary row for hours", async () => {
+    const s = setup({ channels: ["streaky"], streaks: ["streaky"], restartEvery: 7 });
+    let opens = 0;
+    for (let minute = 0; minute < 6 * 60; minute += 1) {
+      const before = s.state.sessions.twitch.status;
+      await s.tick();
+      if (before !== "watching" && s.state.sessions.twitch.status === "watching") opens += 1;
+    }
+    expect(s.state.watchStreaks?.twitch?.attempts).toHaveLength(1);
+    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
+    expect(new Set(s.watched)).toEqual(new Set(["streaky"]));
+    expect(opens).toBe(1);
   });
 
   it("stops reopening a maintained row that never plays, across hours and restarts", async () => {
@@ -538,8 +547,10 @@ describe("watch-streak scheduling", () => {
       if (before !== "watching" && s.state.sessions.twitch.status === "watching")
         adapter.opens += 1;
     }
+    // After the attempt ends it is watched like an ordinary row that never
+    // plays: kept, not reopened.
     const lastHour = s.watched.slice(-60);
-    expect(lastHour.every((name) => name === "-")).toBe(true);
+    expect(lastHour.every((name) => name === "streaky")).toBe(true);
     expect(s.state.watchStreaks?.twitch?.attempts).toHaveLength(1);
     expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
     expect(adapter.opens).toBeLessThanOrEqual(WATCH_STREAK_MAX_UNHEALTHY_CHECKS);
@@ -548,7 +559,7 @@ describe("watch-streak scheduling", () => {
   it("starts a fresh attempt for a new broadcast", async () => {
     const s = setup({ channels: ["streaky"], streaks: ["streaky"] });
     for (let minute = 0; minute < 20; minute += 1) await s.tick();
-    expect(s.state.sessions.twitch.status).toBe("idle");
+    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
     s.broadcasts.set("streaky", "b-next");
     await s.tick();
     expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
@@ -581,7 +592,7 @@ describe("watch-streak scheduling", () => {
   it("restores ordinary watching when the toggle is turned off", async () => {
     const s = setup({ channels: ["streaky"], streaks: ["streaky"] });
     for (let minute = 0; minute < 20; minute += 1) await s.tick();
-    expect(s.state.sessions.twitch.status).toBe("idle");
+    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
     s.settings.platform.twitch.watchlistStreakChannels = [];
     await s.tick();
     expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
@@ -675,7 +686,9 @@ describe("watch-streak scheduling", () => {
     expect(order).toEqual(["streaky", "ordinary"]);
   });
 
-  it("hands over to Drops after the last maintained row when no ordinary row remains", async () => {
+  // Ordered above Drops, the Watchlist keeps a finished row in its ordinary
+  // place, as it would any live row; it does not hand over to Drops.
+  it("keeps a finished maintained row in the Watchlist's place above Drops", async () => {
     const s = setup({
       drop: true,
       channels: ["streaky"],
@@ -683,9 +696,9 @@ describe("watch-streak scheduling", () => {
       order: ["watchlist", "drops", "nopixel", "fortnite"],
     });
     for (let minute = 0; minute < 25; minute += 1) await s.tick();
-    const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
-    expect(order).toEqual(["streaky", "dropper"]);
-    expect(s.state.sessions.twitch.campaignId).toBe("drop");
+    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
+    expect(new Set(s.watched)).toEqual(new Set(["streaky"]));
+    expect(s.state.sessions.twitch.campaignId).toBeUndefined();
   });
 
   it("leaves maintenance opportunistic below a live drop", async () => {
@@ -737,7 +750,7 @@ describe("watch-streak scheduling", () => {
       username: "streaky",
       outcome: "not_confirmed",
     });
-    expect(s.state.sessions.twitch.status).toBe("idle");
+    expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
   });
 
   it("watches streaks ahead of Drops by default", async () => {
@@ -748,6 +761,19 @@ describe("watch-streak scheduling", () => {
     for (let minute = 0; minute < 25; minute += 1) await s.tick();
     const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
     expect(order).toEqual(["streaky", "dropper"]);
+  });
+
+  it("finishes every live maintained row in turn, then hands over to Drops", async () => {
+    const s = setup({
+      drop: true,
+      channels: ["first", "second"],
+      streaks: ["first", "second"],
+      order: [...DEFAULT_SETTINGS.platform.twitch.watchSourcePriority],
+    });
+    for (let minute = 0; minute < 40; minute += 1) await s.tick();
+    const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
+    expect(order).toEqual(["first", "second", "dropper"]);
+    expect(s.state.sessions.twitch.campaignId).toBe("drop");
   });
 
   it("puts Watch streaks first in an order saved before it", () => {
@@ -768,6 +794,16 @@ describe("watch-streak scheduling", () => {
 });
 
 describe("watch-streak source in a selection that resolves Drops itself", () => {
+  // The drop's window is relative to T0, so the clock is too: on the real clock
+  // its 100 hours stop fitting before it ends and the drop reads as unfinishable.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(T0);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const ORDER: WatchSourceId[] = ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"];
 
   function decide(options: { verdict: WatchStreakVerdict; drop: boolean; subscription?: boolean }) {
@@ -840,9 +876,9 @@ describe("watch-streak source in a selection that resolves Drops itself", () => 
     expect(decision).toMatchObject({ action: "watch", channel: { username: "dropper" } });
   });
 
-  it("falls to the ordinary row, not the finished streak row, without a drop", async () => {
+  it("keeps the finished streak row in its ordinary watchlist place without a drop", async () => {
     const decision = await decide({ verdict: "not_confirmed", drop: false });
-    expect(decision.channel?.username).toBe("ordinary");
+    expect(decision.channel?.username).toBe("streaky");
   });
 
   it("keeps an opted-in streak but not the plain watchlist when only subscriptions remain", async () => {

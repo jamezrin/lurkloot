@@ -1,3 +1,4 @@
+import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import { describe, expect, it } from "vitest";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { migrateSettings } from "@lurkloot/shared/settingsSchema";
@@ -50,18 +51,28 @@ describe("parseCliSettings", () => {
 
   it("defaults preferKnownChannels to on and honors an explicit override", () => {
     expect(DEFAULT_CLI_SETTINGS.preferKnownChannels).toBe(true);
+    const all = ["item", "badge", "emote"];
     expect(parseCliSettings({}).platform.twitch.rewardFilter).toEqual({
-      kinds: ["item", "badge", "emote"],
+      kinds: all,
       subscriptions: "include",
+      pinnedKinds: all,
+      favouriteKinds: all,
     });
     const badgesOnly = { kinds: ["badge"], subscriptions: "skip" };
     const typed = parseCliSettings({
       platform: { twitch: { rewardFilter: badgesOnly }, kick: { rewardFilter: badgesOnly } },
     });
-    expect(typed.platform.twitch.rewardFilter).toEqual(badgesOnly);
+    // Without their own lists, pinned and favourite campaigns follow kinds.
+    const badgesEverywhere = { ...badgesOnly, pinnedKinds: ["badge"], favouriteKinds: ["badge"] };
+    expect(typed.platform.twitch.rewardFilter).toEqual(badgesEverywhere);
     // Kick reports no badges, so its kinds fall back to every kind it has.
-    expect(typed.platform.kick.rewardFilter).toEqual({ kinds: ["item"], subscriptions: "skip" });
-    expect(toEngineSettings(typed).platform.twitch.rewardFilter).toEqual(badgesOnly);
+    expect(typed.platform.kick.rewardFilter).toEqual({
+      kinds: ["item"],
+      subscriptions: "skip",
+      pinnedKinds: ["item"],
+      favouriteKinds: ["item"],
+    });
+    expect(toEngineSettings(typed).platform.twitch.rewardFilter).toEqual(badgesEverywhere);
     expect(parseCliSettings({}).preferKnownChannels).toBe(true);
     expect(parseCliSettings({ preferKnownChannels: false }).preferKnownChannels).toBe(false);
     expect(
@@ -117,13 +128,18 @@ describe("parseCliSettings", () => {
     const settings = parseCliSettings({
       autoClaim: false,
       pollIntervalMinutes: 9,
-      excludedCampaignIds: [" Foo ", "Foo", "bar"],
-      platform: { twitch: { enabled: false, watchlistChannels: ["@Streamer", "streamer"] } },
+      platform: {
+        twitch: {
+          enabled: false,
+          watchlistChannels: ["@Streamer", "streamer"],
+          excludedCampaignIds: [" Foo ", "Foo", "bar"],
+        },
+      },
     });
     expect(settings.autoClaim).toBe(false);
     expect(settings.pollIntervalMinutes).toBe(9);
     // Campaign ids are trimmed + deduped (case-sensitive).
-    expect(settings.excludedCampaignIds).toEqual(["Foo", "bar"]);
+    expect(settings.platform.twitch.excludedCampaignIds).toEqual(["Foo", "bar"]);
     // Channels are lowercased, @-stripped and deduped.
     expect(settings.platform.twitch.enabled).toBe(false);
     expect(settings.platform.twitch.watchlistChannels).toEqual(["streamer"]);
@@ -225,16 +241,28 @@ describe("parseCliSettings", () => {
     },
   );
 
-  it("accepts the per-platform eligibility switches", () => {
+  it("accepts the per-platform eligibility settings", () => {
+    // Empty lists farm nothing only from schema 12 on; an unversioned config
+    // reads them as every kind, as it always did.
     const result = parseCliSettingsWithDiagnostics({
-      platform: { kick: { unlinkedCampaigns: "last", farmPinnedOnly: true } },
+      schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+      platform: {
+        kick: {
+          unlinkedCampaigns: "last",
+          rewardFilter: { kinds: [], favouriteKinds: [], pinnedKinds: ["item"] },
+        },
+      },
     });
 
     expect(result.settings.platform.kick.unlinkedCampaigns).toBe("last");
-    expect(result.settings.platform.kick.farmPinnedOnly).toBe(true);
+    expect(result.settings.platform.kick.rewardFilter).toMatchObject({
+      kinds: [],
+      favouriteKinds: [],
+      pinnedKinds: ["item"],
+    });
     // The other platform keeps the shared defaults.
     expect(result.settings.platform.twitch.unlinkedCampaigns).toBe("include");
-    expect(result.settings.platform.twitch.farmPinnedOnly).toBe(false);
+    expect(result.settings.platform.twitch.rewardFilter.kinds).toEqual(["item", "badge", "emote"]);
     expect(result.diagnostics).toEqual([]);
     expect(toEngineSettings(result.settings).platform.kick.unlinkedCampaigns).toBe("last");
   });
@@ -258,12 +286,16 @@ describe("parseCliSettings", () => {
     ]);
   });
 
-  it("loads a top-level farmPinnedOnly with one warning, pinning both platforms", () => {
+  it("loads a top-level farmPinnedOnly with one warning, farming only pins on both platforms", () => {
     const result = parseCliSettingsWithDiagnostics({ farmPinnedOnly: true });
 
     expect(result.settings).not.toHaveProperty("farmPinnedOnly");
-    expect(result.settings.platform.twitch.farmPinnedOnly).toBe(true);
-    expect(result.settings.platform.kick.farmPinnedOnly).toBe(true);
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(result.settings.platform[platform].rewardFilter).toMatchObject({
+        kinds: [],
+        favouriteKinds: [],
+      });
+    }
     expect(result.diagnostics).toEqual([
       expect.objectContaining({ code: "moved_property", path: "farmPinnedOnly" }),
     ]);
@@ -323,9 +355,15 @@ describe("parseCliSettings", () => {
     ).toThrow(
       /"platform.kick.farmUnlinkedCampaigns" \(now "platform.kick.unlinkedCampaigns"\) must be one of/,
     );
-    expect(() => parseCliSettings({ platform: { twitch: { farmPinnedOnly: null } } })).toThrow(
-      /"platform.twitch.farmPinnedOnly" must be a boolean/,
-    );
+    // farmPinnedOnly is gone (#932): a stray value is reported and dropped,
+    // never applied, so it cannot farm the wrong set.
+    const stray = parseCliSettingsWithDiagnostics({
+      platform: { twitch: { farmPinnedOnly: null } },
+    });
+    expect(stray.settings.platform.twitch.rewardFilter.kinds).toEqual(["item", "badge", "emote"]);
+    expect(stray.diagnostics.map((diagnostic) => diagnostic.path)).toEqual([
+      "platform.twitch.farmPinnedOnly",
+    ]);
     // A legacy value is carried across by the migration and judged the same way.
     expect(() =>
       parseCliSettings({ farmingEligibility: { farmUnlinkedCampaigns: "yes" } }),
@@ -451,8 +489,9 @@ describe("CLI settings export/import", () => {
   it("round-trips a customized settings object", () => {
     const settings = parseCliSettings({
       autoClaim: false,
-      excludedCampaignIds: ["abc123"],
-      platform: { twitch: { enabled: true, watchlistChannels: ["someone"] } },
+      platform: {
+        twitch: { enabled: true, watchlistChannels: ["someone"], excludedCampaignIds: ["abc123"] },
+      },
     });
     const payload = buildCliSettingsExportPayload(settings);
     expect(payload.kind).toBe(SETTINGS_EXPORT_KIND);
@@ -469,7 +508,8 @@ describe("CLI settings export/import", () => {
       settings: { autoClaim: false, farmPinnedOnly: true },
     });
     expect(settings.autoClaim).toBe(false);
-    expect(settings.platform.twitch.farmPinnedOnly).toBe(true);
+    // Migrated from version 0: farm pinned only became only pins farming.
+    expect(settings.platform.twitch.rewardFilter).toMatchObject({ kinds: [], favouriteKinds: [] });
   });
 
   it("never carries credential-shaped fields", () => {
@@ -572,7 +612,29 @@ describe("category modes", () => {
       expect(settings.platform.kick.rewardFilter).toEqual({
         kinds: ["item"],
         subscriptions: "skip",
+        pinnedKinds: ["item"],
+        favouriteKinds: ["item"],
       });
+    });
+
+    it("accepts the pinned and favourite kinds lists (#932)", () => {
+      const settings = parseFilter({
+        kinds: ["badge"],
+        pinnedKinds: ["item", "badge"],
+        favouriteKinds: ["emote", "item"],
+      });
+      expect(settings.platform.twitch.rewardFilter).toMatchObject({
+        kinds: ["badge"],
+        pinnedKinds: ["item", "badge"],
+        favouriteKinds: ["item", "emote"],
+      });
+    });
+
+    it("rejects a pinned or favourite kinds list that names nothing", () => {
+      expect(() => parseFilter({ pinnedKinds: "item" })).toThrow(/rewardFilter\.pinnedKinds/);
+      expect(() => parseFilter({ favouriteKinds: ["sticker"] })).toThrow(
+        /rewardFilter\.favouriteKinds/,
+      );
     });
   });
 

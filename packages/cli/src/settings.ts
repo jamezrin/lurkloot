@@ -55,11 +55,6 @@ import type {
 export interface CliSettings {
   autoClaim: boolean;
   priorityMode: PriorityMode;
-  // Ordered campaign ids that rank above everything the strategy places. The
-  // extension writes this by dragging a card; headless, it is hand-edited, so
-  // order is the data and no numeric weights are involved.
-  campaignPins: string[];
-  excludedCampaignIds: string[];
   /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
   // See EngineSettings.preferKnownChannels. Applies to campaign channel
@@ -85,10 +80,6 @@ export interface CliSettings {
   compatibility: CompatibilitySettings;
 }
 
-// Per-platform eligibility switches. Their values are checked, not just their
-// names: booleanOr would quietly restore the default for `"farmPinnedOnly": "yes"`
-// and farm the wrong set.
-const PLATFORM_ELIGIBILITY_SWITCHES = ["farmPinnedOnly"] as const;
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
@@ -97,8 +88,6 @@ const PLATFORMS: Platform[] = ["twitch", "kick"];
 export const DEFAULT_CLI_SETTINGS: CliSettings = {
   autoClaim: DEFAULT_SETTINGS.autoClaim,
   priorityMode: DEFAULT_SETTINGS.priorityMode,
-  campaignPins: [...DEFAULT_SETTINGS.campaignPins],
-  excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
   idleWatchlistFallbackOnly: DEFAULT_SETTINGS.idleWatchlistFallbackOnly,
   preferKnownChannels: DEFAULT_SETTINGS.preferKnownChannels,
   offlineRetryLimit: DEFAULT_SETTINGS.offlineRetryLimit,
@@ -128,8 +117,6 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
 const CLI_SETTING_KEYS = new Set<string>([
   "autoClaim",
   "priorityMode",
-  "campaignPins",
-  "excludedCampaignIds",
   "idleWatchlistFallbackOnly",
   "preferKnownChannels",
   "offlineRetryLimit",
@@ -157,7 +144,8 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
-    "farmPinnedOnly",
+    "campaignPins",
+    "excludedCampaignIds",
     "unlinkedCampaigns",
     "categories",
     "favouriteCategories",
@@ -176,7 +164,8 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "excludedChannels",
     "categoryMode",
     "rewardFilter",
-    "farmPinnedOnly",
+    "campaignPins",
+    "excludedCampaignIds",
     "unlinkedCampaigns",
     "categories",
     "favouriteCategories",
@@ -333,14 +322,16 @@ function rewardFilterOffenders(platform: string, raw: unknown): string[] {
   }
   const offenders: string[] = [];
   const filter = raw as Record<string, unknown>;
+  const kindLists = ["kinds", "pinnedKinds", "favouriteKinds"];
   for (const key of Object.keys(filter)) {
-    if (key !== "kinds" && key !== "subscriptions")
+    if (!kindLists.includes(key) && key !== "subscriptions")
       offenders.push(`unknown setting "${key}" under ${path}`);
   }
-  if (Object.hasOwn(filter, "kinds")) {
-    const kinds = filter.kinds;
+  for (const key of kindLists) {
+    if (!Object.hasOwn(filter, key)) continue;
+    const kinds = filter[key];
     if (!Array.isArray(kinds) || !kinds.every((kind) => REWARD_KINDS.includes(kind as never))) {
-      offenders.push(`"${path}.kinds" must be an array of: ${REWARD_KINDS.join(", ")}`);
+      offenders.push(`"${path}.${key}" must be an array of: ${REWARD_KINDS.join(", ")}`);
     }
   }
   if (
@@ -384,11 +375,7 @@ function parseMigratedCliSettings(
             if (!CLI_PLATFORM_KEYS[name as Platform].has(key))
               offenders.push(`unknown setting "${key}" under platform.${name}`);
           }
-          for (const key of PLATFORM_ELIGIBILITY_SWITCHES) {
-            if (Object.hasOwn(block, key) && typeof block[key] !== "boolean")
-              offenders.push(`"platform.${name}.${key}" must be a boolean`);
-          }
-          // Like the eligibility switches above: normalizeCategoryMode would
+          // Checked by value, not just name: normalizeCategoryMode would
           // quietly fall back to "all" for a typo such as "exclude_all",
           // silently farming the whole directory instead of the chosen subset.
           if (
@@ -461,8 +448,6 @@ function parseMigratedCliSettings(
     priorityMode: PRIORITY_MODES.includes(v.priorityMode as PriorityMode)
       ? (v.priorityMode as PriorityMode)
       : DEFAULT_CLI_SETTINGS.priorityMode,
-    campaignPins: normalizeIdList(v.campaignPins),
-    excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
     idleWatchlistFallbackOnly: booleanOr(
       v.idleWatchlistFallbackOnly,
       DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly,
@@ -549,7 +534,10 @@ function normalizePlatform(
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),
         rewardFilter: normalizeRewardFilter(ps.rewardFilter, platform),
-        farmPinnedOnly: booleanOr(ps.farmPinnedOnly, defaults.farmPinnedOnly),
+        // Ordered campaign ids that rank above everything the strategy places.
+        // Hand-edited headless, so order is the data.
+        campaignPins: normalizeIdList(ps.campaignPins),
+        excludedCampaignIds: normalizeIdList(ps.excludedCampaignIds),
         unlinkedCampaigns: normalizeUnlinkedCampaignMode(ps.unlinkedCampaigns),
         categories: normalizeCategorySelections(ps.categories),
         favouriteCategories: normalizeCategorySelections(ps.favouriteCategories),

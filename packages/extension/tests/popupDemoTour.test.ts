@@ -19,7 +19,7 @@ describe("tour demo scenario", () => {
     expect(
       state.campaigns.twitch.some((c) => c.accountLinked === false && c.status === "active"),
     ).toBe(true);
-    expect(settings.campaignPins.length).toBeGreaterThan(0);
+    expect(settings.platform.twitch.campaignPins.length).toBeGreaterThan(0);
     expect(settings.platform.twitch.favouriteCategories.length).toBeGreaterThan(0);
   });
 

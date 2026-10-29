@@ -2,18 +2,24 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
 import { migrateSettings, withSchemaVersion } from "@lurkloot/shared/settingsSchema";
 
+function platformList(settings: Record<string, unknown>, platform: string, key: string): unknown {
+  const platforms = settings.platform as Record<string, Record<string, unknown>> | undefined;
+  return platforms?.[platform]?.[key];
+}
+
 describe("ranking settings", () => {
   it("defaults to an empty pin list, no favourites and no blocks", () => {
-    expect(DEFAULT_SETTINGS.campaignPins).toEqual([]);
-    expect(DEFAULT_SETTINGS.platform.twitch.farmPinnedOnly).toBe(false);
-    expect(DEFAULT_SETTINGS.platform.kick.farmPinnedOnly).toBe(false);
+    expect(DEFAULT_SETTINGS.platform.twitch.campaignPins).toEqual([]);
+    expect(DEFAULT_SETTINGS.platform.kick.excludedCampaignIds).toEqual([]);
     expect(DEFAULT_SETTINGS.platform.twitch.favouriteCategories).toEqual([]);
     expect(DEFAULT_SETTINGS.platform.kick.blockedCategories).toEqual([]);
   });
 
   it("keeps pins in the order they were given and drops duplicates", () => {
-    const settings = mergeEngineSettings({ campaignPins: ["b", "a", "b", "", "c"] });
-    expect(settings.campaignPins).toEqual(["b", "a", "c"]);
+    const settings = mergeEngineSettings({
+      platform: { twitch: { campaignPins: ["b", "a", "b", "", "c"] } },
+    } as never);
+    expect(settings.platform.twitch.campaignPins).toEqual(["b", "a", "c"]);
   });
 
   it("no longer carries the display-only drops list filter", () => {
@@ -29,20 +35,29 @@ describe("settings migration to pins and favourites", () => {
 
   it("turns a campaign priority map into pins, highest priority first", () => {
     const result = migrate({ campaignPriorities: { low: 1, high: 10, middle: 5 } });
-    expect(result.settings.campaignPins).toEqual(["high", "middle", "low"]);
+    // Migration 11 then copies the pins onto both platforms.
+    expect(platformList(result.settings, "twitch", "campaignPins")).toEqual([
+      "high",
+      "middle",
+      "low",
+    ]);
+    expect(platformList(result.settings, "kick", "campaignPins")).toEqual([
+      "high",
+      "middle",
+      "low",
+    ]);
     expect(result.settings.campaignPriorities).toBeUndefined();
     expect(result.diagnostics.map((entry) => entry.path)).toContain("campaignPriorities");
   });
 
-  it("turns priority-list-only mode into the farm-pinned-only switch", () => {
+  it("turns priority-list-only mode into farming only pins", () => {
     const result = migrate({ priorityMode: "priority_list_only", campaignPriorities: { kept: 3 } });
     expect(result.settings.priorityMode).toBe("ending_soonest");
-    // v8 then moves the switch onto each platform.
-    expect(result.settings.platform).toMatchObject({
-      twitch: { farmPinnedOnly: true },
-      kick: { farmPinnedOnly: true },
-    });
-    expect(result.settings.campaignPins).toEqual(["kept"]);
+    // v8 moves the switch onto each platform, and v12 makes it the favourite
+    // and other groups farming nothing.
+    const onlyPins = { rewardFilter: { kinds: [], favouriteKinds: [] } };
+    expect(result.settings.platform).toMatchObject({ twitch: onlyPins, kick: onlyPins });
+    expect(platformList(result.settings, "twitch", "campaignPins")).toEqual(["kept"]);
   });
 
   it("turns an exclude-mode category list into blocked games", () => {
@@ -77,6 +92,6 @@ describe("settings migration to pins and favourites", () => {
     const once = migrate({ campaignPriorities: { a: 2, b: 1 } });
     const twice = migrateSettings(withSchemaVersion(once.settings));
     expect(twice.changed).toBe(false);
-    expect(twice.settings.campaignPins).toEqual(["a", "b"]);
+    expect(platformList(twice.settings, "kick", "campaignPins")).toEqual(["a", "b"]);
   });
 });

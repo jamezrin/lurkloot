@@ -615,7 +615,7 @@ tested too (#598).
 | No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
-| Watch streaks: maintained rows first, terminal attempts never reselected, unhealthy and budget bounds end the opens, payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
+| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
 
 ## Runtime Messages
 
@@ -633,7 +633,7 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `autoStartDropFarming` and per-platform `enabled`. Farming is active while any platform is enabled; there is no master switch.
-- Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `unlinkedCampaigns`.
+- Farming behavior: `autoClaim`, `platform.twitch.autoClaimChannelPoints`, `priorityMode`, and per platform `campaignPins`, `excludedCampaignIds`, `rewardFilter` and `unlinkedCampaigns`.
 - Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].watchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
 `categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
@@ -679,9 +679,15 @@ product. The scheduler picks from it, the keep-watching comparison reads it, and
 the popup's Queue renders it, so the rank on a card is the position the engine
 acts on. Four tiers, in order:
 
-1. `campaignPins` — an ordered, sparse list of campaign ids the user placed by
-   hand. Dragging a card, or typing a rank, pins that one campaign; everything
-   else keeps the tier it had.
+1. `platform[platform].campaignPins` — an ordered, sparse list of the
+   platform's campaign ids the user placed by hand (one list for both platforms
+   before schema 11, #930). Dragging a card, or typing a rank, pins that one
+   campaign; everything else keeps the tier it had. Every Queue pin control
+   (drag, rank, unpin, Unpin all and its count) acts only on the pins of the
+   open platform's live campaigns (`platformPins` / `replacePlatformPins`,
+   #922). Every other id in the list keeps its slot: a finished campaign's, one
+   discovery did not report this time, so it ranks where it did when it comes
+   back, and one migration 11 copied in from the other platform.
 2. `platform[platform].favouriteCategories` — campaigns of starred games, in the
    user's order. A new star goes last; the Games view reorders favourites the
    way the Queue reorders pins, by dragging or typing a number (#847). A
@@ -702,8 +708,11 @@ acts on. Four tiers, in order:
 
 Eligibility is always decided before ranking (`evaluateCampaignFarming`), so a
 pin can never rescue a campaign an exclusion, a block or a class filter refused.
-Each platform's `farmPinnedOnly` is an eligibility switch, not a mode: a
-strategy is always in effect. Each platform's `unlinkedCampaigns` is
+The one place a campaign's ranking group feeds eligibility is the reward kinds
+the user chose for that group (#932, below): pinning or starring never makes a
+campaign farmable by itself, only the group's own kinds do.
+Which campaigns are farmed at all is eligibility, not a mode: a strategy is
+always in effect. Each platform's `unlinkedCampaigns` is
 `include`, `skip` or `last`; only `skip` is eligibility (`unlinked_campaigns_disabled`,
 which a pin does not lift), and `last` is ranking only. The Queue's Rewards to
 farm menu and Settings edit it with the same `UnlinkedCampaignsField`, and the
@@ -711,7 +720,34 @@ Skipped row's fix sets it to `last`. Each platform's `rewardFilter`
 (`{ kinds, subscriptions }`, edited from the Queue's Rewards to farm menu and
 Settings) is eligibility too. `kinds` is any of `item`, `badge`, `emote`
 (Twitch supports all three, Kick only `item`; `PLATFORM_REWARD_KINDS`), an
-empty list means every kind, and a benefit with no type counts as `item`.
+empty list farms nothing from its group, and a benefit with no type counts as
+`item`.
+`pinnedKinds` and `favouriteKinds` (#932) choose the kinds for pinned campaigns
+and for campaigns of a favourite game; `kinds` is every other campaign's. A
+campaign's group is its ranking tier (`campaignRewardGroup`): a pinned campaign
+of a favourite game is pinned, and an unlinked one farmed last is one of the
+rest. `campaignRewardFilter` is the only way to read the filter for one
+campaign; every eligibility, scope and active-reward check goes through it.
+Farming only pins is the favourite and other groups farming nothing; it
+replaced the `farmPinnedOnly` switch (migration 12). An unpinned campaign whose
+own group farms nothing is judged by the pinned kinds (`farmingRewardFilter`),
+the group a pin would move it into, so `not_pinned` still names exactly the
+campaigns a pin would start farming (#731), for the engine and the popup alike;
+the Queue card words its skip from the same filter, and says the group farms
+nothing when even a pin would not farm it. A filter saved without the group
+lists normalizes them to `kinds`, so nothing changes until the user edits a
+group. Because a pin or a star can then move a campaign onto other kinds,
+`isRankingOnlyPatch` treats a pin as ranking-only only while the pinned kinds
+match both other groups, and a star only while the favourite kinds match the
+rest; an empty group is skipped by discovery before any channel work, as
+pinned-only was. The Queue menu and Settings edit the groups as one grid
+(`RewardKindsGrid`), Kick's included, which keeps one kind ticked across the
+grid so something is always farmed. Each grid heading ticks its whole column
+or row, or unticks it when all of it is ticked (`toggleRewardGroup`,
+`toggleRewardKind`, #934); a toggle that would empty the grid is disabled.
+The Queue's menu button always reads "Rewards to farm" and only marks, with
+its accent and a dot, that something differs from the defaults: no short label
+can say what the grid and the other questions hold.
 `subscriptions` is `include`, `skip` or `only`. A reward matches when any of its
 kinds is selected and it passes the subscription mode; a marked subscription
 reward passes `skip` and
@@ -875,6 +911,30 @@ them, applied by `mergeSchedulerState` and the popup's stop-reason labels. The
 tabless heartbeat cadence key keeps `idle_watchlist`, so a persisted cadence
 still matches.
 
+Migration 11 moves the top-level `campaignPins` and `excludedCampaignIds` onto
+each platform (#930). A stored campaign id names no platform, and each
+platform's API chooses its own opaque ids, so the migration cannot sort them:
+it copies each list onto both platforms. An id only ever matches a campaign of
+its own platform, so the copy on the other one is inert, and nothing the user
+pinned or excluded is lost. A current per-platform list wins over the shared
+one. The Queue's pin controls only act on the open platform's live campaigns, so
+an inert copy never shows or counts; Settings → Forget excluded campaigns counts
+distinct ids across both lists and clears both. A pin save is now scoped to its
+platform (`settingsPatchEffects`), and is ranking-only unless pinning changes
+the campaign's reward kinds. A diagnostic for a v6 `campaignPriorities` map, which
+migration 7 turned into `campaignPins`, names both platform paths.
+
+Migration 12 makes reward kinds a choice per Queue group (#932) and folds
+`farmPinnedOnly` into it. Two readings change, so both are rewritten while the
+old meaning is known: an empty kinds list stored before it meant every kind and
+becomes every kind (it now means none), and `farmPinnedOnly: true` becomes
+empty `favouriteKinds` and `kinds`, the pins keeping the kinds the platform
+farmed. A current `pinnedKinds` wins. `false` and any other value only report
+the key. Migration 8's diagnostic for a top-level `farmPinnedOnly` follows the
+value on to the reward kinds (`finalReplacements` chains spread replacements).
+An older build reads an empty list as every kind, so a downgrade farms more,
+never less.
+
 ## Scheduler Flow
 
 Each scheduler tick runs enabled platforms independently:
@@ -895,7 +955,7 @@ Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in the user's order, then the single live
 strategy, then name and id, and last the unlinked campaigns of a platform set to
-farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only), `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
+farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only) and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 
@@ -1000,7 +1060,7 @@ claims to know the user's streak count.
 - **Terminal outcomes.** An attempt ends as `not_confirmed` after 15 minutes of healthy watching
   (`WATCH_STREAK_BUDGET_MS`), or after 10 unhealthy checks. A watch that is still settling (a tab
   in its playback grace, a tabless watch with no heartbeat yet) counts as neither. The unhealthy
-  bound is what stops a row that never plays from reopening forever. An attempt ends as `credited` when Twitch reports
+  bound is what stops a row that never plays from reopening ahead of the other sources. An attempt ends as `credited` when Twitch reports
   the payout. A terminal attempt is never reopened for that broadcast, and toggles and reorders do
   not reset it. A new broadcast gets a new attempt.
 - **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
@@ -1009,11 +1069,13 @@ claims to know the user's streak count.
   `watch_streaks`, ordered by the user in watch-source priority (default: first, ahead of Drops, and
   first too in an order saved before it existed). `chooseWatchStreakDecision` tries
   the rows the plan can attribute (`prioritized`) in the user's order; without an observer or an
-  account id that list is empty, and maintained rows keep their ordinary place. In the Idle
-  Watchlist source a maintained row whose attempt is terminal is skipped outright, so it never
-  becomes an ordinary row for the same broadcast; one whose broadcast is unattributable is
-  watched as an ordinary row. See [watch-source priority](watch-source-priority.md). Retention goes
-  through the same chooser, so a finished row is switched away from on the next tick. Discovery
+  account id that list is empty, and maintained rows keep their ordinary place. In the
+  Watchlist source a maintained row whose attempt is terminal is an ordinary row again, in the
+  user's order, as is one whose broadcast is unattributable. Only `watch_streaks` lifts a row
+  above the others, and it skips terminal attempts, so a finished row leaves the front on the next
+  tick but is never taken out of rotation: when it is the only live row it keeps being watched.
+  Skipping it in the Watchlist source too (1.20.0) left nothing to watch in that case. See
+  [watch-source priority](watch-source-priority.md). Retention goes through the same chooser. Discovery
   observes maintained rows first (`orderIdleWatchlist`), and the selection cache key
   includes the attempts.
 - **Observation.** The existing Hermes connection follows `community-points-user-v1.<id>`

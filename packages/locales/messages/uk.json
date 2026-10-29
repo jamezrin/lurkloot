@@ -384,7 +384,7 @@
     "message": "Оберіть, що фармити"
   },
   "tourRewardFilterBody": {
-    "message": "Відкрийте «Усі нагороди», щоб вибрати типи нагород для фарму, що робити з кампаніями без прив’язаного облікового запису і чи фармити лише закріплені кампанії."
+    "message": "Відкрийте «Нагороди для фарму», щоб вибрати, які типи нагород фармлять закріплені кампанії, улюблені ігри й інші кампанії, і що робити з кампаніями без прив’язаного облікового запису."
   },
   "tourCompletedTitle": {
     "message": "Завершені й минулі"
@@ -906,7 +906,10 @@
     "message": "Цю гру заблоковано, тому її кампанії ніколи не фармляться."
   },
   "campaignRejectionNotPinned": {
-    "message": "Зараз фармляться лише закріплені кампанії."
+    "message": "Група черги цієї кампанії не фармить жодного типу нагород. Закріпіть, щоб фармити."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Група черги цієї кампанії не фармить жодного типу нагород."
   },
   "campaignRejectionRewardKind": {
     "message": "Тут немає нічого з ваших типів нагород ($1)."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Нагороди для фарму"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Нагороди для фарму (змінено)"
+  },
+  "rewardGridTickAll": {
+    "message": "Позначити всі для $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Зняти всі для $1"
+  },
   "rewardFilterDescription": {
     "message": "Що Lurkloot фармить на $1. Меню фільтра в черзі змінює те саме налаштування."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "Нагорода фармиться, якщо підходить будь-яка її частина."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Виберіть, які типи нагород фармить кожна частина черги."
+  },
+  "rewardGroupPinned": {
+    "message": "Закріплені кампанії"
+  },
+  "rewardGroupFavourite": {
+    "message": "Улюблені ігри"
+  },
+  "rewardGroupOther": {
+    "message": "Інші кампанії"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 — $2"
+  },
   "rewardKindItem": {
     "message": "Внутрішньоігрові предмети"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Емоути"
-  },
-  "rewardKindItemShort": {
-    "message": "Предмети"
   },
   "subscriptionRewardsTitle": {
     "message": "Нагороди за підписку"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Фармляться, лише коли жодна кампанія з прив’язаним обліковим записом не може фармитися. Закріплені кампанії та улюблені ігри зберігають своє місце."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "пропустити без прив’язки"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "без прив’язки в кінці"
-  },
   "queueGroupUnlinked": {
     "message": "Без прив’язки · фармляться останніми"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "Фармити останніми"
   },
-  "rewardFilterAll": {
-    "message": "Усі нагороди"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Усі"
-  },
-  "rewardFilterNoSub": {
-    "message": "без підписки"
-  },
-  "rewardFilterSubOnly": {
-    "message": "лише з підпискою"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "лише закріплені"
-  },
   "rewardFilterReset": {
     "message": "Скинути до всіх нагород"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Фармити лише закріплені кампанії"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "На $1 фармляться лише кампанії, які ви закріпили в черзі."
   },
   "forgetExcludedTitle": {
     "message": "Забути виключені кампанії"

@@ -384,7 +384,7 @@
     "message": "ファームする内容を選ぶ"
   },
   "tourRewardFilterBody": {
-    "message": "「すべての報酬」を開くと、ファームする報酬の種類、アカウント未連携のキャンペーンの扱い、ピン留めしたキャンペーンのみをファームするかどうかを選べます。"
+    "message": "「ファームする報酬」を開くと、ピン留めのキャンペーン、お気に入りゲーム、その他のキャンペーンがファームする報酬の種類と、アカウント未連携のキャンペーンの扱いを選べます。"
   },
   "tourCompletedTitle": {
     "message": "完了と期限切れ"
@@ -906,7 +906,10 @@
     "message": "このゲームはブロックされているため、キャンペーンはファームされません。"
   },
   "campaignRejectionNotPinned": {
-    "message": "現在はピン留めされたキャンペーンのみファームしています。"
+    "message": "そのキューのグループでは報酬の種類をファームしません。ピン留めするとファームされます。"
+  },
+  "campaignRejectionGroupOff": {
+    "message": "そのキューのグループでは報酬の種類をファームしません。"
   },
   "campaignRejectionRewardKind": {
     "message": "ファームする報酬の種類（$1）に一致するものはありません。"
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "ファームする報酬"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "ファームする報酬（変更あり）"
+  },
+  "rewardGridTickAll": {
+    "message": "$1 をすべて選択"
+  },
+  "rewardGridUntickAll": {
+    "message": "$1 のすべてを選択解除"
+  },
   "rewardFilterDescription": {
     "message": "Lurkloot が $1 でファームするもの。キューのフィルターメニューでも同じ設定を変更できます。"
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "報酬の一部でも一致すればファームされます。"
   },
+  "rewardKindsGroupsDescription": {
+    "message": "キューの各グループでファームする報酬の種類を選択します。"
+  },
+  "rewardGroupPinned": {
+    "message": "ピン留めのキャンペーン"
+  },
+  "rewardGroupFavourite": {
+    "message": "お気に入りゲーム"
+  },
+  "rewardGroupOther": {
+    "message": "その他のキャンペーン"
+  },
+  "rewardKindForGroup": {
+    "message": "$1（$2）"
+  },
   "rewardKindItem": {
     "message": "ゲーム内アイテム"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "エモート"
-  },
-  "rewardKindItemShort": {
-    "message": "アイテム"
   },
   "subscriptionRewardsTitle": {
     "message": "サブスク報酬"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "連携済みのキャンペーンをファームできない場合にのみファームされます。ピン留めしたキャンペーンとお気に入りのゲームは順位を保ちます。"
   },
-  "rewardFilterNoUnlinked": {
-    "message": "未連携をスキップ"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "未連携は最後"
-  },
   "queueGroupUnlinked": {
     "message": "未連携 · 最後にファーム"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "最後にファーム"
   },
-  "rewardFilterAll": {
-    "message": "すべての報酬"
-  },
-  "rewardFilterAllKinds": {
-    "message": "すべて"
-  },
-  "rewardFilterNoSub": {
-    "message": "サブなし"
-  },
-  "rewardFilterSubOnly": {
-    "message": "サブのみ"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "ピン留めのみ"
-  },
   "rewardFilterReset": {
     "message": "すべての報酬に戻す"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "ピン留めしたキャンペーンのみファーム"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "キューでピン留めしたキャンペーンだけを $1 でファームします。"
   },
   "forgetExcludedTitle": {
     "message": "除外したキャンペーンを忘れる"

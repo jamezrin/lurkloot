@@ -384,7 +384,7 @@
     "message": "Choisissez ce que vous farmez"
   },
   "tourRewardFilterBody": {
-    "message": "Ouvrez « Toutes les récompenses » pour choisir les types de récompenses à farmer, ce qu'il faut faire des campagnes sans compte lié, et si vous voulez farmer uniquement les campagnes épinglées."
+    "message": "Ouvrez « Récompenses à farmer » pour choisir les types de récompenses que farment vos campagnes épinglées, vos jeux favoris et les autres campagnes, et ce qu'il faut faire des campagnes sans compte lié."
   },
   "tourCompletedTitle": {
     "message": "Terminées et expirées"
@@ -906,7 +906,10 @@
     "message": "Ce jeu est bloqué, ses campagnes ne sont donc jamais farmées."
   },
   "campaignRejectionNotPinned": {
-    "message": "Seules les campagnes épinglées sont farmées pour l'instant."
+    "message": "Son groupe de la file ne farme aucun type de récompense. Épinglez-la pour la farmer."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Son groupe de la file ne farme aucun type de récompense."
   },
   "campaignRejectionRewardKind": {
     "message": "Rien ici ne correspond à vos types de récompenses ($1)."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Récompenses à farmer"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Récompenses à farmer (personnalisé)"
+  },
+  "rewardGridTickAll": {
+    "message": "Tout cocher pour $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Tout décocher pour $1"
+  },
   "rewardFilterDescription": {
     "message": "Ce que Lurkloot farme sur $1. Le menu de filtre dans la File modifie le même réglage."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "Une récompense est farmée si une partie quelconque correspond."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Choisissez les types de récompenses à farmer pour chaque partie de la file."
+  },
+  "rewardGroupPinned": {
+    "message": "Campagnes épinglées"
+  },
+  "rewardGroupFavourite": {
+    "message": "Jeux favoris"
+  },
+  "rewardGroupOther": {
+    "message": "Autres campagnes"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 pour $2"
+  },
   "rewardKindItem": {
     "message": "Objets en jeu"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Émotes"
-  },
-  "rewardKindItemShort": {
-    "message": "Objets"
   },
   "subscriptionRewardsTitle": {
     "message": "Récompenses d’abonnement"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Farmée seulement lorsqu’aucune campagne liée ne peut l’être. Les campagnes épinglées et les jeux favoris gardent leur place."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "ignorer non liées"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "non liées en dernier"
-  },
   "queueGroupUnlinked": {
     "message": "Non liées · farmées en dernier"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "Farmer en dernier"
   },
-  "rewardFilterAll": {
-    "message": "Toutes les récompenses"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Tous"
-  },
-  "rewardFilterNoSub": {
-    "message": "sans abo"
-  },
-  "rewardFilterSubOnly": {
-    "message": "abo uniquement"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "épinglées seulement"
-  },
   "rewardFilterReset": {
     "message": "Réinitialiser toutes les récompenses"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmer uniquement les campagnes épinglées"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Seules les campagnes épinglées dans la File sont farmées sur $1."
   },
   "forgetExcludedTitle": {
     "message": "Oublier les campagnes exclues"

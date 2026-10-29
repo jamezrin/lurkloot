@@ -137,10 +137,7 @@ export async function collectDiscoverySnapshot(
     signal.throwIfAborted();
     if (
       settings
-      && !evaluateCampaignFarming(campaign, settings, {
-        includePinnedOnly: true,
-        now: eligibilityTime,
-      }).farmable
+      && !evaluateCampaignFarming(campaign, settings, { now: eligibilityTime }).farmable
     ) {
       observations.push({ campaign, candidates: [] });
       skippedBeforeChannelWork += 1;

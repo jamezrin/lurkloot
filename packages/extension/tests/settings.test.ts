@@ -179,10 +179,12 @@ describe("settings", () => {
   });
 
   it("keeps campaign pins as an ordered, deduplicated id list", () => {
-    expect(DEFAULT_SETTINGS.campaignPins).toEqual([]);
-    expect(DEFAULT_SETTINGS.platform.twitch.farmPinnedOnly).toBe(false);
+    expect(DEFAULT_SETTINGS.platform.twitch.campaignPins).toEqual([]);
+    expect(DEFAULT_SETTINGS.platform.kick.campaignPins).toEqual([]);
     expect(
-      mergeSettings({ campaignPins: [" first ", "second", "first"] } as never).campaignPins,
+      mergeSettings({
+        platform: { kick: { campaignPins: [" first ", "second", "first"] } },
+      } as never).platform.kick.campaignPins,
     ).toEqual(["first", "second"]);
   });
 
@@ -328,10 +330,10 @@ describe("settings", () => {
           watchlistChannels: ["KickOne"],
           excludedChannels: ["KickSkip"],
           categories: [{ id: "cat-1", name: "Category" }],
+          campaignPins: [" campaign ", "campaign", ""],
+          excludedCampaignIds: [" Abc ", "abc", "Abc"],
         },
       },
-      campaignPins: [" campaign ", "campaign", ""],
-      excludedCampaignIds: [" Abc ", "abc", "Abc"],
     } as unknown as Parameters<typeof mergeSettings>[0]);
 
     expect(settings.keepFarmingVideosUnmuted).toBe(false);
@@ -346,10 +348,10 @@ describe("settings", () => {
     expect(settings.platform.kick.watchlistChannels).toEqual(["kickone"]);
     expect(settings.platform.kick.excludedChannels).toEqual(["kickskip"]);
     expect(settings.platform.kick.categories).toEqual([{ id: "cat-1", name: "Category" }]);
-    expect(settings.campaignPins).toEqual(["campaign"]);
+    expect(settings.platform.kick.campaignPins).toEqual(["campaign"]);
     // Campaign ids are trimmed and deduped but kept case-sensitive so they match
     // campaign.id verbatim in the scheduler (unlike channel/game lists).
-    expect(settings.excludedCampaignIds).toEqual(["Abc", "abc"]);
+    expect(settings.platform.kick.excludedCampaignIds).toEqual(["Abc", "abc"]);
   });
 
   it("validates the ad focus mode", () => {
@@ -576,9 +578,9 @@ describe("per-platform eligibility in the engine contract", () => {
     for (const platform of ["twitch", "kick"] as const) {
       expect(DEFAULT_ENGINE_SETTINGS.platform[platform]).toMatchObject({
         rewardFilter: defaultRewardFilter(platform),
-        farmPinnedOnly: false,
         unlinkedCampaigns: "include",
       });
+      expect(DEFAULT_ENGINE_SETTINGS.platform[platform]).not.toHaveProperty("farmPinnedOnly");
     }
   });
 
@@ -590,7 +592,6 @@ describe("per-platform eligibility in the engine contract", () => {
       },
     } as never);
     expect(merged.platform.kick.unlinkedCampaigns).toBe("last");
-    expect(merged.platform.kick.farmPinnedOnly).toBe(false);
     expect(merged.platform.kick.rewardFilter).toEqual(defaultRewardFilter("kick"));
     expect(merged.platform.twitch.unlinkedCampaigns).toBe("include");
   });

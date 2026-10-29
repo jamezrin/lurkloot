@@ -7,6 +7,7 @@ import {
 } from "@lurkloot/core/controller";
 import type { DropCampaign } from "@lurkloot/shared/models";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
+import type { RewardFilter } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS, IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
 import {
   asSnapshot,
@@ -20,6 +21,14 @@ import {
 } from "../helpers/backgroundController";
 
 // Settings commits and the transitions they start.
+
+// Farming only pins (#932): the favourite and other groups farm no kinds.
+const PINS_ONLY: RewardFilter = {
+  kinds: [],
+  subscriptions: "include",
+  pinnedKinds: ["item", "badge", "emote"],
+  favouriteKinds: [],
+};
 
 describe("background controller", () => {
   afterEach(() => {
@@ -60,7 +69,7 @@ describe("background controller", () => {
 
       await env.controller.handleMessage({
         type: "saveSettings",
-        settingsPatch: { campaignPins: ["later"] },
+        settingsPatch: { platform: { twitch: { campaignPins: ["later"] } } },
         tickAfterSave: true,
         tickAfterSavePlatforms: ["twitch"],
       });
@@ -73,10 +82,13 @@ describe("background controller", () => {
       const env = harness(
         farming({
           ...DEFAULT_SETTINGS,
-          campaignPins: ["sooner"],
           platform: {
             ...DEFAULT_SETTINGS.platform,
-            twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: true },
+            twitch: {
+              ...DEFAULT_SETTINGS.platform.twitch,
+              campaignPins: ["sooner"],
+              rewardFilter: PINS_ONLY,
+            },
           },
         }),
       );
@@ -86,7 +98,7 @@ describe("background controller", () => {
 
       await env.controller.handleMessage({
         type: "saveSettings",
-        settingsPatch: { campaignPins: ["later", "sooner"] },
+        settingsPatch: { platform: { twitch: { campaignPins: ["later", "sooner"] } } },
         tickAfterSave: true,
         tickAfterSavePlatforms: ["twitch"],
       });
@@ -101,16 +113,22 @@ describe("background controller", () => {
       const pinnedOnly = {
         platform: {
           ...DEFAULT_SETTINGS.platform,
-          twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: true },
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, rewardFilter: PINS_ONLY },
         },
       };
-      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ platform: { twitch: { campaignPins: ["a"] } } }, off)).toBe(true);
       expect(isRankingOnlyPatch({ priorityMode: "lowest_availability" }, off)).toBe(true);
       expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [] } } }, off)).toBe(
         true,
       );
-      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, pinnedOnly)).toBe(false);
-      expect(isRankingOnlyPatch({ platform: { twitch: { farmPinnedOnly: true } } }, off)).toBe(
+      expect(
+        isRankingOnlyPatch({ platform: { twitch: { campaignPins: ["a"] } } }, pinnedOnly),
+      ).toBe(false);
+      // Only the platform farming only pins needs its pins rediscovered.
+      expect(isRankingOnlyPatch({ platform: { kick: { campaignPins: ["a"] } } }, pinnedOnly)).toBe(
+        true,
+      );
+      expect(isRankingOnlyPatch({ platform: { twitch: { rewardFilter: PINS_ONLY } } }, off)).toBe(
         false,
       );
       expect(

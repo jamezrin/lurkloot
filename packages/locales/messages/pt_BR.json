@@ -384,7 +384,7 @@
     "message": "Escolha o que farmar"
   },
   "tourRewardFilterBody": {
-    "message": "Abra \"Todas as recompensas\" para escolher quais tipos de recompensa farmar, o que fazer com campanhas sem conta vinculada e se deve farmar apenas as campanhas fixadas."
+    "message": "Abra \"Recompensas para farmar\" para escolher quais tipos de recompensa farmam as campanhas fixadas, os jogos favoritos e as outras campanhas, e o que fazer com campanhas sem conta vinculada."
   },
   "tourCompletedTitle": {
     "message": "Concluídas e expiradas"
@@ -906,7 +906,10 @@
     "message": "Este jogo está bloqueado, então suas campanhas nunca são farmadas."
   },
   "campaignRejectionNotPinned": {
-    "message": "No momento, apenas campanhas fixadas são farmadas."
+    "message": "O grupo da fila não farma nenhum tipo de recompensa. Fixe-a para farmá-la."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "O grupo da fila não farma nenhum tipo de recompensa."
   },
   "campaignRejectionRewardKind": {
     "message": "Nada aqui corresponde aos seus tipos de recompensa ($1)."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Recompensas para farmar"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Recompensas para farmar (personalizado)"
+  },
+  "rewardGridTickAll": {
+    "message": "Marcar tudo para $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Desmarcar tudo para $1"
+  },
   "rewardFilterDescription": {
     "message": "O que o Lurkloot farma em $1. O menu de filtro na Fila altera a mesma configuração."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "Uma recompensa é farmada se qualquer parte dela corresponder."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Escolha quais tipos de recompensa cada parte da Fila vai farmar."
+  },
+  "rewardGroupPinned": {
+    "message": "Campanhas fixadas"
+  },
+  "rewardGroupFavourite": {
+    "message": "Jogos favoritos"
+  },
+  "rewardGroupOther": {
+    "message": "Outras campanhas"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 para $2"
+  },
   "rewardKindItem": {
     "message": "Itens no jogo"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emotes"
-  },
-  "rewardKindItemShort": {
-    "message": "Itens"
   },
   "subscriptionRewardsTitle": {
     "message": "Recompensas de assinatura"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Farmadas só quando nenhuma campanha com conta vinculada puder ser farmada. Campanhas fixadas e jogos favoritos mantêm sua posição."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "pular sem vínculo"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "sem vínculo por último"
-  },
   "queueGroupUnlinked": {
     "message": "Sem vínculo · farmadas por último"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "Farmar por último"
   },
-  "rewardFilterAll": {
-    "message": "Todas as recompensas"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Todos"
-  },
-  "rewardFilterNoSub": {
-    "message": "sem assinatura"
-  },
-  "rewardFilterSubOnly": {
-    "message": "só assinatura"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "só fixadas"
-  },
   "rewardFilterReset": {
     "message": "Redefinir para todas as recompensas"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farmar só campanhas fixadas"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Só as campanhas que você fixou na Fila são farmadas em $1."
   },
   "forgetExcludedTitle": {
     "message": "Esquecer campanhas excluídas"

@@ -39,26 +39,31 @@ warning per command; use the global `--log debug|info|warn|error` option instead
 option is its sole event filter.
 
 Supported `settings` keys: `autoClaim`, `priorityMode`,
-`campaignPins`, `excludedCampaignIds`,
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform
 `enabled`, `watchSourcePriority`, `watchlistChannels`, `excludedChannels`, `categoryMode`, `rewardFilter`,
-`farmPinnedOnly`, `unlinkedCampaigns`,
+`campaignPins`, `excludedCampaignIds`, `unlinkedCampaigns`,
 `categories`, `favouriteCategories`, `blockedCategories`, plus Twitch's
 `autoClaimChannelPoints` and Kick's `autoClaimChallenges`.
 
 Campaign order has three layers, and only the last one is automatic:
-`campaignPins` lists campaign ids to farm first, in that order; then campaigns
+A platform's `campaignPins` lists its campaign ids to farm first, in that order; then campaigns
 whose category is in that platform's `favouriteCategories`, in star order; then
 everything else by `priorityMode` (`ending_soonest` or `lowest_availability`).
 With a platform's `unlinkedCampaigns` set to `"last"`, its unlinked campaigns
 that are neither pinned nor in a favourite category come after all of these,
 in the same `priorityMode` order.
-Each platform's `farmPinnedOnly` narrows what may be farmed to the pinned
-campaigns and is eligibility, not order — a strategy is always in effect. Each
-platform's `rewardFilter` is `{ "kinds": [...], "subscriptions": "..." }`.
+Which campaigns are farmed at all is eligibility, not order — a strategy is
+always in effect. Each platform's `rewardFilter` is `{ "kinds": [...], "subscriptions": "..." }`.
 `kinds` lists the reward kinds to farm: any of `item`, `badge` and `emote` on
-Twitch, only `item` on Kick, combined as any-of; `[]` farms every kind.
+Twitch, only `item` on Kick, combined as any-of; `[]` farms nothing (see below).
+Optional `pinnedKinds` and `favouriteKinds` choose the kinds for pinned
+campaigns and for campaigns of a `favouriteCategories` game instead; left out,
+they follow `kinds`. A pinned campaign of a favourite game uses `pinnedKinds`.
+In a config at `schemaVersion` 12 or later an empty list farms nothing from its
+group, so farming only pins is empty `favouriteKinds` and `kinds`; this replaced
+`farmPinnedOnly`, which still loads, with a warning. A config without a
+`schemaVersion`, or an older one, keeps reading `[]` as every kind.
 `subscriptions` is `include` (the default), `skip` to leave out rewards that
 need a channel subscription, or `only` to farm just those. Only matching
 rewards (and what they wait on) are farmed, and a campaign is left once those

@@ -384,7 +384,7 @@
     "message": "选择要挂机的内容"
   },
   "tourRewardFilterBody": {
-    "message": "打开“所有奖励”，可选择要挂机的奖励类型、如何处理未关联账号的活动，以及是否只挂机已置顶的活动。"
+    "message": "打开“要挂机的奖励”，可选择置顶活动、收藏的游戏和其他活动各自挂机的奖励类型，以及如何处理未关联账号的活动。"
   },
   "tourCompletedTitle": {
     "message": "已完成与已过期"
@@ -906,7 +906,10 @@
     "message": "此游戏已被屏蔽，其掉宝活动不会被挂机。"
   },
   "campaignRejectionNotPinned": {
-    "message": "当前只挂机已置顶的掉宝活动。"
+    "message": "其所在队列分组不挂机任何奖励类型。置顶后即可挂机。"
+  },
+  "campaignRejectionGroupOff": {
+    "message": "其所在队列分组不挂机任何奖励类型。"
   },
   "campaignRejectionRewardKind": {
     "message": "这里没有符合你奖励类型（$1）的内容。"
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "要挂机的奖励"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "要挂机的奖励（已自定义）"
+  },
+  "rewardGridTickAll": {
+    "message": "全选 $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "全不选 $1"
+  },
   "rewardFilterDescription": {
     "message": "Lurkloot 在 $1 上挂机的奖励。队列中的筛选菜单会更改同一设置。"
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "奖励的任一部分符合时即会挂机。"
   },
+  "rewardKindsGroupsDescription": {
+    "message": "选择队列各部分要挂机的奖励类型。"
+  },
+  "rewardGroupPinned": {
+    "message": "已置顶的活动"
+  },
+  "rewardGroupFavourite": {
+    "message": "收藏的游戏"
+  },
+  "rewardGroupOther": {
+    "message": "其他活动"
+  },
+  "rewardKindForGroup": {
+    "message": "$2的$1"
+  },
   "rewardKindItem": {
     "message": "游戏内物品"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "表情"
-  },
-  "rewardKindItemShort": {
-    "message": "物品"
   },
   "subscriptionRewardsTitle": {
     "message": "订阅奖励"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "仅在没有已关联活动可挂机时才挂机。置顶活动和收藏的游戏保持原有顺序。"
   },
-  "rewardFilterNoUnlinked": {
-    "message": "跳过未关联"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "未关联靠后"
-  },
   "queueGroupUnlinked": {
     "message": "未关联 · 最后挂机"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "最后挂机"
   },
-  "rewardFilterAll": {
-    "message": "所有奖励"
-  },
-  "rewardFilterAllKinds": {
-    "message": "全部"
-  },
-  "rewardFilterNoSub": {
-    "message": "无订阅"
-  },
-  "rewardFilterSubOnly": {
-    "message": "仅订阅"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "仅置顶"
-  },
   "rewardFilterReset": {
     "message": "重置为所有奖励"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "仅挂机已置顶的活动"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "在 $1 上，仅挂机你在队列中置顶的活动。"
   },
   "forgetExcludedTitle": {
     "message": "恢复已排除的活动"

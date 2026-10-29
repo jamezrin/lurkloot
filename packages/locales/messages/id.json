@@ -384,7 +384,7 @@
     "message": "Pilih yang akan di-farm"
   },
   "tourRewardFilterBody": {
-    "message": "Buka \"Semua hadiah\" untuk memilih jenis hadiah yang di-farm, apa yang dilakukan pada kampanye tanpa akun tertaut, dan apakah hanya kampanye yang disematkan yang di-farm."
+    "message": "Buka \"Hadiah untuk di-farm\" untuk memilih jenis hadiah yang di-farm oleh kampanye yang disematkan, game favorit, dan kampanye lainnya, serta apa yang dilakukan pada kampanye tanpa akun tertaut."
   },
   "tourCompletedTitle": {
     "message": "Selesai dan kedaluwarsa"
@@ -906,7 +906,10 @@
     "message": "Game ini diblokir, jadi kampanyanya tidak pernah di-farm."
   },
   "campaignRejectionNotPinned": {
-    "message": "Hanya kampanye yang disematkan yang di-farm saat ini."
+    "message": "Grup Antreannya tidak meng-farm jenis hadiah apa pun. Sematkan untuk di-farm."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "Grup Antreannya tidak meng-farm jenis hadiah apa pun."
   },
   "campaignRejectionRewardKind": {
     "message": "Tidak ada yang cocok dengan jenis hadiah Anda ($1)."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "Hadiah untuk di-farm"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "Hadiah untuk di-farm (dikustomisasi)"
+  },
+  "rewardGridTickAll": {
+    "message": "Centang semua untuk $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "Hapus centang semua untuk $1"
+  },
   "rewardFilterDescription": {
     "message": "Yang di-farm Lurkloot di $1. Menu filter di Antrean mengubah pengaturan yang sama."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "Hadiah di-farm jika ada bagian yang cocok."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "Pilih jenis hadiah yang di-farm oleh setiap bagian Antrean."
+  },
+  "rewardGroupPinned": {
+    "message": "Kampanye disematkan"
+  },
+  "rewardGroupFavourite": {
+    "message": "Game favorit"
+  },
+  "rewardGroupOther": {
+    "message": "Kampanye lainnya"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 untuk $2"
+  },
   "rewardKindItem": {
     "message": "Item dalam game"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "Emote"
-  },
-  "rewardKindItemShort": {
-    "message": "Item"
   },
   "subscriptionRewardsTitle": {
     "message": "Hadiah langganan"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "Di-farm hanya saat tidak ada kampanye tertaut yang bisa di-farm. Kampanye yang disematkan dan game favorit tetap pada posisinya."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "lewati tak tertaut"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "tak tertaut terakhir"
-  },
   "queueGroupUnlinked": {
     "message": "Tanpa tautan · di-farm terakhir"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "Farm terakhir"
   },
-  "rewardFilterAll": {
-    "message": "Semua hadiah"
-  },
-  "rewardFilterAllKinds": {
-    "message": "Semua"
-  },
-  "rewardFilterNoSub": {
-    "message": "tanpa sub"
-  },
-  "rewardFilterSubOnly": {
-    "message": "hanya sub"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "hanya disematkan"
-  },
   "rewardFilterReset": {
     "message": "Atur ulang ke semua hadiah"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "Farm kampanye yang disematkan saja"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "Hanya kampanye yang Anda sematkan di Antrean yang di-farm di $1."
   },
   "forgetExcludedTitle": {
     "message": "Lupakan kampanye yang dikecualikan"

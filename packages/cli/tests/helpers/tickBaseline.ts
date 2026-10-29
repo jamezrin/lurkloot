@@ -210,10 +210,17 @@ export async function runCliBaselineCell(
   const settings: CliSettings = {
     ...DEFAULT_CLI_SETTINGS,
     platform: {
-      twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: platform === "twitch" },
-      kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: platform === "kick" },
+      twitch: {
+        ...DEFAULT_CLI_SETTINGS.platform.twitch,
+        enabled: platform === "twitch",
+        campaignPins: scenario === "higherPriorityUnavailable" ? ["twitch-urgent"] : [],
+      },
+      kick: {
+        ...DEFAULT_CLI_SETTINGS.platform.kick,
+        enabled: platform === "kick",
+        campaignPins: scenario === "higherPriorityUnavailable" ? ["kick-urgent"] : [],
+      },
     },
-    campaignPins: scenario === "higherPriorityUnavailable" ? [`${platform}-urgent`] : [],
   };
   const buildOne = (
     selectedPlatform: Platform,

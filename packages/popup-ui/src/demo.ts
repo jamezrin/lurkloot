@@ -134,6 +134,8 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
     platform: {
       twitch: {
         enabled: true,
+        campaignPins: ["tw-marathon"],
+        excludedCampaignIds: [],
         watchSourcePriority: [...DEFAULT_SETTINGS.platform.twitch.watchSourcePriority],
         watchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
@@ -142,7 +144,6 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         watchlistStreakChannels: [],
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
-        farmPinnedOnly: false,
         unlinkedCampaigns: "include",
         categories: [
           { id: "marathon legends", name: "Marathon Legends" },
@@ -158,12 +159,13 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
       },
       kick: {
         enabled: true,
+        campaignPins: [],
+        excludedCampaignIds: [],
         watchSourcePriority: [...DEFAULT_SETTINGS.platform.kick.watchSourcePriority],
         watchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
         categoryMode: "all",
         rewardFilter: defaultRewardFilter("kick"),
-        farmPinnedOnly: false,
         unlinkedCampaigns: "include",
         categories: [{ id: "just chatting", name: "Just Chatting" }],
         favouriteCategories: [],
@@ -173,7 +175,6 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         autoClaimChallenges: true,
       },
     },
-    campaignPins: ["tw-marathon"],
   });
 
   const twitchCampaigns: DropCampaign[] = [

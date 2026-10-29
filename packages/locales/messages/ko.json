@@ -384,7 +384,7 @@
     "message": "파밍할 항목 선택"
   },
   "tourRewardFilterBody": {
-    "message": "\"모든 보상\"을 열어 파밍할 보상 유형, 연결되지 않은 계정의 캠페인 처리 방식, 고정된 캠페인만 파밍할지 여부를 선택하세요."
+    "message": "\"파밍할 보상\"을 열어 고정된 캠페인, 즐겨찾는 게임, 기타 캠페인이 파밍할 보상 유형과 연결되지 않은 계정의 캠페인 처리 방식을 선택하세요."
   },
   "tourCompletedTitle": {
     "message": "완료 및 만료"
@@ -906,7 +906,10 @@
     "message": "이 게임은 차단되어 캠페인을 파밍하지 않습니다."
   },
   "campaignRejectionNotPinned": {
-    "message": "지금은 고정된 캠페인만 파밍합니다."
+    "message": "이 대기열 그룹은 보상 유형을 파밍하지 않습니다. 고정하면 파밍합니다."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "이 대기열 그룹은 보상 유형을 파밍하지 않습니다."
   },
   "campaignRejectionRewardKind": {
     "message": "이 캠페인에는 선택한 보상 유형($1)이 없습니다."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "파밍할 보상"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "파밍할 보상 (사용자 설정)"
+  },
+  "rewardGridTickAll": {
+    "message": "$1 전체 선택"
+  },
+  "rewardGridUntickAll": {
+    "message": "$1 전체 선택 해제"
+  },
   "rewardFilterDescription": {
     "message": "Lurkloot이 $1에서 파밍할 항목입니다. 대기열의 필터 메뉴도 같은 설정을 바꿉니다."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "보상의 일부라도 일치하면 파밍합니다."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "대기열의 각 그룹이 파밍할 보상 유형을 선택하세요."
+  },
+  "rewardGroupPinned": {
+    "message": "고정된 캠페인"
+  },
+  "rewardGroupFavourite": {
+    "message": "즐겨찾는 게임"
+  },
+  "rewardGroupOther": {
+    "message": "기타 캠페인"
+  },
+  "rewardKindForGroup": {
+    "message": "$2의 $1"
+  },
   "rewardKindItem": {
     "message": "게임 내 아이템"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "이모트"
-  },
-  "rewardKindItemShort": {
-    "message": "아이템"
   },
   "subscriptionRewardsTitle": {
     "message": "구독 보상"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "연결된 캠페인을 파밍할 수 없을 때만 파밍합니다. 고정된 캠페인과 즐겨찾는 게임은 순서를 유지합니다."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "미연결 건너뛰기"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "미연결 마지막"
-  },
   "queueGroupUnlinked": {
     "message": "미연결 · 마지막에 파밍"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "마지막에 파밍"
   },
-  "rewardFilterAll": {
-    "message": "모든 보상"
-  },
-  "rewardFilterAllKinds": {
-    "message": "전체"
-  },
-  "rewardFilterNoSub": {
-    "message": "구독 제외"
-  },
-  "rewardFilterSubOnly": {
-    "message": "구독만"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "고정만"
-  },
   "rewardFilterReset": {
     "message": "모든 보상으로 초기화"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "고정된 캠페인만 파밍"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "대기열에서 고정한 캠페인만 $1에서 파밍합니다."
   },
   "forgetExcludedTitle": {
     "message": "제외한 캠페인 잊기"

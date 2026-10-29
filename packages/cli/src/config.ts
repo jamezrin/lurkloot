@@ -60,10 +60,6 @@ export function defaultConfigJsonc(): string {
     // ending_soonest | lowest_availability
     // Ranks every campaign no pin or favourite game already placed.
     "priorityMode": ${json(defaults.priorityMode)},
-    // Campaign IDs to farm first, in this order. Everything else follows the
-    // favourite games below, then priorityMode.
-    "campaignPins": ${json(defaults.campaignPins)},
-    "excludedCampaignIds": ${json(defaults.excludedCampaignIds)},
 
     // Prefer an Watchlist or followed channel over a bigger anonymous one
     // when picking who to farm a campaign on.
@@ -119,15 +115,22 @@ export function defaultConfigJsonc(): string {
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
         "categoryMode": ${json(twitch.categoryMode)},
-        // Which rewards to farm. "kinds": any of "item", "badge", "emote"
-        // ([] means all). "subscriptions": "include" farms subscription rewards
-        // too, "skip" leaves them out, "only" farms just subscription rewards
-        // (they wait on you subscribing to the channel). Only matching
-        // rewards (and what they wait on) are farmed, and a campaign is left
-        // once those are earned.
+        // Which rewards to farm, per Queue group. "pinnedKinds" is for pinned
+        // campaigns, "favouriteKinds" for campaigns of a favourite game and
+        // "kinds" for every other campaign: any of "item", "badge", "emote",
+        // and [] farms nothing from that group (farm only pins: empty
+        // "favouriteKinds" and "kinds"). Left out, the two group lists follow
+        // "kinds". "subscriptions": "include" farms subscription rewards too,
+        // "skip" leaves them out, "only" farms just subscription rewards (they
+        // wait on you subscribing to the channel). Only matching rewards (and
+        // what they wait on) are farmed, and a campaign is left once those are
+        // earned.
         "rewardFilter": ${json(twitch.rewardFilter)},
-        // Farm nothing but this platform's pinned campaigns (campaignPins).
-        "farmPinnedOnly": ${json(twitch.farmPinnedOnly)},
+        // This platform's campaign IDs to farm first, in this order. Everything
+        // else follows the favourite games below, then priorityMode.
+        "campaignPins": ${json(twitch.campaignPins)},
+        // This platform's campaign IDs never to farm.
+        "excludedCampaignIds": ${json(twitch.excludedCampaignIds)},
         // Campaigns that need an account link: "include" farms them like any
         // other, "skip" never farms them, "last" farms them only once no linked
         // campaign can be (a pin or a favourite game still keeps its rank).
@@ -168,8 +171,9 @@ export function defaultConfigJsonc(): string {
         "categoryMode": ${json(kick.categoryMode)},
         // Like Twitch's rewardFilter. Kick rewards are all "item" kind.
         "rewardFilter": ${json(kick.rewardFilter)},
-        // Farm nothing but this platform's pinned campaigns (campaignPins).
-        "farmPinnedOnly": ${json(kick.farmPinnedOnly)},
+        // Like Twitch's campaignPins and excludedCampaignIds, for Kick campaigns.
+        "campaignPins": ${json(kick.campaignPins)},
+        "excludedCampaignIds": ${json(kick.excludedCampaignIds)},
         // Like Twitch's unlinkedCampaigns: "include", "skip" or "last" (Kick
         // credits watch time before linking).
         "unlinkedCampaigns": ${json(kick.unlinkedCampaigns)},

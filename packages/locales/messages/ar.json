@@ -384,7 +384,7 @@
     "message": "اختر ما ستفارمه"
   },
   "tourRewardFilterBody": {
-    "message": "افتح «كل المكافآت» لتختار أنواع المكافآت التي تُفارَم، وما يحدث للحملات دون حساب مرتبط، وما إذا كانت الحملات المثبتة وحدها تُفارَم."
+    "message": "افتح «المكافآت للفارم» لتختار أنواع المكافآت التي تُفارَم في كل من الحملات المثبتة والألعاب المفضلة والحملات الأخرى، وما يحدث للحملات دون حساب مرتبط."
   },
   "tourCompletedTitle": {
     "message": "المنتهية والمنتهية الصلاحية"
@@ -906,7 +906,10 @@
     "message": "هذه اللعبة محظورة، لذلك لا يتم تجميع حملاتها أبدًا."
   },
   "campaignRejectionNotPinned": {
-    "message": "يتم الآن تجميع الحملات المثبتة فقط."
+    "message": "مجموعة قائمة الانتظار الخاصة بها لا تجمع أي أنواع مكافآت. ثبّتها لتجميعها."
+  },
+  "campaignRejectionGroupOff": {
+    "message": "مجموعة قائمة الانتظار الخاصة بها لا تجمع أي أنواع مكافآت."
   },
   "campaignRejectionRewardKind": {
     "message": "لا يوجد هنا ما يطابق أنواع المكافآت التي اخترتها ($1)."
@@ -1067,6 +1070,15 @@
   "rewardFilterTitle": {
     "message": "المكافآت للفارم"
   },
+  "rewardFilterTitleCustomized": {
+    "message": "المكافآت للفارم (مخصّصة)"
+  },
+  "rewardGridTickAll": {
+    "message": "تحديد الكل لـ $1"
+  },
+  "rewardGridUntickAll": {
+    "message": "إلغاء تحديد الكل لـ $1"
+  },
   "rewardFilterDescription": {
     "message": "ما يفارمه Lurkloot على $1. قائمة التصفية في قائمة الانتظار تغيّر الإعداد نفسه."
   },
@@ -1076,6 +1088,21 @@
   "rewardKindsDescription": {
     "message": "تُفارَم المكافأة إذا تطابق أي جزء منها."
   },
+  "rewardKindsGroupsDescription": {
+    "message": "اختر أنواع المكافآت التي يتم فارمها في كل جزء من قائمة الانتظار."
+  },
+  "rewardGroupPinned": {
+    "message": "الحملات المثبتة"
+  },
+  "rewardGroupFavourite": {
+    "message": "الألعاب المفضلة"
+  },
+  "rewardGroupOther": {
+    "message": "حملات أخرى"
+  },
+  "rewardKindForGroup": {
+    "message": "$1 لـ $2"
+  },
   "rewardKindItem": {
     "message": "عناصر داخل اللعبة"
   },
@@ -1084,9 +1111,6 @@
   },
   "rewardKindEmote": {
     "message": "إيموتات"
-  },
-  "rewardKindItemShort": {
-    "message": "عناصر"
   },
   "subscriptionRewardsTitle": {
     "message": "مكافآت الاشتراك"
@@ -1136,12 +1160,6 @@
   "unlinkedModeLastHint": {
     "message": "تُفارَم فقط عندما لا يمكن فارم أي حملة مرتبطة. تحتفظ الحملات المثبتة والألعاب المفضلة بمكانها."
   },
-  "rewardFilterNoUnlinked": {
-    "message": "تخطي غير المرتبط"
-  },
-  "rewardFilterUnlinkedLast": {
-    "message": "غير المرتبط أخيرًا"
-  },
   "queueGroupUnlinked": {
     "message": "غير مرتبط · يُفارَم أخيرًا"
   },
@@ -1151,29 +1169,8 @@
   "queueFixFarmLast": {
     "message": "فارم أخيرًا"
   },
-  "rewardFilterAll": {
-    "message": "كل المكافآت"
-  },
-  "rewardFilterAllKinds": {
-    "message": "الكل"
-  },
-  "rewardFilterNoSub": {
-    "message": "بدون اشتراك"
-  },
-  "rewardFilterSubOnly": {
-    "message": "اشتراك فقط"
-  },
-  "rewardFilterPinnedOnly": {
-    "message": "المثبتة فقط"
-  },
   "rewardFilterReset": {
     "message": "إعادة الضبط إلى كل المكافآت"
-  },
-  "farmPinnedOnlyTitle": {
-    "message": "فارم الحملات المثبتة فقط"
-  },
-  "farmPinnedOnlyDescription": {
-    "message": "تُفارَم فقط الحملات التي ثبتّها في قائمة الانتظار على $1."
   },
   "forgetExcludedTitle": {
     "message": "نسيان الحملات المستبعدة"

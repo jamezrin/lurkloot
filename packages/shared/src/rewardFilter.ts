@@ -1,12 +1,14 @@
 import type {
   DropCampaign,
   DropReward,
+  EngineSettings,
   Platform,
   RewardFilter,
   RewardFilterMiss,
   RewardKind,
   SubscriptionRewardMode,
 } from "./models";
+import { campaignRankTier } from "./ranking";
 import { rewardRequiresSubscription } from "./rewards";
 
 export const REWARD_KINDS: readonly RewardKind[] = ["item", "badge", "emote"];
@@ -22,29 +24,157 @@ export const SUBSCRIPTION_REWARD_MODES: readonly SubscriptionRewardMode[] = [
   "only",
 ];
 
+// The Queue groups that each choose their reward kinds (#932): pinned
+// campaigns, campaigns of a favourite game, and every other campaign.
+export type RewardGroup = "pinned" | "favourite" | "other";
+export const REWARD_GROUPS: readonly RewardGroup[] = ["pinned", "favourite", "other"];
+
+const GROUP_FIELDS: Record<RewardGroup, "pinnedKinds" | "favouriteKinds" | "kinds"> = {
+  pinned: "pinnedKinds",
+  favourite: "favouriteKinds",
+  other: "kinds",
+};
+
+export function rewardGroupKinds(filter: RewardFilter, group: RewardGroup): RewardKind[] {
+  return filter[GROUP_FIELDS[group]];
+}
+
+export function withRewardGroupKinds(
+  filter: RewardFilter,
+  group: RewardGroup,
+  kinds: RewardKind[],
+): RewardFilter {
+  return { ...filter, [GROUP_FIELDS[group]]: kinds };
+}
+
 export function defaultRewardFilter(platform: Platform): RewardFilter {
-  return { kinds: [...PLATFORM_REWARD_KINDS[platform]], subscriptions: "include" };
+  const all = PLATFORM_REWARD_KINDS[platform];
+  return {
+    kinds: [...all],
+    subscriptions: "include",
+    pinnedKinds: [...all],
+    favouriteKinds: [...all],
+  };
+}
+
+// A kinds list as stored, in platform order. An empty list farms nothing from
+// its group (#932); a list naming only kinds the platform lacks farms every
+// kind it has, as it always did; anything that is not a list is undefined, so
+// the caller picks its default.
+function normalizeKinds(value: unknown, platform: Platform): RewardKind[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  if (value.length === 0) return [];
+  const supported = PLATFORM_REWARD_KINDS[platform];
+  const kinds = REWARD_KINDS.filter((kind) => supported.includes(kind) && value.includes(kind));
+  return kinds.length > 0 ? kinds : [...supported];
 }
 
 export function normalizeRewardFilter(value: unknown, platform: Platform): RewardFilter {
   const record =
     typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-  const supported = PLATFORM_REWARD_KINDS[platform];
-  const requested = Array.isArray(record.kinds) ? record.kinds : [];
-  const kinds = REWARD_KINDS.filter((kind) => supported.includes(kind) && requested.includes(kind));
+  const kinds = normalizeKinds(record.kinds, platform) ?? [...PLATFORM_REWARD_KINDS[platform]];
   const subscriptions = SUBSCRIPTION_REWARD_MODES.find((mode) => mode === record.subscriptions);
+  // A filter saved before the groups existed has no group lists: they follow
+  // `kinds`, so nothing farms differently until the user edits a group.
   return {
-    kinds: kinds.length > 0 ? kinds : [...supported],
+    kinds,
     subscriptions: subscriptions ?? "include",
+    pinnedKinds: normalizeKinds(record.pinnedKinds, platform) ?? [...kinds],
+    favouriteKinds: normalizeKinds(record.favouriteKinds, platform) ?? [...kinds],
   };
 }
 
 export function isRewardFilterNarrowed(filter: RewardFilter, platform: Platform): boolean {
   const normalized = normalizeRewardFilter(filter, platform);
+  const all = PLATFORM_REWARD_KINDS[platform].length;
   return (
     normalized.subscriptions !== "include"
-    || normalized.kinds.length < PLATFORM_REWARD_KINDS[platform].length
+    || REWARD_GROUPS.some((group) => rewardGroupKinds(normalized, group).length < all)
   );
+}
+
+// Whether only pinned campaigns are farmed: the favourite and other groups
+// farm no kinds (#932). It replaced the farmPinnedOnly switch.
+export function farmsPinnedOnly(filter: RewardFilter, platform: Platform): boolean {
+  const normalized = normalizeRewardFilter(filter, platform);
+  return normalized.favouriteKinds.length === 0 && normalized.kinds.length === 0;
+}
+
+function tickedKinds(filter: RewardFilter): number {
+  return REWARD_GROUPS.reduce((count, group) => count + rewardGroupKinds(filter, group).length, 0);
+}
+
+// The filter after ticking a whole Queue group (#934): every kind the platform
+// has, or none when the group already farms all of them. Undefined when that
+// would leave the whole filter farming nothing, which the grid never allows.
+export function toggleRewardGroup(
+  filter: RewardFilter,
+  platform: Platform,
+  group: RewardGroup,
+): RewardFilter | undefined {
+  const all = PLATFORM_REWARD_KINDS[platform];
+  const kinds = rewardGroupKinds(filter, group);
+  const full = all.every((kind) => kinds.includes(kind));
+  const next = withRewardGroupKinds(filter, group, full ? [] : [...all]);
+  return tickedKinds(next) === 0 ? undefined : next;
+}
+
+// The filter after ticking one kind in every Queue group (#934), or unticking
+// it everywhere when every group already farms it. Undefined when that would
+// leave the whole filter farming nothing.
+export function toggleRewardKind(
+  filter: RewardFilter,
+  platform: Platform,
+  kind: RewardKind,
+): RewardFilter | undefined {
+  if (!PLATFORM_REWARD_KINDS[platform].includes(kind)) return undefined;
+  const full = REWARD_GROUPS.every((group) => rewardGroupKinds(filter, group).includes(kind));
+  const next = REWARD_GROUPS.reduce((current, group) => {
+    const kinds = rewardGroupKinds(current, group);
+    return withRewardGroupKinds(
+      current,
+      group,
+      REWARD_KINDS.filter((entry) => (entry === kind ? !full : kinds.includes(entry))),
+    );
+  }, filter);
+  return tickedKinds(next) === 0 ? undefined : next;
+}
+
+// Whether the Queue groups farm different kinds from one another.
+export function rewardGroupsDiffer(filter: RewardFilter, platform: Platform): boolean {
+  const normalized = normalizeRewardFilter(filter, platform);
+  const other = normalized.kinds.join();
+  return normalized.pinnedKinds.join() !== other || normalized.favouriteKinds.join() !== other;
+}
+
+// The campaign's Queue group, for its reward kinds. A pinned campaign of a
+// favourite game is pinned, as in the Queue; an unlinked one farmed last is an
+// "other" campaign.
+export function campaignRewardGroup(campaign: DropCampaign, settings: EngineSettings): RewardGroup {
+  const tier = campaignRankTier(campaign, settings);
+  return tier === "pinned" ? "pinned" : tier === "favourite" ? "favourite" : "other";
+}
+
+// The filter one campaign is judged by: its group's kinds and the shared
+// subscription mode. Every group list holds those same kinds, so whatever
+// reads the result (isRewardFilterNarrowed, rewardMatchesFilter) sees exactly
+// that campaign's filter.
+export function campaignRewardFilter(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+  group: RewardGroup = campaignRewardGroup(campaign, settings),
+): RewardFilter {
+  const filter = normalizeRewardFilter(
+    settings.platform[campaign.platform].rewardFilter,
+    campaign.platform,
+  );
+  const kinds = rewardGroupKinds(filter, group);
+  return {
+    kinds: [...kinds],
+    subscriptions: filter.subscriptions,
+    pinnedKinds: [...kinds],
+    favouriteKinds: [...kinds],
+  };
 }
 
 export function rewardKinds(reward: Pick<DropReward, "benefits" | "benefitType">): RewardKind[] {
