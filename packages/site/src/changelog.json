@@ -1,5 +1,34 @@
 [
   {
+    "version": "1.21.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Rewards to farm now lets you choose reward types separately for pinned campaigns, campaigns of your favourite games, and every other campaign, in a grid in the Queue and in Settings. Click a row or column heading to tick or untick the whole line. Farm pinned campaigns only is now part of the grid: leave the Favourite games and Other campaigns columns empty. Your current choices carry over. Because each group can farm different types, pinning a campaign or starring a game can now change which rewards are farmed."
+      },
+      {
+        "kind": "improved",
+        "text": "The Rewards to farm button in the Queue always reads Rewards to farm, and shows a dot while you have narrowed what it farms. Each skipped campaign in the Queue still says why it is skipped."
+      },
+      {
+        "kind": "improved",
+        "text": "The Watchlist now holds up to 30 channels per platform, up from 20."
+      },
+      {
+        "kind": "improved",
+        "text": "CLI: campaignPins and excludedCampaignIds now go under each platform block, and farmPinnedOnly is replaced by the per-group reward types. Configs with the old keys still load and print a warning at startup."
+      },
+      {
+        "kind": "fixed",
+        "text": "Unpin all on one platform's Queue no longer clears your pins on the other platform. Pins and excluded campaigns are now kept separately for Twitch and Kick, and the ones you already have carry over."
+      },
+      {
+        "kind": "fixed",
+        "text": "A Watchlist channel with Maintain watch streak turned on is watched again after its streak for the broadcast is done, as before 1.20.0, instead of leaving nothing to watch. If the Watchlist comes before Drops in your watch order, that channel now keeps playing like any other live Watchlist channel."
+      }
+    ]
+  },
+  {
     "version": "1.20.0",
     "changes": [
       {
