@@ -210,7 +210,11 @@ function RewardKindsGrid({
   const t = useT();
   const titleId = useId();
   const hintId = useId();
-  const [line, setLine] = useState<GridLine | null>(null);
+  // Hover and keyboard focus are tracked apart, so leaving one keeps the
+  // shading of the other; the hovered heading wins while both apply.
+  const [hovered, setHovered] = useState<GridLine | null>(null);
+  const [focused, setFocused] = useState<GridLine | null>(null);
+  const line = hovered ?? focused;
   const available = PLATFORM_REWARD_KINDS[platform];
   const ticked = REWARD_GROUPS.reduce(
     (count, group) => count + rewardGroupKinds(filter, group).length,
@@ -219,10 +223,10 @@ function RewardKindsGrid({
   const lit = (group: RewardGroup, kind: RewardKind) =>
     line !== null && ("group" in line ? line.group === group : line.kind === kind);
   const watch = (target: GridLine) => ({
-    onMouseEnter: () => setLine(target),
-    onMouseLeave: () => setLine(null),
-    onFocus: () => setLine(target),
-    onBlur: () => setLine(null),
+    onMouseEnter: () => setHovered(target),
+    onMouseLeave: () => setHovered(null),
+    onFocus: () => setFocused(target),
+    onBlur: () => setFocused(null),
   });
   return (
     <div className="space-y-1">

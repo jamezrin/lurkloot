@@ -240,6 +240,35 @@ describe("RewardFilterFields heading toggles (#934)", () => {
     expect(lit().map((cell) => cell.rewardKind)).toEqual(["badge", "badge", "badge"]);
   });
 
+  it("keeps the shading while the heading stays focused or hovered", () => {
+    mountGrid(filterOf(ALL));
+    const litGroups = () =>
+      [...document.querySelectorAll<HTMLElement>("[data-reward-cell-lit] [role=checkbox]")].map(
+        (cell) => cell.dataset.rewardGroup ?? cell.dataset.rewardKind,
+      );
+    const pinned = columnToggle("pinned");
+    // Focused, then hovered and left: focus still shades the column.
+    act(() => pinned.focus());
+    act(() => {
+      pinned.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    act(() => {
+      pinned.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+    });
+    expect(litGroups()).toEqual(["pinned", "pinned", "pinned"]);
+    // Hovered, then blurred: hover still shades it.
+    act(() => {
+      pinned.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    act(() => pinned.blur());
+    expect(litGroups()).toEqual(["pinned", "pinned", "pinned"]);
+    // Neither: no shading.
+    act(() => {
+      pinned.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+    });
+    expect(litGroups()).toEqual([]);
+  });
+
   it("toggles Kick's one row and each of its columns", () => {
     const onChange = vi.fn();
     mount(
