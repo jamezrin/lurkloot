@@ -93,6 +93,13 @@ export function isRewardFilterNarrowed(filter: RewardFilter, platform: Platform)
   );
 }
 
+// Whether only pinned campaigns are farmed: the favourite and other groups
+// farm no kinds (#932). It replaced the farmPinnedOnly switch.
+export function farmsPinnedOnly(filter: RewardFilter, platform: Platform): boolean {
+  const normalized = normalizeRewardFilter(filter, platform);
+  return normalized.favouriteKinds.length === 0 && normalized.kinds.length === 0;
+}
+
 // Whether the Queue groups farm different kinds from one another.
 export function rewardGroupsDiffer(filter: RewardFilter, platform: Platform): boolean {
   const normalized = normalizeRewardFilter(filter, platform);

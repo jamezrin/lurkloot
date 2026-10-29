@@ -784,6 +784,28 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
+  // Every campaign pinned is not "only pins farm": with the default filter, a
+  // pinned campaign that cannot finish in time names the deadline.
+  it("names the deadline, not pins, when every campaign is pinned but all kinds farm", async () => {
+    const soon = new Date(Date.now() + 10 * 60_000).toISOString();
+    const decision = await chooseCampaignDecision(
+      "twitch",
+      [campaign("pinned", { endsAt: soon, rewards: [{ ...reward(), requiredMinutes: 600 }] })],
+      settings({ platform: { twitch: { campaignPins: ["pinned"] } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator")]),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
+      },
+    );
+    expect(decision.action).toBe("idle");
+    expect(decision.reason).toContain("cannot be completed before their deadline");
+    expect(decision.reason).not.toContain("No pinned campaigns are eligible");
+  });
+
   it("farming only pins skips campaigns the user has not pinned", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 

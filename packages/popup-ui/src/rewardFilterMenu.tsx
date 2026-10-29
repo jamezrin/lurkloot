@@ -19,6 +19,7 @@ import {
   REWARD_KINDS,
   SUBSCRIPTION_REWARD_MODES,
   defaultRewardFilter,
+  farmsPinnedOnly,
   isRewardFilterNarrowed,
   normalizeRewardFilter,
   rewardGroupKinds,
@@ -31,6 +32,9 @@ import {
   UNLINKED_CAMPAIGN_MODES,
 } from "@lurkloot/shared/unlinkedCampaigns";
 import { useT } from "./context";
+
+// Re-exported for the menu's callers and tests; the rule lives in shared.
+export { farmsPinnedOnly };
 import { FLOATING_POPUP_CLASS } from "./dropdown";
 import { usePortalContainer } from "./portal";
 import { useCloseOnOutsideScroll } from "./outsideScroll";
@@ -175,13 +179,6 @@ export function UnlinkedCampaignsField({
       </p>
     </div>
   );
-}
-
-/** Whether only pinned campaigns are farmed: the favourite and other groups
- * farm no kinds (#932). */
-export function farmsPinnedOnly(filter: RewardFilter, platform: Platform): boolean {
-  const current = normalizeRewardFilter(filter, platform);
-  return current.favouriteKinds.length === 0 && current.kinds.length === 0;
 }
 
 /** The filter in a few words: only what is narrowed, kinds first and then the

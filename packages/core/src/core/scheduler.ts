@@ -19,7 +19,11 @@ import type {
 } from "@lurkloot/shared/models";
 import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
-import { campaignFilterMiss, campaignRewardFilter } from "@lurkloot/shared/rewardFilter";
+import {
+  campaignFilterMiss,
+  campaignRewardFilter,
+  farmsPinnedOnly,
+} from "@lurkloot/shared/rewardFilter";
 import {
   evaluateCampaignFarming,
   farmingRewardFilter,
@@ -671,11 +675,15 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   ) {
     return "No campaigns have rewards your reward filter allows";
   }
-  // Only pins farm (#932): every campaign either waits on a pin or is a pin
-  // that is not eligible. With pins that have all expired, "no pinned
-  // campaigns are eligible" is the accurate and more actionable reason.
+  // Only pins farm (#932): every campaign's platform farms pins only, and each
+  // campaign either waits on a pin or is a pin that is not eligible. With pins
+  // that have all expired, "no pinned campaigns are eligible" is the accurate
+  // and more actionable reason. Without pins-only, a pinned campaign that is
+  // not eligible gets its own reason below (a deadline, say).
   if (
     notExcluded.every((campaign) => {
+      if (!farmsPinnedOnly(settings.platform[campaign.platform].rewardFilter, campaign.platform))
+        return false;
       const evaluation = evaluateCampaignFarming(campaign, settings);
       return (
         !evaluation.farmable && (evaluation.code === "not_pinned" || isPinned(campaign, settings))
