@@ -118,6 +118,12 @@ should let a future tallied kind (say Fortnite captures per item) key by channel
   platformless events in both). *(My call.)* Rows stored before this change go into one **Earlier**
   block at the bottom.
 - Points that arrive while no session is open are not counted.
+- **Decided by the maintainer:** listed rewards that arrive while the platform has no open session
+  (drops claimed by hand from the popup, manual Kick claims, Fortnite/NoPixel rewards, which have their
+  own toggles) go into an **Outside a session** block, one per local day, placed among the sessions by
+  time. They carry no `sessionId`; the popup tells them apart from pre-change rows (Earlier) by a
+  marker on the event, e.g. `sessionId: null` versus absent. Extension rewards join the Twitch session
+  when one is open.
 
 ### Storage (extension)
 
@@ -153,9 +159,8 @@ should let a future tallied kind (say Fortnite captures per item) key by channel
 - `points-earned` carries only `channel_id`. Tally by id and resolve the login and display name
   separately: from channels the engine already knows (candidates, the watch target, the watchlist),
   else a cached lookup through the Twitch adapter. Unresolved channels show their id until resolved.
-- **Open question for the maintainer:** the topic covers the whole account, so points earned on a phone
-  or TV also arrive. Count everything on the account, or only channels the extension watched or
-  claimed on?
+- **Decided by the maintainer:** count everything on the account. The topic covers the whole account,
+  so points earned on a phone or TV during a session are counted too; no channel-membership filter.
 
 ### Kick card, NoPixel, Fortnite
 
