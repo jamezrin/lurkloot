@@ -1499,6 +1499,96 @@
   "activityCriticalFailureCleared": {
     "message": "$1 की गंभीर विफलता खारिज की गई; दोबारा प्रयास किया जा रहा है।"
   },
+  "activitySessionCurrent": {
+    "message": "यह सत्र"
+  },
+  "activitySessionLive": {
+    "message": "$1 से"
+  },
+  "activitySessionOutside": {
+    "message": "सत्र के बाहर"
+  },
+  "activitySessionEarlier": {
+    "message": "पहले"
+  },
+  "activitySessionSummary": {
+    "message": "$1 पॉइंट्स · $2 रिवॉर्ड"
+  },
+  "activitySessionStarted": {
+    "message": "फ़ार्मिंग सत्र शुरू हुआ"
+  },
+  "activitySessionEnded": {
+    "message": "फ़ार्मिंग सत्र समाप्त हुआ"
+  },
+  "activityTotalPoints": {
+    "message": "पॉइंट्स"
+  },
+  "activityTotalDrops": {
+    "message": "ड्रॉप्स"
+  },
+  "activityTotalCards": {
+    "message": "कार्ड"
+  },
+  "activityTotalExtension": {
+    "message": "एक्सटेंशन"
+  },
+  "activitySectionRewards": {
+    "message": "रिवॉर्ड"
+  },
+  "activitySectionPoints": {
+    "message": "चैनल के अनुसार पॉइंट्स"
+  },
+  "activitySectionStatus": {
+    "message": "स्थिति ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 पॉइंट्स, $2 पर"
+  },
+  "activityRewardObtained": {
+    "message": "$1 मिला"
+  },
+  "activityChannelId": {
+    "message": "चैनल $1"
+  },
+  "pointsReasonWatch": {
+    "message": "देखना"
+  },
+  "pointsReasonClaim": {
+    "message": "बोनस ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "स्ट्रीक"
+  },
+  "pointsReasonRaid": {
+    "message": "रेड"
+  },
+  "rewardCardTitle": {
+    "message": "$1 कार्ड"
+  },
+  "rewardPackTitle": {
+    "message": "पैक खुला · $1 कार्ड"
+  },
+  "rewardCaptureTitle": {
+    "message": "कैप्चर"
+  },
+  "rewardGiveawayTitle": {
+    "message": "गिवअवे में हिस्सा लिया"
+  },
+  "rewardGenericTitle": {
+    "message": "रिवॉर्ड"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 मिनट वॉच टाइम"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 नॉर्मल"
+  },
+  "rewardEditionGold": {
+    "message": "$1 गोल्ड"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 लेजेंडरी"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "बार-बार त्रुटियों के बावजूद कोई प्रगति नहीं हुई"
   },

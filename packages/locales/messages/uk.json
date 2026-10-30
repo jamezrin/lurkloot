@@ -1499,6 +1499,96 @@
   "activityCriticalFailureCleared": {
     "message": "Критичну помилку $1 скинуто; повтор спроби."
   },
+  "activitySessionCurrent": {
+    "message": "Ця сесія"
+  },
+  "activitySessionLive": {
+    "message": "з $1"
+  },
+  "activitySessionOutside": {
+    "message": "Поза сесією"
+  },
+  "activitySessionEarlier": {
+    "message": "Раніше"
+  },
+  "activitySessionSummary": {
+    "message": "$1 балів · $2 нагород"
+  },
+  "activitySessionStarted": {
+    "message": "Розпочато сесію фарму"
+  },
+  "activitySessionEnded": {
+    "message": "Завершено сесію фарму"
+  },
+  "activityTotalPoints": {
+    "message": "бали"
+  },
+  "activityTotalDrops": {
+    "message": "дропи"
+  },
+  "activityTotalCards": {
+    "message": "картки"
+  },
+  "activityTotalExtension": {
+    "message": "розширення"
+  },
+  "activitySectionRewards": {
+    "message": "Нагороди"
+  },
+  "activitySectionPoints": {
+    "message": "Бали за каналами"
+  },
+  "activitySectionStatus": {
+    "message": "Статус ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 балів на $2"
+  },
+  "activityRewardObtained": {
+    "message": "Отримано $1"
+  },
+  "activityChannelId": {
+    "message": "Канал $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Перегляд"
+  },
+  "pointsReasonClaim": {
+    "message": "Бонус ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Серія"
+  },
+  "pointsReasonRaid": {
+    "message": "Рейд"
+  },
+  "rewardCardTitle": {
+    "message": "Картка $1"
+  },
+  "rewardPackTitle": {
+    "message": "Відкрито пак · $1 карток"
+  },
+  "rewardCaptureTitle": {
+    "message": "Захоплення"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Участь у розіграші"
+  },
+  "rewardGenericTitle": {
+    "message": "Нагорода"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 хв перегляду"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 звичайна"
+  },
+  "rewardEditionGold": {
+    "message": "$1 золота"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 легендарна"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "немає прогресу попри повторювані помилки"
   },

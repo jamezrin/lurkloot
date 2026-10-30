@@ -1499,6 +1499,96 @@
   "activityCriticalFailureCleared": {
     "message": "Se descartó el fallo crítico de $1; reintentando."
   },
+  "activitySessionCurrent": {
+    "message": "Esta sesión"
+  },
+  "activitySessionLive": {
+    "message": "desde $1"
+  },
+  "activitySessionOutside": {
+    "message": "Fuera de una sesión"
+  },
+  "activitySessionEarlier": {
+    "message": "Antes"
+  },
+  "activitySessionSummary": {
+    "message": "$1 puntos · $2 recompensas"
+  },
+  "activitySessionStarted": {
+    "message": "Iniciaste una sesión de farmeo"
+  },
+  "activitySessionEnded": {
+    "message": "Terminaste la sesión de farmeo"
+  },
+  "activityTotalPoints": {
+    "message": "puntos"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "cartas"
+  },
+  "activityTotalExtension": {
+    "message": "extensión"
+  },
+  "activitySectionRewards": {
+    "message": "Recompensas"
+  },
+  "activitySectionPoints": {
+    "message": "Puntos por canal"
+  },
+  "activitySectionStatus": {
+    "message": "Estado ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 puntos en $2"
+  },
+  "activityRewardObtained": {
+    "message": "Obtuviste $1"
+  },
+  "activityChannelId": {
+    "message": "Canal $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Viendo"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonificación ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Racha"
+  },
+  "pointsReasonRaid": {
+    "message": "Incursión"
+  },
+  "rewardCardTitle": {
+    "message": "Carta de $1"
+  },
+  "rewardPackTitle": {
+    "message": "Sobre abierto · $1 cartas"
+  },
+  "rewardCaptureTitle": {
+    "message": "Captura"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Inscrito en un sorteo"
+  },
+  "rewardGenericTitle": {
+    "message": "Recompensa"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min de visualización"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 dorada"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendaria"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "sin progreso pese a errores repetidos"
   },

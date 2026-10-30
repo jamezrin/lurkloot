@@ -1499,6 +1499,96 @@
   "activityCriticalFailureCleared": {
     "message": "خطای بحرانی $1 رد شد؛ تلاش دوباره در حال انجام است."
   },
+  "activitySessionCurrent": {
+    "message": "این نشست"
+  },
+  "activitySessionLive": {
+    "message": "از $1"
+  },
+  "activitySessionOutside": {
+    "message": "خارج از نشست"
+  },
+  "activitySessionEarlier": {
+    "message": "قبلی‌ها"
+  },
+  "activitySessionSummary": {
+    "message": "$1 امتیاز · $2 پاداش"
+  },
+  "activitySessionStarted": {
+    "message": "نشست فارم را شروع کرد"
+  },
+  "activitySessionEnded": {
+    "message": "نشست فارم را پایان داد"
+  },
+  "activityTotalPoints": {
+    "message": "امتیاز"
+  },
+  "activityTotalDrops": {
+    "message": "دراپ‌ها"
+  },
+  "activityTotalCards": {
+    "message": "کارت‌ها"
+  },
+  "activityTotalExtension": {
+    "message": "افزونه"
+  },
+  "activitySectionRewards": {
+    "message": "پاداش‌ها"
+  },
+  "activitySectionPoints": {
+    "message": "امتیاز بر اساس کانال"
+  },
+  "activitySectionStatus": {
+    "message": "وضعیت ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 امتیاز در $2"
+  },
+  "activityRewardObtained": {
+    "message": "$1 دریافت شد"
+  },
+  "activityChannelId": {
+    "message": "کانال $1"
+  },
+  "pointsReasonWatch": {
+    "message": "تماشا"
+  },
+  "pointsReasonClaim": {
+    "message": "پاداش ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "زنجیره"
+  },
+  "pointsReasonRaid": {
+    "message": "ریید"
+  },
+  "rewardCardTitle": {
+    "message": "کارت $1"
+  },
+  "rewardPackTitle": {
+    "message": "بسته باز شد · $1 کارت"
+  },
+  "rewardCaptureTitle": {
+    "message": "گرفتن"
+  },
+  "rewardGiveawayTitle": {
+    "message": "ورود به قرعه‌کشی"
+  },
+  "rewardGenericTitle": {
+    "message": "پاداش"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 دقیقه زمان تماشا"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 عادی"
+  },
+  "rewardEditionGold": {
+    "message": "$1 طلایی"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 افسانه‌ای"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "با وجود خطاهای مکرر، پیشرفتی حاصل نشد"
   },

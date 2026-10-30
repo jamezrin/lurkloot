@@ -1499,6 +1499,96 @@
   "activityCriticalFailureCleared": {
     "message": "Kritická chyba $1 zrušena; opakování."
   },
+  "activitySessionCurrent": {
+    "message": "Tato relace"
+  },
+  "activitySessionLive": {
+    "message": "od $1"
+  },
+  "activitySessionOutside": {
+    "message": "Mimo relaci farmení"
+  },
+  "activitySessionEarlier": {
+    "message": "Dříve"
+  },
+  "activitySessionSummary": {
+    "message": "$1 bodů · $2 odměn"
+  },
+  "activitySessionStarted": {
+    "message": "Zahájena relace farmení"
+  },
+  "activitySessionEnded": {
+    "message": "Relace farmení ukončena"
+  },
+  "activityTotalPoints": {
+    "message": "body"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "karty"
+  },
+  "activityTotalExtension": {
+    "message": "rozšíření"
+  },
+  "activitySectionRewards": {
+    "message": "Odměny"
+  },
+  "activitySectionPoints": {
+    "message": "Body podle kanálu"
+  },
+  "activitySectionStatus": {
+    "message": "Stav ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 bodů na $2"
+  },
+  "activityRewardObtained": {
+    "message": "Získáno: $1"
+  },
+  "activityChannelId": {
+    "message": "Kanál $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Sledování"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Série sledování"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "Karta: $1"
+  },
+  "rewardPackTitle": {
+    "message": "Balíček otevřen · $1 karet"
+  },
+  "rewardCaptureTitle": {
+    "message": "Zachycení"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Zapojeno do soutěže"
+  },
+  "rewardGenericTitle": {
+    "message": "Odměna"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min sledování"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 běžná"
+  },
+  "rewardEditionGold": {
+    "message": "$1 zlatá"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendární"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "navzdory opakovaným chybám žádný průběh"
   },

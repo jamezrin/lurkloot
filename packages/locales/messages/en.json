@@ -1499,6 +1499,96 @@
   "activityCriticalFailureCleared": {
     "message": "$1 critical failure dismissed; retrying."
   },
+  "activitySessionCurrent": {
+    "message": "This session"
+  },
+  "activitySessionLive": {
+    "message": "since $1"
+  },
+  "activitySessionOutside": {
+    "message": "Outside a session"
+  },
+  "activitySessionEarlier": {
+    "message": "Earlier"
+  },
+  "activitySessionSummary": {
+    "message": "$1 points · $2 rewards"
+  },
+  "activitySessionStarted": {
+    "message": "Started a farming session"
+  },
+  "activitySessionEnded": {
+    "message": "Ended the farming session"
+  },
+  "activityTotalPoints": {
+    "message": "points"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "cards"
+  },
+  "activityTotalExtension": {
+    "message": "extension"
+  },
+  "activitySectionRewards": {
+    "message": "Rewards"
+  },
+  "activitySectionPoints": {
+    "message": "Points by channel"
+  },
+  "activitySectionStatus": {
+    "message": "Status ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 points on $2"
+  },
+  "activityRewardObtained": {
+    "message": "Obtained $1"
+  },
+  "activityChannelId": {
+    "message": "Channel $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Watching"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Streak"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "$1 card"
+  },
+  "rewardPackTitle": {
+    "message": "Pack opened · $1 cards"
+  },
+  "rewardCaptureTitle": {
+    "message": "Capture"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Giveaway entered"
+  },
+  "rewardGenericTitle": {
+    "message": "Reward"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min watch time"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 gold"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendary"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "no progress despite repeated errors"
   },
