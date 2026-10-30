@@ -220,6 +220,23 @@ class IndexedDbActivityRepository implements ActivityRepository {
           );
         }),
       );
+      // A session whose session_ended was never stored (reporting is best
+      // effort) would otherwise stay "current" and unprunable forever: the
+      // platform's next session start ends it.
+      for (const event of events) {
+        if (event.category !== "activity" || event.code !== "session_started") continue;
+        const started = event.data.startedAt;
+        const stale = (await requestResult(
+          sessionStore
+            .index(SESSION_PLATFORM_INDEX)
+            .getAll(IDBKeyRange.bound([event.platform], [event.platform, started], false, true)),
+        )) as FarmingSessionSummary[];
+        for (const summary of stale) {
+          const current = summaries.get(summary.id) ?? summary;
+          if (current.id !== event.data.sessionId && !current.endedAt)
+            summaries.set(summary.id, { ...current, endedAt: started });
+        }
+      }
       for (const event of events) {
         if (event.category === "activity" && typeof event.sessionId === "string") {
           summaries.set(event.sessionId, foldSessionEvent(summaries.get(event.sessionId), event));

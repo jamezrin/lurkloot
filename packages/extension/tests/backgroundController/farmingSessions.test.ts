@@ -136,4 +136,52 @@ describe("farming sessions", () => {
       sessionId: session,
     });
   });
+
+  it("stamps the persisted session on a freshly started controller, before any reconcile", async () => {
+    // A worker restart: the session survived in storage, the controller is new.
+    const env = harness(farming(DEFAULT_SETTINGS));
+    env.state.farmingSessions = {
+      twitch: { id: "persisted", startedAt: "2026-10-30T09:00:00.000Z" },
+    };
+
+    await env.controller.reportEvents([claimed("twitch")]);
+
+    expect(reported(env).find((e) => e.category === "activity")).toMatchObject({
+      sessionId: "persisted",
+    });
+  });
+
+  it("opens a session on install or update when farming is already on", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    await env.controller.ensureAlarm();
+    await env.controller.settleBackgroundWork();
+
+    expect(env.state.farmingSessions?.twitch).toEqual({
+      id: expect.any(String),
+      startedAt: expect.any(String),
+    });
+  });
+
+  it("keeps a session open when a disable and an enable race", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleStartup();
+
+    await Promise.all([
+      env.controller.setPlatformEnabled({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      }),
+      env.controller.setPlatformEnabled({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: true,
+      }),
+    ]);
+    await env.controller.settleBackgroundWork();
+
+    expect(env.settings.platform.twitch.enabled).toBe(true);
+    expect(env.state.farmingSessions?.twitch).toBeDefined();
+  });
 });

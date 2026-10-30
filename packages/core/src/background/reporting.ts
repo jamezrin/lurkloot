@@ -342,7 +342,7 @@ export function createReporting<S extends EngineSettings>(
     if (reportedEvents.length === 0) return;
     // The one choke point every reported event passes, so each activity event
     // is filed under its farming session here rather than at each emit site.
-    const events = stampFarmingSessions(reportedEvents);
+    const events = await stampFarmingSessions(reportedEvents);
     const correlateControllerRun = (events: readonly EngineEvent[]): EngineEvent[] =>
       events.map((event) =>
         event.category === "diagnostic"

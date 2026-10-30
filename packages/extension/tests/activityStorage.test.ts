@@ -659,6 +659,17 @@ describe("activity repository", () => {
       ]);
     });
 
+    it("ends a session whose end was never stored when the next one starts", async () => {
+      await repository.append([sessionStarted("lost-end", "twitch", "2026-07-14T08:00:00.000Z")]);
+      await repository.append([sessionStarted("next", "twitch", "2026-07-14T10:00:00.000Z")]);
+
+      const sessions = await repository.loadSessions("twitch");
+      expect(sessions.find((session) => session.id === "lost-end")?.endedAt).toBe(
+        "2026-07-14T10:00:00.000Z",
+      );
+      expect(sessions.find((session) => session.id === "next")?.endedAt).toBeUndefined();
+    });
+
     it("clears sessions with the rest of the history", async () => {
       await repository.append([sessionStarted("s1", "twitch", NOW.toISOString())]);
       await repository.clear();

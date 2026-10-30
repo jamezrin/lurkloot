@@ -426,7 +426,7 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // farmingSessions.ts
   reconcileFarmingSessions(): Promise<void>;
-  stampFarmingSessions(events: readonly EngineEvent[]): EngineEvent[];
+  stampFarmingSessions(events: readonly EngineEvent[]): Promise<EngineEvent[]>;
 
   // accountProgress.ts
   abortAccountProgressPolls(reason: string): void;
