@@ -104,13 +104,19 @@ should let a future tallied kind (say Fortnite captures per item) key by channel
   (`{ id, startedAt }`). Only the settings transition (farming enabled/disabled for a platform) and a
   startup reconcile write it. The reconcile opens a session when the platform is already enabled and
   none is open (fresh install, update from a version without sessions).
-- **Builder's call, flagged:** "enabled" means the platform's own toggle is on and global automation is
-  on, if the settings model has a separate global switch. Either turning off ends the session.
+- "Enabled" is `settings.platform[p].enabled`. There is no global automation switch any more
+  (`isFarmingActive` in `packages/shared/src/settings.ts`). **Only that toggle starts or ends a session.**
+  Signing out, `pauseOnManualWatch`, a parked platform after a manual tab close, and backoff do not end
+  or split a session; they appear as Status rows inside it. This keeps one writer for session state.
+  *(My call.)*
 - Session boundaries are activity events `session_started`/`session_ended` (data: `sessionId`,
-  `startedAt`, and for the end, the reason: disabled, automation off, signed out if that ends farming).
-- Every reward and points event emitted while a session is open carries `sessionId`. The popup groups
-  by `sessionId`, never by time range. Rows without one (stored before this change) go into one
-  **Earlier** block at the bottom.
+  `startedAt`; the end carries reason `disabled`).
+- **Every activity event** for a platform emitted while its session is open carries `sessionId`:
+  rewards, points and status rows alike. The popup groups by `sessionId`. Events with no platform
+  (`interruption` may have none) are the one exception: they show in the block of the session that was
+  open when they happened, by time, in the platform tab being viewed (the tab already shows
+  platformless events in both). *(My call.)* Rows stored before this change go into one **Earlier**
+  block at the bottom.
 - Points that arrive while no session is open are not counted.
 
 ### Storage (extension)
@@ -122,15 +128,20 @@ should let a future tallied kind (say Fortnite captures per item) key by channel
   Tallied events are folded into their session record **inside one readwrite transaction** (push and
   tick writes race). They are never appended to the events store.
 - Listed rewards, status and session boundary events are still appended to the events store as today.
+  With points out of it, the 2,000-row cap is ample for 30 days. Reward counts in the totals tiles are
+  computed from the rows returned, not from stored counters, so a trimmed row can never leave a tile
+  saying "3 drops" over two entries. Only tallied points are stored as folded totals. *(My call.)*
+- The flat paged `getActivity` stays for the search box and for the activity export: a non-empty search
+  shows today's flat filtered list; an empty search shows sessions. *(My call.)*
 - `clear()`, reset, `prune()` and `deleteDatabase()` cover the sessions store. Sessions whose end is
   older than 30 days are pruned. The open session is never pruned.
 - A new message (e.g. `getActivitySessions`, with a cursor) returns session summaries plus their listed
   rewards and status rows, because the paged `getActivity` (80 per page) cannot return whole sessions.
 - Diagnostics: tallied events **skip** the activity-to-diagnostic mirror in `withActivityDiagnostics`,
   since `channelPointsPush.ts` already logs each gain at debug and the diagnostic cap is the same 2,000.
-- The CLI (`cli/src/events.ts`) prints listed rewards as today. **Builder's call:** for tallied points it
-  prints one line per gain at debug level or a periodic per-channel summary; it must not flood the
-  default log.
+- The CLI (`cli/src/events.ts`) prints listed rewards as today, prints `session_started`/`session_ended`
+  as one line each, and prints points gains at debug level only. It does not persist or fold sessions;
+  the fold reducer lives in `@lurkloot/shared` so a later CLI summary can reuse it. *(My call.)*
 
 ### Twitch points
 
@@ -227,5 +238,6 @@ is correct under concurrent writes; churn accounting survives the page-context m
 
 ## Calls left to the builder
 
-Marked above: the page-context mechanism, the exact meaning of "enabled", CLI output for points, channel
-name resolution order. Everything not covered here follows the existing code's conventions.
+Marked above: the page-context mechanism and channel name resolution order. Calls I made are marked
+*(My call.)*. The diagnostic mirror of `reward_obtained` flattens `source` and `details`, since
+diagnostic `data` is a flat record. Everything not covered here follows the existing code's conventions.
