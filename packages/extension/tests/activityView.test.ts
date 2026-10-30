@@ -204,6 +204,13 @@ describe("activity view model", () => {
       "activityReasonRuntimeRestart:",
     );
     expect(buildActivityCard(events.auth_health_changed, t)?.detail).toContain("Healthy");
+    for (const [outcome, key] of [
+      ["not_confirmed", "activityWatchStreakNotConfirmed:streamer"],
+      ["playback_failed", "activityWatchStreakPlaybackFailed:streamer"],
+    ] as const) {
+      const ended = { ...events.watch_streak_ended, data: { channel: "streamer", outcome } };
+      expect(buildActivityCard(ended, t)).toMatchObject({ summary: key, tone: "muted" });
+    }
     expect(buildActivityCard(legacy, t)).toBeUndefined();
     expect(buildActivityCard(diagnostic, t)).toBeUndefined();
   });

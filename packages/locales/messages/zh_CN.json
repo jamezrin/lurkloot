@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1 的观看连续记录未及时确认，已跳过"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "无法为 $1 观看连续记录：播放从未开始，已跳过"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 的身份验证状态从 $2 变为 $3。"
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "未确认"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "无法观看"
   },
   "watchStreakUnavailable": {
     "message": "连续记录不可用"

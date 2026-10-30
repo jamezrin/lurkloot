@@ -339,6 +339,7 @@ const WATCH_STREAK_STATUS = {
   watching: { key: "watchStreakWatching", tone: "accent" },
   credited: { key: "watchStreakCredited", tone: "live" },
   not_confirmed: { key: "watchStreakNotConfirmed", tone: "warning" },
+  playback_failed: { key: "watchStreakPlaybackFailed", tone: "warning" },
   unavailable: { key: "watchStreakUnavailable", tone: "muted" },
 } as const satisfies Record<
   WatchStreakRowStatus,

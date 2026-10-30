@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Серия просмотров на $1 не подтверждена вовремя; переход к следующему"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Не удалось посмотреть $1 для серии просмотров: воспроизведение так и не началось; переход к следующему"
+  },
   "activityAuthHealthChanged": {
     "message": "Состояние аутентификации $1 изменилось с $2 на $3."
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Не подтверждена"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Не просмотрено"
   },
   "watchStreakUnavailable": {
     "message": "Серия недоступна"

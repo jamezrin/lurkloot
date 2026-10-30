@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1 の連続視聴が時間内に確認されなかったため、次に進みました"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "$1 の連続視聴を実行できませんでした。再生が開始されなかったため、次に進みました"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 の認証が $2 から $3 に変わりました。"
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "未確認"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "視聴できず"
   },
   "watchStreakUnavailable": {
     "message": "連続視聴不可"

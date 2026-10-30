@@ -125,6 +125,14 @@ describe("activity diagnostics", () => {
         data: { channel: "streamer", outcome: "not_confirmed" },
       } as ActivityEvent).message,
     ).toBe("Watch streak on streamer not confirmed within the watch budget; moving on");
+    expect(
+      activityDiagnostic({
+        ...EVENTS.watch_streak_ended,
+        data: { channel: "streamer", outcome: "playback_failed" },
+      } as ActivityEvent).message,
+    ).toBe(
+      "Watch streak on streamer could not be watched: playback never became healthy; moving on",
+    );
     expect(activityDiagnostic(EVENTS.page_context_opened).message).toBe(
       "Opened managed page context on kick.com: reason=background_rejected",
     );

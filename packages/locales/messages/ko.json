@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1의 연속 시청이 제때 확인되지 않아 다음으로 넘어갔습니다"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "$1의 연속 시청을 진행하지 못했습니다: 재생이 시작되지 않아 다음으로 넘어갔습니다"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 인증이 $2에서 $3(으)로 변경되었습니다."
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "확인되지 않음"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "시청 실패"
   },
   "watchStreakUnavailable": {
     "message": "연속 시청 불가"

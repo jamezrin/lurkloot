@@ -748,9 +748,11 @@ export interface WatchDecision {
 // attempt per signed-in account, channel and broadcast. A terminal outcome
 // stays terminal for that broadcast; a new broadcast gets a new attempt.
 // "credited": the platform reported the streak payout for this broadcast.
-// "not_confirmed": the watch budget or the failure bound ran out without that
-// report. Neither claims anything about the user's streak count.
-export type WatchStreakOutcome = "pending" | "credited" | "not_confirmed";
+// "not_confirmed": the watch budget ran out without that report.
+// "playback_failed": every round ran out of healthy checks before the budget
+// was watched (#942), so the streak was never really attempted.
+// None claims anything about the user's streak count.
+export type WatchStreakOutcome = "pending" | "credited" | "not_confirmed" | "playback_failed";
 
 export interface WatchStreakAttempt {
   accountId: string;
@@ -761,8 +763,11 @@ export interface WatchStreakAttempt {
   outcome: WatchStreakOutcome;
   // Healthy watching observed by the engine, in milliseconds.
   watchedMs: number;
-  // Ticks that found this attempt's channel selected but not healthy.
+  // Ticks that found this attempt's channel selected but not healthy, across
+  // every round. Never reset, so merges and restarts keep the bound.
   unhealthyChecks: number;
+  // When a round ran out of healthy checks: the attempt rests until then.
+  retryAt?: string;
   startedAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -774,6 +779,7 @@ export type WatchStreakRowStatus =
   | "watching"
   | "credited"
   | "not_confirmed"
+  | "playback_failed"
   | "unavailable";
 
 export interface WatchStreakState {

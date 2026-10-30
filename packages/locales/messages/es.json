@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "La racha de visualización en $1 no se confirmó a tiempo; se pasó al siguiente"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "No se pudo ver $1 para su racha de visualización: la reproducción nunca empezó; se pasó al siguiente"
+  },
   "activityAuthHealthChanged": {
     "message": "La autenticación de $1 cambió de $2 a $3."
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "No confirmada"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "No se pudo ver"
   },
   "watchStreakUnavailable": {
     "message": "Racha no disponible"

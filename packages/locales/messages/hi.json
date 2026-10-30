@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "समय पर $1 की वॉच स्ट्रीक की पुष्टि नहीं हुई; आगे बढ़ा गया"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "$1 की वॉच स्ट्रीक के लिए देख नहीं सके: प्लेबैक शुरू ही नहीं हुआ; आगे बढ़ा गया"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 प्रमाणीकरण $2 से $3 में बदल गया।"
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "पुष्टि नहीं हुई"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "देख नहीं सके"
   },
   "watchStreakUnavailable": {
     "message": "स्ट्रीक उपलब्ध नहीं"

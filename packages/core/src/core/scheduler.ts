@@ -2047,16 +2047,29 @@ export async function* decidePlatformTick(
         now: Date.now(),
       });
       for (const attempt of streaks.attempts) {
-        if (attempt.outcome !== "not_confirmed") continue;
         const key = watchStreakAttemptKey(attempt);
         const earlier = before.attempts.find((entry) => watchStreakAttemptKey(entry) === key);
+        if (
+          attempt.outcome === "pending"
+          && attempt.retryAt
+          && attempt.retryAt !== earlier?.retryAt
+        ) {
+          emitDiagnostic(
+            emit,
+            platform,
+            "info",
+            `Watch streak on ${attempt.username} did not play; trying again after ${attempt.retryAt}`,
+          );
+          continue;
+        }
+        if (attempt.outcome !== "not_confirmed" && attempt.outcome !== "playback_failed") continue;
         if (earlier && earlier.outcome !== "pending") continue;
         emit({
           category: "activity",
           code: "watch_streak_ended",
           level: "info",
           platform,
-          data: { channel: attempt.username, outcome: "not_confirmed" },
+          data: { channel: attempt.username, outcome: attempt.outcome },
         });
       }
       tick.state.watchStreaks = {

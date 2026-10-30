@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Watch streak on $1 not confirmed in time; moved on"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Couldn't watch $1 for its watch streak: playback never started; moved on"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 authentication changed from $2 to $3."
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Not confirmed"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Couldn't watch"
   },
   "watchStreakUnavailable": {
     "message": "Streak unavailable"

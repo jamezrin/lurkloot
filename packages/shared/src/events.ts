@@ -125,12 +125,13 @@ export type ActivityEvent =
   | {
       category: "activity";
       // A maintained Watchlist row's attempt for one broadcast ended
-      // (#897): Twitch reported the payout, or the watch budget ran out first.
+      // (#897): Twitch reported the payout, the watch budget ran out first, or
+      // playback never worked in any round (#942).
       code: "watch_streak_ended";
       level: "info";
       platform: Platform;
       message?: never;
-      data: { channel: string; outcome: "credited" | "not_confirmed" };
+      data: { channel: string; outcome: "credited" | "not_confirmed" | "playback_failed" };
     }
   | {
       category: "activity";
