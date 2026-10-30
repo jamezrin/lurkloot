@@ -220,7 +220,11 @@ it("opens packs only when opted in and confirms removal before reporting", async
     if (url.endsWith("/cards/packs")) return Response.json(opened ? [] : [{ id: "pack-123" }]);
     if (url.endsWith("/packs/pack-123/open")) {
       opened = true;
-      return Response.json([{ card_id: "card-1", edition: "normal" }]);
+      return Response.json([
+        { card_id: "card-1", edition: "normal" },
+        { card_id: "card-2", edition: "gold" },
+        { card_id: "card-3", edition: "normal" },
+      ]);
     }
     return base(url, init);
   });
@@ -230,6 +234,7 @@ it("opens packs only when opted in and confirms removal before reporting", async
     onOpened,
   })(session, s.emit);
   expect(onOpened).toHaveBeenCalledOnce();
+  expect(onOpened).toHaveBeenCalledWith({ cardCount: 3, editions: { normal: 2, gold: 1 } });
   await driver.refresh!();
   expect(s.fetcher.mock.calls.filter(([url]) => url.endsWith("/open"))).toHaveLength(1);
   expect(JSON.stringify(s.emit.mock.calls)).not.toContain("pack-123");
