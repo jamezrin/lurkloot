@@ -1488,7 +1488,7 @@
     "message": "Sequência de visualização em $1 não confirmada a tempo; seguindo em frente"
   },
   "activityWatchStreakPlaybackFailed": {
-    "message": "Não foi possível assistir a $1 pela sequência de visualização: a reprodução nunca começou; seguindo em frente"
+    "message": "Não foi possível assistir a $1 pela sequência de visualização: a reprodução continuou falhando; seguindo em frente"
   },
   "activityAuthHealthChanged": {
     "message": "A autenticação da $1 mudou de $2 para $3."

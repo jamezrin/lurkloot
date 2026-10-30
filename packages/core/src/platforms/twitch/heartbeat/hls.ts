@@ -209,10 +209,10 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
     }
     // Resolve relative variants against the URL we actually received, which
     // can be a redirect hop away from the usher request.
+    // playlistUrls already rejects the whole playlist when any variant is
+    // malformed or sits off the allowed hosts, so an empty result covers both.
     const variant = playlistUrls(response.body, response.url, "master").at(-1);
-    if (!variant) return { failure: "Twitch playback playlist listed no playable stream" };
-    if (!isAllowedHlsUrl(variant))
-      return { failure: "Twitch playback playlist pointed at an unexpected host" };
+    if (!variant) return { failure: "Twitch playback playlist listed no usable stream" };
     return { url: variant };
   };
 

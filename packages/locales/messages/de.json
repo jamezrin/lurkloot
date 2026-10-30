@@ -1488,7 +1488,7 @@
     "message": "Watch-Streak bei $1 wurde nicht rechtzeitig bestätigt; weiter zum nächsten Kanal"
   },
   "activityWatchStreakPlaybackFailed": {
-    "message": "Watch-Streak bei $1 konnte nicht angesehen werden: Wiedergabe startete nie; weiter zum nächsten Kanal"
+    "message": "Watch-Streak bei $1 konnte nicht angesehen werden: Wiedergabe schlug immer wieder fehl; weiter zum nächsten Kanal"
   },
   "activityAuthHealthChanged": {
     "message": "Die Authentifizierung von $1 wechselte von $2 zu $3."

@@ -615,7 +615,7 @@ tested too (#598).
 | No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
-| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, a round that never plays rests instead of ending and the round cap ends it as `playback_failed` (#942), payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
+| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, a round whose playback keeps failing rests instead of ending and the round cap ends it as `playback_failed` (#942), payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
 
 ## Runtime Messages
 
@@ -1061,7 +1061,7 @@ claims to know the user's streak count.
   (`WATCH_STREAK_BUDGET_MS`), and as `credited` when Twitch reports the payout. A terminal attempt
   is never reopened for that broadcast, and toggles and reorders do not reset it. A new broadcast
   gets a new attempt.
-- **Playback that never works is not a spent streak (#942).** A round ends after 10 unhealthy
+- **Playback that keeps failing is not a spent streak (#942).** A round ends after 10 unhealthy
   checks (`WATCH_STREAK_MAX_UNHEALTHY_CHECKS`). A watch that is still settling (a tab in its
   playback grace, a tabless watch with no heartbeat yet) does not count. A round that runs out
   rests the attempt until `retryAt` (`WATCH_STREAK_RETRY_COOLDOWN_MS`). While it rests, the verdict

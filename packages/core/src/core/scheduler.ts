@@ -2058,7 +2058,7 @@ export async function* decidePlatformTick(
             emit,
             platform,
             "info",
-            `Watch streak on ${attempt.username} did not play; trying again after ${attempt.retryAt}`,
+            `Watch streak on ${attempt.username} stopped playing; trying again after ${attempt.retryAt}`,
           );
           continue;
         }

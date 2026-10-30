@@ -1488,7 +1488,7 @@
     "message": "$1 kanalındaki izleme serisi zamanında onaylanmadı; sıradakine geçildi"
   },
   "activityWatchStreakPlaybackFailed": {
-    "message": "$1 kanalında izleme serisi için izleme yapılamadı: oynatma hiç başlamadı; sıradakine geçildi"
+    "message": "$1 kanalında izleme serisi için izleme yapılamadı: oynatma sürekli başarısız oldu; sıradakine geçildi"
   },
   "activityAuthHealthChanged": {
     "message": "$1 oturum durumu değişti: $2 → $3."

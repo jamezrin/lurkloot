@@ -1488,7 +1488,7 @@
     "message": "Streak menonton di $1 belum dikonfirmasi tepat waktu; lanjut ke berikutnya"
   },
   "activityWatchStreakPlaybackFailed": {
-    "message": "Tidak bisa menonton $1 untuk streak menonton: pemutaran tidak pernah dimulai; lanjut ke berikutnya"
+    "message": "Tidak bisa menonton $1 untuk streak menonton: pemutaran terus gagal; lanjut ke berikutnya"
   },
   "activityAuthHealthChanged": {
     "message": "Autentikasi $1 berubah dari $2 ke $3."

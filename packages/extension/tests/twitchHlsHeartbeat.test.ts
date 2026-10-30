@@ -257,7 +257,7 @@ describe("Twitch HLS heartbeat", () => {
 
     await expect(strategy.tick(context())).resolves.toMatchObject({
       ok: false,
-      message: "Twitch playback playlist listed no playable stream",
+      message: "Twitch playback playlist listed no usable stream",
     });
     expect(calls).toEqual(["GET /api/channel/hls/creator.m3u8"]);
   });

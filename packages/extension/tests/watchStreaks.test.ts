@@ -669,7 +669,7 @@ describe("watch-streak scheduling", () => {
     const s = setup({ channels: ["ordinary", "streaky"], streaks: ["streaky"], restartEvery: 7 });
     const retries: string[] = [];
     const emit: EventEmitter = (event) => {
-      if (event.category === "diagnostic" && event.message.includes("did not play"))
+      if (event.category === "diagnostic" && event.message.includes("stopped playing"))
         retries.push(event.message);
     };
     for (let minute = 0; minute < 6 * 60; minute += 1)

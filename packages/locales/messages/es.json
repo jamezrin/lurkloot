@@ -1488,7 +1488,7 @@
     "message": "La racha de visualización en $1 no se confirmó a tiempo; se pasó al siguiente"
   },
   "activityWatchStreakPlaybackFailed": {
-    "message": "No se pudo ver $1 para su racha de visualización: la reproducción nunca empezó; se pasó al siguiente"
+    "message": "No se pudo ver $1 para su racha de visualización: la reproducción siguió fallando; se pasó al siguiente"
   },
   "activityAuthHealthChanged": {
     "message": "La autenticación de $1 cambió de $2 a $3."

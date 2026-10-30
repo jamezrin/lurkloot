@@ -1488,7 +1488,7 @@
     "message": "Seria oglądania na $1 nie została potwierdzona na czas; przechodzę dalej"
   },
   "activityWatchStreakPlaybackFailed": {
-    "message": "Nie udało się oglądać $1 dla serii oglądania: odtwarzanie nie wystartowało; przechodzę dalej"
+    "message": "Nie udało się oglądać $1 dla serii oglądania: odtwarzanie wciąż kończyło się błędem; przechodzę dalej"
   },
   "activityAuthHealthChanged": {
     "message": "Uwierzytelnianie $1 zmieniło się z $2 na $3."
