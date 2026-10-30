@@ -7,11 +7,21 @@ import type {
   StoredEngineEvent,
   StoredLegacyEvent,
 } from "@lurkloot/shared/events";
+import {
+  type FarmingSessionSummary,
+  foldSessionEvent,
+  tallyKey,
+} from "@lurkloot/shared/farmingSessions";
 
 const DATABASE_NAME = "lurkloot-activity";
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 const EVENT_STORE = "events";
 const META_STORE = "meta";
+// One summary per farming session (version 3): tallied points and reward
+// counters folded from the session's events.
+const SESSION_STORE = "sessions";
+const SESSION_PLATFORM_INDEX = "platform_startedAt";
+const MAX_SESSIONS = 200;
 const CATEGORY_INDEX = "category_at_id";
 const PLATFORM_CATEGORY_INDEX = "platform_category_at_id";
 const LAST_PRUNED_AT = "lastPrunedAt";
@@ -72,6 +82,7 @@ export interface ActivityRepository {
   append(events: readonly EngineEvent[]): Promise<void>;
   importLegacy(events: readonly StoredLegacyEvent[]): Promise<void>;
   load(query: ActivityQuery): Promise<ActivityPage>;
+  loadSessions(platform: Platform): Promise<FarmingSessionSummary[]>;
   exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]>;
   clear(): Promise<void>;
   prune(): Promise<void>;
@@ -106,8 +117,16 @@ class IndexedDbActivityRepository implements ActivityRepository {
     }
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.databaseName, DATABASE_VERSION);
-      request.onupgradeneeded = () => {
+      request.onupgradeneeded = (upgrade) => {
         const database = request.result;
+        if (!database.objectStoreNames.contains(SESSION_STORE)) {
+          database
+            .createObjectStore(SESSION_STORE, { keyPath: "id" })
+            .createIndex(SESSION_PLATFORM_INDEX, ["platform", "startedAt"]);
+        }
+        // Version 2 rebuilt the event indexes and marked version 1 rows as
+        // legacy; a later upgrade leaves the event store as it is.
+        if (upgrade.oldVersion >= 2) return;
         const existingEventStore = database.objectStoreNames.contains(EVENT_STORE);
         const eventStore = existingEventStore
           ? request.transaction!.objectStore(EVENT_STORE)
@@ -169,8 +188,79 @@ class IndexedDbActivityRepository implements ActivityRepository {
         ...(event.data ? { data: { ...event.data } } : {}),
       };
     }) as StoredEngineEvent[];
-    await this.putAll(stored);
+    await this.putAllFolding(stored);
     await this.pruneIfDue();
+  }
+
+  // Events stamped with a farming session are folded into its summary in the
+  // same transaction that stores them, so concurrent batches each fold onto the
+  // latest record. Tallied events (points) are only folded, never stored.
+  private async putAllFolding(events: readonly StoredEngineEvent[]): Promise<void> {
+    const database = await this.open();
+    const transaction = database.transaction([EVENT_STORE, SESSION_STORE], "readwrite");
+    const eventStore = transaction.objectStore(EVENT_STORE);
+    const sessionStore = transaction.objectStore(SESSION_STORE);
+    const done = transactionDone(transaction);
+    try {
+      const sessionIds = [
+        ...new Set(
+          events.flatMap((event) =>
+            event.category === "activity" && typeof event.sessionId === "string"
+              ? [event.sessionId]
+              : [],
+          ),
+        ),
+      ];
+      const summaries = new Map<string, FarmingSessionSummary | undefined>();
+      await Promise.all(
+        sessionIds.map(async (id) => {
+          summaries.set(
+            id,
+            (await requestResult(sessionStore.get(id))) as FarmingSessionSummary | undefined,
+          );
+        }),
+      );
+      for (const event of events) {
+        if (event.category === "activity" && typeof event.sessionId === "string") {
+          summaries.set(event.sessionId, foldSessionEvent(summaries.get(event.sessionId), event));
+        }
+        if (event.category !== "activity" || tallyKey(event) === undefined) eventStore.put(event);
+      }
+      for (const summary of summaries.values()) if (summary) sessionStore.put(summary);
+    } catch (error) {
+      try {
+        transaction.abort();
+      } catch {
+        // Preserve the original error.
+      }
+      await done.catch(() => undefined);
+      throw error;
+    }
+    await done;
+  }
+
+  async loadSessions(platform: Platform): Promise<FarmingSessionSummary[]> {
+    const database = await this.open();
+    const transaction = database.transaction(SESSION_STORE, "readonly");
+    const index = transaction.objectStore(SESSION_STORE).index(SESSION_PLATFORM_INDEX);
+    const cutoff = new Date(Date.now() - ACTIVITY_RETENTION_MS).toISOString();
+    const request = index.openCursor(IDBKeyRange.bound([platform], [platform, []]), "prev");
+    const sessions: FarmingSessionSummary[] = [];
+    await new Promise<void>((resolve, reject) => {
+      request.onerror = () => reject(request.error ?? new Error("Could not read sessions"));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || sessions.length >= MAX_SESSIONS) {
+          resolve();
+          return;
+        }
+        const session = cursor.value as FarmingSessionSummary;
+        if (!session.endedAt || session.endedAt >= cutoff) sessions.push(session);
+        cursor.continue();
+      };
+    });
+    await transactionDone(transaction);
+    return sessions;
   }
 
   async importLegacy(events: readonly StoredLegacyEvent[]): Promise<void> {
@@ -274,9 +364,10 @@ class IndexedDbActivityRepository implements ActivityRepository {
 
   async clear(): Promise<void> {
     const database = await this.open();
-    const transaction = database.transaction([EVENT_STORE, META_STORE], "readwrite");
+    const transaction = database.transaction([EVENT_STORE, META_STORE, SESSION_STORE], "readwrite");
     transaction.objectStore(EVENT_STORE).clear();
     transaction.objectStore(META_STORE).clear();
+    transaction.objectStore(SESSION_STORE).clear();
     await transactionDone(transaction);
   }
 
@@ -318,11 +409,28 @@ class IndexedDbActivityRepository implements ActivityRepository {
       await this.deleteExpired(category, cutoff);
       await this.deleteExcess(category);
     }
+    await this.deleteEndedSessions(new Date(Date.now() - ACTIVITY_RETENTION_MS).toISOString());
     const database = await this.open();
     const transaction = database.transaction(META_STORE, "readwrite");
     transaction
       .objectStore(META_STORE)
       .put({ key: LAST_PRUNED_AT, value: new Date().toISOString() } satisfies MetaRecord);
+    await transactionDone(transaction);
+  }
+
+  // An open session (no end) is kept however long it has run.
+  private async deleteEndedSessions(cutoff: string): Promise<void> {
+    const database = await this.open();
+    const transaction = database.transaction(SESSION_STORE, "readwrite");
+    const store = transaction.objectStore(SESSION_STORE);
+    const request = store.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const session = cursor.value as FarmingSessionSummary;
+      if (session.endedAt && session.endedAt < cutoff) cursor.delete();
+      cursor.continue();
+    };
     await transactionDone(transaction);
   }
 
@@ -408,6 +516,10 @@ export function importLegacyActivityEvents(events: readonly StoredLegacyEvent[])
 
 export function loadActivityEvents(query: ActivityQuery): Promise<ActivityPage> {
   return repository.load(query);
+}
+
+export function loadActivitySessions(platform: Platform): Promise<FarmingSessionSummary[]> {
+  return repository.loadSessions(platform);
 }
 
 export function exportDiagnosticsEvents(platform: Platform): Promise<ActivityHistoryRecord[]> {

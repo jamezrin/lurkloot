@@ -53,6 +53,7 @@ import {
   clearActivityEvents,
   exportDiagnosticsEvents,
   loadActivityEvents,
+  loadActivitySessions,
 } from "../src/core/activityStorage";
 import {
   createActivityEventReporter,
@@ -99,6 +100,7 @@ const getMessage = browser.i18n.getMessage as (
 ) => string;
 const handleActivityMessage = createActivityMessageHandler({
   load: loadActivityEvents,
+  loadSessions: loadActivitySessions,
   exportDiagnostics: exportDiagnosticsEvents,
   clear: clearActivityEvents,
 });

@@ -220,13 +220,40 @@ describe("activity repository", () => {
     await expect(repository.load({ category: "activity" })).resolves.toBeDefined();
   });
 
-  it("opens the version 2 compound-index schema", async () => {
+  it("opens the version 3 schema with its sessions store", async () => {
     const database = await repository.open();
-    const transaction = database.transaction(["events", "meta"], "readonly");
+    const transaction = database.transaction(["events", "meta", "sessions"], "readonly");
     const indexes = Array.from(transaction.objectStore("events").indexNames);
 
-    expect(database.version).toBe(2);
+    expect(database.version).toBe(3);
     expect(indexes).toEqual(["category_at_id", "platform_category_at_id"]);
+    expect(Array.from(transaction.objectStore("sessions").indexNames)).toEqual([
+      "platform_startedAt",
+    ]);
+  });
+
+  it("keeps version 2 rows as they are during the version 3 upgrade", async () => {
+    const at = new Date(NOW.getTime() - DAY_MS).toISOString();
+    const versionTwo = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 2);
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore("events", { keyPath: "id" });
+        store.createIndex("category_at_id", ["category", "at", "id"]);
+        store.createIndex("platform_category_at_id", ["platform", "category", "at", "id"]);
+        request.result.createObjectStore("meta", { keyPath: "key" });
+        store.put({ ...activityEvent("kept"), id: "v2-row", at });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    versionTwo.close();
+
+    const page = await repository.load({ category: "activity" });
+
+    expect(page.events).toEqual([
+      expect.objectContaining({ id: "v2-row", code: "reward_claimed" }),
+    ]);
+    expect(page.events[0]).not.toHaveProperty("legacy");
   });
 
   it("normalizes category-less version 1 rows during the version 2 upgrade", async () => {
@@ -295,11 +322,11 @@ describe("activity repository", () => {
     const result = await openResult;
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    // Open version 3 as an external lifecycle probe. Any abandoned v2
+    // Open version 4 as an external lifecycle probe. Any abandoned v3
     // connection must close on versionchange or this request remains blocked.
     repository.close();
     const probe = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(databaseName, 3);
+      const request = indexedDB.open(databaseName, 4);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -535,5 +562,107 @@ describe("activity repository", () => {
     ).rejects.toBeInstanceOf(DOMException);
 
     expect(await repository.count("diagnostic")).toBe(0);
+  });
+
+  describe("farming sessions", () => {
+    function pointsEvent(sessionId: string, amount: number): EngineEvent {
+      return {
+        category: "activity",
+        code: "points_earned",
+        level: "info",
+        platform: "twitch",
+        sessionId,
+        data: { channelId: "77", channelLogin: "shroud", reason: "WATCH", amount },
+      };
+    }
+
+    function sessionStarted(sessionId: string, platform: "twitch" | "kick", startedAt: string) {
+      return {
+        category: "activity",
+        code: "session_started",
+        level: "info",
+        platform,
+        sessionId,
+        data: { sessionId, startedAt },
+      } satisfies EngineEvent;
+    }
+
+    function sessionEnded(sessionId: string, startedAt: string, endedAt: string): EngineEvent {
+      return {
+        category: "activity",
+        code: "session_ended",
+        level: "info",
+        platform: "twitch",
+        sessionId,
+        data: { sessionId, startedAt, endedAt, reason: "disabled" },
+      };
+    }
+
+    it("folds points into the session and never stores them as rows", async () => {
+      await repository.append([sessionStarted("s1", "twitch", NOW.toISOString())]);
+      await repository.append(Array.from({ length: 30 }, () => pointsEvent("s1", 10)));
+      await repository.append([{ ...activityEvent("drop"), sessionId: "s1" } as EngineEvent]);
+
+      const page = await repository.load({ category: "activity" });
+      // Fake time gives every row the same timestamp, so compare as a set.
+      expect(page.events.map((event) => "code" in event && event.code).sort()).toEqual([
+        "reward_claimed",
+        "session_started",
+      ]);
+      const [session] = await repository.loadSessions("twitch");
+      expect(session).toMatchObject({
+        id: "s1",
+        tallies: { "channel_points:77": { total: 300, subject: { login: "shroud" } } },
+        rewardCounts: { drop: 1 },
+      });
+    });
+
+    it("counts both of two concurrent writes to one session", async () => {
+      await repository.append([sessionStarted("s1", "twitch", NOW.toISOString())]);
+      await Promise.all([
+        repository.append([pointsEvent("s1", 50)]),
+        repository.append([pointsEvent("s1", 25)]),
+      ]);
+
+      const [session] = await repository.loadSessions("twitch");
+      expect(session?.tallies["channel_points:77"]?.total).toBe(75);
+    });
+
+    it("prunes sessions that ended over 30 days ago and keeps open ones", async () => {
+      const iso = (days: number) => new Date(NOW.getTime() - days * DAY_MS).toISOString();
+      await repository.append([
+        sessionStarted("old", "twitch", iso(40)),
+        sessionEnded("old", iso(40), iso(31)),
+        sessionStarted("recent", "twitch", iso(30)),
+        sessionEnded("recent", iso(30), iso(29)),
+        sessionStarted("open", "twitch", iso(45)),
+      ]);
+
+      await repository.prune();
+
+      expect((await repository.loadSessions("twitch")).map((session) => session.id)).toEqual([
+        "recent",
+        "open",
+      ]);
+    });
+
+    it("returns only the requested platform's sessions, newest first", async () => {
+      await repository.append([
+        sessionStarted("t1", "twitch", "2026-07-14T08:00:00.000Z"),
+        sessionStarted("k1", "kick", "2026-07-14T09:00:00.000Z"),
+        sessionStarted("t2", "twitch", "2026-07-14T10:00:00.000Z"),
+      ]);
+
+      expect((await repository.loadSessions("twitch")).map((session) => session.id)).toEqual([
+        "t2",
+        "t1",
+      ]);
+    });
+
+    it("clears sessions with the rest of the history", async () => {
+      await repository.append([sessionStarted("s1", "twitch", NOW.toISOString())]);
+      await repository.clear();
+      expect(await repository.loadSessions("twitch")).toEqual([]);
+    });
   });
 });
