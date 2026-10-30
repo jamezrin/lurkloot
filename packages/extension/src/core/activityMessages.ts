@@ -1,3 +1,4 @@
+import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import type { Platform } from "@lurkloot/shared/models";
 import type {
@@ -60,9 +61,11 @@ export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
       // A settings read must not prevent durable activity history. Treat a
       // missing setting as diagnostics disabled and retain normal activity.
     }
-    const accepted = diagnosticLogging
-      ? events
-      : events.filter((event) => event.category === "activity");
+    // Activity that is not part of the user-facing timeline (tab open/close)
+    // is kept only through its diagnostic mirror.
+    const accepted = events.filter((event) =>
+      event.category === "activity" ? isActivityTimelineEvent(event) : diagnosticLogging,
+    );
     if (accepted.length > 0) await deps.append(accepted);
   };
 }

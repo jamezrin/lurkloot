@@ -73,6 +73,36 @@ describe("activity event reporting", () => {
     message: "detail",
   };
 
+  it("stores tab open and close only as their diagnostic mirror", async () => {
+    const opened = {
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_rejected" },
+    } satisfies EngineEvent;
+    const mirror: EngineEvent = {
+      category: "diagnostic",
+      level: "info",
+      platform: "kick",
+      message: "Opened managed page context on kick.com: reason=background_rejected",
+      mirroredActivity: true,
+    };
+    const appendWith = vi.fn(async () => undefined);
+    await createActivityEventReporter({
+      loadDiagnosticLogging: async () => true,
+      append: appendWith,
+    })([opened, mirror, activity]);
+    expect(appendWith).toHaveBeenCalledWith([mirror, activity]);
+
+    const appendWithout = vi.fn(async () => undefined);
+    await createActivityEventReporter({
+      loadDiagnosticLogging: async () => false,
+      append: appendWithout,
+    })([opened, mirror, activity]);
+    expect(appendWithout).toHaveBeenCalledWith([activity]);
+  });
+
   it("always persists activity and omits diagnostics when logging is disabled", async () => {
     const append = vi.fn(async () => undefined);
     const report = createActivityEventReporter({

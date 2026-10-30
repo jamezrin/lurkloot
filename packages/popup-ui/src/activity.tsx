@@ -1,3 +1,4 @@
+import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -90,6 +91,7 @@ export function ActivityLog({
       activityEvents.filter(
         (event) =>
           (!event.platform || event.platform === platform)
+          && ("legacy" in event || isActivityTimelineEvent(event))
           && !(event.category === "activity" && event.code === "auth_health_changed"),
       ),
     [activityEvents, platform],

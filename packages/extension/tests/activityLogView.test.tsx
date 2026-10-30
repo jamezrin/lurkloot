@@ -180,6 +180,25 @@ describe("activity log view", () => {
     expect(container.querySelectorAll("ul > li")).toHaveLength(1);
   });
 
+  it("keeps stored tab open and close rows out of the activity stream", () => {
+    const events: ActivityHistoryRecord[] = [
+      {
+        id: "page-context-1",
+        at: "2026-07-25T12:00:01.000Z",
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      },
+      ...ACTIVITY,
+    ];
+    const { container } = mount({ showDiagnostics: false, activityEvents: events });
+
+    expect(container.querySelector('[data-activity-card="page_context_opened"]')).toBeNull();
+    expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+  });
+
   it("marks the selected view on the switch and requests the other one on click", () => {
     const { container, onShowDiagnosticsChange } = mount({ showDiagnostics: false });
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
@@ -428,18 +447,20 @@ describe("activity log view", () => {
   it("renders operational events as marked cards with their localized summary", () => {
     const operationalActivity: ActivityHistoryRecord[] = [
       {
-        id: "page-context-1",
+        id: "critical-1",
         at: "2026-07-25T12:00:00.000Z",
         category: "activity",
-        code: "page_context_opened",
-        level: "info",
+        code: "critical_failure_detected",
+        level: "error",
         platform: "kick",
-        data: { host: "kick.com", reason: "background_rejected" },
+        data: { reason: "no_progress" },
       },
     ];
     const { container } = mount({ showDiagnostics: false, activityEvents: operationalActivity });
 
-    expect(container.querySelector('[data-activity-card="page_context_opened"]')).not.toBeNull();
-    expect(container.textContent).toContain("Opened managed page context for kick.com");
+    expect(
+      container.querySelector('[data-activity-card="critical_failure_detected"]'),
+    ).not.toBeNull();
+    expect(container.textContent).toContain("activityCriticalFailureDetected");
   });
 });
