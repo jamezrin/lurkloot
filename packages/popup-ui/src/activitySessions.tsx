@@ -113,7 +113,9 @@ function Totals({ summary, rewards }: { summary: FarmingSessionSummary; rewards:
       {shown.map(([value, key]) => (
         <div key={key} className="flex-1 rounded-lg bg-zinc-100/80 px-2 py-1 dark:bg-zinc-800/70">
           <div className="text-[13px] font-bold tabular-nums text-zinc-800 dark:text-zinc-100">
-            {key === "activityTotalPoints" ? `+${formatNumber(value)}` : formatNumber(value)}
+            <bdi dir="ltr">
+              {key === "activityTotalPoints" ? `+${formatNumber(value)}` : formatNumber(value)}
+            </bdi>
           </div>
           <div className="text-[9.5px] text-zinc-500 dark:text-zinc-400">{t(key)}</div>
         </div>
@@ -159,7 +161,7 @@ function RewardArt({ view }: { view: RewardView }) {
         />
       </div>
       {view.overlayImageUrl ? (
-        <div className="absolute -bottom-1 -right-1 h-5 w-[15px] overflow-hidden rounded-[3px] border border-white bg-zinc-200 dark:border-zinc-900">
+        <div className="absolute -bottom-1 -end-1 h-5 w-[15px] overflow-hidden rounded-[3px] border border-white bg-zinc-200 dark:border-zinc-900">
           <ImageWithFallback src={view.overlayImageUrl} alt="" fit="cover" fallback={null} />
         </div>
       ) : null}
@@ -183,7 +185,7 @@ function RewardRow({ event }: { event: ActivityHistoryRecord }) {
           <p className="min-w-0 truncate font-semibold text-zinc-700 dark:text-zinc-200">
             {view.title}
           </p>
-          <time className="ml-auto shrink-0 font-mono text-[10px] text-zinc-400">
+          <time className="ms-auto shrink-0 font-mono text-[10px] text-zinc-400">
             {formatClock(event.at)}
           </time>
         </div>
@@ -255,7 +257,7 @@ function PointsRow({ tally }: { tally: TallyEntry }) {
         </div>
       </div>
       <span className="shrink-0 font-bold tabular-nums text-zinc-800 dark:text-zinc-100">
-        +{formatNumber(tally.total)}
+        <bdi dir="ltr">+{formatNumber(tally.total)}</bdi>
       </span>
     </li>
   );
@@ -274,7 +276,7 @@ function StatusSection({ rows }: { rows: ActivityHistoryRecord[] }) {
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wide text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
       >
-        <Chevron size={11} aria-hidden="true" />
+        <Chevron size={11} className="rtl:-scale-x-100" aria-hidden="true" />
         {t("activitySectionStatus", String(rows.length))}
       </button>
       {open ? (
@@ -335,13 +337,17 @@ function SessionBlock({ block }: { block: Extract<TimelineBlock, { type: "sessio
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-baseline gap-1.5 text-left"
+        className="flex w-full items-baseline gap-1.5 text-start"
       >
-        <Chevron size={12} className="shrink-0 self-center text-zinc-400" aria-hidden="true" />
+        <Chevron
+          size={12}
+          className="shrink-0 self-center text-zinc-400 rtl:-scale-x-100"
+          aria-hidden="true"
+        />
         <span className="text-[11.5px] font-semibold text-zinc-700 dark:text-zinc-200">
           {block.open ? t("activitySessionCurrent") : sessionRange(summary)}
         </span>
-        <span className="ml-auto shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400">
+        <span className="ms-auto shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400">
           {block.open ? (
             <span className="font-semibold text-emerald-600 dark:text-emerald-400">
               ● {t("activitySessionLive", formatClock(summary.startedAt))}
