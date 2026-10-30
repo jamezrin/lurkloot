@@ -5669,7 +5669,7 @@ describe("scheduler tick", () => {
     expect(result.state.gamification?.kick?.lastCheckedAt).toBeDefined();
     expect(
       result.events.some(
-        (event) => event.category === "activity" && event.code === "challenge_claimed",
+        (event) => event.category === "activity" && event.code === "reward_obtained",
       ),
     ).toBe(true);
   });

@@ -1,3 +1,4 @@
+import { challengeRewardData } from "../core/rewardClaims";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { autoClaimChallengesFor } from "@lurkloot/shared/settings";
 import {
@@ -240,14 +241,10 @@ export function createKickRuntime<S extends EngineSettings>(
             for (const challenge of challenges) {
               emit({
                 category: "activity",
-                code: "challenge_claimed",
+                code: "reward_obtained",
                 level: "info",
                 platform: "kick",
-                data: {
-                  challengeId: challenge.id,
-                  rarity: challenge.rarity,
-                  recurrence: challenge.recurrence,
-                },
+                data: challengeRewardData("kick", challenge),
               });
             }
           } catch (error) {

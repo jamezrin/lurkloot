@@ -1,8 +1,9 @@
-import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, Platform, WatchSession } from "@lurkloot/shared/models";
 import { canClaimReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import type { CampaignRewardData } from "@lurkloot/shared/events";
 import { safeHttpsUrl } from "@lurkloot/shared/rewardEvents";
-import type { PlatformAdapter } from "../platforms/adapter";
+import type { RewardDetail, RewardObtainedData } from "@lurkloot/shared/rewardEvents";
+import type { ClaimedChallenge, PlatformAdapter } from "../platforms/adapter";
 
 // One claim request per reward at a time within one process (#599). The
 // scheduler tick claims outside every lock, so it can overlap the drop-claim
@@ -61,6 +62,25 @@ export function campaignRewardData(campaign: DropCampaign, reward: DropReward): 
     ...(campaign.url ? { campaignUrl: campaign.url } : {}),
     ...(campaign.gameName ? { gameName: campaign.gameName } : {}),
     ...(gameImageUrl ? { gameImageUrl } : {}),
+  };
+}
+
+// A claimed gamification challenge as a listed reward. Both the tick and the
+// manual-watch job report claims through it.
+export function challengeRewardData(
+  platform: Platform,
+  challenge: ClaimedChallenge,
+): RewardObtainedData {
+  const details: RewardDetail[] = [{ key: "recurrence", value: challenge.recurrence }];
+  if (challenge.consolation?.watchTimeMinutes !== undefined)
+    details.push({ key: "consolationMinutes", value: challenge.consolation.watchTimeMinutes });
+  return {
+    kind: "challenge_card",
+    source: { platform },
+    rarity: challenge.rarity,
+    ...(challenge.cardId ? { itemId: challenge.cardId } : {}),
+    ...(challenge.imageUrl ? { imageUrl: challenge.imageUrl } : {}),
+    details,
   };
 }
 

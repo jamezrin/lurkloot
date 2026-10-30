@@ -75,6 +75,12 @@ export interface ClaimedChallenge {
   id: string;
   rarity: string;
   recurrence: string;
+  // What was won, when the platform says: the card's id and art (https only).
+  cardId?: string;
+  imageUrl?: string;
+  // What a claim also grants besides the card (Kick: watch time toward the next
+  // level and that level's badge).
+  consolation?: { watchTimeMinutes?: number; badgeImageUrl?: string };
 }
 
 export interface PlatformAdapter {

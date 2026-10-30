@@ -47,6 +47,7 @@ describe("reward event contracts", () => {
     expect(safeHttpsUrl("javascript:alert(1)")).toBeUndefined();
     expect(safeHttpsUrl("not a url")).toBeUndefined();
     expect(safeHttpsUrl(42)).toBeUndefined();
+    expect(safeHttpsUrl("https://user:pass@files.kick.com/a.png")).toBeUndefined();
   });
 
   it("keeps tab open and close events out of the activity timeline", () => {

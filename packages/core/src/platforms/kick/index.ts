@@ -176,8 +176,32 @@ interface KickChallenge {
   condition?: { progress?: number; threshold?: number; type?: string };
 }
 
+// winner.card_url and consolation are taken from a third-party Kick client's
+// models and not yet seen in a live response here, so every field is optional.
 interface KickChallengeClaimResponse {
-  data?: { challenge_id?: string; winner?: { id?: string; rarity?: string } } | null;
+  data?: {
+    challenge_id?: string;
+    winner?: { id?: string; rarity?: string; card_url?: string };
+    consolation?: {
+      watch_time_minutes?: number;
+      next_level_badge?: { image_url?: string } | null;
+    } | null;
+  } | null;
+}
+
+function kickChallengeConsolation(
+  value: NonNullable<KickChallengeClaimResponse["data"]>["consolation"],
+): ClaimedChallenge["consolation"] {
+  if (!value) return undefined;
+  const minutes = value.watch_time_minutes;
+  const watchTimeMinutes =
+    typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0 ? minutes : undefined;
+  const badgeImageUrl = safeHttpsUrl(value.next_level_badge?.image_url);
+  if (watchTimeMinutes === undefined && !badgeImageUrl) return undefined;
+  return {
+    ...(watchTimeMinutes !== undefined ? { watchTimeMinutes } : {}),
+    ...(badgeImageUrl ? { badgeImageUrl } : {}),
+  };
 }
 
 export class KickPageContextRecoveryTracker {
@@ -927,7 +951,11 @@ export class KickAdapter implements PlatformAdapter {
           { method: "POST", signal },
           this.emit,
         );
-        const rarity = result?.data?.winner?.rarity;
+        const winner = result?.data?.winner;
+        const rarity = winner?.rarity;
+        const cardId = typeof winner?.id === "string" && winner.id.trim() ? winner.id.trim() : "";
+        const imageUrl = safeHttpsUrl(winner?.card_url);
+        const consolation = kickChallengeConsolation(result?.data?.consolation);
         claimed.push({
           id,
           rarity: typeof rarity === "string" && rarity.trim() ? rarity.trim() : "unknown",
@@ -935,6 +963,9 @@ export class KickAdapter implements PlatformAdapter {
             typeof challenge.recurrence === "string" && challenge.recurrence.trim()
               ? challenge.recurrence.trim()
               : "unknown",
+          ...(cardId ? { cardId } : {}),
+          ...(imageUrl ? { imageUrl } : {}),
+          ...(consolation ? { consolation } : {}),
         });
       } catch (error) {
         signal?.throwIfAborted();

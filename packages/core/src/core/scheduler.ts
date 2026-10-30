@@ -61,7 +61,7 @@ import type {
   PageContextCloseReason,
 } from "@lurkloot/shared/events";
 import { perform } from "./effectExecutor";
-import { claimChannel, type ClaimReadyRewardEvent } from "./rewardClaims";
+import { challengeRewardData, claimChannel, type ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { UnusableWatchTabError } from "./watchTabError";
@@ -1830,14 +1830,10 @@ export async function* decidePlatformTick(
         for (const challenge of yield* yieldEffect({ type: "claimChallenges", platform })) {
           emit({
             category: "activity",
-            code: "challenge_claimed",
+            code: "reward_obtained",
             level: "info",
             platform,
-            data: {
-              challengeId: challenge.id,
-              rarity: challenge.rarity,
-              recurrence: challenge.recurrence,
-            },
+            data: challengeRewardData(platform, challenge),
           });
         }
       } catch (error) {

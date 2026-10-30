@@ -1311,9 +1311,54 @@ describe("KickAdapter", () => {
     const adapter = kickAdapter(fetcher);
 
     await expect(adapter.claimChallenges!()).resolves.toEqual([
-      { id: "done", rarity: "legendary", recurrence: "daily" },
+      { id: "done", rarity: "legendary", recurrence: "daily", cardId: "card" },
     ]);
     expect(claimed).toEqual(["done"]);
+  });
+
+  it("reports the won card's art and the consolation from a Kick challenge claim", async () => {
+    const claimResponse = (cardUrl: string) => ({
+      data: {
+        challenge_id: "done",
+        winner: { id: "card", rarity: "legendary", card_url: cardUrl },
+        consolation: {
+          watch_time_minutes: 30,
+          next_level_badge: { image_url: "https://files.kick.com/badges/12.png" },
+        },
+      },
+    });
+    const challenges = {
+      data: [
+        {
+          id: "done",
+          recurrence: "daily",
+          claimed_at: null,
+          condition: { progress: 1, threshold: 1 },
+        },
+      ],
+    };
+    const adapterFor = (cardUrl: string) =>
+      kickAdapter(
+        jsonFetcher((url) => (url.endsWith("/challenges") ? challenges : claimResponse(cardUrl))),
+      );
+
+    await expect(
+      adapterFor("https://files.kick.com/cards/legendary.png").claimChallenges!(),
+    ).resolves.toEqual([
+      {
+        id: "done",
+        rarity: "legendary",
+        recurrence: "daily",
+        cardId: "card",
+        imageUrl: "https://files.kick.com/cards/legendary.png",
+        consolation: {
+          watchTimeMinutes: 30,
+          badgeImageUrl: "https://files.kick.com/badges/12.png",
+        },
+      },
+    ]);
+    const [insecure] = await adapterFor("http://files.kick.com/cards/x.png").claimChallenges!();
+    expect(insecure).not.toHaveProperty("imageUrl");
   });
 
   it("reports an unknown rarity when the Kick claim response omits a winner", async () => {

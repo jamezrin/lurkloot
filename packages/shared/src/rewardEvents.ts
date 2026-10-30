@@ -50,13 +50,14 @@ export interface PointsEarnedData {
   amount: number;
 }
 
-// Platform responses and vendor state are untrusted: an image is kept only when
-// it is an absolute https URL.
+// Platform responses and vendor state are untrusted: a URL is kept only when it
+// is an absolute https URL with no embedded credentials.
 export function safeHttpsUrl(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   try {
-    return new URL(trimmed).protocol === "https:" ? trimmed : undefined;
+    const url = new URL(trimmed);
+    return url.protocol === "https:" && !url.username && !url.password ? trimmed : undefined;
   } catch {
     return undefined;
   }

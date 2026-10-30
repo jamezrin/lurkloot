@@ -482,10 +482,19 @@ export function createReporting<S extends EngineSettings>(
       // events instead of a state diff. They ride notifyRewardEarned deliberately:
       // one more toggle for a single event type is not worth the settings surface.
       for (const event of tickEvents) {
-        if (event.category !== "activity" || event.code !== "challenge_claimed") continue;
+        if (
+          event.category !== "activity"
+          || event.code !== "reward_obtained"
+          || event.data.kind !== "challenge_card"
+        )
+          continue;
+        const recurrence = event.data.details?.find((detail) => detail.key === "recurrence");
         await safeNotify(
           await tr("notificationChallengeClaimed"),
-          await tr("notificationChallengeReward", [event.data.rarity, event.data.recurrence]),
+          await tr("notificationChallengeReward", [
+            event.data.rarity ?? "unknown",
+            String(recurrence?.value ?? "unknown"),
+          ]),
         );
       }
     }
