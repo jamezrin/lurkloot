@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { PopupAdapter } from "../../popup-ui/src/types";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { ActivityLog } from "../../popup-ui/src/activity";
@@ -57,6 +58,7 @@ function mount(options: {
   onExportAll?: () => Promise<number | undefined>;
   searchQuery?: string;
   searchingDiagnostics?: boolean;
+  sessions?: FarmingSessionSummary[];
 }) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
@@ -117,6 +119,7 @@ function mount(options: {
             onClear={() => undefined}
             writeClipboard={options.omitClipboard ? undefined : writeClipboard}
             onExportAll={options.onExportAll}
+            sessions={options.sessions}
           />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
@@ -462,5 +465,106 @@ describe("activity log view", () => {
       container.querySelector('[data-activity-card="critical_failure_detected"]'),
     ).not.toBeNull();
     expect(container.textContent).toContain("activityCriticalFailureDetected");
+  });
+
+  describe("farming sessions", () => {
+    const openSession: FarmingSessionSummary = {
+      id: "open",
+      platform: "kick",
+      startedAt: "2026-07-25T10:00:00.000Z",
+      tallies: {
+        "channel_points:77": {
+          kind: "channel_points",
+          subject: { id: "77", login: "shroud", name: "Shroud" },
+          total: 550,
+          breakdown: {
+            WATCH: { count: 1, amount: 50 },
+            CLAIM: { count: 2, amount: 100 },
+            WATCH_STREAK: { count: 1, amount: 400 },
+          },
+        },
+      },
+      rewardCounts: { challenge_card: 1 },
+    };
+    const pastSession: FarmingSessionSummary = {
+      id: "past",
+      platform: "kick",
+      startedAt: "2026-07-24T10:00:00.000Z",
+      endedAt: "2026-07-24T12:00:00.000Z",
+      tallies: {},
+      rewardCounts: { drop: 1 },
+    };
+    const card = {
+      id: "card",
+      at: "2026-07-25T11:00:00.000Z",
+      category: "activity",
+      code: "reward_obtained",
+      level: "info",
+      platform: "kick",
+      sessionId: "open",
+      data: {
+        kind: "challenge_card",
+        source: { platform: "kick" },
+        rarity: "legendary",
+        imageUrl: "https://files.kick.com/cards/legendary.png",
+      },
+    } as ActivityHistoryRecord;
+    const status = {
+      id: "status",
+      at: "2026-07-25T10:30:00.000Z",
+      category: "activity",
+      code: "interruption",
+      level: "warn",
+      platform: "kick",
+      sessionId: "open",
+      data: { reason: "runtime_restart" },
+    } as ActivityHistoryRecord;
+    const pastDrop = {
+      ...REWARD_ACTIVITY,
+      id: "past-drop",
+      at: "2026-07-24T11:00:00.000Z",
+      sessionId: "past",
+    } as ActivityHistoryRecord;
+
+    function mountSessions() {
+      return mount({
+        showDiagnostics: false,
+        sessions: [openSession, pastSession],
+        activityEvents: [card, status, pastDrop],
+      });
+    }
+
+    it("shows the open session with its card, its points by channel and collapsed status", () => {
+      const { container } = mountSessions();
+      const open = container.querySelector('[data-activity-session="open"]')!;
+
+      expect(open.textContent).toContain("activitySessionCurrent");
+      expect(
+        open.querySelector('[data-activity-reward-layout="card"] img')?.getAttribute("src"),
+      ).toBe("https://files.kick.com/cards/legendary.png");
+      const points = open.querySelector('[data-activity-points-channel="77"]')!;
+      expect(points.textContent).toContain("Shroud");
+      expect(points.textContent).toContain("+550");
+      expect(points.querySelector('[data-points-reason="WATCH_STREAK"]')).not.toBeNull();
+      expect(open.textContent).toContain("activitySectionStatus");
+      expect(open.querySelector('[data-activity-status-row="status"]')).toBeNull();
+
+      const toggle = [...open.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("activitySectionStatus"),
+      )!;
+      act(() => toggle.click());
+      expect(open.querySelector('[data-activity-status-row="status"]')).not.toBeNull();
+    });
+
+    it("folds a past session to one line and opens it on click", () => {
+      const { container } = mountSessions();
+      const past = container.querySelector('[data-activity-session="past"]')!;
+
+      expect(past.querySelector('[data-activity-reward-layout="drop"]')).toBeNull();
+      expect(past.textContent).toContain("activitySessionSummary");
+
+      act(() => past.querySelector<HTMLButtonElement>("button")!.click());
+      expect(past.querySelector('[data-activity-reward-layout="drop"]')).not.toBeNull();
+    });
   });
 });

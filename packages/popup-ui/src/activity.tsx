@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { Platform } from "@lurkloot/shared/models";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { PopupRuntimeContext, useT } from "./context";
@@ -34,6 +35,7 @@ import {
   type ActivityCardTone,
 } from "./activity.logic";
 import { Tip } from "./tooltip";
+import { ActivitySessionTimeline, CompactActivityRow } from "./activitySessions";
 
 // How long the button stays in its confirmation state after a successful copy.
 const COPY_FEEDBACK_MS = 2500;
@@ -60,6 +62,7 @@ export function ActivityLog({
   onClear,
   writeClipboard,
   onExportAll,
+  sessions = [],
 }: {
   activityEvents: ActivityHistoryRecord[];
   diagnosticEvents: ActivityHistoryRecord[];
@@ -84,6 +87,8 @@ export function ActivityLog({
   // control rather than offering a button that can only fail.
   writeClipboard?(text: string): Promise<boolean>;
   onExportAll?(): Promise<number | undefined>;
+  // The platform's farming sessions; the Activity view groups its rows by them.
+  sessions?: readonly FarmingSessionSummary[];
 }): React.ReactElement {
   const t = useT();
   const forPlatform = useMemo(
@@ -278,7 +283,14 @@ export function ActivityLog({
         data-tour="activity-list"
         className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50"
       >
-        {visible.length === 0 ? (
+        {!showDiagnostics && (visible.length > 0 || sessions.length > 0) ? (
+          <ActivitySessionTimeline
+            sessions={sessions}
+            events={visible}
+            platform={platform}
+            renderLegacyRow={(event) => <ActivityTimelineCard key={event.id} event={event} />}
+          />
+        ) : visible.length === 0 ? (
           <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">
             {showDiagnostics && searchingDiagnostics && trimmedSearchQuery
               ? t("noDiagnosticsMatch", trimmedSearchQuery)
@@ -307,25 +319,6 @@ export function ActivityLog({
         </button>
       ) : null}
     </div>
-  );
-}
-
-function CompactActivityRow({ event }: { event: ActivityHistoryRecord }): React.ReactElement {
-  const t = useT();
-
-  return (
-    <li className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
-      <span
-        className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }}
-      />
-      <span className="shrink-0 font-mono text-[10px] text-zinc-400">
-        {formatEventTime(event.at)}
-      </span>
-      <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">
-        {formatActivityEvent(event, t)}
-      </span>
-    </li>
   );
 }
 

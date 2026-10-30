@@ -9,6 +9,8 @@ import { currentReasonCode } from "@lurkloot/shared/events";
 import type { ActivityPage } from "@lurkloot/shared/messages";
 import type { Platform } from "@lurkloot/shared/models";
 import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
+import { isRewardEvent, rewardTitle } from "./activityRewards";
 import type { TFunction } from "./types";
 
 export type ActivityStream = {
@@ -333,12 +335,19 @@ function formatCurrentActivity(
       ]);
     case "critical_failure_cleared":
       return t("activityCriticalFailureCleared", event.platform);
-    // Shown by the session timeline rather than as sentences.
     case "reward_obtained":
+      return t("activityRewardObtained", rewardTitle(event, t));
     case "points_earned":
+      return t("activityPointsEarned", [
+        String(event.data.amount),
+        event.data.channelDisplayName
+          ?? event.data.channelLogin
+          ?? t("activityChannelId", event.data.channelId),
+      ]);
     case "session_started":
+      return t("activitySessionStarted");
     case "session_ended":
-      return "";
+      return t("activitySessionEnded");
     default: {
       // Exhaustive at compile time; a stored row from another build whose code
       // this one does not know renders as nothing instead of reaching React as
@@ -523,4 +532,147 @@ export function mergeActivityPages(
   return [...byId.values()].sort(
     (left, right) => right.at.localeCompare(left.at) || right.id.localeCompare(left.id),
   );
+}
+
+export type TimelineBlock =
+  | {
+      type: "session";
+      summary: FarmingSessionSummary;
+      open: boolean;
+      rewards: ActivityHistoryRecord[];
+      status: ActivityHistoryRecord[];
+    }
+  | {
+      type: "outside";
+      // Local calendar day, YYYY-MM-DD.
+      day: string;
+      rewards: ActivityHistoryRecord[];
+      status: ActivityHistoryRecord[];
+    }
+  | { type: "earlier"; rewards: ActivityHistoryRecord[]; status: ActivityHistoryRecord[] };
+
+function localDay(at: string): string {
+  const date = new Date(at);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+// Groups a platform's activity rows into what the Activity view shows: one
+// block per farming session (by the session stamped on each row), one
+// "outside a session" block per day for rows stamped null, and one "earlier"
+// block for rows stored before sessions existed. Rows arrive newest first.
+export function buildActivityTimeline(
+  sessions: readonly FarmingSessionSummary[],
+  events: readonly ActivityHistoryRecord[],
+  platform: Platform,
+  now: number = Date.now(),
+): TimelineBlock[] {
+  const sessionBlocks = new Map<string, Extract<TimelineBlock, { type: "session" }>>();
+  for (const summary of sessions) {
+    if (summary.platform !== platform) continue;
+    sessionBlocks.set(summary.id, {
+      type: "session",
+      summary,
+      open: summary.endedAt === undefined,
+      rewards: [],
+      status: [],
+    });
+  }
+  const outsideBlocks = new Map<string, Extract<TimelineBlock, { type: "outside" }>>();
+  const earlier: Extract<TimelineBlock, { type: "earlier" }> = {
+    type: "earlier",
+    rewards: [],
+    status: [],
+  };
+  const earliestStart = Math.min(
+    ...[...sessionBlocks.values()].map((block) => Date.parse(block.summary.startedAt)),
+  );
+
+  function outside(at: string) {
+    const day = localDay(at);
+    let block = outsideBlocks.get(day);
+    if (!block) {
+      block = { type: "outside", day, rewards: [], status: [] };
+      outsideBlocks.set(day, block);
+    }
+    return block;
+  }
+
+  function sessionContaining(at: string) {
+    const time = Date.parse(at);
+    return [...sessionBlocks.values()].find((block) => {
+      const start = Date.parse(block.summary.startedAt);
+      const end = block.summary.endedAt ? Date.parse(block.summary.endedAt) : now;
+      return time >= start && time <= end;
+    });
+  }
+
+  for (const event of events) {
+    if (
+      !("legacy" in event)
+      && event.category === "activity"
+      && (event.code === "session_started" || event.code === "session_ended")
+    )
+      continue;
+    const stamp = "legacy" in event || event.category !== "activity" ? undefined : event;
+    let block: { rewards: ActivityHistoryRecord[]; status: ActivityHistoryRecord[] };
+    if (typeof stamp?.sessionId === "string") {
+      let session = sessionBlocks.get(stamp.sessionId);
+      if (!session) {
+        // A row whose summary is no longer stored (pruned, cleared) still
+        // gets its session's block.
+        session = {
+          type: "session",
+          summary: {
+            id: stamp.sessionId,
+            platform,
+            startedAt: event.at,
+            endedAt: event.at,
+            tallies: {},
+            rewardCounts: {},
+          },
+          open: false,
+          rewards: [],
+          status: [],
+        };
+        sessionBlocks.set(stamp.sessionId, session);
+      }
+      block = session;
+    } else if (stamp?.sessionId === null) {
+      block = outside(event.at);
+    } else if (!event.platform) {
+      block =
+        sessionContaining(event.at)
+        ?? (Date.parse(event.at) < earliestStart ? earlier : outside(event.at));
+    } else {
+      block = earlier;
+    }
+    (isRewardEvent(event) ? block.rewards : block.status).push(event);
+  }
+
+  const latest = (rows: ActivityHistoryRecord[]) =>
+    Math.max(...rows.map((row) => Date.parse(row.at)));
+  const ordered: Array<{ at: number; block: TimelineBlock }> = [
+    ...[...sessionBlocks.values()]
+      .filter(
+        (block) =>
+          block.open
+          || block.rewards.length > 0
+          || block.status.length > 0
+          || Object.keys(block.summary.tallies).length > 0
+          || Object.values(block.summary.rewardCounts).some((count) => (count ?? 0) > 0),
+      )
+      .map((block) => ({
+        at: block.summary.endedAt ? Date.parse(block.summary.endedAt) : now,
+        block,
+      })),
+    ...[...outsideBlocks.values()].map((block) => ({
+      at: latest([...block.rewards, ...block.status]),
+      block,
+    })),
+  ];
+  ordered.sort((left, right) => right.at - left.at);
+  const blocks = ordered.map((entry) => entry.block);
+  if (earlier.rewards.length > 0 || earlier.status.length > 0) blocks.push(earlier);
+  return blocks;
 }
