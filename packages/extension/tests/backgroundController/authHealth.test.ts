@@ -833,6 +833,8 @@ describe("background controller", () => {
         platform: "twitch",
         data: { from: "healthy", to: "checking" },
         emittedAt: expect.any(String),
+        // No farming session was opened in this harness (no startup).
+        sessionId: null,
       },
       {
         category: "diagnostic",
@@ -879,6 +881,8 @@ describe("background controller", () => {
         platform: "kick",
         data: { from: "checking", to: "blocked", reason: "security_policy_blocked" },
         emittedAt: expect.any(String),
+        // No farming session was opened in this harness (no startup).
+        sessionId: null,
       },
       {
         category: "diagnostic",
