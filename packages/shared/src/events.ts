@@ -46,7 +46,7 @@ export type FarmingStopReason =
   // e.g. after an update or a revoke. Turning the platform on asks again.
   | "permission_missing";
 
-type CampaignRewardData = {
+export type CampaignRewardData = {
   campaignId: string;
   campaignName: string;
   rewardId: string;

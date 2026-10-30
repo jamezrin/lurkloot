@@ -1,3 +1,4 @@
+import { campaignRewardData } from "../core/rewardClaims";
 import type {
   DropCampaign,
   DropReward,
@@ -100,15 +101,7 @@ export function farmingLifecycleEvents(
         platform,
         level: next.sessions[platform].status === "error" ? "error" : "info",
         code: "farming_stopped",
-        data: {
-          campaignId: before.campaign.id,
-          campaignName: before.campaign.name,
-          rewardId: before.reward.id,
-          rewardName: before.reward.name,
-          ...(before.reward.imageUrl ? { rewardImageUrl: before.reward.imageUrl } : {}),
-          ...(before.campaign.url ? { campaignUrl: before.campaign.url } : {}),
-          reason,
-        },
+        data: { ...campaignRewardData(before.campaign, before.reward), reason },
       });
     }
     if (after) {
@@ -118,12 +111,7 @@ export function farmingLifecycleEvents(
         level: "info",
         code: "farming_started",
         data: {
-          campaignId: after.campaign.id,
-          campaignName: after.campaign.name,
-          rewardId: after.reward.id,
-          rewardName: after.reward.name,
-          ...(after.reward.imageUrl ? { rewardImageUrl: after.reward.imageUrl } : {}),
-          ...(after.campaign.url ? { campaignUrl: after.campaign.url } : {}),
+          ...campaignRewardData(after.campaign, after.reward),
           ...(after.session.channel
             ? { channel: after.session.channel.displayName ?? after.session.channel.username }
             : {}),

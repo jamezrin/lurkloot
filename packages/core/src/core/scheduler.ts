@@ -61,7 +61,7 @@ import type {
   PageContextCloseReason,
 } from "@lurkloot/shared/events";
 import { perform } from "./effectExecutor";
-import type { ClaimReadyRewardEvent } from "./rewardClaims";
+import { claimChannel, type ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { UnusableWatchTabError } from "./watchTabError";
@@ -2007,20 +2007,14 @@ export async function* decidePlatformTick(
       }
       for (const event of claimResult.events) {
         if (event.claimed) {
+          const { level: _level, message: _message, claimed: _claimed, ...data } = event;
+          const channel = claimChannel(tick.state.sessions[platform], data.campaignId);
           emit({
             category: "activity",
             platform,
             level: "info",
             code: "reward_claimed",
-            data: {
-              campaignId: event.campaignId,
-              campaignName: event.campaignName,
-              rewardId: event.rewardId,
-              rewardName: event.rewardName,
-              ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
-              ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
-              method: "automatic",
-            },
+            data: { ...data, method: "automatic", ...(channel ? { channel } : {}) },
           });
         } else {
           emitDiagnostic(emit, platform, event.level, event.message);
