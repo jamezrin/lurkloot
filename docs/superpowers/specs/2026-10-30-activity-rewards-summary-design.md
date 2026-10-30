@@ -145,8 +145,9 @@ should let a future tallied kind (say Fortnite captures per item) key by channel
   Activity has no search box (only Diagnostics does). *(My call.)*
 - `clear()`, reset, `prune()` and `deleteDatabase()` cover the sessions store. Sessions whose end is
   older than 30 days are pruned. The open session is never pruned.
-- A new message (e.g. `getActivitySessions`, with a cursor) returns session summaries plus their listed
-  rewards and status rows, because the paged `getActivity` (80 per page) cannot return whole sessions.
+- A new message, `getActivitySessions`, returns the platform's session summaries (no rows, no cursor;
+  superseded during implementation). Rows still come from the paged `getActivity`; a collapsed session's
+  totals come from the summary's counters, and an expanded older session shows the rows paged in so far.
 - Diagnostics: tallied events **skip** the activity-to-diagnostic mirror in `withActivityDiagnostics`,
   since `channelPointsPush.ts` already logs each gain at debug and the diagnostic cap is the same 2,000.
 - The CLI (`cli/src/events.ts`) prints listed rewards as today, prints `session_started`/`session_ended`
