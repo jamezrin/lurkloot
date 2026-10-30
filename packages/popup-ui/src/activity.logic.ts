@@ -305,8 +305,10 @@ function formatCurrentActivity(
     case "challenge_claimed":
       return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
     case "watch_streak_ended":
-      return event.data.outcome === "credited"
-        ? t("activityWatchStreakCredited", event.data.channel)
+      if (event.data.outcome === "credited")
+        return t("activityWatchStreakCredited", event.data.channel);
+      return event.data.outcome === "playback_failed"
+        ? t("activityWatchStreakPlaybackFailed", event.data.channel)
         : t("activityWatchStreakNotConfirmed", event.data.channel);
     case "page_context_opened":
       return t("activityPageContextOpened", [

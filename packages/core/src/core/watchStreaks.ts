@@ -22,9 +22,15 @@ import { isRecord } from "@lurkloot/shared/records";
 // budget, not a claim about the platform's own credit threshold.
 export const WATCH_STREAK_BUDGET_MS = WATCH_STREAK_BUDGET_MINUTES * 60_000;
 // Ticks an attempt's channel may be selected but unhealthy (a tab that never
-// plays, a heartbeat that keeps failing) before it ends as not confirmed, so a
-// row that never accrues cannot reopen forever.
+// plays, a heartbeat that keeps failing) in one round. A round that runs out
+// is not a watched streak (#942): the attempt rests for
+// WATCH_STREAK_RETRY_COOLDOWN_MS, then resumes with the time it already has.
 export const WATCH_STREAK_MAX_UNHEALTHY_CHECKS = 10;
+// Rounds one broadcast's attempt gets before it ends as playback_failed, so a
+// row whose playback never works cannot reopen forever. Each round can open a
+// watch tab.
+export const WATCH_STREAK_MAX_ROUNDS = 3;
+export const WATCH_STREAK_RETRY_COOLDOWN_MS = 30 * 60_000;
 // The most one observation may add. Ticks are at least a minute apart; a longer
 // gap means a suspended worker or a slow tick, which never counts as watching.
 export const WATCH_STREAK_MAX_ACCRUAL_STEP_MS = 2 * 60_000;
@@ -40,14 +46,16 @@ export const WATCH_STREAK_MAX_ATTEMPTS = 200;
 
 const OUTCOME_RANK: Record<WatchStreakOutcome, number> = {
   pending: 0,
-  not_confirmed: 1,
-  credited: 2,
+  playback_failed: 1,
+  not_confirmed: 2,
+  credited: 3,
 };
 const ROW_STATUSES = new Set<WatchStreakRowStatus>([
   "pending",
   "watching",
   "credited",
   "not_confirmed",
+  "playback_failed",
   "unavailable",
 ]);
 const PLATFORM_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -127,11 +135,21 @@ export interface WatchStreakAccrualInput {
   now: number;
 }
 
+// Whether a pending attempt is resting after a round that never played.
+export function isWatchStreakCooling(attempt: WatchStreakAttempt, now: number): boolean {
+  return (
+    attempt.outcome === "pending"
+    && attempt.retryAt !== undefined
+    && Date.parse(attempt.retryAt) > now
+  );
+}
+
 // Accrues the time since the last observation to the watched channel's
 // attempt. Only a healthy watch of the same channel and broadcast that was
 // already observed counts, capped per step. Starts the attempt on the first
-// observation; ends it when the budget or the failure bound runs out. A
-// terminal attempt is never reopened.
+// observation; ends it when the budget runs out. A round that runs out of
+// healthy checks rests the attempt instead, and the last one ends it as
+// playback_failed. A terminal attempt is never reopened.
 export function accrueWatchStreak(
   streaks: WatchStreakState,
   input: WatchStreakAccrualInput,
@@ -165,14 +183,22 @@ export function accrueWatchStreak(
     }
     observing = { key, at: nowIso };
   } else {
-    if (!input.settling) attempt.unhealthyChecks += 1;
+    // A resting row watched as an ordinary Watchlist row does not use up its
+    // next round.
+    const counts = !input.settling && !isWatchStreakCooling(attempt, input.now);
+    if (counts) attempt.unhealthyChecks += 1;
     observing = undefined;
+    if (counts && attempt.unhealthyChecks % WATCH_STREAK_MAX_UNHEALTHY_CHECKS === 0) {
+      if (attempt.unhealthyChecks >= WATCH_STREAK_MAX_UNHEALTHY_CHECKS * WATCH_STREAK_MAX_ROUNDS) {
+        attempt.outcome = "playback_failed";
+        attempt.completedAt = nowIso;
+      } else {
+        attempt.retryAt = new Date(input.now + WATCH_STREAK_RETRY_COOLDOWN_MS).toISOString();
+      }
+    }
   }
   attempt.updatedAt = nowIso;
-  if (
-    attempt.watchedMs >= WATCH_STREAK_BUDGET_MS
-    || attempt.unhealthyChecks >= WATCH_STREAK_MAX_UNHEALTHY_CHECKS
-  ) {
+  if (attempt.outcome === "pending" && attempt.watchedMs >= WATCH_STREAK_BUDGET_MS) {
     attempt.outcome = "not_confirmed";
     attempt.completedAt = nowIso;
     observing = undefined;
@@ -235,7 +261,15 @@ export function recordWatchStreakCredit(
   };
 }
 
-export type WatchStreakVerdict = "pending" | "credited" | "not_confirmed" | "unavailable";
+// "cooling": the attempt rests after a round that never played; the row is an
+// ordinary Watchlist row until its retryAt.
+export type WatchStreakVerdict =
+  | "pending"
+  | "cooling"
+  | "credited"
+  | "not_confirmed"
+  | "playback_failed"
+  | "unavailable";
 
 // What the scheduler reads for a maintained Watchlist row. One plan is
 // built per selection from the same state, so every path that picks or keeps
@@ -261,6 +295,7 @@ export function watchStreakPlan(
   settings: EngineSettings,
   state: SchedulerState,
   observerAvailable: boolean,
+  now = Date.now(),
 ): IdleWatchlistStreakPlan {
   const maintained = watchStreakChannelsFor(settings, platform);
   if (maintained.length === 0) return NO_WATCH_STREAKS;
@@ -282,7 +317,8 @@ export function watchStreakPlan(
           broadcastId: candidate.broadcastId,
         }),
       );
-      return found?.attempt.outcome ?? "pending";
+      if (!found) return "pending";
+      return isWatchStreakCooling(found.attempt, now) ? "cooling" : found.attempt.outcome;
     },
   };
 }
@@ -337,8 +373,12 @@ export function mergeWatchStreakState(
 
 function mergeAttempt(left: WatchStreakAttempt, right: WatchStreakAttempt): WatchStreakAttempt {
   const winner = OUTCOME_RANK[right.outcome] > OUTCOME_RANK[left.outcome] ? right : left;
+  const retryAt = [left.retryAt, right.retryAt]
+    .filter((value): value is string => value !== undefined)
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
   return {
     ...winner,
+    ...(retryAt ? { retryAt } : {}),
     watchedMs: Math.max(left.watchedMs, right.watchedMs),
     unhealthyChecks: Math.max(left.unhealthyChecks, right.unhealthyChecks),
     startedAt:
@@ -387,7 +427,9 @@ export function watchStreakRowStatuses(
           ? watching?.username.toLowerCase() === username
             ? "watching"
             : "pending"
-          : verdict;
+          : verdict === "cooling"
+            ? "pending"
+            : verdict;
       continue;
     }
     const latest = streaks.attempts
@@ -429,6 +471,8 @@ function normalizeAttempt(value: unknown): WatchStreakAttempt | undefined {
   };
   if (typeof value.completedAt === "string" && Number.isFinite(Date.parse(value.completedAt)))
     attempt.completedAt = value.completedAt;
+  if (typeof value.retryAt === "string" && Number.isFinite(Date.parse(value.retryAt)))
+    attempt.retryAt = value.retryAt;
   return attempt;
 }
 

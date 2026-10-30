@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Série sledování u $1 nebyla včas potvrzena; přejde se dál"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Na $1 nebylo možné spustit sledování pro sérii sledování: přehrávání opakovaně selhávalo; přejde se dál"
+  },
   "activityAuthHealthChanged": {
     "message": "Autentizace $1 se změnila z $2 na $3."
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Nepotvrzeno"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Nelze sledovat"
   },
   "watchStreakUnavailable": {
     "message": "Série nedostupná"

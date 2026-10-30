@@ -85,6 +85,24 @@ export function safeHlsFailure(error: unknown, fallback = "Twitch HLS watch fail
   return fallback;
 }
 
+// Usher answers a refused playlist with JSON like
+// [{"url":"<signed request>","error":"…","error_code":"content_geoblocked"}].
+// Only the code is kept: the url carries the signed token and the error text
+// is free-form.
+export function usherErrorCode(body: string | undefined): string | undefined {
+  if (!body) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return undefined;
+  }
+  const entry = Array.isArray(parsed) ? parsed[0] : parsed;
+  const code =
+    entry && typeof entry === "object" ? (entry as Record<string, unknown>).error_code : undefined;
+  return typeof code === "string" && /^[a-z0-9_]{1,64}$/.test(code) ? code : undefined;
+}
+
 function combineSignals(left: AbortSignal, right: AbortSignal): AbortSignal {
   return AbortSignal.any([left, right]);
 }
@@ -159,10 +177,12 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
     throw new Error("Twitch HLS redirect was not followed");
   };
 
+  // Why a playlist could not be obtained, so a log can tell a missing token
+  // from a refused or empty master playlist.
   const acquirePlaylist = async (
     login: string,
     signal: AbortSignal,
-  ): Promise<string | undefined> => {
+  ): Promise<{ url: string } | { failure: string }> => {
     const token = await options.gql<{ streamPlaybackAccessToken?: PlaybackToken }>(
       "PlaybackAccessToken",
       "",
@@ -174,18 +194,26 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
     );
     const value = token.data?.streamPlaybackAccessToken?.value;
     const signature = token.data?.streamPlaybackAccessToken?.signature;
-    if (!value || !signature) return undefined;
+    if (!value || !signature) return { failure: "Twitch returned no playback token" };
     const master = new URL(`https://usher.ttvnw.net/api/channel/hls/${login}.m3u8`);
     master.searchParams.set("allow_audio_only", "true");
     master.searchParams.set("allow_source", "true");
     master.searchParams.set("sig", signature);
     master.searchParams.set("token", value);
     const response = await exchange(master.href, "GET", signal);
-    if (response.status !== 200 || !response.url) return undefined;
+    if (response.status !== 200 || !response.url) {
+      const code = usherErrorCode(response.body);
+      return {
+        failure: `Twitch refused the playback playlist (HTTP ${response.status}${code ? `, ${code}` : ""})`,
+      };
+    }
     // Resolve relative variants against the URL we actually received, which
     // can be a redirect hop away from the usher request.
-    const variants = playlistUrls(response.body, response.url, "master");
-    return variants.at(-1);
+    // playlistUrls already rejects the whole playlist when any variant is
+    // malformed or sits off the allowed hosts, so an empty result covers both.
+    const variant = playlistUrls(response.body, response.url, "master").at(-1);
+    if (!variant) return { failure: "Twitch playback playlist listed no usable stream" };
+    return { url: variant };
   };
 
   const sendTelemetry = async (
@@ -285,11 +313,11 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       if (!playlistUrl) {
         const acquired = await acquirePlaylist(login, signal);
         if (signal.aborted) return interrupted();
-        if (!acquired || !isAllowedHlsUrl(acquired)) {
+        if ("failure" in acquired) {
           playlistUrl = undefined;
-          return failed("Twitch did not return a playback playlist");
+          return failed(acquired.failure);
         }
-        playlistUrl = acquired;
+        playlistUrl = acquired.url;
       }
 
       const media = await exchange(playlistUrl, "GET", signal);

@@ -615,7 +615,7 @@ tested too (#598).
 | No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
-| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
+| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, a round whose playback keeps failing rests instead of ending and the round cap ends it as `playback_failed` (#942), payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
 
 ## Runtime Messages
 
@@ -1058,11 +1058,19 @@ claims to know the user's streak count.
   Any watch of that broadcast counts, including Drops. A tick that exits early (pause, backoff,
   signed out) drops the stamp, so skipped time never counts.
 - **Terminal outcomes.** An attempt ends as `not_confirmed` after 15 minutes of healthy watching
-  (`WATCH_STREAK_BUDGET_MS`), or after 10 unhealthy checks. A watch that is still settling (a tab
-  in its playback grace, a tabless watch with no heartbeat yet) counts as neither. The unhealthy
-  bound is what stops a row that never plays from reopening ahead of the other sources. An attempt ends as `credited` when Twitch reports
-  the payout. A terminal attempt is never reopened for that broadcast, and toggles and reorders do
-  not reset it. A new broadcast gets a new attempt.
+  (`WATCH_STREAK_BUDGET_MS`), and as `credited` when Twitch reports the payout. A terminal attempt
+  is never reopened for that broadcast, and toggles and reorders do not reset it. A new broadcast
+  gets a new attempt.
+- **Playback that keeps failing is not a spent streak (#942).** A round ends after 10 unhealthy
+  checks (`WATCH_STREAK_MAX_UNHEALTHY_CHECKS`). A watch that is still settling (a tab in its
+  playback grace, a tabless watch with no heartbeat yet) does not count. A round that runs out
+  rests the attempt until `retryAt` (`WATCH_STREAK_RETRY_COOLDOWN_MS`). While it rests, the verdict
+  is `cooling`, the row is an ordinary Watchlist row and its unhealthy checks do not count, so the
+  other sources run. Then the same attempt resumes with the watch time it already has. After
+  `WATCH_STREAK_MAX_ROUNDS` rounds it ends as `playback_failed`, shown as "Couldn't watch", never
+  as "Not confirmed". `unhealthyChecks` is never reset, and merges keep the larger count and the
+  later `retryAt`, so a restart or a concurrent commit cannot restore spent rounds. The round cap
+  is what stops a row that never plays from reopening ahead of the other sources.
 - **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
   prepared selection builds the same plan from its state (`SnapshotSelectionInput.watchStreaks`).
   It is passed to every watchlist chooser. Maintained rows are their own watch source,

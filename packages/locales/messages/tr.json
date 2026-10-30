@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1 kanalındaki izleme serisi zamanında onaylanmadı; sıradakine geçildi"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "$1 kanalında izleme serisi için izleme yapılamadı: oynatma sürekli başarısız oldu; sıradakine geçildi"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 oturum durumu değişti: $2 → $3."
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Onaylanmadı"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "İzlenemedi"
   },
   "watchStreakUnavailable": {
     "message": "Seri kullanılamıyor"

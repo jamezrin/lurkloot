@@ -1487,6 +1487,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Serie di visualizzazioni su $1 non confermata in tempo; passato al successivo"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Impossibile guardare $1 per la sua serie di visualizzazioni: la riproduzione continuava a fallire; passato al successivo"
+  },
   "activityAuthHealthChanged": {
     "message": "L’autenticazione di $1 è passata da $2 a $3."
   },
@@ -2200,6 +2203,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Non confermata"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Visione non riuscita"
   },
   "watchStreakUnavailable": {
     "message": "Serie non disponibile"
