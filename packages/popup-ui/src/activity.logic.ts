@@ -333,9 +333,19 @@ function formatCurrentActivity(
       ]);
     case "critical_failure_cleared":
       return t("activityCriticalFailureCleared", event.platform);
+    // Shown by the session timeline rather than as sentences.
+    case "reward_obtained":
+    case "points_earned":
+    case "session_started":
+    case "session_ended":
+      return "";
     default: {
+      // Exhaustive at compile time; a stored row from another build whose code
+      // this one does not know renders as nothing instead of reaching React as
+      // an object.
       const exhaustive: never = event;
-      return exhaustive;
+      void exhaustive;
+      return "";
     }
   }
 }
@@ -440,9 +450,15 @@ export function buildActivityCard(
         summary,
         chips: [formatCriticalFailureReason(event.data.reason, t)],
       };
+    case "reward_obtained":
+    case "points_earned":
+    case "session_started":
+    case "session_ended":
+      return undefined;
     default: {
       const exhaustive: never = event;
-      return exhaustive;
+      void exhaustive;
+      return undefined;
     }
   }
 }
