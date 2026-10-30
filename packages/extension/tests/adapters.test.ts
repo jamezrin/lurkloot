@@ -6643,6 +6643,48 @@ describe("TwitchAdapter", () => {
   });
 });
 
+describe("TwitchAdapter channel resolution", () => {
+  it("resolves channel ids to login, display name and avatar in one anonymous inline query", async () => {
+    const fetcher = jsonFetcher((url, init) => {
+      expect(url).toBe("https://gql.twitch.tv/gql");
+      const body = requestBody(init);
+      expect(body.operationName).toBe("ChannelIdentities");
+      expect(body.variables).toEqual({ ids: ["77", "88"] });
+      expect(typeof body.query).toBe("string");
+      return {
+        data: {
+          users: [
+            {
+              id: "77",
+              login: "shroud",
+              displayName: "shroud",
+              profileImageURL: "https://static-cdn.jtvnw.net/shroud.png",
+            },
+            { id: "88", login: "summit1g", displayName: "summit1g", profileImageURL: "http://x" },
+            null,
+          ],
+        },
+      };
+    });
+
+    await expect(twitchAdapter(fetcher).resolveChannels!(["77", "88", "77"])).resolves.toEqual({
+      "77": {
+        login: "shroud",
+        displayName: "shroud",
+        imageUrl: "https://static-cdn.jtvnw.net/shroud.png",
+      },
+      "88": { login: "summit1g", displayName: "summit1g" },
+    });
+  });
+
+  it("asks nothing for an empty or invalid id list", async () => {
+    const fetcher = jsonFetcher(() => {
+      throw new Error("should not fetch");
+    });
+    await expect(twitchAdapter(fetcher).resolveChannels!(["", "not-an-id"])).resolves.toEqual({});
+  });
+});
+
 describe("TwitchAdapter client identity", () => {
   const emptyCategories = { data: { searchCategories: { edges: [] } } };
 

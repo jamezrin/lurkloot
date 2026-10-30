@@ -2,6 +2,7 @@ import type { ChatPresenceClient } from "../core/chatPresence";
 import type {
   CategorySelection,
   ChannelCandidate,
+  ChannelIdentity,
   ChannelCheck,
   DropCampaign,
   DropReward,
@@ -141,6 +142,13 @@ export interface PlatformAdapter {
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.
   claimChallenges?(options?: AdapterOperationOptions): Promise<ClaimedChallenge[]>;
+  // Looks up channels by platform id (login, display name, avatar), for naming
+  // channels the engine only knows by id, such as an account-wide points gain.
+  // Ids it cannot resolve are left out.
+  resolveChannels?(
+    ids: readonly string[],
+    options?: AdapterOperationOptions,
+  ): Promise<Record<string, ChannelIdentity>>;
   // Reads the signed-in account's own progress on this platform (Kick: viewer
   // level and watch streak), for display only. Undefined when the platform
   // answered without anything readable. Each platform returns its own member of

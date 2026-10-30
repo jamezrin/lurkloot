@@ -667,25 +667,26 @@ describe("background controller", () => {
       expect(env.channelPointsPushController.starts).toBe(2);
     });
 
+    // The save opens a Twitch farming session, whose points summary keeps the
+    // push up; claim delivery is what these settings turn off.
     it.each([
-      {
-        name: "the live-event setting is off, with no playback topic to follow",
-        apply: async (env: ReturnType<typeof harness>) => {
-          await env.controller.handleMessage({
-            type: "saveSettings",
-            settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } },
-          });
-        },
-      },
-      {
-        name: "auto-claim is off, with no playback topic to follow",
-        apply: async (env: ReturnType<typeof harness>) => {
-          await env.controller.handleMessage({
-            type: "saveSettings",
-            settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } },
-          });
-        },
-      },
+      { name: "the live-event setting is off", patch: { channelPointsPushClaim: false } },
+      { name: "auto-claim is off", patch: { autoClaimChannelPoints: false } },
+    ])("stops following claims but keeps counting points when $name", async ({ patch }) => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: patch } },
+      });
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.channelPointsPushController.claimsFollowed).toBe(false);
+      expect(env.channelPointsPushController.onPointsEarned).toBeDefined();
+    });
+
+    it.each([
       {
         name: "Twitch is disabled",
         apply: async (env: ReturnType<typeof harness>) => {
@@ -791,7 +792,9 @@ describe("background controller", () => {
         settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } },
       });
 
-      expect(env.channelPointsPushController.stops).toBe(1);
+      // The farming session the first save opened keeps the push up for points.
+      expect(env.channelPointsPushController.claimsFollowed).toBe(false);
+      expect(env.channelPointsPushController.onPointsEarned).toBeDefined();
     });
 
     it("saveSettings that enables live-event claiming resolves while start is blocked", async () => {

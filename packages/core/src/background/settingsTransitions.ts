@@ -66,8 +66,10 @@ export function createSettingsTransitions<S extends EngineSettings>(
   // close with the platform switches. Each runs even if another failed, and
   // the first failure is rethrown.
   async function rescheduleSettingsJobs(): Promise<void> {
+    // First, so the channel-points push reconciled below sees the session it
+    // opened or closed. It reports its own failures and never throws.
+    await reconcileFarmingSessions();
     const results = await Promise.allSettled([
-      reconcileFarmingSessions(),
       rescheduleTwitchChannelPointsJob(),
       rescheduleDropClaimJobs(),
       rescheduleKickChallengeJob(),

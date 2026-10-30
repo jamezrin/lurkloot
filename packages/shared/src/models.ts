@@ -143,6 +143,13 @@ export interface DropCampaign {
   url?: string;
 }
 
+// A channel's public identity, looked up from its platform id.
+export interface ChannelIdentity {
+  login: string;
+  displayName?: string;
+  imageUrl?: string;
+}
+
 export interface ChannelCandidate {
   platform: Platform;
   username: string;
