@@ -73,7 +73,8 @@ function obtainedView(data: RewardObtainedData, t: TFunction): RewardView {
   const base = { imageUrl: data.imageUrl, subtitle: joined([via, data.channel]) };
   switch (data.kind) {
     case "challenge_card": {
-      const rarity = data.rarity ?? "unknown";
+      // Lower case: the rarity colours are keyed that way, whatever the platform sends.
+      const rarity = (data.rarity ?? "unknown").toLowerCase();
       const recurrence = detail(data.details, "recurrence");
       const consolation = detail(data.details, "consolationMinutes");
       return {
@@ -144,7 +145,7 @@ export function buildRewardView(
       return {
         layout: "card",
         title: t("rewardCardTitle", capitalized(event.data.rarity)),
-        rarity: event.data.rarity,
+        rarity: event.data.rarity.toLowerCase(),
         chips: [
           { label: capitalized(event.data.rarity), tone: "rarity" },
           { label: event.data.recurrence },

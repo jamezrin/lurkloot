@@ -1,6 +1,7 @@
 import type { ActivityEvent, EngineEvent } from "@lurkloot/shared/events";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
+import { rewardCountKey, tallyKey } from "@lurkloot/shared/farmingSessions";
 import { PLATFORMS } from "./constants";
 import { lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -120,11 +121,15 @@ export function createFarmingSessions<S extends EngineSettings>(
     }
   }
 
-  function sessionAt(platform: Platform, at: string): string | null {
+  function sessionAt(platform: Platform, at: string, status: boolean): string | null {
     const current = open[platform];
     if (current && at >= current.startedAt) return current.id;
     const last = closed[platform];
     if (last && at >= last.startedAt && at <= last.endedAt) return last.id;
+    // What turning farming off reports (farming stopped, a released tab) comes
+    // after the session closed but is about it. Rewards and points obtained
+    // with no session open stay outside one.
+    if (last && !current && status && at > last.endedAt) return last.id;
     return null;
   }
 
@@ -145,7 +150,8 @@ export function createFarmingSessions<S extends EngineSettings>(
       )
         return event;
       const at = event.emittedAt ?? new Date().toISOString();
-      return { ...event, sessionId: sessionAt(event.platform, at) };
+      const status = rewardCountKey(event) === undefined && tallyKey(event) === undefined;
+      return { ...event, sessionId: sessionAt(event.platform, at, status) };
     });
   }
 

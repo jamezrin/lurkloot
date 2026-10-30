@@ -159,6 +159,23 @@ describe("reward views", () => {
     ]);
   });
 
+  it("keys a card's rarity in lower case whatever case the platform sends", () => {
+    const view = buildRewardView(
+      {
+        id: "card",
+        at: "2026-10-30T11:00:00.000Z",
+        category: "activity",
+        code: "reward_obtained",
+        level: "info",
+        platform: "kick",
+        data: { kind: "challenge_card", source: { platform: "kick" }, rarity: "Legendary" },
+      },
+      t,
+    );
+    expect(view?.rarity).toBe("legendary");
+    expect(view?.title).toBe("rewardCardTitle:Legendary");
+  });
+
   it("shows an opened pack with its per-edition counts", () => {
     const view = buildRewardView(
       {

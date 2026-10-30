@@ -103,4 +103,27 @@ describe("channel points tally", () => {
     ]);
     expect(env.twitch.resolveChannels).toHaveBeenCalledOnce();
   });
+
+  it("bounds the channel lookup with an abort signal and counts the gain if it is aborted", async () => {
+    const env = await observing();
+    let received: AbortSignal | undefined;
+    env.twitch.resolveChannels = vi.fn(async (_ids, options) => {
+      received = options?.signal;
+      throw new DOMException("timed out", "TimeoutError");
+    });
+
+    env.channelPointsPushController.onPointsEarned?.({
+      userId: ACCOUNT,
+      channelId: "99",
+      reason: "CLAIM",
+      amount: 50,
+      at: Date.now(),
+    });
+    await env.rawController.settleBackgroundWork();
+
+    expect(received).toBeInstanceOf(AbortSignal);
+    expect(points(env).map((event) => event.category === "activity" && event.data)).toEqual([
+      { channelId: "99", reason: "CLAIM", amount: 50 },
+    ]);
+  });
 });

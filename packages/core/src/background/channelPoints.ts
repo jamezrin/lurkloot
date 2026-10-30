@@ -366,24 +366,28 @@ export function createChannelPoints<S extends EngineSettings>(
   // lookup per channel per controller run; a failed lookup is not retried, and
   // the gain is shown under the id.
   const channelIdentities = new Map<string, Promise<ChannelIdentity | undefined>>();
+  const CHANNEL_LOOKUP_TIMEOUT_MS = 10_000;
 
   function channelIdentity(channelId: string): Promise<ChannelIdentity | undefined> {
     const known = channelIdentities.get(channelId);
     if (known) return known;
     const lookup = (async () => {
-      const [settings, state] = await Promise.all([
-        ports.storage.loadSettings(),
-        ports.storage.loadState(),
-      ]);
-      const watched = state.sessions.twitch.channel;
-      if (watched?.channelId === channelId)
-        return {
-          login: watched.username,
-          ...(watched.displayName ? { displayName: watched.displayName } : {}),
-        };
       try {
+        const [settings, state] = await Promise.all([
+          ports.storage.loadSettings(),
+          ports.storage.loadState(),
+        ]);
+        const watched = state.sessions.twitch.channel;
+        if (watched?.channelId === channelId)
+          return {
+            login: watched.username,
+            ...(watched.displayName ? { displayName: watched.displayName } : {}),
+          };
+        // Bounded: the GQL transport has no timeout of its own, and every later
+        // gain for this channel waits on this lookup.
         const resolved = await createAdapter("twitch", settings, () => undefined).resolveChannels?.(
           [channelId],
+          { signal: AbortSignal.timeout(CHANNEL_LOOKUP_TIMEOUT_MS) },
         );
         return resolved?.[channelId];
       } catch {

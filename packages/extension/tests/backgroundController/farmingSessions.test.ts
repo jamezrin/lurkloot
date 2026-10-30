@@ -184,4 +184,29 @@ describe("farming sessions", () => {
     expect(env.settings.platform.twitch.enabled).toBe(true);
     expect(env.state.farmingSessions?.twitch).toBeDefined();
   });
+
+  it("files what turning farming off reports under the session it closed", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleStartup();
+    await env.controller.tick();
+    await env.controller.settleBackgroundWork();
+    const session = env.state.farmingSessions!.twitch!.id;
+    env.reportEvents.mockClear();
+
+    await env.controller.setPlatformEnabled({
+      type: "setPlatformEnabled",
+      platform: "twitch",
+      enabled: false,
+    });
+    await env.controller.settleBackgroundWork();
+
+    const statusRows = reported(env).filter(
+      (event) =>
+        event.category === "activity"
+        && event.platform === "twitch"
+        && event.code !== "session_ended",
+    );
+    for (const row of statusRows)
+      expect(row, JSON.stringify(row)).toMatchObject({ sessionId: session });
+  });
 });
