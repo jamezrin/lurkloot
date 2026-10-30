@@ -88,11 +88,14 @@ Split codes by **who consumes them**, not by how they look.
   so 30 days of stored rows keep rendering. Nothing emits them. Before retiring each emitter, move its
   consumers over: `reporting.ts:485` (the challenge notification), `tickRun.ts:587`,
   `cli/src/events.ts`, `activityDiagnostics.ts`.
-- **`page_context_opened`/`_closed`** stop being Activity. `tickRun.ts:664` reads `page_context_opened`
-  to call `recordManagedTabOpen`, so that accounting must keep working; the builder chooses whether the
-  events become typed diagnostics (and the churn reader follows) or stay in the engine contract and are
-  filtered out of Activity storage. A test must show churn is still recorded. The old rows stay readable
-  (see "Legacy rows").
+- **`page_context_opened`/`_closed`** stop being Activity. They stay in the engine's event contract,
+  because `tickRun.ts` reads `page_context_opened` to call `recordManagedTabOpen`. A shared predicate
+  `isActivityTimelineEvent` returns false for them; the extension's activity reporter does not store
+  them as Activity (their diagnostic mirror is still stored), and the popup filters any stored legacy
+  rows with the same predicate. *(My call.)*
+- Twitch Extension driver events are published straight to the host reporter today
+  (`background.ts` `publish`). They are rerouted through `controller.reportEvents` so they pass the
+  engine's report choke point and get a `sessionId` like everything else. *(My call.)*
 
 The extension point is a **kind registry** in `@lurkloot/shared`: for each kind, whether it is listed or
 tallied, plus its tally key for tallied kinds. Points are tallied by `channelId`; the registry shape
@@ -134,11 +137,12 @@ should let a future tallied kind (say Fortnite captures per item) key by channel
   Tallied events are folded into their session record **inside one readwrite transaction** (push and
   tick writes race). They are never appended to the events store.
 - Listed rewards, status and session boundary events are still appended to the events store as today.
-  With points out of it, the 2,000-row cap is ample for 30 days. Reward counts in the totals tiles are
-  computed from the rows returned, not from stored counters, so a trimmed row can never leave a tile
-  saying "3 drops" over two entries. Only tallied points are stored as folded totals. *(My call.)*
-- The flat paged `getActivity` stays for the search box and for the activity export: a non-empty search
-  shows today's flat filtered list; an empty search shows sessions. *(My call.)*
+  With points out of it, the 2,000-row cap is ample for 30 days. The session record also keeps
+  **reward counters** per kind, incremented in the same transaction that appends a listed reward, so a
+  collapsed past session shows correct totals before its rows are paged in. A row later trimmed by the
+  cap can leave a counter one higher than the rows shown; accepted. *(My call.)*
+- The flat paged `getActivity` stays for the activity copy/export and the critical-failure report.
+  Activity has no search box (only Diagnostics does). *(My call.)*
 - `clear()`, reset, `prune()` and `deleteDatabase()` cover the sessions store. Sessions whose end is
   older than 30 days are pruned. The open session is never pruned.
 - A new message (e.g. `getActivitySessions`, with a cursor) returns session summaries plus their listed
@@ -157,8 +161,10 @@ should let a future tallied kind (say Fortnite captures per item) key by channel
 - In `handleNotification`, the `WATCH_STREAK` branch returns early. The points hook runs **before** that
   return so streak payouts are counted.
 - `points-earned` carries only `channel_id`. Tally by id and resolve the login and display name
-  separately: from channels the engine already knows (candidates, the watch target, the watchlist),
-  else a cached lookup through the Twitch adapter. Unresolved channels show their id until resolved.
+  separately: from channels the engine already knows (candidates, the watch target), else a new
+  optional adapter method `resolveChannels(ids)` (Twitch GQL `users(ids:)`), cached in memory per run.
+  Account-wide counting makes this necessary: phone and TV channels are unknown to the engine. A
+  channel that cannot be resolved shows its id.
 - **Decided by the maintainer:** count everything on the account. The topic covers the whole account,
   so points earned on a phone or TV during a session are counted too; no channel-membership filter.
 
@@ -243,6 +249,6 @@ is correct under concurrent writes; churn accounting survives the page-context m
 
 ## Calls left to the builder
 
-Marked above: the page-context mechanism and channel name resolution order. Calls I made are marked
+Calls I made are marked
 *(My call.)*. The diagnostic mirror of `reward_obtained` flattens `source` and `details`, since
 diagnostic `data` is a flat record. Everything not covered here follows the existing code's conventions.
