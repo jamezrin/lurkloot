@@ -1316,6 +1316,51 @@ describe("KickAdapter", () => {
     expect(claimed).toEqual(["done"]);
   });
 
+  it.each([
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/Aloo_Uncommon_card_847f069b94234a7b95c1c5201c0c296a.png",
+      { cardName: "Aloo", cardType: "emote" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/badges/cards/Unikorn_Myth_card_24a6d34c2c384575af890cf88dd162c7.png",
+      { cardName: "Unikorn", cardType: "badge" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/D;_Common_card_daac8ebf81174bbb8d565d5c60e5afbe.png",
+      { cardName: "D;", cardType: "emote" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/Pog_Champ_Rare_card_0123456789abcdef0123456789abcdef.png",
+      { cardName: "Pog_Champ", cardType: "emote" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/2f9d2b87-fcab-4b12-93aa-b5d7d50c8a89.png",
+      { cardType: "emote" },
+    ],
+    ["https://files.kick.com/somewhere/else.png", {}],
+  ])("infers a Kick card's name and kind from its art URL %s", async (cardUrl, expected) => {
+    const fetcher = jsonFetcher((url) =>
+      url.endsWith("/challenges")
+        ? {
+            data: [
+              {
+                id: "c",
+                recurrence: "daily",
+                claimed_at: null,
+                condition: { progress: 1, threshold: 1 },
+              },
+            ],
+          }
+        : { data: { winner: { id: "card", rarity: "common", card_url: cardUrl } } },
+    );
+    const [claimed] = await kickAdapter(fetcher).claimChallenges!();
+    expect({ cardName: claimed?.cardName, cardType: claimed?.cardType }).toEqual({
+      cardName: undefined,
+      cardType: undefined,
+      ...expected,
+    });
+  });
+
   it("reports the won card's art and the consolation from a Kick challenge claim", async () => {
     const claimResponse = (cardUrl: string) => ({
       data: {

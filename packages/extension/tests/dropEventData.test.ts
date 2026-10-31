@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { campaignRewardData, claimChannel, claimReadyRewards } from "@lurkloot/core/rewardClaims";
+import {
+  campaignRewardData,
+  challengeRewardData,
+  claimChannel,
+  claimReadyRewards,
+} from "@lurkloot/core/rewardClaims";
 
 function reward(overrides: Partial<DropReward> = {}): DropReward {
   return {
@@ -82,5 +87,26 @@ describe("drop event data", () => {
       claimChannel({ status: "watching", campaignId: "other", channel } as never, "campaign"),
     ).toBeUndefined();
     expect(claimChannel({ status: "idle" } as never, "campaign")).toBeUndefined();
+  });
+
+  it("names a challenge card and its kind when the art says them", () => {
+    expect(
+      challengeRewardData("kick", {
+        id: "c",
+        rarity: "uncommon",
+        recurrence: "daily",
+        cardName: "Aloo",
+        cardType: "emote",
+      }),
+    ).toEqual({
+      kind: "challenge_card",
+      source: { platform: "kick" },
+      rarity: "uncommon",
+      name: "Aloo",
+      details: [
+        { key: "recurrence", value: "daily" },
+        { key: "cardType", value: "emote" },
+      ],
+    });
   });
 });

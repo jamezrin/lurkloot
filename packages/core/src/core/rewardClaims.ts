@@ -74,10 +74,12 @@ export function challengeRewardData(
   const details: RewardDetail[] = [{ key: "recurrence", value: challenge.recurrence }];
   if (challenge.consolation?.watchTimeMinutes !== undefined)
     details.push({ key: "consolationMinutes", value: challenge.consolation.watchTimeMinutes });
+  if (challenge.cardType) details.push({ key: "cardType", value: challenge.cardType });
   return {
     kind: "challenge_card",
     source: { platform },
     rarity: challenge.rarity,
+    ...(challenge.cardName ? { name: challenge.cardName } : {}),
     ...(challenge.cardId ? { itemId: challenge.cardId } : {}),
     ...(challenge.imageUrl ? { imageUrl: challenge.imageUrl } : {}),
     details,

@@ -189,6 +189,36 @@ interface KickChallengeClaimResponse {
   } | null;
 }
 
+// Kick reports no card name. Its card art is stored as
+// .../chat/<emotes|badges>/cards/<Name>_<Rarity>_card_<32 hex>.<ext> (seen across
+// the whole collectibles list), so the name is read from that file name when it
+// matches exactly. Many cards are stored under a bare UUID instead and get none.
+const KICK_CARD_FILE =
+  /^(.+)_(?:common|uncommon|rare|epic|legendary|myth|mythic)_card_[0-9a-f]{32}\.[a-z]+$/i;
+const KICK_CARD_KIND = /\/chat\/(emotes|badges)\/cards\/[^/]+$/;
+
+export function kickCardIdentity(
+  imageUrl: string,
+): Pick<ClaimedChallenge, "cardName" | "cardType"> {
+  let path: string;
+  try {
+    path = new URL(imageUrl).pathname;
+  } catch {
+    return {};
+  }
+  const kind = KICK_CARD_KIND.exec(path)?.[1];
+  const cardType = kind === "emotes" ? "emote" : kind === "badges" ? "badge" : undefined;
+  if (!cardType) return {};
+  let file = path.slice(path.lastIndexOf("/") + 1);
+  try {
+    file = decodeURIComponent(file);
+  } catch {
+    // Keep the raw name.
+  }
+  const cardName = KICK_CARD_FILE.exec(file)?.[1]?.trim();
+  return { cardType, ...(cardName ? { cardName } : {}) };
+}
+
 function kickChallengeConsolation(
   value: NonNullable<KickChallengeClaimResponse["data"]>["consolation"],
 ): ClaimedChallenge["consolation"] {
@@ -956,6 +986,7 @@ export class KickAdapter implements PlatformAdapter {
         const cardId = typeof winner?.id === "string" && winner.id.trim() ? winner.id.trim() : "";
         const imageUrl = safeHttpsUrl(winner?.card_url);
         const consolation = kickChallengeConsolation(result?.data?.consolation);
+        const { cardName, cardType } = imageUrl ? kickCardIdentity(imageUrl) : {};
         claimed.push({
           id,
           rarity: typeof rarity === "string" && rarity.trim() ? rarity.trim() : "unknown",
@@ -965,6 +996,8 @@ export class KickAdapter implements PlatformAdapter {
               : "unknown",
           ...(cardId ? { cardId } : {}),
           ...(imageUrl ? { imageUrl } : {}),
+          ...(cardName ? { cardName } : {}),
+          ...(cardType ? { cardType } : {}),
           ...(consolation ? { consolation } : {}),
         });
       } catch (error) {

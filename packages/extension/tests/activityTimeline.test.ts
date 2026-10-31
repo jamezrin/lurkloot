@@ -159,6 +159,32 @@ describe("reward views", () => {
     ]);
   });
 
+  it("titles a card by its name when known and labels its kind", () => {
+    const view = buildRewardView(
+      {
+        id: "named",
+        at: "2026-10-30T11:00:00.000Z",
+        category: "activity",
+        code: "reward_obtained",
+        level: "info",
+        platform: "kick",
+        data: {
+          kind: "challenge_card",
+          source: { platform: "kick" },
+          rarity: "uncommon",
+          name: "Aloo",
+          details: [
+            { key: "recurrence", value: "daily" },
+            { key: "cardType", value: "emote" },
+          ],
+        },
+      },
+      t,
+    );
+    expect(view?.title).toBe("Aloo");
+    expect(view?.chips.map((chip) => chip.label)).toEqual(["Uncommon", "rewardKindEmote", "daily"]);
+  });
+
   it("keys a card's rarity in lower case whatever case the platform sends", () => {
     const view = buildRewardView(
       {

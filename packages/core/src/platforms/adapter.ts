@@ -79,6 +79,9 @@ export interface ClaimedChallenge {
   // What was won, when the platform says: the card's id and art (https only).
   cardId?: string;
   imageUrl?: string;
+  // Best effort, from the art's file name: the platform reports no card name.
+  cardName?: string;
+  cardType?: "emote" | "badge";
   // What a claim also grants besides the card (Kick: watch time toward the next
   // level and that level's badge).
   consolation?: { watchTimeMinutes?: number; badgeImageUrl?: string };

@@ -77,13 +77,22 @@ function obtainedView(data: RewardObtainedData, t: TFunction): RewardView {
       const rarity = (data.rarity ?? "unknown").toLowerCase();
       const recurrence = detail(data.details, "recurrence");
       const consolation = detail(data.details, "consolationMinutes");
+      const cardType = detail(data.details, "cardType")?.value;
+      const kindKey =
+        cardType === "emote"
+          ? "rewardKindEmote"
+          : cardType === "badge"
+            ? "rewardKindBadge"
+            : undefined;
       return {
         ...base,
         layout: "card",
-        title: t("rewardCardTitle", capitalized(rarity)),
+        // The name is read from the art's file name when Kick stored it that way.
+        title: data.name ?? t("rewardCardTitle", capitalized(rarity)),
         rarity,
         chips: [
           { label: capitalized(rarity), tone: "rarity" },
+          ...(kindKey ? [{ label: t(kindKey) }] : []),
           ...(recurrence ? [{ label: String(recurrence.value) }] : []),
           ...(consolation
             ? [{ label: t("rewardConsolationMinutes", String(consolation.value)) }]
