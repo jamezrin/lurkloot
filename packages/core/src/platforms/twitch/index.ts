@@ -1345,32 +1345,8 @@ export class TwitchAdapter implements PlatformAdapter {
     const cache = this.discoveryState.rewardCampaigns;
     const userId = this.discoveryState.currentUserId();
     if (!userId) return [];
-    let listings: TwitchRewardCampaignListing[];
-    try {
-      const response = await this.gqlWithIntegrityRetry<{
-        rewardCampaignsAvailableToUser?: TwitchRewardCampaignListing[] | null;
-      }>(
-        "RewardCampaignsAvailable",
-        "",
-        {},
-        TWITCH_REWARD_CAMPAIGNS_QUERY,
-        undefined,
-        this.emit,
-        signal,
-      );
-      listings = response.data?.rewardCampaignsAvailableToUser ?? [];
-    } catch (error) {
-      signal?.throwIfAborted();
-      if (authHealthFromError(error)) throw error;
-      diagnostic(
-        this.emit,
-        "warn",
-        `Twitch reward campaign listing failed; keeping the last reward campaigns: ${errorMessage(error)}`,
-        "twitch",
-      );
-      return cache.retainedCampaigns();
-    }
-    const ids = farmableRewardCampaignIds(listings);
+    const ids = cache.freshListing() ?? (await this.listRewardCampaigns(signal));
+    if (!ids) return cache.retainedCampaigns();
     if (ids.length === 0) {
       cache.retain([]);
       return [];
@@ -1397,6 +1373,36 @@ export class TwitchAdapter implements PlatformAdapter {
       .filter((campaign): campaign is DropCampaign => Boolean(campaign));
     cache.retain(campaigns);
     return campaigns;
+  }
+
+  // The farmable reward campaign ids, or undefined when the listing failed.
+  private async listRewardCampaigns(signal?: AbortSignal): Promise<string[] | undefined> {
+    try {
+      const response = await this.gqlWithIntegrityRetry<{
+        rewardCampaignsAvailableToUser?: TwitchRewardCampaignListing[] | null;
+      }>(
+        "RewardCampaignsAvailable",
+        "",
+        {},
+        TWITCH_REWARD_CAMPAIGNS_QUERY,
+        undefined,
+        this.emit,
+        signal,
+      );
+      const ids = farmableRewardCampaignIds(response.data?.rewardCampaignsAvailableToUser ?? []);
+      this.discoveryState.rewardCampaigns.rememberListing(ids);
+      return ids;
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (authHealthFromError(error)) throw error;
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch reward campaign listing failed; keeping the last reward campaigns: ${errorMessage(error)}`,
+        "twitch",
+      );
+      return undefined;
+    }
   }
 
   private async rewardCampaignStructure(
@@ -1447,6 +1453,8 @@ export class TwitchAdapter implements PlatformAdapter {
   ): Promise<Map<string, string>> {
     const equipped = new Map<string, string>();
     if (tracks.length === 0) return equipped;
+    const fresh = this.discoveryState.rewardCampaigns.freshLanes(tracks);
+    if (fresh) return fresh;
     try {
       const response = await this.gqlWithIntegrityRetry<{
         trackSelections?: Array<{ track?: string; lane?: string | null }> | null;
@@ -1462,6 +1470,7 @@ export class TwitchAdapter implements PlatformAdapter {
       for (const selection of response.data?.trackSelections ?? []) {
         if (selection?.track && selection.lane) equipped.set(selection.track, selection.lane);
       }
+      this.discoveryState.rewardCampaigns.rememberLanes(tracks, equipped);
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
@@ -3113,6 +3122,7 @@ export class TwitchAdapter implements PlatformAdapter {
       this.emit,
       signal,
     );
+    this.discoveryState.rewardCampaigns.forgetLanes();
     const error = response.data?.setTrackSelection?.error;
     if (error) throw new Error(`Twitch refused the lane: ${error}`);
     if (!response.data?.setTrackSelection) throw new Error("Twitch did not answer the lane change");

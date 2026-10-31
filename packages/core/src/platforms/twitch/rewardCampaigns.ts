@@ -479,6 +479,9 @@ export function parseTwitchRewardCampaign({
 // the farmed campaign's is always read fresh from the watched channel.
 const STRUCTURE_FRESH_MS = 10 * 60_000;
 const PROGRESS_FRESH_MS = 3 * 60_000;
+// Reward campaigns start and end rarely; the listing is not worth a request on
+// every tick.
+const LISTING_FRESH_MS = 5 * 60_000;
 
 // What reward-campaign discovery keeps between ticks. The extension rebuilds
 // the adapter every tick, so it lives on TwitchDiscoveryState and is replaced
@@ -487,6 +490,34 @@ export class TwitchRewardCampaignCache {
   private readonly structures = new Map<string, { value: TwitchDropsCampaign; at: number }>();
   private readonly progress = new Map<string, { self: TwitchRewardGroupSelf; at: number }>();
   private retained: DropCampaign[] = [];
+  private listing?: { ids: string[]; at: number };
+  private lanes?: { key: string; equipped: Map<string, string>; at: number };
+
+  // The lanes equipped on these tracks, while the last read of them is fresh.
+  freshLanes(tracks: readonly string[], now = Date.now()): Map<string, string> | undefined {
+    const key = [...tracks].sort().join("|");
+    return this.lanes && this.lanes.key === key && now - this.lanes.at < LISTING_FRESH_MS
+      ? this.lanes.equipped
+      : undefined;
+  }
+
+  rememberLanes(tracks: readonly string[], equipped: Map<string, string>, now = Date.now()): void {
+    this.lanes = { key: [...tracks].sort().join("|"), equipped, at: now };
+  }
+
+  // After the user equips a lane, the next refresh reads the lanes again.
+  forgetLanes(): void {
+    this.lanes = undefined;
+  }
+
+  // The farmable campaign ids the last listing returned, while still fresh.
+  freshListing(now = Date.now()): string[] | undefined {
+    return this.listing && now - this.listing.at < LISTING_FRESH_MS ? this.listing.ids : undefined;
+  }
+
+  rememberListing(ids: string[], now = Date.now()): void {
+    this.listing = { ids, at: now };
+  }
 
   freshStructure(id: string, now = Date.now()): TwitchDropsCampaign | undefined {
     const entry = this.structures.get(id);
