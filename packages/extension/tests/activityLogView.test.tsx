@@ -147,10 +147,10 @@ describe("activity log view", () => {
   it("shows only activity entries while the activity view is selected", () => {
     const { container } = mount({ showDiagnostics: false });
 
-    expect(container.textContent).toContain("Claimed Golden Hat from Summer Campaign");
+    expect(container.textContent).toContain("Golden Hat");
     expect(container.textContent).not.toContain("HTTP 503");
     expect(container.textContent).toContain("Kick activity");
-    expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-activity-reward-layout]")).toHaveLength(1);
   });
 
   it("shows only diagnostics while the diagnostics view is selected", () => {
@@ -180,7 +180,7 @@ describe("activity log view", () => {
 
     expect(container.querySelector('[data-activity-card="auth_health_changed"]')).toBeNull();
     expect(container.textContent).not.toContain("authentication changed");
-    expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-activity-reward-layout]")).toHaveLength(1);
   });
 
   it("keeps stored tab open and close rows out of the activity stream", () => {
@@ -199,7 +199,7 @@ describe("activity log view", () => {
     const { container } = mount({ showDiagnostics: false, activityEvents: events });
 
     expect(container.querySelector('[data-activity-card="page_context_opened"]')).toBeNull();
-    expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-activity-reward-layout]")).toHaveLength(1);
   });
 
   it("marks the selected view on the switch and requests the other one on click", () => {
@@ -402,7 +402,7 @@ describe("activity log view", () => {
     expect(container.querySelector('img[alt="Golden Hat"]')?.getAttribute("src")).toBe(
       "https://cdn.example.test/reward.png",
     );
-    expect(container.querySelector('[data-activity-card="reward_claimed"]')).not.toBeNull();
+    expect(container.querySelector('[data-activity-reward-layout="drop"]')).not.toBeNull();
     expect(container.querySelector('[data-activity-chip="automatic"]')).not.toBeNull();
 
     const action = container.querySelector<HTMLButtonElement>(
@@ -447,7 +447,7 @@ describe("activity log view", () => {
     expect(container.querySelector("[data-activity-reward-fallback]")?.textContent).toBe("G");
   });
 
-  it("renders operational events as marked cards with their localized summary", () => {
+  it("lists operational events under the day's collapsed status", () => {
     const operationalActivity: ActivityHistoryRecord[] = [
       {
         id: "critical-1",
@@ -461,10 +461,14 @@ describe("activity log view", () => {
     ];
     const { container } = mount({ showDiagnostics: false, activityEvents: operationalActivity });
 
+    expect(container.querySelector('[data-activity-status-row="critical-1"]')).toBeNull();
+    const toggle = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("activitySectionStatus"),
+    )!;
+    act(() => toggle.click());
     expect(
-      container.querySelector('[data-activity-card="critical_failure_detected"]'),
-    ).not.toBeNull();
-    expect(container.textContent).toContain("activityCriticalFailureDetected");
+      container.querySelector('[data-activity-status-row="critical-1"]')?.textContent,
+    ).toContain("activityCriticalFailureDetected");
   });
 
   describe("farming sessions", () => {
@@ -587,7 +591,9 @@ describe("activity log view", () => {
       const past = container.querySelector('[data-activity-session="past"]')!;
 
       expect(past.querySelector('[data-activity-reward-layout="drop"]')).toBeNull();
-      expect(past.textContent).toContain("activitySessionSummary");
+      // No points were earned, so the line shows only the reward count.
+      expect(past.querySelector("[data-session-points]")).toBeNull();
+      expect(past.querySelector("[data-session-rewards]")?.textContent).toContain("1");
 
       act(() => past.querySelector<HTMLButtonElement>("button")!.click());
       expect(past.querySelector('[data-activity-reward-layout="drop"]')).not.toBeNull();

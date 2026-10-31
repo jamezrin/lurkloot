@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight, ExternalLink, Gift } from "lucide-react";
+import { ChevronDown, ChevronRight, Coins, ExternalLink, Gift } from "lucide-react";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { FarmingSessionSummary, TallyEntry } from "@lurkloot/shared/farmingSessions";
 import type { Platform } from "@lurkloot/shared/models";
@@ -131,11 +131,22 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function RewardArt({ view }: { view: RewardView }) {
-  const fallback = (
-    <span className="flex h-full w-full items-center justify-center text-[var(--accent-text)]">
-      <Gift size={16} aria-hidden="true" />
-    </span>
-  );
+  // A drop without art shows its initial, like the reward lists; others a gift.
+  const fallback =
+    view.layout === "drop" ? (
+      <span
+        data-activity-reward-fallback
+        role="img"
+        aria-label={view.title}
+        className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--accent-text)]"
+      >
+        {view.title.trim().charAt(0).toLocaleUpperCase() || "?"}
+      </span>
+    ) : (
+      <span className="flex h-full w-full items-center justify-center text-[var(--accent-text)]">
+        <Gift size={16} aria-hidden="true" />
+      </span>
+    );
   if (view.layout === "card") {
     return (
       <div
@@ -195,6 +206,7 @@ function RewardRow({ event }: { event: ActivityHistoryRecord }) {
             {view.chips.map((chip) => (
               <span
                 key={chip.label}
+                data-activity-chip={chip.label}
                 className={chip.tone === "rarity" ? RARITY_TEXT[view.rarity ?? ""] : undefined}
               >
                 <Pill tone={chip.tone === "highlight" ? "warning" : "muted"}>{chip.label}</Pill>
@@ -206,7 +218,7 @@ function RewardRow({ event }: { event: ActivityHistoryRecord }) {
       {view.linkUrl && runtime ? (
         <button
           type="button"
-          aria-label={t("viewDropPage")}
+          aria-label={view.linkLabel ?? t("viewDropPage")}
           onClick={(clickEvent) => {
             clickEvent.stopPropagation();
             openHttpsLink(view.linkUrl!, runtime.adapter.openLink);
@@ -307,7 +319,8 @@ function BlockBody({ block, summary }: { block: TimelineBlock; summary?: Farming
       ) : null}
       {block.rewards.length > 0 ? (
         <>
-          <SectionLabel>{t("activitySectionRewards")}</SectionLabel>
+          {/* Labelled only beside a session's points; elsewhere rewards are all there is. */}
+          {summary ? <SectionLabel>{t("activitySectionRewards")}</SectionLabel> : null}
           <ul className="space-y-0.5">
             {block.rewards.map((event) => (
               <RewardRow key={event.id} event={event} />
@@ -364,10 +377,10 @@ function SessionBlock({ block }: { block: Extract<TimelineBlock, { type: "sessio
               ● {t("activitySessionLive", formatClock(summary.startedAt))}
             </span>
           ) : (
-            t("activitySessionSummary", [
-              formatNumber(pointsTotal(summary)),
-              String(rewardTotal(summary, block.rewards.length)),
-            ])
+            <SessionCounts
+              points={pointsTotal(summary)}
+              rewards={rewardTotal(summary, block.rewards.length)}
+            />
           )}
         </span>
       </button>
@@ -377,6 +390,32 @@ function SessionBlock({ block }: { block: Extract<TimelineBlock, { type: "sessio
         </div>
       ) : null}
     </li>
+  );
+}
+
+// A past session's one-line totals: icons rather than words, so no count needs
+// a plural, and a zero (points on Kick) is left out. The sentence stays as the
+// accessible name.
+function SessionCounts({ points, rewards }: { points: number; rewards: number }) {
+  const t = useT();
+  return (
+    <span
+      aria-label={t("activitySessionSummary", [formatNumber(points), String(rewards)])}
+      className="inline-flex items-center gap-2 tabular-nums"
+    >
+      {points > 0 ? (
+        <span data-session-points className="inline-flex items-center gap-0.5">
+          <Coins size={11} aria-hidden="true" />
+          <bdi dir="ltr">+{formatNumber(points)}</bdi>
+        </span>
+      ) : null}
+      {rewards > 0 ? (
+        <span data-session-rewards className="inline-flex items-center gap-0.5">
+          <Gift size={11} aria-hidden="true" />
+          {formatNumber(rewards)}
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -390,6 +429,16 @@ function OutsideBlock({ block }: { block: Extract<TimelineBlock, { type: "outsid
       <div className="mt-1">
         <BlockBody block={block} />
       </div>
+    </li>
+  );
+}
+
+// Rows stored before sessions existed: the day's rewards and status, drawn the
+// same way, with no session heading.
+function EarlierBlock({ block }: { block: Extract<TimelineBlock, { type: "earlier" }> }) {
+  return (
+    <li data-activity-block="earlier" className={BLOCK_CARD}>
+      <BlockBody block={block} />
     </li>
   );
 }
@@ -415,12 +464,10 @@ export function ActivitySessionTimeline({
   sessions,
   events,
   platform,
-  renderLegacyRow,
 }: {
   sessions: readonly FarmingSessionSummary[];
   events: readonly ActivityHistoryRecord[];
   platform: Platform;
-  renderLegacyRow: (event: ActivityHistoryRecord) => React.ReactNode;
 }): React.ReactElement {
   const { locale } = React.useContext(I18nContext);
   const days = groupTimelineByDay(buildActivityTimeline(sessions, events, platform));
@@ -437,12 +484,7 @@ export function ActivitySessionTimeline({
                 return [<SessionBlock key={block.summary.id} block={block} />];
               if (block.type === "outside")
                 return [<OutsideBlock key={`outside-${block.day}`} block={block} />];
-              return [...block.rewards, ...block.status]
-                .sort(
-                  (left, right) =>
-                    right.at.localeCompare(left.at) || right.id.localeCompare(left.id),
-                )
-                .map((event) => renderLegacyRow(event));
+              return [<EarlierBlock key={`earlier-${block.day}`} block={block} />];
             })}
           </ul>
         </section>

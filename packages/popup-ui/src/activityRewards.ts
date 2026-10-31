@@ -22,6 +22,8 @@ export interface RewardView {
   chips: RewardChip[];
   rarity?: string;
   linkUrl?: string;
+  // The link's accessible name, naming what it opens.
+  linkLabel?: string;
 }
 
 const PROVIDER_LABELS: Record<TwitchExtensionProviderId, string> = {
@@ -147,6 +149,7 @@ export function buildRewardView(
         subtitle: joined([event.data.gameName, event.data.campaignName, event.data.channel]),
         chips: [{ label: event.data.method }],
         linkUrl: event.data.campaignUrl,
+        linkLabel: `${t("viewDropPage")}: ${event.data.campaignName}`,
       };
     case "reward_obtained":
       return obtainedView(event.data, t);
