@@ -1,5 +1,34 @@
 [
   {
+    "version": "1.22.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Activity now sums up what each farming session got you. A session runs from turning a platform on until you turn it off, and carries on across browser restarts. It lists the drops you claimed with their game, art and channel, Kick daily cards, NoPixel packs and giveaways, Fortnite captures, and the Twitch channel points you earned by channel. Sessions are grouped under Today, Yesterday and then by date, and past sessions fold into one line."
+      },
+      {
+        "kind": "new",
+        "text": "Three new Twitch settings under Advanced & compatibility tune watch streaks: how long Lurkloot watches a channel for its streak (5 to 60 minutes, 15 by default), how long it waits before trying again when the stream won't play (10 to 240 minutes, 30 by default), and how many times it tries (1 to 5, 3 by default). The CLI accepts them too."
+      },
+      {
+        "kind": "improved",
+        "text": "Hover a game or reward image in the popup to see a larger copy of it."
+      },
+      {
+        "kind": "fixed",
+        "text": "A Twitch watch streak is no longer used up when the stream won't play. Lurkloot sets the channel aside for a while, keeps farming everything else, and tries again later. Only when playback fails on every try is the channel marked Couldn't watch."
+      },
+      {
+        "kind": "fixed",
+        "text": "Watch streaks now work when the check interval in Advanced settings is longer than a minute. A streak could take far longer than its budget, miss a payout that arrived between checks, or count it toward an earlier broadcast."
+      },
+      {
+        "kind": "fixed",
+        "text": "Lurkloot no longer claims Twitch drops from campaigns whose game account isn't linked. Twitch accepted those claims but granted nothing, and the same drops showed up as claimed again each time Twitch farming was turned back on. Once you link the account, they are claimed as usual."
+      }
+    ]
+  },
+  {
     "version": "1.21.0",
     "changes": [
       {
