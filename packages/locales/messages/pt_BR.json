@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Equipada"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Uma linha só evolui um emblema que você já tem. Sem ele, assistir não rende nada."
   }
 }

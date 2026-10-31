@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "已装备"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "进化线只会进化你已拥有的徽章。没有该徽章时，观看不会获得任何奖励。"
   }
 }

@@ -379,10 +379,10 @@ function laneTracks(campaign: TwitchDropsCampaign): Map<string, Map<string, Twit
   return tracks;
 }
 
-// Only lanes the user has unlocked can be equipped, as in Twitch's own Swap
-// list: a lane whose group Twitch has started for them (IN_PROGRESS), which an
-// evolution is only once its earlier badge is owned. Equipping any other lane
-// would watch for nothing.
+// The lanes Twitch's own Swap list offers: those with a group Twitch reports
+// IN_PROGRESS. That is not ownership: Twitch reports it for an evolution whose
+// earlier badge the user does not have, and nothing here says which badge a
+// lane evolves, so the picker tells the user a line needs that badge.
 function laneChoices(
   campaign: TwitchDropsCampaign,
   equippedLanes: ReadonlyMap<string, string>,

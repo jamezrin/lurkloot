@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Dipasang"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Satu jalur hanya mengevolusi lencana yang sudah kamu miliki. Tanpa lencana itu, menonton tidak menghasilkan apa-apa."
   }
 }

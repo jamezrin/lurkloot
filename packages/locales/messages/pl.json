@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Wybrana"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Linia ewoluuje tylko odznakę, którą już posiadasz. Bez niej oglądanie nic nie daje."
   }
 }

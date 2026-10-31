@@ -1697,6 +1697,9 @@ function LanePicker({
               ? t("rewardLanesTitle")
               : t("rewardLanesPick")}
           </div>
+          <p data-lane-hint className="mb-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            {t("rewardLanesOwnedOnly")}
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {choice.lanes.map((lane) => (
               <button

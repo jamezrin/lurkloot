@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Equipped"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "A line only evolves a badge you already own. Without that badge, watching earns nothing."
   }
 }

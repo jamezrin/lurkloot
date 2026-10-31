@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Обрано"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Лінія розвиває лише значок, який у вас уже є. Без нього перегляд нічого не дає."
   }
 }

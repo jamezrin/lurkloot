@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "مفعّل"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "يطوّر الخط شارةً تملكها مسبقًا فقط. دونها، لا تكسب المشاهدة شيئًا."
   }
 }

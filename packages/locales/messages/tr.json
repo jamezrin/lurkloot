@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Donatıldı"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Bir hat yalnızca zaten sahip olduğun rozeti evrimleştirir. Bu rozet olmadan izlemek hiçbir şey kazandırmaz."
   }
 }

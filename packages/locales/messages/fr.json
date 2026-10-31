@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Équipée"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Une lignée ne fait évoluer qu'un badge que vous possédez déjà. Sans ce badge, le visionnage ne rapporte rien."
   }
 }

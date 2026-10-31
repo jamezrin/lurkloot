@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "장착됨"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "진화 라인은 이미 보유한 배지만 진화시킬 수 있습니다. 해당 배지가 없으면 시청해도 아무것도 얻을 수 없습니다."
   }
 }

@@ -190,6 +190,9 @@ describe("reward lane picker (#904)", () => {
     };
     const container = mount(selectLane, unequipped);
     expect(container.textContent).toContain("rewardLanesPick");
+    // Twitch offers every line, owned or not: the picker says a line needs the
+    // badge it evolves.
+    expect(container.querySelector("[data-lane-hint]")?.textContent).toBe("rewardLanesOwnedOnly");
     act(() => container.querySelector<HTMLButtonElement>('[data-lane="gastly"]')?.click());
     expect(selectLane).toHaveBeenCalledWith("evolutions", "pokemon#t", "gastly");
   });

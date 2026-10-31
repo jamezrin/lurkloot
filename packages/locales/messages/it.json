@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Equipaggiata"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Una linea evolve solo un badge che possiedi già. Senza quel badge, guardare non fa guadagnare nulla."
   }
 }

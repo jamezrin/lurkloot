@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Vybráno"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Linie vyvíjí pouze odznak, který už vlastníš. Bez něj sledování nic nepřináší."
   }
 }

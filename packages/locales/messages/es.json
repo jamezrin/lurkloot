@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Equipada"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Una línea solo evoluciona una insignia que ya tengas. Sin esa insignia, mirar no da nada."
   }
 }

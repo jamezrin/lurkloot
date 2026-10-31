@@ -2395,5 +2395,8 @@
   },
   "rewardLaneEquipped": {
     "message": "Ausgerüstet"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Eine Linie entwickelt nur ein Abzeichen, das du bereits besitzt. Ohne dieses Abzeichen bringt das Zuschauen nichts."
   }
 }
