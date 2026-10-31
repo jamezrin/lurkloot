@@ -117,6 +117,7 @@ function StripLead({
           src={campaign.imageUrl}
           alt=""
           fit="cover"
+          zoom
           fallback={
             <div
               className={cn("flex h-full w-full items-end bg-gradient-to-br p-1", campaign.tint)}

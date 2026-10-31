@@ -345,11 +345,17 @@ export function CampaignCard({
           )}
         />
         <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2.5 px-1.5 py-2">
-          <div className="relative flex h-9 w-9 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
+          {/* The thumbnail takes the pointer so it can show its zoom; a click on
+              it still toggles the row, like the rest of the row's content. */}
+          <div
+            onClick={onToggle}
+            className="pointer-events-auto relative flex h-9 w-9 shrink-0 items-end overflow-hidden rounded-lg shadow-inner"
+          >
             <ImageWithFallback
               src={campaign.imageUrl}
               alt={campaign.title}
               fit="cover"
+              zoom
               fallback={
                 <div
                   className={cn(
@@ -1538,6 +1544,7 @@ function RewardTile({
           alt={reward.name}
           fit="contain"
           className="p-1"
+          zoom
           fallback={
             <div
               className={cn(
