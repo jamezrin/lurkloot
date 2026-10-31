@@ -6,6 +6,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
+import { campaignForWatching } from "@lurkloot/shared/categories";
 import type { ChannelCheckRequest, PlatformAdapter } from "../platforms/adapter";
 import { errorMessage } from "@lurkloot/shared/errors";
 
@@ -148,7 +149,12 @@ export async function collectDiscoverySnapshot(
       observations.push({ campaign, candidates: retainedCandidates });
       continue;
     }
-    const listedCandidates = await adapter.listCandidateChannels(campaign, {
+    // A campaign that spans several categories is looked up and checked in the
+    // allowed ones only (#904).
+    const watchCampaign = settings
+      ? campaignForWatching(campaign, settings.platform[campaign.platform])
+      : campaign;
+    const listedCandidates = await adapter.listCandidateChannels(watchCampaign, {
       signal,
       requireComplete: true,
     });
@@ -165,11 +171,11 @@ export async function collectDiscoverySnapshot(
     const observed: DiscoveryCandidateObservation[] = [];
     if (adapter.checkChannels) {
       for (const candidate of candidates) {
-        batchRequestsToCheck.push({ channel: candidate, campaign });
+        batchRequestsToCheck.push({ channel: candidate, campaign: watchCampaign });
         batchDestinations.push(observed);
       }
     } else if (adapter.selectCandidateChannel) {
-      const selection = await adapter.selectCandidateChannel(candidates, campaign, { signal });
+      const selection = await adapter.selectCandidateChannel(candidates, watchCampaign, { signal });
       candidatesChecked += selection.checked;
       cacheHits += selection.metrics?.cacheHits ?? 0;
       cacheMisses += selection.metrics?.cacheMisses ?? 0;
@@ -193,7 +199,7 @@ export async function collectDiscoverySnapshot(
     } else {
       for (const candidate of candidates) {
         signal.throwIfAborted();
-        const check = await adapter.checkChannel(candidate, { campaign, signal });
+        const check = await adapter.checkChannel(candidate, { campaign: watchCampaign, signal });
         candidatesChecked += 1;
         observed.push({
           candidate: check.candidate,

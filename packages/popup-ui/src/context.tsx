@@ -22,6 +22,12 @@ export const SubscriptionMarkContext = React.createContext<
   ((campaignId: string, rewardId: string) => void) | null
 >(null);
 
+// Equips one lane of a reward campaign's track (#904). Provided once by the
+// popup; without it no lane picker is shown.
+export const RewardLaneContext = React.createContext<
+  ((campaignId: string, track: string, lane: string) => void) | null
+>(null);
+
 export function useT(): TFunction {
   return React.useContext(I18nContext).t;
 }

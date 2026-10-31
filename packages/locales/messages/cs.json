@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "$1-denní série sledování"
+  },
+  "rewardRepeatProgress": {
+    "message": "Den $1 z $2"
+  },
+  "rewardNextWindow": {
+    "message": "Další okno $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Linie není vybrána"
+  },
+  "rewardLanesTitle": {
+    "message": "Linie, ve které získáváš"
+  },
+  "rewardLanesPick": {
+    "message": "Vyber linii, ve které chceš získávat"
+  },
+  "rewardLaneEquipped": {
+    "message": "Vybráno"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Linie vyvíjí pouze odznak, který už vlastníš. Bez něj sledování nic nepřináší."
   }
 }

@@ -1,5 +1,6 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type {
+  CampaignLaneChoice,
   CategorySelection,
   ClaimGuidance,
   CompatibilitySettings,
@@ -100,6 +101,12 @@ export type RewardView = {
   ineligibilityReason?: "insufficient_time";
   // Rewards that must be claimed before this one starts counting (Twitch).
   preconditionIds?: string[];
+  // A reward earned once per window: grants in so far, of how many (#904).
+  repeat?: { grantCount: number; times: number };
+  // When the next window opens, while this one has nothing more to earn.
+  nextWindowAt?: string;
+  // Sits on a lane of a track that is not equipped, so it is not earned.
+  laneUnequipped?: boolean;
 };
 export type CampaignLifecycleState = "upcoming" | "expired" | "finished";
 
@@ -135,6 +142,9 @@ export type CampaignTimeline = {
 export type CampaignView = {
   id: string;
   gameId: string;
+  // What to call a campaign whose gameId names no single game, such as a
+  // Twitch reward campaign that spans several categories under one brand.
+  brand?: string;
   title: string;
   status: DropCampaign["status"];
   lifecycle?: CampaignLifecycleState;
@@ -179,6 +189,8 @@ export type CampaignView = {
   tint: string;
   imageUrl?: string;
   rewards: RewardView[];
+  // The tracks whose lane the user picks, each with its lanes (#904).
+  laneChoices?: CampaignLaneChoice[];
   hasWatchRewards: boolean;
   hasSubscriptionRewards: boolean;
   farmingRejection?: Extract<CampaignFarmingEvaluation, { farmable: false }>;

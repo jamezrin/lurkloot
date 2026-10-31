@@ -67,6 +67,17 @@ function credit(
 }
 const T0 = Date.parse("2026-10-24T12:00:00.000Z");
 
+// Merging prunes attempts against the real clock (WATCH_STREAK_RETENTION_MS),
+// so every test runs at T0: without that, the fixtures age out of the
+// retention window a week after T0 and the merge tests start failing.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(T0);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 function channel(username: string, broadcastId = `b-${username}`): ChannelCandidate {
   return {
     platform: "twitch",

@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "Rentetan menonton $1 hari"
+  },
+  "rewardRepeatProgress": {
+    "message": "Hari $1 dari $2"
+  },
+  "rewardNextWindow": {
+    "message": "Jendela berikutnya $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Jalur tidak dipasang"
+  },
+  "rewardLanesTitle": {
+    "message": "Jalur yang sedang kamu dapatkan"
+  },
+  "rewardLanesPick": {
+    "message": "Pilih jalur untuk didapatkan"
+  },
+  "rewardLaneEquipped": {
+    "message": "Dipasang"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Satu jalur hanya mengevolusi lencana yang sudah kamu miliki. Tanpa lencana itu, menonton tidak menghasilkan apa-apa."
   }
 }

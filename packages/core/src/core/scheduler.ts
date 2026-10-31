@@ -17,7 +17,7 @@ import type {
   WatchSession,
   WatchSourceId,
 } from "@lurkloot/shared/models";
-import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
+import { campaignForWatching, campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
 import {
   campaignFilterMiss,
@@ -345,6 +345,9 @@ export async function chooseCampaignDecision(
     const reward = activeReward(campaign, settings);
     if (!reward) continue;
     campaignsChecked += 1;
+    // What channel lookups and checks see: a campaign that spans several
+    // categories keeps only the ones the settings allow (#904).
+    const watchCampaign = campaignForWatching(campaign, settings.platform[platform]);
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     signal?.throwIfAborted();
@@ -355,7 +358,7 @@ export async function chooseCampaignDecision(
       ? generalCandidatesByCategory.get(reusableDirectoryKey)
       : undefined;
     if (!listedCandidates) {
-      listedCandidates = await adapter.listCandidateChannels(campaign, { signal });
+      listedCandidates = await adapter.listCandidateChannels(watchCampaign, { signal });
       if (reusableDirectoryKey && listedCandidates.length > 0) {
         generalCandidatesByCategory.set(reusableDirectoryKey, listedCandidates);
       }
@@ -408,9 +411,9 @@ export async function chooseCampaignDecision(
     // Stalled channels are only validated once everything else has failed, so
     // the common case still costs exactly one selection pass.
     const channel =
-      (await firstValidCandidate(rank(preferred), campaign, adapter, signal, countCheck))
+      (await firstValidCandidate(rank(preferred), watchCampaign, adapter, signal, countCheck))
       ?? (skipped.length > 0
-        ? await firstValidCandidate(rank(skipped), campaign, adapter, signal, countCheck)
+        ? await firstValidCandidate(rank(skipped), watchCampaign, adapter, signal, countCheck)
         : undefined);
     if (channel) {
       return finish({
@@ -2640,14 +2643,17 @@ export function preserveClaimedRewards(
 ): DropCampaign[] {
   // A claim id lasts only while the platform keeps reporting it, and Twitch can
   // stop reporting a subscription reward's, so the claim key is matched first.
-  // State saved before claim keys existed still matches by claim id.
+  // State saved before claim keys existed still matches by claim id. A claim
+  // with a key is recorded under the key alone: a repeating reward keeps its
+  // claim id from one grant to the next, and only the key tells them apart.
   const keysOf = (reward: DropReward): string[] =>
     [reward.claimKey, reward.claimId].filter((key): key is string => Boolean(key));
   const previouslyClaimed = new Map<string, DropReward>();
   for (const campaign of previousCampaigns) {
     for (const reward of campaign.rewards) {
       if (reward.status !== "claimed") continue;
-      for (const key of keysOf(reward)) previouslyClaimed.set(key, reward);
+      const recordedUnder = reward.claimKey ? [reward.claimKey] : keysOf(reward);
+      for (const key of recordedUnder) previouslyClaimed.set(key, reward);
     }
   }
 
@@ -2837,7 +2843,11 @@ async function shouldKeepWatching(
   }
 
   const check = await adapter.checkChannel(previous.channel, {
-    campaign: previousCampaign,
+    // Narrowed to the categories the settings still allow, so a streamer who
+    // moves into a blocked one stops matching mid-watch (#904).
+    campaign: previousCampaign
+      ? campaignForWatching(previousCampaign, settings.platform[previous.platform])
+      : undefined,
     signal,
   });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;

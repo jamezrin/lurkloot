@@ -80,6 +80,21 @@ import { campaignSection } from "@lurkloot/shared/campaignFilters";
 export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction): GameItem[] {
   const discovered = new Map<string, GameItem>();
   campaigns.forEach((campaign, index) => {
+    // A campaign that spans several categories offers each real one, never
+    // its brand: only a real category can be selected, starred or blocked.
+    if (campaign.categories?.length) {
+      for (const category of campaign.categories) {
+        const id = category.id.trim().toLowerCase();
+        if (!discovered.has(id))
+          discovered.set(id, {
+            id,
+            name: category.name,
+            short: initials(category.name),
+            accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
+          });
+      }
+      return;
+    }
     const id = gameId(campaign);
     const existing = discovered.get(id);
     if (existing) {
@@ -94,8 +109,8 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
         ? { id, name: t("noCategory"), short: "–", accent: NO_CATEGORY_ACCENT }
         : {
             id,
-            name: campaign.gameName ?? t("unknownGame"),
-            short: initials(campaign.gameName ?? campaign.name),
+            name: campaign.gameName ?? campaign.brand ?? t("unknownGame"),
+            short: initials(campaign.gameName ?? campaign.brand ?? campaign.name),
             accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
             imageUrl: campaign.gameImageUrl,
           },
@@ -109,7 +124,8 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
 // renders in Games even once no campaign of it is running. Uncategorized
 // campaigns have nothing to star or block.
 function campaignCategory(campaign: DropCampaign): CategorySelection | undefined {
-  if (isUncategorizedCampaign(campaign)) return undefined;
+  // A campaign that spans several categories has no one game to star or block.
+  if (isUncategorizedCampaign(campaign) || campaign.categories) return undefined;
   const name = campaign.gameName ?? campaign.categoryId ?? campaign.name;
   return {
     id: campaign.categoryId ?? name,
@@ -120,7 +136,9 @@ function campaignCategory(campaign: DropCampaign): CategorySelection | undefined
 
 function gameId(campaign: DropCampaign): string {
   if (isUncategorizedCampaign(campaign)) return NO_CATEGORY_ID;
-  return (campaign.categoryId ?? campaign.gameName ?? campaign.name).trim().toLowerCase();
+  return (campaign.categoryId ?? campaign.gameName ?? campaign.brand ?? campaign.name)
+    .trim()
+    .toLowerCase();
 }
 
 export function fallbackGame(
@@ -129,9 +147,14 @@ export function fallbackGame(
   t: TFunction,
 ): GameItem {
   const id = "gameId" in campaign ? campaign.gameId : gameId(campaign);
-  const name = "title" in campaign ? t("dropsCampaign") : (campaign.gameName ?? t("dropsCampaign"));
+  const name =
+    "title" in campaign
+      ? (campaign.brand ?? t("dropsCampaign"))
+      : (campaign.gameName ?? campaign.brand ?? t("dropsCampaign"));
   const short =
-    "thumbnail" in campaign ? campaign.thumbnail : initials(campaign.gameName ?? campaign.name);
+    "thumbnail" in campaign
+      ? campaign.thumbnail
+      : initials(campaign.gameName ?? campaign.brand ?? campaign.name);
   return { id, name, short, accent: GAME_ACCENTS[Math.max(0, index) % GAME_ACCENTS.length] };
 }
 
@@ -276,12 +299,14 @@ export function campaignViewFromCampaign(
   const campaign = settings
     ? applySubscriptionMarks(source, settings.platform[source.platform].subscribedRewardMarks ?? [])
     : source;
+  const now = feasibility?.now ?? Date.now();
   const farmingBlockers = feasibility?.settings
     ? campaignFarmingBlockers(campaign, feasibility.settings, { now: feasibility.now })
     : [];
   return {
     id: campaign.id,
     gameId: gameId(campaign),
+    ...(campaign.brand ? { brand: campaign.brand } : {}),
     title: campaign.name,
     status: campaign.status,
     lifecycle: campaignLifecycleState(campaign),
@@ -327,7 +352,7 @@ export function campaignViewFromCampaign(
     channels: channelLinks(campaign),
     farmingChannel:
       session.campaignId === campaign.id ? channelViewFromSession(session) : undefined,
-    thumbnail: initials(campaign.gameName ?? campaign.name),
+    thumbnail: initials(campaign.gameName ?? campaign.brand ?? campaign.name),
     tint: CAMPAIGN_TINTS[index % CAMPAIGN_TINTS.length],
     imageUrl: campaign.gameImageUrl,
     rewards: campaign.rewards.map((reward, rewardIndex) => {
@@ -375,8 +400,14 @@ export function campaignViewFromCampaign(
         preconditionIds: reward.preconditionRewardIds?.length
           ? reward.preconditionRewardIds
           : undefined,
+        ...(reward.repeat ? { repeat: reward.repeat } : {}),
+        ...(reward.repeat && reward.availableFrom && Date.parse(reward.availableFrom) > now
+          ? { nextWindowAt: reward.availableFrom }
+          : {}),
+        ...(reward.lane && !isLaneEquipped(campaign, reward.lane) ? { laneUnequipped: true } : {}),
       };
     }),
+    ...(campaign.laneChoices?.length ? { laneChoices: campaign.laneChoices } : {}),
     hasWatchRewards: campaignHasWatchRewards(campaign),
     hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
     farmingRejection: farmingBlockers[0],
@@ -385,6 +416,19 @@ export function campaignViewFromCampaign(
       farmingBlockers[0] !== undefined
       && OUTSIDE_ACTION_REJECTION_CODES.has(farmingBlockers[0].code),
   };
+}
+
+// Whether the reward's lane is the one equipped on its track. Read from the
+// picker's own data, so the tile and the picker never disagree.
+function isLaneEquipped(
+  campaign: DropCampaign,
+  lane: NonNullable<DropCampaign["rewards"][number]["lane"]>,
+): boolean {
+  return Boolean(
+    campaign.laneChoices
+      ?.find((choice) => choice.track === lane.track)
+      ?.lanes.some((option) => option.lane === lane.lane && option.equipped),
+  );
 }
 
 function safeClaimGuidance(guidance: DropCampaign["claimGuidance"]): DropCampaign["claimGuidance"] {

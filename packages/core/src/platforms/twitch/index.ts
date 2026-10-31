@@ -54,6 +54,28 @@ import type {
   TwitchHeartbeatStrategy,
 } from "./heartbeat/types";
 import { createTwitchInventory } from "./inventory/factory";
+import {
+  farmableRewardCampaignIds,
+  isTwitchRewardGroupClaimAccepted,
+  KNOWN_REWARD_GROUP_STATUSES,
+  LISTING_FRESH_MS,
+  listedCampaignIds,
+  PROGRESS_FRESH_MS,
+  parseTwitchRewardCampaign,
+  rewardCampaignCategories,
+  rewardCampaignTracks,
+  rewardGroupProgress,
+  TWITCH_CHANNEL_CAMPAIGN_PROGRESS_QUERY,
+  TWITCH_DROPS_CAMPAIGN_QUERY,
+  TWITCH_REWARD_CAMPAIGNS_QUERY,
+  TWITCH_SET_TRACK_SELECTION_MUTATION,
+  TWITCH_TRACK_SELECTIONS_QUERY,
+  TwitchRewardCampaignCache,
+  type TwitchChannelCampaignProgress,
+  type TwitchDropsCampaign,
+  type TwitchRewardCampaignListing,
+  type TwitchRewardGroupSelf,
+} from "./rewardCampaigns";
 import type { TwitchInventoryCapability } from "./inventory/types";
 import { errorMessage } from "@lurkloot/shared/errors";
 
@@ -97,6 +119,12 @@ const STREAM_DOWN_HINT_TTL_MS = 10 * 60_000;
 // only matters for channels that also show up in a campaign's directory page.
 const FOLLOWED_CHANNELS_LIMIT = 100;
 const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
+// Directory reads per refresh to find a live channel whose drops tray reports a
+// reward campaign's progress (#904).
+const REWARD_PROGRESS_PROBE_LIMIT = 4;
+// Channel search for a campaign that earns in several categories (#904).
+const MULTI_CATEGORY_CANDIDATE_TARGET = 12;
+const MULTI_CATEGORY_DIRECTORY_LIMIT = 4;
 const GQL_BATCH_OPERATION_LIMIT = 20;
 const GQL_BATCH_CONCURRENCY = 2;
 // How long a discovery result stays usable when Twitch stops answering. Long
@@ -664,6 +692,9 @@ export class TwitchDiscoveryState {
   // self-contained value object. Not readonly only so setAuthenticatedUser can
   // swap it wholesale — see there for why replacing beats clearing in place.
   followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
+  // Reward campaigns (#904): replaced whole on an account switch, like the
+  // follow list, so a read in flight for the old account cannot write into it.
+  rewardCampaigns = new TwitchRewardCampaignCache();
   // When the Hermes playback topic last said each channel's stream ended
   // (#759). Lives here because the push outlives the per-tick adapter.
   private readonly streamDownAt = new Map<string, number>();
@@ -702,6 +733,7 @@ export class TwitchDiscoveryState {
       this.followedChannels = new StaleWhileRevalidateCache<string[]>(
         FOLLOWED_CHANNELS_CACHE_TTL_MS,
       );
+      this.rewardCampaigns = new TwitchRewardCampaignCache();
     }
     // Bumped on any identity value change, including the initial transition
     // from no known identity to a known user — unlike identityChanged above,
@@ -719,6 +751,10 @@ export class TwitchDiscoveryState {
     }
     this.authenticatedUserId = userId;
     return identityChanged;
+  }
+
+  currentUserId(): string | undefined {
+    return this.authenticatedUserId;
   }
 
   // Snapshot to capture before starting an asynchronous availability request
@@ -1283,6 +1319,356 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   private async discoverCampaignSnapshot(
+    options: AdapterOperationOptions = {},
+    farmedCampaignId?: string,
+    // The channel being watched for it, whose drops tray answers for a farmed
+    // reward campaign's progress.
+    watchedChannelId?: string,
+  ): Promise<DropCampaign[]> {
+    const campaigns = await this.discoverDropCampaigns(options, farmedCampaignId);
+    let rewardCampaigns: DropCampaign[];
+    try {
+      rewardCampaigns = await this.discoverRewardCampaigns(
+        options.signal,
+        farmedCampaignId,
+        watchedChannelId,
+      );
+    } catch (error) {
+      // The drop path has already proven the session, so a failure here is one
+      // route's, never the account's: it must not fail the refresh or reach
+      // auth health. The last reward campaigns stand in.
+      options.signal?.throwIfAborted();
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch reward campaign discovery failed; keeping the last reward campaigns: ${errorMessage(error)}`,
+        "twitch",
+      );
+      rewardCampaigns = this.discoveryState.rewardCampaigns.retainedCampaigns();
+    }
+    if (rewardCampaigns.length === 0) return campaigns;
+    // The reward path describes these campaigns fully; a drop source that also
+    // lists one must not add a second copy.
+    const rewardIds = new Set(rewardCampaigns.map((campaign) => campaign.id));
+    return [...campaigns.filter((campaign) => !rewardIds.has(campaign.id)), ...rewardCampaigns];
+  }
+
+  // Twitch reward campaigns (#904), farmed in the same queue as drops. Every
+  // read here is cached on its success and backed off on its failure, so a
+  // read that keeps failing costs one request per freshness window, not one
+  // per tick.
+  private async discoverRewardCampaigns(
+    signal: AbortSignal | undefined,
+    farmedCampaignId: string | undefined,
+    watchedChannelId: string | undefined,
+  ): Promise<DropCampaign[]> {
+    const cache = this.discoveryState.rewardCampaigns;
+    const userId = this.discoveryState.currentUserId();
+    if (!userId) return [];
+    let ids = cache.freshListing();
+    if (!ids) {
+      // A listing that failed recently keeps the last campaigns until it is
+      // due again.
+      if (cache.attemptedRecently("listing", LISTING_FRESH_MS)) return cache.retainedCampaigns();
+      cache.recordAttempt("listing");
+      ids = await this.listRewardCampaigns(cache, signal);
+      if (!ids) return cache.retainedCampaigns();
+    }
+    if (ids.length === 0) {
+      cache.retain([]);
+      return [];
+    }
+
+    const structures: TwitchDropsCampaign[] = [];
+    for (const id of ids) {
+      signal?.throwIfAborted();
+      const structure = await this.rewardCampaignStructure(cache, id, signal);
+      if (structure) structures.push(structure);
+    }
+    const equippedLanes = await this.equippedRewardLanes(
+      cache,
+      [...new Set(structures.flatMap(rewardCampaignTracks))],
+      signal,
+    );
+    const progress = await this.rewardCampaignProgress(
+      cache,
+      structures,
+      farmedCampaignId,
+      watchedChannelId,
+      signal,
+    );
+    for (const self of progress.values()) {
+      if (
+        self.status
+        && !KNOWN_REWARD_GROUP_STATUSES.has(self.status)
+        && cache.firstSeenStatus(self.status)
+      ) {
+        diagnostic(
+          this.emit,
+          "warn",
+          `Twitch reported reward group status ${self.status}, which LurkLoot does not know; groups in it are not farmed`,
+          "twitch",
+        );
+      }
+    }
+    const campaigns = structures
+      .map((campaign) => parseTwitchRewardCampaign({ campaign, progress, equippedLanes, userId }))
+      .filter((campaign): campaign is DropCampaign => Boolean(campaign));
+    cache.retain(campaigns);
+    return campaigns;
+  }
+
+  // The farmable reward campaign ids, or undefined when the listing failed.
+  private async listRewardCampaigns(
+    cache: TwitchRewardCampaignCache,
+    signal?: AbortSignal,
+  ): Promise<string[] | undefined> {
+    try {
+      const response = await this.gqlWithIntegrityRetry<{
+        rewardCampaignsAvailableToUser?: TwitchRewardCampaignListing[] | null;
+      }>(
+        "RewardCampaignsAvailable",
+        "",
+        {},
+        TWITCH_REWARD_CAMPAIGNS_QUERY,
+        undefined,
+        this.emit,
+        signal,
+      );
+      const ids = farmableRewardCampaignIds(response.data?.rewardCampaignsAvailableToUser ?? []);
+      cache.rememberListing(ids);
+      return ids;
+    } catch (error) {
+      signal?.throwIfAborted();
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch reward campaign listing failed; keeping the last reward campaigns: ${errorMessage(error)}`,
+        "twitch",
+      );
+      return undefined;
+    }
+  }
+
+  private async rewardCampaignStructure(
+    cache: TwitchRewardCampaignCache,
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<TwitchDropsCampaign | undefined> {
+    const fresh = cache.freshStructure(id);
+    if (fresh) return fresh;
+    const attempt = `structure:${id}`;
+    if (cache.attemptedRecently(attempt, LISTING_FRESH_MS)) return cache.lastStructure(id);
+    cache.recordAttempt(attempt);
+    try {
+      const response = await this.gqlWithIntegrityRetry<{
+        dropsCampaign?: TwitchDropsCampaign | null;
+      }>(
+        "RewardCampaignDetails",
+        "",
+        { id },
+        TWITCH_DROPS_CAMPAIGN_QUERY,
+        undefined,
+        this.emit,
+        signal,
+      );
+      const campaign = response.data?.dropsCampaign;
+      if (campaign?.id) {
+        cache.rememberStructure(id, campaign);
+        return campaign;
+      }
+      return cache.lastStructure(id);
+    } catch (error) {
+      signal?.throwIfAborted();
+      const last = cache.lastStructure(id);
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch reward campaign details for ${id} failed; ${last ? "reusing the last known details" : "leaving the campaign out of this refresh"}: ${errorMessage(error)}`,
+        "twitch",
+      );
+      return last;
+    }
+  }
+
+  // The lane equipped on each track. A failed read equips none, which leaves
+  // every lane unfarmed until the read is due again rather than farming one
+  // the user did not pick.
+  private async equippedRewardLanes(
+    cache: TwitchRewardCampaignCache,
+    tracks: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<Map<string, string>> {
+    if (tracks.length === 0) return new Map();
+    const fresh = cache.freshLanes(tracks);
+    if (fresh) return fresh;
+    const generation = cache.laneReadGeneration();
+    try {
+      const response = await this.gqlWithIntegrityRetry<{
+        trackSelections?: Array<{ track?: string; lane?: string | null }> | null;
+      }>(
+        "RewardTrackSelections",
+        "",
+        { tracks },
+        TWITCH_TRACK_SELECTIONS_QUERY,
+        undefined,
+        this.emit,
+        signal,
+      );
+      const equipped = new Map<string, string>();
+      for (const selection of response.data?.trackSelections ?? []) {
+        if (selection?.track && selection.lane) equipped.set(selection.track, selection.lane);
+      }
+      cache.rememberLanes(tracks, equipped, generation);
+      return equipped;
+    } catch (error) {
+      signal?.throwIfAborted();
+      // The last lanes read stand in while the read is retried shortly; with
+      // none, no lane is farmed until it answers.
+      const last = cache.lastLanes(tracks);
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch reward track selections failed; ${last ? "keeping the last known lanes" : "no lane is farmed"} until they are read again: ${errorMessage(error)}`,
+        "twitch",
+      );
+      const equipped = last ?? new Map<string, string>();
+      cache.rememberLanes(tracks, equipped, generation, true);
+      return equipped;
+    }
+  }
+
+  // The drops tray of one channel: every campaign running there, with progress.
+  private async channelCampaignProgress(
+    cache: TwitchRewardCampaignCache,
+    channelId: string,
+    signal?: AbortSignal,
+  ): Promise<{ progress: Map<string, TwitchRewardGroupSelf>; listed: Set<string> }> {
+    const response = await this.gqlWithIntegrityRetry<{
+      channelDropCampaignsProgress?: TwitchChannelCampaignProgress[] | null;
+    }>(
+      "RewardCampaignProgress",
+      "",
+      { channelID: channelId },
+      TWITCH_CHANNEL_CAMPAIGN_PROGRESS_QUERY,
+      undefined,
+      this.emit,
+      signal,
+    );
+    const campaigns = response.data?.channelDropCampaignsProgress ?? [];
+    const progress = rewardGroupProgress(campaigns);
+    cache.rememberProgress(progress);
+    return { progress, listed: listedCampaignIds(campaigns) };
+  }
+
+  // Progress for every reward group. Twitch reports it only in a channel's
+  // drops tray, so it is read from the watched channel for the farmed campaign
+  // and from a live channel in each other campaign's categories. A campaign is
+  // probed at most once per freshness window, whether or not its probe found
+  // it, so a campaign no tray lists costs nothing between windows. A group
+  // nobody answered for keeps its last known progress, or none, which leaves it
+  // unfarmed (parseTwitchRewardCampaign).
+  private async rewardCampaignProgress(
+    cache: TwitchRewardCampaignCache,
+    campaigns: readonly TwitchDropsCampaign[],
+    farmedCampaignId: string | undefined,
+    watchedChannelId: string | undefined,
+    signal?: AbortSignal,
+  ): Promise<Map<string, TwitchRewardGroupSelf>> {
+    const groupIdsOf = (campaign: TwitchDropsCampaign): string[] =>
+      (campaign.rewardGroups ?? []).map((group) => group.id).filter((id): id is string => !!id);
+    const progress = new Map<string, TwitchRewardGroupSelf>();
+    const listed = new Set<string>();
+    const read = async (channelId: string): Promise<void> => {
+      try {
+        const result = await this.channelCampaignProgress(cache, channelId, signal);
+        for (const [id, self] of result.progress) progress.set(id, self);
+        for (const id of result.listed) listed.add(id);
+      } catch (error) {
+        signal?.throwIfAborted();
+        diagnostic(
+          this.emit,
+          "warn",
+          `Twitch reward campaign progress for channel ${channelId} failed: ${errorMessage(error)}`,
+          "twitch",
+        );
+      }
+    };
+    const farmed = campaigns.find((campaign) => campaign.id === farmedCampaignId);
+    if (farmed && watchedChannelId) await read(watchedChannelId);
+
+    let probes = 0;
+    for (const campaign of campaigns) {
+      if (!campaign.id || listed.has(campaign.id)) continue;
+      const attempt = `probe:${campaign.id}`;
+      if (cache.attemptedRecently(attempt, PROGRESS_FRESH_MS)) continue;
+      // Recorded only once a probe actually runs for it: a campaign the probe
+      // limit skipped this refresh goes first on the next one, rather than
+      // being starved by a campaign that uses up the limit every time.
+      let probed = false;
+      for (const category of rewardCampaignCategories(campaign)) {
+        if (probes >= REWARD_PROGRESS_PROBE_LIMIT || listed.has(campaign.id)) break;
+        if (!probed) cache.recordAttempt(attempt);
+        probed = true;
+        probes += 1;
+        const channelId = await this.liveChannelInCategory(cache, category, signal);
+        if (channelId) await read(channelId);
+      }
+    }
+    for (const campaign of campaigns) {
+      for (const [id, self] of cache.knownProgress(groupIdsOf(campaign)))
+        if (!progress.has(id)) progress.set(id, self);
+    }
+    diagnostic(
+      this.emit,
+      "debug",
+      `Twitch reward campaign progress: ${campaigns.filter((campaign) => campaign.id && listed.has(campaign.id)).length}/${campaigns.length} campaigns listed by a drops tray this refresh (${probes} probe channels${farmed && watchedChannelId ? ", watched channel read" : ""})`,
+      "twitch",
+    );
+    return progress;
+  }
+
+  // The directory slug of a category, remembered on the discovery state.
+  private async categorySlug(
+    cache: TwitchRewardCampaignCache,
+    category: { id: string; name: string },
+    signal?: AbortSignal,
+  ): Promise<string> {
+    const known = cache.slug(category.id);
+    if (known) return known;
+    const game = { id: category.id, name: category.name };
+    const resolved = (await this.resolveGameSlugs([game], signal)).get(game);
+    if (resolved) cache.rememberSlug(category.id, resolved);
+    return resolved ?? twitchSlugFromName(category.name);
+  }
+
+  private async liveChannelInCategory(
+    cache: TwitchRewardCampaignCache,
+    category: { id: string; name: string },
+    signal?: AbortSignal,
+  ): Promise<string | undefined> {
+    try {
+      const directory = await this.fetchGameDirectory(
+        await this.categorySlug(cache, category, signal),
+        1,
+        signal,
+      );
+      return (directory.data?.game?.streams?.edges ?? [])
+        .map((edge) => edge.node?.broadcaster?.id)
+        .find((id): id is string => Boolean(id));
+    } catch (error) {
+      signal?.throwIfAborted();
+      diagnostic(
+        this.emit,
+        "warn",
+        `Twitch live-channel directory for ${category.name} failed: ${errorMessage(error)}`,
+        "twitch",
+      );
+      return undefined;
+    }
+  }
+
+  private async discoverDropCampaigns(
     { signal }: AdapterOperationOptions = {},
     // The campaign being farmed right now, if any. Its details always come from
     // a fresh request: it is the one campaign whose `self` block moves between
@@ -1856,7 +2242,11 @@ export class TwitchAdapter implements PlatformAdapter {
     session?: WatchSession,
     options: AdapterOperationOptions = {},
   ): Promise<DropCampaign[]> {
-    const campaigns = await this.discoverCampaignSnapshot(options, session?.campaignId);
+    const campaigns = await this.discoverCampaignSnapshot(
+      options,
+      session?.campaignId,
+      session?.status === "watching" ? session.channel?.channelId : undefined,
+    );
     if (!session?.channel || session.status !== "watching") return campaigns;
     return this.mergeCurrentSessionProgress(campaigns, session.channel, options.signal);
   }
@@ -2017,6 +2407,7 @@ export class TwitchAdapter implements PlatformAdapter {
   ): Promise<ChannelCandidate[]> {
     const aclCandidates = twitchCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
+    if (campaign.categories) return this.listMultiCategoryCandidates(campaign, signal);
     if (!campaign.slug && !campaign.categoryId) return [];
 
     const response = await this.fetchGameDirectory(campaign.slug ?? campaign.gameName, 25, signal);
@@ -2043,6 +2434,63 @@ export class TwitchAdapter implements PlatformAdapter {
         };
       })
       .filter((candidate): candidate is ChannelCandidate => Boolean(candidate));
+  }
+
+  // A campaign that earns in several categories (a reward campaign) reads their
+  // directories in order until it has enough channels, within a request cap:
+  // the first categories it lists can be all but empty of Drops-enabled streams
+  // while a later one has thousands. Each candidate keeps the category it came
+  // from, which is what its category match is checked against.
+  private async listMultiCategoryCandidates(
+    campaign: DropCampaign,
+    signal?: AbortSignal,
+  ): Promise<ChannelCandidate[]> {
+    const candidates: ChannelCandidate[] = [];
+    let reads = 0;
+    for (const category of campaign.categories ?? []) {
+      if (candidates.length >= MULTI_CATEGORY_CANDIDATE_TARGET) break;
+      if (reads >= MULTI_CATEGORY_DIRECTORY_LIMIT) break;
+      reads += 1;
+      let response: TwitchGqlResponse<TwitchDirectoryData>;
+      try {
+        response = await this.fetchGameDirectory(
+          await this.categorySlug(this.discoveryState.rewardCampaigns, category, signal),
+          MULTI_CATEGORY_CANDIDATE_TARGET,
+          signal,
+        );
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (authHealthFromError(error)) throw error;
+        diagnostic(
+          this.emit,
+          "warn",
+          `Twitch live-channel directory for ${category.name} failed: ${errorMessage(error)}`,
+          "twitch",
+        );
+        continue;
+      }
+      for (const edge of response.data?.game?.streams?.edges ?? []) {
+        const broadcaster = edge.node?.broadcaster;
+        if (!broadcaster?.login) continue;
+        candidates.push({
+          platform: "twitch",
+          username: broadcaster.login.toLowerCase(),
+          displayName: broadcaster.displayName ?? broadcaster.login,
+          profileImageUrl: broadcaster.profileImageURL,
+          url: `https://www.twitch.tv/${broadcaster.login}`,
+          campaignId: campaign.id,
+          categoryId: category.id,
+          categoryName: category.name,
+          isAclMatch: false,
+          viewerCount: edge.node?.viewersCount,
+          title: edge.node?.title,
+          live: true,
+          channelId: broadcaster.id,
+          broadcastId: edge.node?.id,
+        });
+      }
+    }
+    return candidates;
   }
 
   // Live channels the signed-in account follows, so the scheduler can send a
@@ -2157,7 +2605,7 @@ export class TwitchAdapter implements PlatformAdapter {
     // Without strict validation the matches map stays empty, so every candidate
     // reads `undefined` below and passes on live/category evidence alone.
     const availabilityResult =
-      campaign && this.options.strictCampaignAvailability
+      campaign && this.strictAvailabilityFor(campaign)
         ? await this.batchCampaignAvailability(
             checks.flatMap((check) =>
               check?.live
@@ -2686,7 +3134,7 @@ export class TwitchAdapter implements PlatformAdapter {
         && campaign
         && channelId
         && broadcastId
-        && this.options.strictCampaignAvailability
+        && this.strictAvailabilityFor(campaign)
           ? await this.checkCampaignAvailability(
               channelId,
               broadcastId,
@@ -2721,6 +3169,39 @@ export class TwitchAdapter implements PlatformAdapter {
       signal?.throwIfAborted();
       return this.checkChannelFromPage(channel, campaign, error, signal);
     }
+  }
+
+  async selectRewardLane(
+    campaign: DropCampaign,
+    track: string,
+    lane: string,
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<void> {
+    const known = campaign.laneChoices?.some(
+      (choice) => choice.track === track && choice.lanes.some((option) => option.lane === lane),
+    );
+    if (!known) throw new Error(`${campaign.name} has no lane ${lane} on track ${track}`);
+    const response = await this.gqlWithIntegrityRetry<{
+      setTrackSelection?: { error?: string | null } | null;
+    }>(
+      "SetRewardTrackSelection",
+      "",
+      { input: { track, lane } },
+      TWITCH_SET_TRACK_SELECTION_MUTATION,
+      undefined,
+      this.emit,
+      signal,
+    );
+    this.discoveryState.rewardCampaigns.forgetLanes();
+    const error = response.data?.setTrackSelection?.error;
+    if (error) throw new Error(`Twitch refused the lane: ${error}`);
+    if (!response.data?.setTrackSelection) throw new Error("Twitch did not answer the lane change");
+  }
+
+  // A sitewide campaign is never among the campaigns a channel advertises, so
+  // the per-channel lookup could only ever reject it.
+  private strictAvailabilityFor(campaign: DropCampaign): boolean {
+    return Boolean(this.options.strictCampaignAvailability) && !campaign.sitewide;
   }
 
   private async checkCampaignAvailability(
@@ -2980,7 +3461,7 @@ export class TwitchAdapter implements PlatformAdapter {
     };
 
     try {
-      return invalidateOnClaim(await this.runClaim(reward, signal));
+      return invalidateOnClaim(await this.runClaim(campaign, reward, signal));
     } catch (error) {
       const message = errorMessage(error);
       // Only integrity rejections are worth a refresh + retry; everything else
@@ -2998,7 +3479,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const rejectedToken = sentIntegrityToken(error);
       const retry = await refreshIntegrityForRetry(this.ensureIntegrity, rejectedToken, signal);
       if (retry.refreshed)
-        return invalidateOnClaim(await this.runClaim(reward, signal, retry.integrity));
+        return invalidateOnClaim(await this.runClaim(campaign, reward, signal, retry.integrity));
       throw new Error(
         `Twitch rejected the claim for ${reward.name} (${message}). Keep a logged-in twitch.tv tab open so the extension can capture a valid integrity token, then retry.`,
       );
@@ -3006,6 +3487,7 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   private async runClaim(
+    campaign: DropCampaign,
     reward: DropReward,
     signal?: AbortSignal,
     integrityOverride?: TwitchIntegrity,
@@ -3022,6 +3504,14 @@ export class TwitchAdapter implements PlatformAdapter {
     );
     const status = result.data?.claimDropRewards?.status;
     if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
+    // A reward-campaign group is claimed through the drops tray, which also
+    // counts a limited grant or an answer without a status as success (#904).
+    if (
+      campaign.sitewide
+      && result.data?.claimDropRewards
+      && isTwitchRewardGroupClaimAccepted(status)
+    )
+      return true;
     // Surface the rejection instead of a silent false so the cause is visible in
     // the event log (e.g. an unexpected status, integrity, or a stale id).
     throw new Error(`Twitch refused claim for ${reward.name}: status=${status ?? "unknown"}`);

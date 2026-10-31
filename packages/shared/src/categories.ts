@@ -1,4 +1,4 @@
-import type { CategorySelection, DropCampaign, PlatformSettings } from "./models";
+import type { CampaignCategory, CategorySelection, DropCampaign, PlatformSettings } from "./models";
 
 // Sentinel id for the synthetic "No category" selection. Some drop campaigns
 // carry no game/category at all (e.g. Kick's org-wide event drops, where the
@@ -15,25 +15,69 @@ export function twitchCategoryDropsUrl(slug: string): string {
 // A campaign has no category when it carries neither a category id nor a game
 // name. Such a campaign only ever matches the "No category" selection.
 export function isUncategorizedCampaign(
-  campaign: Pick<DropCampaign, "categoryId" | "gameName">,
+  campaign: Pick<DropCampaign, "categoryId" | "gameName" | "categories">,
 ): boolean {
-  return !campaign.categoryId && !campaign.gameName;
+  return !campaign.categoryId && !campaign.gameName && !campaign.categories?.length;
 }
 
-// Position of a campaign's category in a selection list, by id or name
-// (case-insensitive); -1 when absent. Campaigns sometimes carry only a gameName.
-// An uncategorized campaign matches only the synthetic NO_CATEGORY_ID entry.
-export function categoryListIndex(campaign: DropCampaign, list: CategorySelection[]): number {
-  if (list.length === 0) return -1;
-  const candidates = [campaign.categoryId, campaign.gameName]
+// Position of one category, given by id or name, in a selection list
+// (case-insensitive); -1 when absent.
+function selectionIndex(names: readonly (string | undefined)[], list: CategorySelection[]): number {
+  const candidates = names
     .filter((value): value is string => Boolean(value))
     .map((value) => value.toLowerCase());
-  if (candidates.length === 0) return list.findIndex((category) => category.id === NO_CATEGORY_ID);
   return list.findIndex(
     (category) =>
       candidates.includes(category.id.toLowerCase())
       || candidates.includes(category.name.toLowerCase()),
   );
+}
+
+// Position of a campaign's category in a selection list, by id or name
+// (case-insensitive); -1 when absent. Campaigns sometimes carry only a gameName.
+// An uncategorized campaign matches only the synthetic NO_CATEGORY_ID entry. A
+// campaign that spans several categories takes the best place any of them has.
+export function categoryListIndex(campaign: DropCampaign, list: CategorySelection[]): number {
+  if (list.length === 0) return -1;
+  if (campaign.categories?.length) {
+    const indexes = campaign.categories
+      .map((category) => selectionIndex([category.id, category.name], list))
+      .filter((index) => index !== -1);
+    return indexes.length > 0 ? Math.min(...indexes) : -1;
+  }
+  if (isUncategorizedCampaign(campaign))
+    return list.findIndex((category) => category.id === NO_CATEGORY_ID);
+  return selectionIndex([campaign.categoryId, campaign.gameName], list);
+}
+
+// The categories of a multi-category campaign that the user's settings let it
+// be watched in: not blocked, and selected when the mode is "only selected".
+// Undefined for a campaign with a single category.
+export function allowedCampaignCategories(
+  campaign: Pick<DropCampaign, "categories">,
+  platformSettings: Pick<PlatformSettings, "categoryMode" | "categories"> &
+    Partial<Pick<PlatformSettings, "blockedCategories">>,
+): CampaignCategory[] | undefined {
+  if (!campaign.categories?.length) return undefined;
+  const blocked = platformSettings.blockedCategories ?? [];
+  return campaign.categories.filter(
+    (category) =>
+      selectionIndex([category.id, category.name], blocked) === -1
+      && (platformSettings.categoryMode === "all"
+        || selectionIndex([category.id, category.name], platformSettings.categories) !== -1),
+  );
+}
+
+// The campaign as channel selection should see it: a multi-category campaign
+// keeps only the categories it may be watched in, so a blocked category is
+// never searched or accepted.
+export function campaignForWatching<T extends Pick<DropCampaign, "categories">>(
+  campaign: T,
+  platformSettings: Pick<PlatformSettings, "categoryMode" | "categories"> &
+    Partial<Pick<PlatformSettings, "blockedCategories">>,
+): T {
+  const allowed = allowedCampaignCategories(campaign, platformSettings);
+  return allowed ? { ...campaign, categories: allowed } : campaign;
 }
 
 // The single definition of "does this campaign's category pass the user's
@@ -51,6 +95,12 @@ export function campaignPassesCategoryFilter(
     Partial<Pick<PlatformSettings, "blockedCategories">>,
 ): boolean {
   if (isCampaignCategoryBlocked(campaign, platformSettings)) return false;
+  // A campaign that spans several categories passes only when one category is
+  // both allowed and unblocked: the one it can be watched in
+  // (campaignForWatching). Judging the two halves on different categories
+  // would pass a campaign no channel search could ever serve.
+  if (campaign.categories?.length)
+    return (allowedCampaignCategories(campaign, platformSettings)?.length ?? 0) > 0;
   if (platformSettings.categoryMode === "all") return true;
   return categoryListIndex(campaign, platformSettings.categories) !== -1;
 }
@@ -64,6 +114,12 @@ export function isCampaignCategoryBlocked(
 ): boolean {
   const blocked = platformSettings.blockedCategories;
   if (!blocked?.length) return false;
+  // A campaign that spans several categories is blocked only when every one of
+  // them is: it can still be watched in the rest (campaignForWatching).
+  if (campaign.categories?.length)
+    return campaign.categories.every(
+      (category) => selectionIndex([category.id, category.name], blocked) !== -1,
+    );
   return categoryListIndex(campaign, blocked) !== -1;
 }
 

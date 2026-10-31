@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "$1 günlük izleme serisi"
+  },
+  "rewardRepeatProgress": {
+    "message": "$2 günden $1. gün"
+  },
+  "rewardNextWindow": {
+    "message": "Sonraki pencere $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Hat donatılmamış"
+  },
+  "rewardLanesTitle": {
+    "message": "Kazandığın hat"
+  },
+  "rewardLanesPick": {
+    "message": "Kazanmak için bir hat seç"
+  },
+  "rewardLaneEquipped": {
+    "message": "Donatıldı"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Bir hat yalnızca zaten sahip olduğun rozeti evrimleştirir. Bu rozet olmadan izlemek hiçbir şey kazandırmaz."
   }
 }
