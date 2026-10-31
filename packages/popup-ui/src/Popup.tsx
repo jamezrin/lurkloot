@@ -34,7 +34,12 @@ import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/sha
 import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { subscriptionMarkKey } from "@lurkloot/shared/rewards";
-import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext } from "./context";
+import {
+  I18nContext,
+  PopupRuntimeContext,
+  RewardLaneContext,
+  SubscriptionMarkContext,
+} from "./context";
 import { createTranslator } from "./translator";
 import { WorkspaceRail, viewForPlatform, type PopupView } from "./shell";
 import { GamesPanel } from "./games";
@@ -1076,6 +1081,16 @@ export function PopupFrame({
       subscriptionMarkHandler.current(campaignId, rewardId),
     [],
   );
+  // The lane picker every reward campaign card reads from context (#904), held
+  // stable the same way.
+  const rewardLaneHandler = useRef<(campaignId: string, track: string, lane: string) => void>(
+    () => undefined,
+  );
+  const selectRewardLane = useMemo(
+    () => (campaignId: string, track: string, lane: string) =>
+      rewardLaneHandler.current(campaignId, track, lane),
+    [],
+  );
 
   if (!snapshot) {
     return (
@@ -1088,6 +1103,18 @@ export function PopupFrame({
   }
 
   const settings = mergeSettings(snapshot.settings);
+  rewardLaneHandler.current = (campaignId, track, lane) => {
+    const generation = snapshotRequestGenerationRef.current;
+    void adapter
+      .send<RuntimeSnapshot>({ type: "selectRewardLane", platform, campaignId, track, lane })
+      .then(
+        (next) => {
+          if (generation !== snapshotRequestGenerationRef.current || !next) return;
+          setSnapshot(snapshotPreservingLocalSettings(next));
+        },
+        () => undefined,
+      );
+  };
   subscriptionMarkHandler.current = (campaignId, rewardId) => {
     const key = subscriptionMarkKey(campaignId, rewardId);
     const next = new Set(settings.platform[platform].subscribedRewardMarks ?? []);
@@ -1337,6 +1364,7 @@ export function PopupFrame({
     <PopupRuntimeContext.Provider value={runtimeValue}>
       <I18nContext.Provider value={i18nValue}>
         <SubscriptionMarkContext.Provider value={toggleSubscriptionMark}>
+          <RewardLaneContext.Provider value={selectRewardLane}>
           <main
             dir={dir}
             data-platform={platform}
@@ -1785,6 +1813,7 @@ export function PopupFrame({
             </InertDuringTour>
             {tour?.overlay}
           </main>
+          </RewardLaneContext.Provider>
         </SubscriptionMarkContext.Provider>
       </I18nContext.Provider>
     </PopupRuntimeContext.Provider>

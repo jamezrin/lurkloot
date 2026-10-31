@@ -287,11 +287,11 @@ describe("multi-category campaigns (#904)", () => {
   it("passes a category filter through any one of its categories", () => {
     expect(categoryListIndex(campaign, [{ id: "x", name: "Other" }, chatting])).toBe(1);
     expect(
-      campaignPassesCategoryFilter(campaign, { categoryMode: "selected", categories: [pokemon] }),
+      campaignPassesCategoryFilter(campaign, { categoryMode: "include", categories: [pokemon] }),
     ).toBe(true);
     expect(
       campaignPassesCategoryFilter(campaign, {
-        categoryMode: "selected",
+        categoryMode: "include",
         categories: [{ id: "x", name: "Other" }],
       }),
     ).toBe(false);
@@ -310,7 +310,7 @@ describe("multi-category campaigns (#904)", () => {
       }).categories,
     ).toEqual([pokemon]);
     expect(
-      campaignForWatching(campaign, { categoryMode: "selected", categories: [chatting] })
+      campaignForWatching(campaign, { categoryMode: "include", categories: [chatting] })
         .categories,
     ).toEqual([chatting]);
   });

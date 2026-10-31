@@ -94,8 +94,8 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
         ? { id, name: t("noCategory"), short: "–", accent: NO_CATEGORY_ACCENT }
         : {
             id,
-            name: campaign.gameName ?? t("unknownGame"),
-            short: initials(campaign.gameName ?? campaign.name),
+            name: campaign.gameName ?? campaign.brand ?? t("unknownGame"),
+            short: initials(campaign.gameName ?? campaign.brand ?? campaign.name),
             accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
             imageUrl: campaign.gameImageUrl,
           },
@@ -109,7 +109,8 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
 // renders in Games even once no campaign of it is running. Uncategorized
 // campaigns have nothing to star or block.
 function campaignCategory(campaign: DropCampaign): CategorySelection | undefined {
-  if (isUncategorizedCampaign(campaign)) return undefined;
+  // A campaign that spans several categories has no one game to star or block.
+  if (isUncategorizedCampaign(campaign) || campaign.categories) return undefined;
   const name = campaign.gameName ?? campaign.categoryId ?? campaign.name;
   return {
     id: campaign.categoryId ?? name,
@@ -120,7 +121,9 @@ function campaignCategory(campaign: DropCampaign): CategorySelection | undefined
 
 function gameId(campaign: DropCampaign): string {
   if (isUncategorizedCampaign(campaign)) return NO_CATEGORY_ID;
-  return (campaign.categoryId ?? campaign.gameName ?? campaign.name).trim().toLowerCase();
+  return (campaign.categoryId ?? campaign.gameName ?? campaign.brand ?? campaign.name)
+    .trim()
+    .toLowerCase();
 }
 
 export function fallbackGame(
@@ -129,9 +132,14 @@ export function fallbackGame(
   t: TFunction,
 ): GameItem {
   const id = "gameId" in campaign ? campaign.gameId : gameId(campaign);
-  const name = "title" in campaign ? t("dropsCampaign") : (campaign.gameName ?? t("dropsCampaign"));
+  const name =
+    "title" in campaign
+      ? t("dropsCampaign")
+      : (campaign.gameName ?? campaign.brand ?? t("dropsCampaign"));
   const short =
-    "thumbnail" in campaign ? campaign.thumbnail : initials(campaign.gameName ?? campaign.name);
+    "thumbnail" in campaign
+      ? campaign.thumbnail
+      : initials(campaign.gameName ?? campaign.brand ?? campaign.name);
   return { id, name, short, accent: GAME_ACCENTS[Math.max(0, index) % GAME_ACCENTS.length] };
 }
 
@@ -276,6 +284,7 @@ export function campaignViewFromCampaign(
   const campaign = settings
     ? applySubscriptionMarks(source, settings.platform[source.platform].subscribedRewardMarks ?? [])
     : source;
+  const now = feasibility?.now ?? Date.now();
   const farmingBlockers = feasibility?.settings
     ? campaignFarmingBlockers(campaign, feasibility.settings, { now: feasibility.now })
     : [];
@@ -327,7 +336,7 @@ export function campaignViewFromCampaign(
     channels: channelLinks(campaign),
     farmingChannel:
       session.campaignId === campaign.id ? channelViewFromSession(session) : undefined,
-    thumbnail: initials(campaign.gameName ?? campaign.name),
+    thumbnail: initials(campaign.gameName ?? campaign.brand ?? campaign.name),
     tint: CAMPAIGN_TINTS[index % CAMPAIGN_TINTS.length],
     imageUrl: campaign.gameImageUrl,
     rewards: campaign.rewards.map((reward, rewardIndex) => {
@@ -375,8 +384,14 @@ export function campaignViewFromCampaign(
         preconditionIds: reward.preconditionRewardIds?.length
           ? reward.preconditionRewardIds
           : undefined,
+        ...(reward.repeat ? { repeat: reward.repeat } : {}),
+        ...(reward.repeat && reward.availableFrom && Date.parse(reward.availableFrom) > now
+          ? { nextWindowAt: reward.availableFrom }
+          : {}),
+        ...(reward.lane && requirement === "action" ? { laneUnequipped: true } : {}),
       };
     }),
+    ...(campaign.laneChoices?.length ? { laneChoices: campaign.laneChoices } : {}),
     hasWatchRewards: campaignHasWatchRewards(campaign),
     hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
     farmingRejection: farmingBlockers[0],

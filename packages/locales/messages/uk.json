@@ -2377,5 +2377,23 @@
   },
   "kickStreakDays": {
     "message": "Серія перегляду: $1 дн."
+  },
+  "rewardRepeatProgress": {
+    "message": "День $1 з $2"
+  },
+  "rewardNextWindow": {
+    "message": "Наступне вікно $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Лінію не обрано"
+  },
+  "rewardLanesTitle": {
+    "message": "Лінія, яку ви заробляєте"
+  },
+  "rewardLanesPick": {
+    "message": "Оберіть лінію для заробітку"
+  },
+  "rewardLaneEquipped": {
+    "message": "Обрано"
   }
 }

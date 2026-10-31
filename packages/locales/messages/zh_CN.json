@@ -2377,5 +2377,23 @@
   },
   "kickStreakDays": {
     "message": "连续观看 $1 天"
+  },
+  "rewardRepeatProgress": {
+    "message": "第 $1 天，共 $2 天"
+  },
+  "rewardNextWindow": {
+    "message": "下一个时段 $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "未装备该线路"
+  },
+  "rewardLanesTitle": {
+    "message": "正在获取的线路"
+  },
+  "rewardLanesPick": {
+    "message": "选择要获取的线路"
+  },
+  "rewardLaneEquipped": {
+    "message": "已装备"
   }
 }

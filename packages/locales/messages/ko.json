@@ -2377,5 +2377,23 @@
   },
   "kickStreakDays": {
     "message": "$1일 연속 시청"
+  },
+  "rewardRepeatProgress": {
+    "message": "$2일 중 $1일차"
+  },
+  "rewardNextWindow": {
+    "message": "다음 기간 $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "라인 미장착"
+  },
+  "rewardLanesTitle": {
+    "message": "획득 중인 라인"
+  },
+  "rewardLanesPick": {
+    "message": "획득할 라인을 선택하세요"
+  },
+  "rewardLaneEquipped": {
+    "message": "장착됨"
   }
 }

@@ -2377,5 +2377,23 @@
   },
   "kickStreakDays": {
     "message": "Серия просмотров: $1 дн."
+  },
+  "rewardRepeatProgress": {
+    "message": "День $1 из $2"
+  },
+  "rewardNextWindow": {
+    "message": "Следующее окно $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Линия не выбрана"
+  },
+  "rewardLanesTitle": {
+    "message": "Линия, которую вы зарабатываете"
+  },
+  "rewardLanesPick": {
+    "message": "Выберите линию для получения"
+  },
+  "rewardLaneEquipped": {
+    "message": "Выбрана"
   }
 }

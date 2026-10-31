@@ -21,7 +21,13 @@ import {
   Users,
 } from "lucide-react";
 import type { CategorySelection, RewardFilter, RewardKind } from "@lurkloot/shared/models";
-import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext, useT } from "./context";
+import {
+  I18nContext,
+  PopupRuntimeContext,
+  RewardLaneContext,
+  SubscriptionMarkContext,
+  useT,
+} from "./context";
 import {
   formatCountdown,
   formatDateTime,
@@ -691,6 +697,9 @@ export function CampaignCard({
                 ) : null}
                 {rankReason ? <Fact label={t("campaignFactWhyRank")} value={rankReason} /> : null}
               </div>
+              {campaign.laneChoices && !finished ? (
+                <LanePicker campaignId={campaign.id} choices={campaign.laneChoices} />
+              ) : null}
               {claimGuidance ? (
                 <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
                   <div className="flex items-center gap-1.5 text-[11px] font-medium">
@@ -1596,6 +1605,7 @@ function RewardTile({
             </span>
             <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
           </div>
+          <RewardWindowLine reward={reward} />
           {lost ? (
             <div className="mt-1 text-[10px] font-semibold leading-tight text-amber-600 dark:text-amber-400">
               {t("rewardMissed")}
@@ -1633,9 +1643,88 @@ function RewardTile({
         </div>
       ) : (
         <div className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
-          {t("actionRequired")}
+          {reward.laneUnequipped ? t("rewardLaneNotEquipped") : t("actionRequired")}
         </div>
       )}
+    </div>
+  );
+}
+
+// A reward earned once per window (#904): which window it is on, and when the
+// next one opens while this one has nothing more to earn.
+function RewardWindowLine({ reward }: { reward: RewardView }) {
+  const t = useT();
+  const { locale } = React.useContext(I18nContext);
+  if (!reward.repeat) return null;
+  const day = Math.min(reward.repeat.grantCount + 1, reward.repeat.times);
+  return (
+    <div
+      data-reward-window
+      className="mt-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400"
+    >
+      <span className="tabular">
+        {t("rewardRepeatProgress", [String(day), String(reward.repeat.times)])}
+      </span>
+      {reward.nextWindowAt ? (
+        <Tip label={formatDateTime(reward.nextWindowAt, locale)}>
+          <div className="font-medium">
+            {t("rewardNextWindow", formatRelative(reward.nextWindowAt, t))}
+          </div>
+        </Tip>
+      ) : null}
+    </div>
+  );
+}
+
+// The lanes of a reward campaign's tracks (#904). Only the equipped lane is
+// earned; picking another equips it on the platform, as its own picker does.
+function LanePicker({
+  campaignId,
+  choices,
+}: {
+  campaignId: string;
+  choices: NonNullable<CampaignView["laneChoices"]>;
+}) {
+  const t = useT();
+  const selectLane = React.useContext(RewardLaneContext);
+  if (!selectLane) return null;
+  return (
+    <div data-lane-picker className="space-y-1.5">
+      {choices.map((choice) => (
+        <div key={choice.track}>
+          <div className="mb-1 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+            {choice.lanes.some((lane) => lane.equipped)
+              ? t("rewardLanesTitle")
+              : t("rewardLanesPick")}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {choice.lanes.map((lane) => (
+              <button
+                key={lane.lane}
+                type="button"
+                data-lane={lane.lane}
+                aria-pressed={lane.equipped}
+                disabled={lane.equipped}
+                onClick={() => selectLane(campaignId, choice.track, lane.lane)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+                  lane.equipped
+                    ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-text)]"
+                    : "border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600",
+                )}
+              >
+                {lane.imageUrl ? (
+                  <img src={lane.imageUrl} alt="" className="h-4 w-4 object-contain" />
+                ) : null}
+                <span>{lane.name}</span>
+                {lane.equipped ? (
+                  <span className="text-[10px] opacity-80">{t("rewardLaneEquipped")}</span>
+                ) : null}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

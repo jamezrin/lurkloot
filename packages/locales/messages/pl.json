@@ -2377,5 +2377,23 @@
   },
   "kickStreakDays": {
     "message": "$1-dniowa seria oglądania"
+  },
+  "rewardRepeatProgress": {
+    "message": "Dzień $1 z $2"
+  },
+  "rewardNextWindow": {
+    "message": "Następne okno $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Linia nie jest wybrana"
+  },
+  "rewardLanesTitle": {
+    "message": "Linia, którą zdobywasz"
+  },
+  "rewardLanesPick": {
+    "message": "Wybierz linię do zdobywania"
+  },
+  "rewardLaneEquipped": {
+    "message": "Wybrana"
   }
 }

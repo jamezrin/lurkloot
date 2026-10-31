@@ -2377,5 +2377,23 @@
   },
   "kickStreakDays": {
     "message": "سلسلة مشاهدة لمدة $1 يوم"
+  },
+  "rewardRepeatProgress": {
+    "message": "اليوم $1 من $2"
+  },
+  "rewardNextWindow": {
+    "message": "الفترة التالية $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "المسار غير مفعّل"
+  },
+  "rewardLanesTitle": {
+    "message": "المسار الذي تكسب فيه"
+  },
+  "rewardLanesPick": {
+    "message": "اختر مسارًا لتكسب فيه"
+  },
+  "rewardLaneEquipped": {
+    "message": "مفعّل"
   }
 }
