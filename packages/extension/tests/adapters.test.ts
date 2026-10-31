@@ -6373,6 +6373,33 @@ describe("TwitchAdapter", () => {
     );
   });
 
+  // Twitch answers the claim mutation for an unlinked campaign with a success
+  // status but grants nothing, so the drop stays unclaimed and every fresh
+  // inventory (each re-enable) would claim and report it again.
+  it("reports a reward of an unlinked campaign as not claim-ready", () => {
+    const adapter = twitchAdapter(
+      jsonFetcher(() => {
+        throw new Error("unused");
+      }),
+      vi.fn(async () => true),
+    );
+    const reward = {
+      id: "drop",
+      name: "Reward",
+      requiredMinutes: 60,
+      watchedMinutes: 60,
+      status: "claimable",
+      claimId: "instance-id",
+    } as DropReward;
+
+    expect(
+      adapter.isClaimReady(reward, { id: "campaign", accountLinked: false } as DropCampaign),
+    ).toBe(false);
+    expect(
+      adapter.isClaimReady(reward, { id: "campaign", accountLinked: true } as DropCampaign),
+    ).toBe(true);
+  });
+
   it("does not call Twitch or ensure integrity, and reports not claim-ready, when the drop-instance id is missing", async () => {
     const fetcher = jsonFetcher(() => {
       throw new Error("should not fetch without a claim id");
@@ -6387,8 +6414,12 @@ describe("TwitchAdapter", () => {
       status: "claimable",
     } as DropReward;
 
-    expect(adapter.isClaimReady(reward)).toBe(false);
-    expect(adapter.isClaimReady({ ...reward, claimId: "instance-id" })).toBe(true);
+    expect(adapter.isClaimReady(reward, { id: "campaign" } as DropCampaign)).toBe(false);
+    expect(
+      adapter.isClaimReady({ ...reward, claimId: "instance-id" }, {
+        id: "campaign",
+      } as DropCampaign),
+    ).toBe(true);
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(
       false,
     );
@@ -6532,7 +6563,7 @@ describe("TwitchAdapter", () => {
       isCurrentReward: true,
       claimId: "user-id#campaign#drop",
     });
-    expect(adapter.isClaimReady(progress[0].rewards[0])).toBe(true);
+    expect(adapter.isClaimReady(progress[0].rewards[0], progress[0])).toBe(true);
   });
 
   it("searches categories via inline GQL and maps id/name/box art", async () => {

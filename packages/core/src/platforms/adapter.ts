@@ -123,8 +123,10 @@ export interface PlatformAdapter {
   ): Promise<boolean>;
   // Whether a "claimable" reward can actually be claimed right now. Twitch only
   // exposes the real drop-instance id once it releases the claim, so auto-claim
-  // must defer until then instead of POSTing a value Twitch will reject.
-  isClaimReady?(reward: DropReward): boolean;
+  // must defer until then instead of POSTing a value Twitch will reject. Twitch
+  // also defers while the campaign's game account is unlinked: it answers that
+  // claim with a success status but grants nothing.
+  isClaimReady?(reward: DropReward, campaign: DropCampaign): boolean;
   claimChannelPoints?(
     channel: ChannelCandidate,
     options?: ChannelPointsClaimOptions,
