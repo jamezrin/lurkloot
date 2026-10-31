@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Sebelumnya"
   },
+  "activitySessionEmpty": {
+    "message": "Belum ada yang didapat. Hadiah dan poin akan muncul di sini saat didapatkan."
+  },
   "activitySessionSummary": {
     "message": "$1 poin · $2 hadiah"
   },

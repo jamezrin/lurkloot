@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "이전"
   },
+  "activitySessionEmpty": {
+    "message": "아직 획득한 것이 없습니다. 보상과 포인트는 획득하는 대로 여기에 표시됩니다."
+  },
   "activitySessionSummary": {
     "message": "$1 포인트 · 보상 $2개"
   },

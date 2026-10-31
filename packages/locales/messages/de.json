@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Früher"
   },
+  "activitySessionEmpty": {
+    "message": "Noch nichts erhalten. Belohnungen und Punkte erscheinen hier, sobald sie eintreffen."
+  },
   "activitySessionSummary": {
     "message": "$1 Punkte · $2 Belohnungen"
   },

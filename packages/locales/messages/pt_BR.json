@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Anteriores"
   },
+  "activitySessionEmpty": {
+    "message": "Nada obtido ainda. Recompensas e pontos aparecem aqui conforme forem chegando."
+  },
   "activitySessionSummary": {
     "message": "$1 pontos · $2 recompensas"
   },

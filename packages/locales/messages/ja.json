@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "それ以前"
   },
+  "activitySessionEmpty": {
+    "message": "まだ何も獲得していません。報酬とポイントは獲得すると、ここに表示されます。"
+  },
   "activitySessionSummary": {
     "message": "$1 ポイント · 報酬 $2 件"
   },

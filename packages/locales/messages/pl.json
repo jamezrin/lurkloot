@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Wcześniej"
   },
+  "activitySessionEmpty": {
+    "message": "Nic jeszcze nie zdobyto. Nagrody i punkty pojawią się tutaj w miarę ich zdobywania."
+  },
   "activitySessionSummary": {
     "message": "$1 pkt · $2 nagr."
   },

@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Раньше"
   },
+  "activitySessionEmpty": {
+    "message": "Пока ничего не получено. Награды и баллы появляются здесь по мере поступления."
+  },
   "activitySessionSummary": {
     "message": "Баллы: $1 · Награды: $2"
   },

@@ -556,6 +556,32 @@ describe("activity log view", () => {
       expect(open.querySelector('[data-activity-status-row="status"]')).not.toBeNull();
     });
 
+    it("says so when the current session has nothing in it yet", () => {
+      const { container } = mount({
+        showDiagnostics: false,
+        sessions: [{ ...openSession, tallies: {}, rewardCounts: {} }],
+        activityEvents: [],
+      });
+      const open = container.querySelector('[data-activity-session="open"]')!;
+
+      expect(open.querySelector("[data-activity-session-empty]")?.textContent).toBe(
+        "activitySessionEmpty",
+      );
+      expect(open.textContent).not.toContain("activitySectionRewards");
+    });
+
+    it("lists each day under its own heading", () => {
+      const { container } = mountSessions();
+      const days = [...container.querySelectorAll("[data-activity-day]")].map((section) =>
+        section.getAttribute("data-activity-day"),
+      );
+
+      expect(days).toHaveLength(2);
+      expect(
+        container.querySelector(`[data-activity-day="${days[1]}"] [data-activity-session="past"]`),
+      ).not.toBeNull();
+    });
+
     it("folds a past session to one line and opens it on click", () => {
       const { container } = mountSessions();
       const past = container.querySelector('[data-activity-session="past"]')!;

@@ -549,7 +549,13 @@ export type TimelineBlock =
       rewards: ActivityHistoryRecord[];
       status: ActivityHistoryRecord[];
     }
-  | { type: "earlier"; rewards: ActivityHistoryRecord[]; status: ActivityHistoryRecord[] };
+  | {
+      type: "earlier";
+      // Rows stored before sessions existed, one block per local day.
+      day: string;
+      rewards: ActivityHistoryRecord[];
+      status: ActivityHistoryRecord[];
+    };
 
 function localDay(at: string): string {
   const date = new Date(at);
@@ -579,11 +585,17 @@ export function buildActivityTimeline(
     });
   }
   const outsideBlocks = new Map<string, Extract<TimelineBlock, { type: "outside" }>>();
-  const earlier: Extract<TimelineBlock, { type: "earlier" }> = {
-    type: "earlier",
-    rewards: [],
-    status: [],
-  };
+  const earlierBlocks = new Map<string, Extract<TimelineBlock, { type: "earlier" }>>();
+
+  function earlier(at: string) {
+    const day = localDay(at);
+    let block = earlierBlocks.get(day);
+    if (!block) {
+      block = { type: "earlier", day, rewards: [], status: [] };
+      earlierBlocks.set(day, block);
+    }
+    return block;
+  }
   const earliestStart = Math.min(
     ...[...sessionBlocks.values()].map((block) => Date.parse(block.summary.startedAt)),
   );
@@ -643,9 +655,9 @@ export function buildActivityTimeline(
     } else if (!event.platform) {
       block =
         sessionContaining(event.at)
-        ?? (Date.parse(event.at) < earliestStart ? earlier : outside(event.at));
+        ?? (Date.parse(event.at) < earliestStart ? earlier(event.at) : outside(event.at));
     } else {
-      block = earlier;
+      block = earlier(event.at);
     }
     (isRewardEvent(event) ? block.rewards : block.status).push(event);
   }
@@ -666,13 +678,32 @@ export function buildActivityTimeline(
         at: block.summary.endedAt ? Date.parse(block.summary.endedAt) : now,
         block,
       })),
-    ...[...outsideBlocks.values()].map((block) => ({
+    ...[...outsideBlocks.values(), ...earlierBlocks.values()].map((block) => ({
       at: latest([...block.rewards, ...block.status]),
       block,
     })),
   ];
   ordered.sort((left, right) => right.at - left.at);
-  const blocks = ordered.map((entry) => entry.block);
-  if (earlier.rewards.length > 0 || earlier.status.length > 0) blocks.push(earlier);
-  return blocks;
+  return ordered.map((entry) => entry.block);
+}
+
+// The local day a block is listed under: a session under the day it started,
+// so its header can show just the times.
+export function timelineBlockDay(block: TimelineBlock): string {
+  return block.type === "session" ? localDay(block.summary.startedAt) : block.day;
+}
+
+// The Activity view's day sections, newest day first, each keeping the
+// timeline's newest-first block order.
+export function groupTimelineByDay(
+  blocks: readonly TimelineBlock[],
+): Array<{ day: string; blocks: TimelineBlock[] }> {
+  const days = new Map<string, TimelineBlock[]>();
+  for (const block of blocks) {
+    const day = timelineBlockDay(block);
+    days.set(day, [...(days.get(day) ?? []), block]);
+  }
+  return [...days.entries()]
+    .sort(([left], [right]) => right.localeCompare(left))
+    .map(([day, dayBlocks]) => ({ day, blocks: dayBlocks }));
 }

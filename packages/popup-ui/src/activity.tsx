@@ -111,6 +111,8 @@ export function ActivityLog({
   const visible = showDiagnostics ? diagnosticsForPlatform : forPlatform;
   const trimmedSearchQuery = searchQuery.trim();
   const errorCount = visible.filter((event) => event.level === "error").length;
+  // The session timeline draws its own cards, so it sits without the list's frame.
+  const showTimeline = !showDiagnostics && (visible.length > 0 || sessions.length > 0);
   const [copied, setCopied] = useState<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
   const [exported, setExported] = useState<number | null>(null);
@@ -281,9 +283,13 @@ export function ActivityLog({
       ) : null}
       <div
         data-tour="activity-list"
-        className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50"
+        className={
+          showTimeline
+            ? undefined
+            : "overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50"
+        }
       >
-        {!showDiagnostics && (visible.length > 0 || sessions.length > 0) ? (
+        {showTimeline ? (
           <ActivitySessionTimeline
             sessions={sessions}
             events={visible}

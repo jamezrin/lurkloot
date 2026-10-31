@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "पहले"
   },
+  "activitySessionEmpty": {
+    "message": "अभी तक कुछ भी नहीं मिला है। रिवॉर्ड और पॉइंट्स मिलते ही यहाँ दिखेंगे।"
+  },
   "activitySessionSummary": {
     "message": "$1 पॉइंट्स · $2 रिवॉर्ड"
   },

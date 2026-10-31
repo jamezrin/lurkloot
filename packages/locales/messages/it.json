@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Precedenti"
   },
+  "activitySessionEmpty": {
+    "message": "Nessuna ricompensa ottenuta per ora. Ricompense e punti compariranno qui man mano che arrivano."
+  },
   "activitySessionSummary": {
     "message": "$1 punti · $2 ricompense"
   },

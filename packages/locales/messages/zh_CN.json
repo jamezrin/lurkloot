@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "更早"
   },
+  "activitySessionEmpty": {
+    "message": "尚未获得任何内容。奖励和点数会在获得后显示在这里。"
+  },
   "activitySessionSummary": {
     "message": "$1 点数 · $2 项奖励"
   },

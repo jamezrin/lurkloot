@@ -4,11 +4,16 @@ import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { FarmingSessionSummary, TallyEntry } from "@lurkloot/shared/farmingSessions";
 import type { Platform } from "@lurkloot/shared/models";
 import { EVENT_LEVEL_COLOR } from "./constants";
-import { PopupRuntimeContext, useT } from "./context";
+import { I18nContext, PopupRuntimeContext, useT } from "./context";
 import { formatEventTime } from "./format";
 import { openHttpsLink } from "./links";
 import { ImageWithFallback, Pill } from "./primitives";
-import { buildActivityTimeline, formatActivityEvent, type TimelineBlock } from "./activity.logic";
+import {
+  buildActivityTimeline,
+  formatActivityEvent,
+  groupTimelineByDay,
+  type TimelineBlock,
+} from "./activity.logic";
 import { buildRewardView, type RewardView } from "./activityRewards";
 import type { TFunction } from "./types";
 
@@ -58,13 +63,6 @@ function formatClock(at: string): string {
 
 function formatDay(at: string): string {
   return new Date(at).toLocaleDateString([], { month: "short", day: "numeric" });
-}
-
-function sessionRange(summary: FarmingSessionSummary): string {
-  const start = `${formatDay(summary.startedAt)} ${formatClock(summary.startedAt)}`;
-  if (!summary.endedAt) return start;
-  const sameDay = formatDay(summary.startedAt) === formatDay(summary.endedAt);
-  return `${start} – ${sameDay ? "" : `${formatDay(summary.endedAt)} `}${formatClock(summary.endedAt)}`;
 }
 
 function pointsTotal(summary: FarmingSessionSummary): number {
@@ -177,7 +175,7 @@ function RewardRow({ event }: { event: ActivityHistoryRecord }) {
   return (
     <li
       data-activity-reward-layout={view.layout}
-      className="flex items-center gap-2 rounded-lg bg-zinc-50/80 px-2 py-1.5 text-[11px] leading-snug dark:bg-zinc-900/60"
+      className="flex items-center gap-2 py-1 text-[11px] leading-snug"
     >
       <RewardArt view={view} />
       <div className="min-w-0 flex-1">
@@ -295,13 +293,22 @@ function BlockBody({ block, summary }: { block: TimelineBlock; summary?: Farming
   const tallies = summary
     ? Object.values(summary.tallies).sort((left, right) => right.total - left.total)
     : [];
+  const empty = block.rewards.length === 0 && tallies.length === 0;
   return (
     <>
-      {summary ? <Totals summary={summary} rewards={block.rewards.length} /> : null}
+      {summary && !empty ? <Totals summary={summary} rewards={block.rewards.length} /> : null}
+      {empty ? (
+        <p
+          data-activity-session-empty
+          className="py-1 text-[11px] text-zinc-500 dark:text-zinc-400"
+        >
+          {t("activitySessionEmpty")}
+        </p>
+      ) : null}
       {block.rewards.length > 0 ? (
         <>
           <SectionLabel>{t("activitySectionRewards")}</SectionLabel>
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {block.rewards.map((event) => (
               <RewardRow key={event.id} event={event} />
             ))}
@@ -323,29 +330,33 @@ function BlockBody({ block, summary }: { block: TimelineBlock; summary?: Farming
   );
 }
 
+const BLOCK_CARD = "rounded-xl bg-zinc-50/80 px-2.5 py-2 dark:bg-zinc-900/60";
+
+// A session's times: the day is the section it is listed under, so only an
+// end on a later day names that day.
+function sessionTimes(summary: FarmingSessionSummary): string {
+  const start = formatClock(summary.startedAt);
+  if (!summary.endedAt) return start;
+  const sameDay = formatDay(summary.startedAt) === formatDay(summary.endedAt);
+  return `${start} – ${sameDay ? "" : `${formatDay(summary.endedAt)} `}${formatClock(summary.endedAt)}`;
+}
+
 function SessionBlock({ block }: { block: Extract<TimelineBlock, { type: "session" }> }) {
   const t = useT();
   const [expanded, setExpanded] = useState(block.open);
   const Chevron = expanded ? ChevronDown : ChevronRight;
   const summary = block.summary;
   return (
-    <li
-      data-activity-session={summary.id}
-      className="rounded-xl border border-zinc-200/70 p-2 dark:border-zinc-800"
-    >
+    <li data-activity-session={summary.id} className={BLOCK_CARD}>
       <button
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-baseline gap-1.5 text-start"
+        className="flex w-full items-center gap-1.5 text-start"
       >
-        <Chevron
-          size={12}
-          className="shrink-0 self-center text-zinc-400 rtl:-scale-x-100"
-          aria-hidden="true"
-        />
+        <Chevron size={12} className="shrink-0 text-zinc-400 rtl:-scale-x-100" aria-hidden="true" />
         <span className="text-[11.5px] font-semibold text-zinc-700 dark:text-zinc-200">
-          {block.open ? t("activitySessionCurrent") : sessionRange(summary)}
+          {block.open ? t("activitySessionCurrent") : sessionTimes(summary)}
         </span>
         <span className="ms-auto shrink-0 text-[10px] text-zinc-500 dark:text-zinc-400">
           {block.open ? (
@@ -369,41 +380,37 @@ function SessionBlock({ block }: { block: Extract<TimelineBlock, { type: "sessio
   );
 }
 
-function OtherBlock({
-  block,
-  renderLegacyRow,
-}: {
-  block: Exclude<TimelineBlock, { type: "session" }>;
-  renderLegacyRow: (event: ActivityHistoryRecord) => React.ReactNode;
-}) {
+function OutsideBlock({ block }: { block: Extract<TimelineBlock, { type: "outside" }> }) {
   const t = useT();
-  const title =
-    block.type === "outside"
-      ? `${t("activitySessionOutside")} · ${formatDay(`${block.day}T12:00:00`)}`
-      : t("activitySessionEarlier");
   return (
-    <li
-      data-activity-block={block.type}
-      className="rounded-xl border border-dashed border-zinc-200/70 p-2 dark:border-zinc-800"
-    >
-      <p className="text-[11.5px] font-semibold text-zinc-600 dark:text-zinc-300">{title}</p>
-      {block.type === "earlier" ? (
-        <ul className="mt-1 space-y-1">
-          {[...block.rewards, ...block.status]
-            .sort((left, right) => right.at.localeCompare(left.at))
-            .map((event) => renderLegacyRow(event))}
-        </ul>
-      ) : (
-        <div className="mt-1">
-          <BlockBody block={block} />
-        </div>
-      )}
+    <li data-activity-block="outside" className={BLOCK_CARD}>
+      <p className="text-[11.5px] font-semibold text-zinc-600 dark:text-zinc-300">
+        {t("activitySessionOutside")}
+      </p>
+      <div className="mt-1">
+        <BlockBody block={block} />
+      </div>
     </li>
   );
 }
 
-// The Activity view's session summary. With no sessions and only rows from
-// before sessions existed, it falls back to the plain card list.
+// "Today", "Yesterday" (from the browser's own relative-time wording), else
+// the date.
+function dayLabel(day: string, locale: string): string {
+  const date = new Date(`${day}T12:00:00`);
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const daysAgo = Math.round((today.getTime() - date.getTime()) / 86_400_000);
+  if (daysAgo === 0 || daysAgo === 1) {
+    const label = new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-daysAgo, "day");
+    return label.charAt(0).toLocaleUpperCase(locale) + label.slice(1);
+  }
+  return date.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
+}
+
+// The Activity view: day sections, newest first, each holding that day's
+// farming sessions, its rewards obtained outside a session, and rows stored
+// before sessions existed.
 export function ActivitySessionTimeline({
   sessions,
   events,
@@ -415,30 +422,31 @@ export function ActivitySessionTimeline({
   platform: Platform;
   renderLegacyRow: (event: ActivityHistoryRecord) => React.ReactNode;
 }): React.ReactElement {
-  const blocks = buildActivityTimeline(sessions, events, platform);
-  if (blocks.length === 1 && blocks[0]!.type === "earlier") {
-    const only = blocks[0]!;
-    return (
-      <ul className="space-y-1 p-1">
-        {[...only.rewards, ...only.status]
-          .sort((left, right) => right.at.localeCompare(left.at) || right.id.localeCompare(left.id))
-          .map((event) => renderLegacyRow(event))}
-      </ul>
-    );
-  }
+  const { locale } = React.useContext(I18nContext);
+  const days = groupTimelineByDay(buildActivityTimeline(sessions, events, platform));
   return (
-    <ul className="space-y-1.5 p-1">
-      {blocks.map((block) =>
-        block.type === "session" ? (
-          <SessionBlock key={block.summary.id} block={block} />
-        ) : (
-          <OtherBlock
-            key={block.type === "outside" ? block.day : "earlier"}
-            block={block}
-            renderLegacyRow={renderLegacyRow}
-          />
-        ),
-      )}
-    </ul>
+    <div className="space-y-3">
+      {days.map(({ day, blocks }) => (
+        <section key={day} data-activity-day={day}>
+          <h3 className="mb-1 px-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+            {dayLabel(day, locale)}
+          </h3>
+          <ul className="space-y-1.5">
+            {blocks.flatMap((block): React.ReactNode[] => {
+              if (block.type === "session")
+                return [<SessionBlock key={block.summary.id} block={block} />];
+              if (block.type === "outside")
+                return [<OutsideBlock key={`outside-${block.day}`} block={block} />];
+              return [...block.rewards, ...block.status]
+                .sort(
+                  (left, right) =>
+                    right.at.localeCompare(left.at) || right.id.localeCompare(left.id),
+                )
+                .map((event) => renderLegacyRow(event));
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }

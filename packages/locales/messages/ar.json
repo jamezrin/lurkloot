@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "سابقًا"
   },
+  "activitySessionEmpty": {
+    "message": "لم يُحصل على شيء بعد. تظهر المكافآت والنقاط هنا فور حصولك عليها."
+  },
   "activitySessionSummary": {
     "message": "$1 نقطة · $2 مكافأة"
   },

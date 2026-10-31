@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Plus tôt"
   },
+  "activitySessionEmpty": {
+    "message": "Rien d'obtenu pour l'instant. Les récompenses et les points s'affichent ici au fur et à mesure."
+  },
   "activitySessionSummary": {
     "message": "$1 points · $2 récompenses"
   },

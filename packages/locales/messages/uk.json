@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Раніше"
   },
+  "activitySessionEmpty": {
+    "message": "Поки нічого не отримано. Нагороди та бали з'являтимуться тут у міру надходження."
+  },
   "activitySessionSummary": {
     "message": "$1 балів · $2 нагород"
   },

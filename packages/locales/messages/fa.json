@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "قبلی‌ها"
   },
+  "activitySessionEmpty": {
+    "message": "هنوز چیزی به دست نیامده. پاداش‌ها و امتیازها همین‌جا نمایش داده می‌شوند، همان‌طور که می‌رسند."
+  },
   "activitySessionSummary": {
     "message": "$1 امتیاز · $2 پاداش"
   },

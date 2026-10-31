@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
-import { buildActivityTimeline, buildRewardView } from "@lurkloot/popup-ui";
+import { buildActivityTimeline, buildRewardView, groupTimelineByDay } from "@lurkloot/popup-ui";
 
 const t = (key: string, substitutions?: string | string[]) =>
   [
@@ -99,6 +99,34 @@ describe("activity timeline", () => {
 
     expect(blocks).toHaveLength(1);
     expect(blocks[0]!.status.map((row) => row.id)).toEqual(["global"]);
+  });
+
+  it("groups sessions, outside rows and older rows under the day they belong to", () => {
+    const local = (day: string, time: string) => new Date(`${day}T${time}`).toISOString();
+    const sessions = [
+      summary("today", local("2026-10-30", "10:00:00")),
+      summary("yesterday", local("2026-10-29", "18:00:00"), local("2026-10-29", "20:00:00")),
+    ];
+    const events = [
+      drop("in-today", local("2026-10-30", "11:00:00"), "today"),
+      drop("in-yesterday", local("2026-10-29", "19:00:00"), "yesterday"),
+      drop("outside-yesterday", local("2026-10-29", "09:00:00"), null),
+      drop("legacy-a", local("2026-10-20", "12:00:00")),
+      drop("legacy-b", local("2026-10-19", "12:00:00")),
+    ];
+
+    const days = groupTimelineByDay(buildActivityTimeline(sessions, events, "twitch"));
+
+    expect(days.map((day) => day.day)).toEqual([
+      "2026-10-30",
+      "2026-10-29",
+      "2026-10-20",
+      "2026-10-19",
+    ]);
+    expect(days[1]!.blocks.map((block) => block.type)).toEqual(["session", "outside"]);
+    expect(days[2]!.blocks).toEqual([
+      expect.objectContaining({ type: "earlier", day: "2026-10-20" }),
+    ]);
   });
 
   it("leaves out a closed session with nothing in it", () => {

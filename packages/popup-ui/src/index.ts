@@ -43,7 +43,7 @@ export { variantShowsPopup } from "./types";
 export { SCREENSHOT_VARIANTS } from "./constants";
 
 export { StoreArtwork, StorePromo, type StoreStory } from "./storeArtwork";
-export { buildActivityTimeline, type TimelineBlock } from "./activity.logic";
+export { buildActivityTimeline, groupTimelineByDay, type TimelineBlock } from "./activity.logic";
 export {
   buildRewardView,
   isRewardEvent,

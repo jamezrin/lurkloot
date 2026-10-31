@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Dříve"
   },
+  "activitySessionEmpty": {
+    "message": "Zatím nic nezískáno. Odměny a body se zde zobrazí, jakmile budou přicházet."
+  },
   "activitySessionSummary": {
     "message": "$1 bodů · $2 odměn"
   },

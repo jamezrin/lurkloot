@@ -1511,6 +1511,9 @@
   "activitySessionEarlier": {
     "message": "Daha önce"
   },
+  "activitySessionEmpty": {
+    "message": "Henüz bir şey kazanılmadı. Ödüller ve puanlar geldikçe burada görünür."
+  },
   "activitySessionSummary": {
     "message": "$1 puan · $2 ödül"
   },
