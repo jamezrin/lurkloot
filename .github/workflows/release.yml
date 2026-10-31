@@ -38,7 +38,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
       - id: metadata
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -188,7 +188,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
       - id: sync-token
         name: Validate branch synchronization credentials before publication
         env:
@@ -335,7 +335,7 @@ jobs:
           version: 12.16.1
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
       - id: sync-token
         name: Mint the dedicated synchronization credential
         env:
