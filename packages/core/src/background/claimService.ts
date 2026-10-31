@@ -478,9 +478,12 @@ export function createClaimService<S extends EngineSettings>(
       }
       try {
         const adapter = createAdapters(settings, emit)[message.platform];
-        let claimed: boolean;
+        let claimed = false;
         try {
-          claimed = await adapter.claimReward(campaign, reward);
+          // The platform holds some claims back (an unlinked Twitch campaign
+          // reports success but grants nothing): not claimed, and said so below.
+          if (!adapter.isClaimReady || adapter.isClaimReady(reward, campaign))
+            claimed = await adapter.claimReward(campaign, reward);
         } finally {
           adapter.flushRouteDiagnostics?.(emit);
         }

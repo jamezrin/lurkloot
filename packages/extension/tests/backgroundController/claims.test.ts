@@ -536,6 +536,27 @@ describe("background controller", () => {
     );
   });
 
+  it("does not manually claim a reward the adapter reports not claim-ready", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }));
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([
+      { ...campaign("twitch"), accountLinked: false, rewards: [reward("claimable")] },
+    ]);
+    env.twitch.isClaimReady = vi.fn(() => false);
+
+    await env.controller.tick();
+    await env.controller.handleMessage({
+      type: "claimReward",
+      platform: "twitch",
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    });
+
+    expect(env.twitch.claimReward).not.toHaveBeenCalled();
+    expect(env.reportEvents).not.toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ code: "reward_claimed" })]),
+    );
+  });
+
   it("keeps a mixed campaign active after manually claiming its subscription reward", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: false }));
     const subscriptionReward: DropReward = {

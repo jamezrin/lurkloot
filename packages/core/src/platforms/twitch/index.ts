@@ -2896,9 +2896,12 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 
   // A "claimable" reward can only be claimed once Twitch has released its real
-  // drop-instance id (see parseTwitchReward). Until then, defer.
-  isClaimReady(reward: DropReward): boolean {
-    return Boolean(reward.claimId);
+  // drop-instance id (see parseTwitchReward). Until then, defer. An unlinked
+  // campaign defers too: Twitch answers its claim with a success status but
+  // grants nothing, so the drop would be claimed and reported again on every
+  // fresh inventory. Linking the account makes it claim-ready.
+  isClaimReady(reward: DropReward, campaign: DropCampaign): boolean {
+    return Boolean(reward.claimId) && campaign.accountLinked !== false;
   }
 
   async claimReward(

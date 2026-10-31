@@ -71,10 +71,10 @@ export async function claimReadyRewards(
     for (const reward of campaign.rewards) {
       signal?.throwIfAborted();
       if (reward.status === "claimable" && canClaimReward(reward)) {
-        if (adapter.isClaimReady && !adapter.isClaimReady(reward)) {
+        if (adapter.isClaimReady && !adapter.isClaimReady(reward, campaign)) {
           // Watched to completion, but the platform hasn't released the claim
-          // yet (e.g. Twitch hasn't returned the drop-instance id). Defer; the
-          // next tick re-checks once progress data catches up.
+          // yet (e.g. Twitch hasn't returned the drop-instance id, or the game
+          // account is not linked). Defer; the next tick re-checks.
           rewards.push(reward);
           stillWaitingRewardIds.add(reward.id);
           if (!previouslyWaitingRewardIds.has(reward.id)) {
