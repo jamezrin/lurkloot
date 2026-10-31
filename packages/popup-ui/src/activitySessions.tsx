@@ -152,7 +152,13 @@ function RewardArt({ view }: { view: RewardView }) {
       <div
         className={`h-[42px] w-8 shrink-0 overflow-hidden rounded-md border-2 bg-zinc-100 dark:bg-zinc-800 ${RARITY_BORDER[view.rarity ?? ""] ?? "border-zinc-300 dark:border-zinc-600"}`}
       >
-        <ImageWithFallback src={view.imageUrl} alt={view.title} fit="cover" fallback={fallback} />
+        <ImageWithFallback
+          src={view.imageUrl}
+          alt={view.title}
+          fit="cover"
+          fallback={fallback}
+          zoom
+        />
       </div>
     );
   }
@@ -167,6 +173,7 @@ function RewardArt({ view }: { view: RewardView }) {
           fit="contain"
           className="p-0.5"
           fallback={fallback}
+          zoom
         />
       </div>
       {view.overlayImageUrl ? (

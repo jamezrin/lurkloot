@@ -4,7 +4,7 @@ import type { DragDropProvider } from "@dnd-kit/react";
 import { motion } from "motion/react";
 import { Switch } from "@base-ui/react/switch";
 import { ChevronRight, GripVertical, Search, X, type LucideIcon } from "lucide-react";
-import { Tip } from "./tooltip";
+import { Tip, ZoomTip } from "./tooltip";
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -91,16 +91,19 @@ export function ImageWithFallback({
   className,
   fit = "cover",
   fallback,
+  zoom = false,
 }: {
   src?: string;
   alt: string;
   className?: string;
   fit?: "cover" | "contain";
   fallback: React.ReactNode;
+  /** Show a larger copy while the pointer rests on the image. */
+  zoom?: boolean;
 }) {
   const [failed, setFailed] = React.useState(false);
   if (!src || failed) return <>{fallback}</>;
-  return (
+  const image = (
     <img
       src={src}
       alt={alt}
@@ -113,6 +116,7 @@ export function ImageWithFallback({
       onError={() => setFailed(true)}
     />
   );
+  return zoom ? <ZoomTip src={src}>{image}</ZoomTip> : image;
 }
 
 // A Base UI Switch drawn as the popup's switch. `sm` is sized to sit inside a
