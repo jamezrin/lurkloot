@@ -92,7 +92,14 @@ function mount(selectLane: ((campaignId: string, track: string, lane: string) =>
       <I18nContext.Provider
         value={{
           t: (key, substitutions) =>
-            [key, ...(Array.isArray(substitutions) ? substitutions : substitutions ? [substitutions] : [])].join(":"),
+            [
+              key,
+              ...(Array.isArray(substitutions)
+                ? substitutions
+                : substitutions
+                  ? [substitutions]
+                  : []),
+            ].join(":"),
           dir: "ltr",
           locale: "en",
         }}

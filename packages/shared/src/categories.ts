@@ -1,9 +1,4 @@
-import type {
-  CampaignCategory,
-  CategorySelection,
-  DropCampaign,
-  PlatformSettings,
-} from "./models";
+import type { CampaignCategory, CategorySelection, DropCampaign, PlatformSettings } from "./models";
 
 // Sentinel id for the synthetic "No category" selection. Some drop campaigns
 // carry no game/category at all (e.g. Kick's org-wide event drops, where the

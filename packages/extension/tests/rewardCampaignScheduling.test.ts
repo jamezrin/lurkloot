@@ -119,24 +119,40 @@ describe("reward campaign scheduling (#904)", () => {
   it("opens nothing while a grant waits for its next window, then farms it", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(T0);
-    const cooling = rewardCampaign(groupReward({ status: "in_progress", availableFrom: NEXT_WINDOW }));
+    const cooling = rewardCampaign(
+      groupReward({ status: "in_progress", availableFrom: NEXT_WINDOW }),
+    );
     const twitch = adapter(() => [cooling]);
     let state = idle;
     // Eleven hours of one-minute ticks before the window opens.
     for (let tick = 0; tick < 11 * 60; tick += 1) {
       vi.setSystemTime(T0 + tick * 60_000);
-      state = (await runSchedulerTick(state, settings(), { twitch, kick: adapter(() => []) }, {
-        platforms: ["twitch"],
-      })).state;
+      state = (
+        await runSchedulerTick(
+          state,
+          settings(),
+          { twitch, kick: adapter(() => []) },
+          {
+            platforms: ["twitch"],
+          },
+        )
+      ).state;
       expect(state.sessions.twitch.status).not.toBe("watching");
     }
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(state.criticalHealth?.twitch?.managedTabOpens.length ?? 0).toBe(0);
 
     vi.setSystemTime(Date.parse(NEXT_WINDOW) + 60_000);
-    state = (await runSchedulerTick(state, settings(), { twitch, kick: adapter(() => []) }, {
-      platforms: ["twitch"],
-    })).state;
+    state = (
+      await runSchedulerTick(
+        state,
+        settings(),
+        { twitch, kick: adapter(() => []) },
+        {
+          platforms: ["twitch"],
+        },
+      )
+    ).state;
     expect(state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "night-out" });
   });
 
@@ -151,9 +167,16 @@ describe("reward campaign scheduling (#904)", () => {
     let state = idle;
     for (let tick = 0; tick < 6 * 60; tick += 1) {
       vi.setSystemTime(T0 + tick * 60_000);
-      state = (await runSchedulerTick(state, settings(), { twitch, kick: adapter(() => []) }, {
-        platforms: ["twitch"],
-      })).state;
+      state = (
+        await runSchedulerTick(
+          state,
+          settings(),
+          { twitch, kick: adapter(() => []) },
+          {
+            platforms: ["twitch"],
+          },
+        )
+      ).state;
     }
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(twitch.listCandidateChannels).not.toHaveBeenCalled();

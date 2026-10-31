@@ -119,7 +119,11 @@ describe("twitch reward campaign parsing (#904)", () => {
     expect(
       farmableRewardCampaignIds([
         { id: "first-partners", isSitewide: true, unlockRequirements: { minuteWatchedGoal: 20 } },
-        { id: "apple-tv", isSitewide: true, unlockRequirements: { subsGoal: 1, minuteWatchedGoal: 0 } },
+        {
+          id: "apple-tv",
+          isSitewide: true,
+          unlockRequirements: { subsGoal: 1, minuteWatchedGoal: 0 },
+        },
         { id: "channel-only", isSitewide: false, unlockRequirements: { minuteWatchedGoal: 20 } },
       ]),
     ).toEqual(["first-partners"]);
@@ -194,8 +198,9 @@ describe("twitch reward campaign parsing (#904)", () => {
   });
 
   it("claims as Twitch's tray does, and only after every grant when the group pays at the end", () => {
-    expect(rewardGroupState(watchGroup("g1"), inProgress(20, { status: "CLAIMABLE" }), NOW))
-      .toMatchObject({ status: "claimable" });
+    expect(
+      rewardGroupState(watchGroup("g1"), inProgress(20, { status: "CLAIMABLE" }), NOW),
+    ).toMatchObject({ status: "claimable" });
     const completeAll = watchGroup("g1", {
       progressCriteria: {
         ...watchGroup("g1").progressCriteria,
@@ -222,7 +227,11 @@ describe("twitch reward campaign parsing (#904)", () => {
 
   it("earns only the equipped lane of a track and offers the others to pick", () => {
     const haunter = watchGroup("haunter", { name: "Haunter", track: "pokemon#t", lane: "gastly" });
-    const ivysaur = watchGroup("ivysaur", { name: "Ivysaur", track: "pokemon#t", lane: "bulbasaur" });
+    const ivysaur = watchGroup("ivysaur", {
+      name: "Ivysaur",
+      track: "pokemon#t",
+      lane: "bulbasaur",
+    });
     const progress = { haunter: inProgress(0), ivysaur: inProgress(0) };
 
     const none = parse(nightOut([haunter, ivysaur]), progress);
@@ -310,8 +319,7 @@ describe("multi-category campaigns (#904)", () => {
       }).categories,
     ).toEqual([pokemon]);
     expect(
-      campaignForWatching(campaign, { categoryMode: "include", categories: [chatting] })
-        .categories,
+      campaignForWatching(campaign, { categoryMode: "include", categories: [chatting] }).categories,
     ).toEqual([chatting]);
   });
 });
@@ -356,7 +364,9 @@ describe("twitch adapter reward campaigns (#904)", () => {
       variables.push((body.variables ?? {}) as Record<string, unknown>);
       switch (op) {
         case "Inventory":
-          return { data: { currentUser: { id: USER, inventory: { dropCampaignsInProgress: [] } } } };
+          return {
+            data: { currentUser: { id: USER, inventory: { dropCampaignsInProgress: [] } } },
+          };
         case "ViewerDropsDashboard":
           return { data: { currentUser: { id: USER, login: "viewer", dropCampaigns: [] } } };
         case "RewardCampaignsAvailable":
@@ -414,7 +424,9 @@ describe("twitch adapter reward campaigns (#904)", () => {
     vi.setSystemTime(NOW);
     const { fetcher, operations, variables } = rewardFetcher();
     const discoveryState = new TwitchDiscoveryState();
-    const campaigns = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher, undefined, {
+      discoveryState,
+    }).refreshCampaigns();
 
     const campaign = campaigns.find((item) => item.id === "night-out");
     expect(campaign).toMatchObject({ sitewide: true, eligibility: "eligible" });
@@ -465,7 +477,9 @@ describe("twitch adapter reward campaigns (#904)", () => {
     );
     expect(first.find((item) => item.id === "night-out")?.rewards[0]?.watchedMinutes).toBe(12);
     const progressReads = () =>
-      operations.flatMap((op, index) => (op === "RewardCampaignProgress" ? [variables[index]] : []));
+      operations.flatMap((op, index) =>
+        op === "RewardCampaignProgress" ? [variables[index]] : [],
+      );
     // The watched channel answered, so no probe channel was needed.
     expect(progressReads()).toEqual([{ channelID: "watched-id" }]);
 

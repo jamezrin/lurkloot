@@ -1543,7 +1543,8 @@ export class TwitchAdapter implements PlatformAdapter {
     let probes = 0;
     for (const campaign of campaigns) {
       if (answered(campaign)) continue;
-      const fresh = campaign.id === farmedCampaignId ? undefined : cache.freshProgress(groupIdsOf(campaign));
+      const fresh =
+        campaign.id === farmedCampaignId ? undefined : cache.freshProgress(groupIdsOf(campaign));
       if (fresh) {
         for (const [id, self] of fresh) progress.set(id, self);
         continue;
@@ -3436,7 +3437,11 @@ export class TwitchAdapter implements PlatformAdapter {
     if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
     // A reward-campaign group is claimed through the drops tray, which also
     // counts a limited grant or an answer without a status as success (#904).
-    if (campaign.sitewide && result.data?.claimDropRewards && isTwitchRewardGroupClaimAccepted(status))
+    if (
+      campaign.sitewide
+      && result.data?.claimDropRewards
+      && isTwitchRewardGroupClaimAccepted(status)
+    )
       return true;
     // Surface the rejection instead of a silent false so the cause is visible in
     // the event log (e.g. an unexpected status, integrity, or a stale id).
