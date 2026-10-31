@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "只在 Twitch 为该掉宝活动列出的频道中挂机。Twitch 经常漏列实际可挂机的活动，启用后可能因此错过掉宝。"
   },
+  "watchStreakBudgetTitle": {
+    "message": "观看连续记录时长上限"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "如果 Twitch 未确认连续记录，每行连续记录观看的时长上限，超时后 LurkLoot 将继续下一项。"
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "观看连续记录重试延迟"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "视频无法播放后，每行连续记录再次尝试前的等待时长。"
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "观看连续记录尝试次数"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "视频无法播放时，每行连续记录的尝试次数，超过后显示为“无法观看”。"
+  },
+  "roundsSuffix": {
+    "message": "次"
+  },
   "autoClaimChallengesTitle": {
     "message": "自动领取每日挑战"
   },

@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Bir kampanyayı yalnızca Twitch'in onu listelediği kanallarda farmla. Twitch farmlanabilir kampanyaları sıkça atlar, bu yüzden bazı droplar farmlanmadan kalabilir."
   },
+  "watchStreakBudgetTitle": {
+    "message": "İzleme serisi süresi"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Twitch seriyi onaylamadıysa, LurkLoot'un ilerlemeden önce seri satırını ne kadar izleyeceği."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "İzleme serisi yeniden deneme bekleme süresi"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Videosu oynatılamayan seri satırının yeniden denemeden önce ne kadar bekleyeceği."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "İzleme serisi denemeleri"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Videosu oynatılamayan seri satırının, “İzlenemedi” olarak gösterilmeden önce kaç kez deneneceği."
+  },
+  "roundsSuffix": {
+    "message": "deneme"
+  },
   "autoClaimChallengesTitle": {
     "message": "Günlük görevleri otomatik al"
   },

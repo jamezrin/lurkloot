@@ -5,7 +5,7 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { Eye, Flame, Plus } from "lucide-react";
 import type { Platform, WatchSourceId, WatchStreakRowStatus } from "@lurkloot/shared/models";
-import { IDLE_WATCHLIST_LIMIT, WATCH_STREAK_BUDGET_MINUTES } from "@lurkloot/shared/settings";
+import { IDLE_WATCHLIST_LIMIT } from "@lurkloot/shared/settings";
 import { useT } from "./context";
 import { formatViewers } from "./format";
 import { channelUrl } from "./viewModels";
@@ -42,6 +42,8 @@ export interface IdleWatchlistStreaks {
   enabled: ReadonlySet<string>;
   // The last tick's status per opted-in row.
   statuses: Readonly<Record<string, WatchStreakRowStatus>>;
+  // The watch budget an attempt gets (Advanced settings), for the hint.
+  budgetMinutes: number;
   onToggle(username: string, enabled: boolean): void;
 }
 
@@ -181,7 +183,7 @@ export function IdleWatchlistPanel({
               className="flex items-center gap-1 px-1 text-[10px] text-zinc-400 dark:text-zinc-500"
             >
               <Flame size={10} aria-hidden className="shrink-0 text-orange-500" />
-              {t("watchlistStreakHint", String(WATCH_STREAK_BUDGET_MINUTES))}
+              {t("watchlistStreakHint", String(streaks.budgetMinutes))}
             </p>
           ) : null}
           <DragDropProvider onDragEnd={endDrag}>

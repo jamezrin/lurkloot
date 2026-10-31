@@ -9,6 +9,7 @@ import {
   normalizeCategorySelections,
   normalizeChannelList,
   normalizeWatchStreakChannels,
+  normalizeWatchStreakTuning,
   normalizeIdList,
   normalizeSubscriptionMarks,
   POLL_INTERVAL_MAX_MINUTES,
@@ -155,6 +156,9 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "strictCampaignAvailability",
     "channelPointsPushClaim",
     "watchlistStreakChannels",
+    "watchStreakBudgetMinutes",
+    "watchStreakRetryCooldownMinutes",
+    "watchStreakMaxRounds",
     "alwaysEnterChat",
   ]),
   kick: new Set([
@@ -568,6 +572,7 @@ function normalizePlatform(
         twitch.ps.watchlistStreakChannels,
         twitch.base.watchlistChannels,
       ),
+      ...normalizeWatchStreakTuning(twitch.ps),
     },
     kick: {
       ...kick.base,

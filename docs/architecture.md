@@ -1063,17 +1063,17 @@ claims to know the user's streak count.
   time accrues. Accrual only starts on the next tick, up to a whole poll interval later, and a
   payout in between must land on this broadcast's attempt rather than be dropped or credited to
   an earlier broadcast of the same channel.
-- **Terminal outcomes.** An attempt ends as `not_confirmed` after 15 minutes of healthy watching
-  (`WATCH_STREAK_BUDGET_MS`), and as `credited` when Twitch reports the payout. A terminal attempt
+- **Terminal outcomes.** An attempt ends as `not_confirmed` after the watch budget of healthy
+  watching (`watchStreakBudgetMinutes`, default 15), and as `credited` when Twitch reports the payout. A terminal attempt
   is never reopened for that broadcast, and toggles and reorders do not reset it. A new broadcast
   gets a new attempt.
 - **Playback that keeps failing is not a spent streak (#942).** A round ends after about 10
   minutes of unhealthy checks: `ceil(10 / pollIntervalMinutes)`, at least 2. A watch that is still settling (a tab in its
   playback grace, a tabless watch with no heartbeat yet) does not count. A round that runs out
-  rests the attempt until `retryAt` (`WATCH_STREAK_RETRY_COOLDOWN_MS`). While it rests, the verdict
+  rests the attempt until `retryAt` (`watchStreakRetryCooldownMinutes`, default 30). While it rests, the verdict
   is `cooling`, the row is an ordinary Watchlist row and its unhealthy checks do not count, so the
   other sources run. Then the same attempt resumes with the watch time it already has. After
-  `WATCH_STREAK_MAX_ROUNDS` rounds it ends as `playback_failed`, shown as "Couldn't watch", never
+  `watchStreakMaxRounds` rounds (default 3) it ends as `playback_failed`, shown as "Couldn't watch", never
   as "Not confirmed". `failedRounds` is never reset; `unhealthyChecks` counts the current round
   and restarts at zero when it ends. Merges keep the further round with its own checks and the
   later `retryAt`, so a restart or a concurrent commit cannot restore spent rounds, and a poll
@@ -1105,10 +1105,19 @@ claims to know the user's streak count.
   observed within the poll interval plus 5 minutes of the payout (never under 10 minutes). `claimsSubscribed` is true only when a claim owner's
   topic is confirmed, so a streak-only subscription never suppresses claim polling.
 - **Cadence.** Ticks run at `pollIntervalMinutes` (1 to 60), and every rule above that measures
-  time between ticks reads it from `watchStreakPolicy(settings)`: the accrual step, the payout
+  time between ticks reads it from `watchStreakPolicy(settings, platform)`: the accrual step, the payout
   window and the checks per round. At the default one-minute interval these are two minutes,
   ten minutes and ten checks. A fixed constant there starves accrual and drops payouts at a
   longer interval; `watchStreaks.test.ts` ("watch-streak cadence") guards it.
+- **Tuning.** The budget, the rest and the round cap are Advanced settings under
+  `platform.twitch` (`WatchStreakTuning`), clamped by one shared `normalizeWatchStreakTuning`
+  that both hosts call: budget 5 to 60 minutes, rest 10 to 240 minutes, rounds 1 to 5. The
+  bounds keep the round cap finite, so a row that never plays still stops reopening, and
+  `watchStreaks.test.ts` drives hours of ticks at both ends of the range. Core reads them through
+  `watchStreakTuningFor(settings, platform)`, so `watchStreaks.ts` names no platform. A change
+  applies on the next tick: a lowered budget ends a running attempt that already has more, a
+  raised one never reopens a terminal attempt, and a lowered round cap is read when the round in
+  progress ends.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
 - **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's

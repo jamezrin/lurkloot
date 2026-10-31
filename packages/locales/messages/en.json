@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Only farm a campaign on channels Twitch lists it for. Twitch often omits farmable campaigns, so this can leave drops unfarmed."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Watch streak budget"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "How long a streak row is watched before LurkLoot moves on if Twitch has not confirmed the streak."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Watch streak retry delay"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "How long a streak row waits before trying again after its video would not play."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Watch streak tries"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "How many times a streak row is tried when its video will not play, before it is shown as Couldn't watch."
+  },
+  "roundsSuffix": {
+    "message": "tries"
+  },
   "autoClaimChallengesTitle": {
     "message": "Auto-claim daily challenges"
   },

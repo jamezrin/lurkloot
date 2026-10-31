@@ -512,6 +512,14 @@ export interface TwitchPlatformSettings extends PlatformSettings {
   // Always a subset of watchlistChannels, in no meaningful order: the
   // watchlist's own order decides. Empty by default.
   watchlistStreakChannels: string[];
+  // Advanced: healthy watch time a streak attempt gets before it ends as not
+  // confirmed, in minutes. A safety budget, not Twitch's own threshold.
+  watchStreakBudgetMinutes: number;
+  // Advanced: how long an attempt rests after a round that never played.
+  watchStreakRetryCooldownMinutes: number;
+  // Advanced: rounds of failed playback before an attempt ends as couldn't
+  // watch. Each round can open a watch tab, so it is bounded.
+  watchStreakMaxRounds: number;
 }
 
 export interface KickPlatformSettings extends PlatformSettings {

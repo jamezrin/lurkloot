@@ -10,6 +10,8 @@ import {
   POLL_INTERVAL_MAX_MINUTES,
   POLL_INTERVAL_MIN_MINUTES,
   type SettingsPatch,
+  WATCH_STREAK_TUNING_BOUNDS,
+  type WatchStreakTuning,
 } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
@@ -88,6 +90,38 @@ export interface SettingsSectionDef extends SettingsSectionNode<SettingsEntryDef
 // `pnpm typecheck` instead of silently writing a dead key that mergeSettings
 // drops at the next save.
 type PlatformPatch = NonNullable<SettingsPatch["platform"]>;
+
+// The watch-streak tuning rows (#897), in Twitch's Advanced group: the
+// budget, the rest after a round that never played, and the round cap.
+const WATCH_STREAK_TUNING_ROWS: readonly {
+  key: keyof WatchStreakTuning;
+  id: string;
+  titleKey: string;
+  descriptionKey: string;
+  suffixKey: string;
+}[] = [
+  {
+    key: "watchStreakBudgetMinutes",
+    id: "watchStreakBudget",
+    titleKey: "watchStreakBudgetTitle",
+    descriptionKey: "watchStreakBudgetDescription",
+    suffixKey: "minutesSuffix",
+  },
+  {
+    key: "watchStreakRetryCooldownMinutes",
+    id: "watchStreakRetryCooldown",
+    titleKey: "watchStreakRetryCooldownTitle",
+    descriptionKey: "watchStreakRetryCooldownDescription",
+    suffixKey: "minutesSuffix",
+  },
+  {
+    key: "watchStreakMaxRounds",
+    id: "watchStreakMaxRounds",
+    titleKey: "watchStreakMaxRoundsTitle",
+    descriptionKey: "watchStreakMaxRoundsDescription",
+    suffixKey: "roundsSuffix",
+  },
+];
 
 export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSectionDef[] {
   const { t, settings, onSettingsChange } = ctx;
@@ -807,6 +841,24 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                 />
               ),
             },
+            ...WATCH_STREAK_TUNING_ROWS.map(
+              ({ key, id, titleKey, descriptionKey, suffixKey }): SettingsEntryDef => ({
+                id: `twitch.advanced.${id}`,
+                titleKey,
+                descriptionKey,
+                render: () => (
+                  <NumberSettingRow
+                    title={t(titleKey)}
+                    description={t(descriptionKey)}
+                    value={settings.platform.twitch[key]}
+                    min={WATCH_STREAK_TUNING_BOUNDS[key].min}
+                    max={WATCH_STREAK_TUNING_BOUNDS[key].max}
+                    suffix={t(suffixKey)}
+                    onChange={(value) => void platformPatch("twitch", { [key]: value })}
+                  />
+                ),
+              }),
+            ),
           ]
         : [];
 

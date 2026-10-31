@@ -131,6 +131,7 @@ describe("watchlist watch-streak controls (#897)", () => {
     const container = mountStreaks({
       enabled: new Set(["beta"]),
       statuses: { beta: "credited" },
+      budgetMinutes: 15,
       onToggle,
     });
     const switches = [
@@ -161,6 +162,7 @@ describe("watchlist watch-streak controls (#897)", () => {
     const container = mountStreaks({
       enabled: new Set(["alpha"]),
       statuses: {},
+      budgetMinutes: 15,
       onToggle: vi.fn(),
     });
     expect(
@@ -184,13 +186,17 @@ describe("watchlist watch-streak controls (#897)", () => {
       ]);
     expect(
       places(
-        mountStreaks({ enabled: new Set(), statuses: {}, onToggle: vi.fn() }, "twitch", order),
+        mountStreaks(
+          { enabled: new Set(), statuses: {}, budgetMinutes: 15, onToggle: vi.fn() },
+          "twitch",
+          order,
+        ),
       ),
     ).toEqual([["watchlist", null]]);
     expect(
       places(
         mountStreaks(
-          { enabled: new Set(["beta"]), statuses: {}, onToggle: vi.fn() },
+          { enabled: new Set(["beta"]), statuses: {}, budgetMinutes: 15, onToggle: vi.fn() },
           "twitch",
           order,
         ),

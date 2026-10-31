@@ -9,7 +9,7 @@ import type {
   WatchStreakRowStatus,
   WatchStreakState,
 } from "@lurkloot/shared/models";
-import { WATCH_STREAK_BUDGET_MINUTES, watchStreakChannelsFor } from "@lurkloot/shared/settings";
+import { watchStreakChannelsFor, watchStreakTuningFor } from "@lurkloot/shared/settings";
 import { isRecord } from "@lurkloot/shared/records";
 
 // Watch-streak maintenance (#897). The rules for one attempt per signed-in
@@ -18,22 +18,14 @@ import { isRecord } from "@lurkloot/shared/records";
 // Platform-free: the platform reports a payout as an observation, and the tick
 // reports the session it watched.
 
-// Healthy watching an attempt gets before it ends as not confirmed. A safety
-// budget, not a claim about the platform's own credit threshold.
-export const WATCH_STREAK_BUDGET_MS = WATCH_STREAK_BUDGET_MINUTES * 60_000;
 // Unhealthy watching (a tab that never plays, a heartbeat that keeps failing)
 // one round tolerates, in minutes of ticks. A round that runs out is not a
-// watched streak (#942): the attempt rests for WATCH_STREAK_RETRY_COOLDOWN_MS,
+// watched streak (#942): the attempt rests for the policy's retryCooldownMs,
 // then resumes with the time it already has.
 export const WATCH_STREAK_ROUND_MINUTES = 10;
 // A round always takes at least this many unhealthy checks, so one bad reading
 // at a long poll interval does not end it.
 export const WATCH_STREAK_MIN_ROUND_CHECKS = 2;
-// Rounds one broadcast's attempt gets before it ends as playback_failed, so a
-// row whose playback never works cannot reopen forever. Each round can open a
-// watch tab.
-export const WATCH_STREAK_MAX_ROUNDS = 3;
-export const WATCH_STREAK_RETRY_COOLDOWN_MS = 30 * 60_000;
 // The least one observation may add. Ticks run at the poll interval; a gap
 // longer than the interval plus a minute means a suspended worker or a slow
 // tick, which never counts as watching.
@@ -48,10 +40,21 @@ export const WATCH_STREAK_CREDIT_LEAD_MS = 30 * 60_000;
 export const WATCH_STREAK_MIN_CREDIT_LAG_MS = 10 * 60_000;
 export const WATCH_STREAK_CREDIT_SLACK_MS = 5 * 60_000;
 
-// The limits that depend on how often ticks run. Every streak rule that
-// measures time between ticks reads them from here, so a longer poll interval
-// neither starves accrual nor drops a payout that arrived between two ticks.
+// How attempts run. The user's tuning (Advanced settings) sets the budget, the
+// rest and the round cap. The rest depends on how often ticks run: every rule
+// that measures time between ticks reads it from here, so a longer poll
+// interval neither starves accrual nor drops a payout that arrived between two
+// ticks.
 export interface WatchStreakPolicy {
+  // Healthy watching an attempt gets before it ends as not confirmed. A safety
+  // budget, not a claim about the platform's own credit threshold.
+  budgetMs: number;
+  // How long an attempt rests after a round that never played.
+  retryCooldownMs: number;
+  // Rounds one broadcast's attempt gets before it ends as playback_failed, so
+  // a row whose playback never works cannot reopen forever. Each round can
+  // open a watch tab.
+  maxRounds: number;
   // The most one observation may add.
   maxAccrualStepMs: number;
   // How long after an attempt was last observed a payout still belongs to it.
@@ -60,11 +63,13 @@ export interface WatchStreakPolicy {
   unhealthyChecksPerRound: number;
 }
 
-export function watchStreakPolicy(
-  settings: Pick<EngineSettings, "pollIntervalMinutes">,
-): WatchStreakPolicy {
+export function watchStreakPolicy(settings: EngineSettings, platform: Platform): WatchStreakPolicy {
+  const tuning = watchStreakTuningFor(settings, platform);
   const pollMs = settings.pollIntervalMinutes * 60_000;
   return {
+    budgetMs: tuning.watchStreakBudgetMinutes * 60_000,
+    retryCooldownMs: tuning.watchStreakRetryCooldownMinutes * 60_000,
+    maxRounds: tuning.watchStreakMaxRounds,
     maxAccrualStepMs: Math.max(WATCH_STREAK_MIN_ACCRUAL_STEP_MS, pollMs + 60_000),
     creditLagMs: Math.max(WATCH_STREAK_MIN_CREDIT_LAG_MS, pollMs + WATCH_STREAK_CREDIT_SLACK_MS),
     unhealthyChecksPerRound: Math.max(
@@ -228,16 +233,16 @@ export function accrueWatchStreak(
       // a policy that changes mid-attempt never moves a round already counted.
       attempt.unhealthyChecks = 0;
       attempt.failedRounds += 1;
-      if (attempt.failedRounds >= WATCH_STREAK_MAX_ROUNDS) {
+      if (attempt.failedRounds >= input.policy.maxRounds) {
         attempt.outcome = "playback_failed";
         attempt.completedAt = nowIso;
       } else {
-        attempt.retryAt = new Date(input.now + WATCH_STREAK_RETRY_COOLDOWN_MS).toISOString();
+        attempt.retryAt = new Date(input.now + input.policy.retryCooldownMs).toISOString();
       }
     }
   }
   attempt.updatedAt = nowIso;
-  if (attempt.outcome === "pending" && attempt.watchedMs >= WATCH_STREAK_BUDGET_MS) {
+  if (attempt.outcome === "pending" && attempt.watchedMs >= input.policy.budgetMs) {
     attempt.outcome = "not_confirmed";
     attempt.completedAt = nowIso;
     observing = undefined;

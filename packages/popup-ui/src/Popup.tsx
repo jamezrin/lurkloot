@@ -1581,6 +1581,8 @@ export function PopupFrame({
                                         settings.platform.twitch.watchlistStreakChannels,
                                       ),
                                       statuses: snapshot.state.watchStreaks?.twitch?.rows ?? {},
+                                      budgetMinutes:
+                                        settings.platform.twitch.watchStreakBudgetMinutes,
                                       onToggle: (username, enabled) => {
                                         const current =
                                           settings.platform.twitch.watchlistStreakChannels;
