@@ -201,9 +201,17 @@ const TWITCH_CROSS_CATEGORY_IDS = new Set(["509663", "509672"]);
 // when there is no campaign to compare with.
 export function twitchStreamCategoryMatches(
   streamedCategoryId: string | undefined,
-  campaign: Pick<DropCampaign, "categoryId" | "allowedChannels"> | undefined,
+  campaign: Pick<DropCampaign, "categoryId" | "allowedChannels" | "categories"> | undefined,
   fallbackCategoryId?: string,
 ): boolean {
+  // A campaign that spans several categories earns in any of them, and only in
+  // them: an unknown streamed category cannot be assumed to be one.
+  if (campaign?.categories) {
+    return Boolean(
+      streamedCategoryId
+        && campaign.categories.some((category) => category.id === streamedCategoryId),
+    );
+  }
   const expectedCategoryId = campaign?.categoryId ?? fallbackCategoryId;
   if (!expectedCategoryId || streamedCategoryId === expectedCategoryId) return true;
   return Boolean(

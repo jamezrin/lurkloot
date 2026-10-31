@@ -27,6 +27,14 @@ export type CoreRuntimeMessage =
   // would undo any change made elsewhere since it last read it.
   | { type: "updateIdleWatchlist"; platform: Platform; channel: string; action: "add" | "remove" }
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
+  // Equips one lane of a reward campaign's track (#904), as Twitch's own picker does.
+  | {
+      type: "selectRewardLane";
+      platform: Platform;
+      campaignId: string;
+      track: string;
+      lane: string;
+    }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }
   | { type: "resumeAfterManualClose"; platform: Platform }

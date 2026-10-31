@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "$1日連続視聴"
+  },
+  "rewardRepeatProgress": {
+    "message": "$1日目（全$2日）"
+  },
+  "rewardNextWindow": {
+    "message": "次の期間 $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "ラインは未装備"
+  },
+  "rewardLanesTitle": {
+    "message": "獲得中のライン"
+  },
+  "rewardLanesPick": {
+    "message": "獲得するラインを選択"
+  },
+  "rewardLaneEquipped": {
+    "message": "装備中"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "進化ラインは、すでに持っているバッジだけを進化させます。そのバッジがなければ、視聴しても何も獲得できません。"
   }
 }

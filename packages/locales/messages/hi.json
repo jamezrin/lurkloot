@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "$1 दिन की देखने की स्ट्रीक"
+  },
+  "rewardRepeatProgress": {
+    "message": "दिन $1 / $2"
+  },
+  "rewardNextWindow": {
+    "message": "अगली विंडो $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "लेन सक्रिय नहीं है"
+  },
+  "rewardLanesTitle": {
+    "message": "वह लेन जिससे आप कमा रहे हैं"
+  },
+  "rewardLanesPick": {
+    "message": "कमाने के लिए एक लेन चुनें"
+  },
+  "rewardLaneEquipped": {
+    "message": "सक्रिय"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "कोई लाइन केवल वही बैज विकसित करती है जो आपके पास पहले से है। उस बैज के बिना, देखने से कुछ नहीं मिलता।"
   }
 }

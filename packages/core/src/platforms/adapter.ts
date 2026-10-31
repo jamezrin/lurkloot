@@ -162,6 +162,14 @@ export interface PlatformAdapter {
   // Live search of the platform's categories/games, powering the "Farm only these
   // categories" picker in Settings. Returns id + name (+ box art) matches.
   searchCategories?(query: string): Promise<CategorySelection[]>;
+  // Equips one lane of a campaign's track (campaign.laneChoices), so watching
+  // earns that lane. Rejects with the platform's reason when it refuses.
+  selectRewardLane?(
+    campaign: DropCampaign,
+    track: string,
+    lane: string,
+    options?: AdapterOperationOptions,
+  ): Promise<void>;
   // Tabless (low-resource) farming. When supported, the controller drives a
   // TablessWatchController instead of opening a watch tab; the tab path stays as
   // the automatic fallback when heartbeats stop earning.
