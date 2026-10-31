@@ -935,6 +935,7 @@ describe("background controller", () => {
                 outcome: "pending",
                 watchedMs: 60_000,
                 unhealthyChecks: 0,
+                failedRounds: 0,
                 startedAt: now,
                 updatedAt: now,
               },
