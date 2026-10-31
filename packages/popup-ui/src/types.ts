@@ -142,6 +142,9 @@ export type CampaignTimeline = {
 export type CampaignView = {
   id: string;
   gameId: string;
+  // What to call a campaign whose gameId names no single game, such as a
+  // Twitch reward campaign that spans several categories under one brand.
+  brand?: string;
   title: string;
   status: DropCampaign["status"];
   lifecycle?: CampaignLifecycleState;

@@ -149,7 +149,7 @@ export function fallbackGame(
   const id = "gameId" in campaign ? campaign.gameId : gameId(campaign);
   const name =
     "title" in campaign
-      ? t("dropsCampaign")
+      ? (campaign.brand ?? t("dropsCampaign"))
       : (campaign.gameName ?? campaign.brand ?? t("dropsCampaign"));
   const short =
     "thumbnail" in campaign
@@ -306,6 +306,7 @@ export function campaignViewFromCampaign(
   return {
     id: campaign.id,
     gameId: gameId(campaign),
+    ...(campaign.brand ? { brand: campaign.brand } : {}),
     title: campaign.name,
     status: campaign.status,
     lifecycle: campaignLifecycleState(campaign),

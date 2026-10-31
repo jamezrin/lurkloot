@@ -8,7 +8,11 @@ import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext, RewardLaneContext } from "../../popup-ui/src/context";
 import { QueuePanel } from "../../popup-ui/src/queue";
 import type { PopupAdapter } from "../../popup-ui/src/types";
-import { campaignViewFromCampaign, gameItemsFromCampaigns } from "../../popup-ui/src/viewModels";
+import {
+  campaignViewFromCampaign,
+  fallbackGame,
+  gameItemsFromCampaigns,
+} from "../../popup-ui/src/viewModels";
 
 // The popup's side of Twitch reward campaigns (#904): the lane picker, and the
 // day count on a reward earned once per window.
@@ -210,6 +214,17 @@ describe("reward lane picker (#904)", () => {
       ["Haunter", false],
       ["Ivysaur", true],
     ]);
+  });
+
+  it("names a reward campaign by its brand when no single game matches", () => {
+    const settings = mergeSettings(undefined);
+    const view = campaignViewFromCampaign(campaign, 0, idleSession, false, {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+      now: NOW,
+    });
+    expect(fallbackGame(view, 0, (key) => key).name).toBe("Pokemon");
   });
 
   it("suggests a reward campaign's real categories, not its brand", () => {
