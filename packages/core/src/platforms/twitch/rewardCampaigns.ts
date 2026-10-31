@@ -520,6 +520,13 @@ const PROGRESS_STALE_MS = 3 * PROGRESS_FRESH_MS;
 // Reward campaigns start and end rarely; the listing is not worth a request on
 // every tick.
 export const LISTING_FRESH_MS = 5 * 60_000;
+// A failed lane read is tried again this soon: lanes gate what is farmed, and
+// one blip must not stop a lane watch for a whole listing window.
+export const LANE_RETRY_MS = 30_000;
+
+function laneKey(tracks: readonly string[]): string {
+  return [...tracks].sort().join("|");
+}
 
 // What reward-campaign discovery keeps between ticks. The extension rebuilds
 // the adapter every tick, so it lives on TwitchDiscoveryState and is replaced
@@ -561,22 +568,52 @@ export class TwitchRewardCampaignCache {
     this.reportedStatuses.add(status);
     return true;
   }
-  private lanes?: { key: string; equipped: Map<string, string>; at: number };
+  private lanes?: { key: string; equipped: Map<string, string>; at: number; freshMs: number };
+  // Bumped when the user equips a lane, so a read already in flight cannot
+  // put the old lanes back (rememberLanes).
+  private laneGeneration = 0;
+  private laneFailures = 0;
 
   // The lanes equipped on these tracks, while the last read of them is fresh.
   freshLanes(tracks: readonly string[], now = Date.now()): Map<string, string> | undefined {
-    const key = [...tracks].sort().join("|");
-    return this.lanes && this.lanes.key === key && now - this.lanes.at < LISTING_FRESH_MS
-      ? this.lanes.equipped
+    const lanes = this.lanes;
+    return lanes && lanes.key === laneKey(tracks) && now - lanes.at < lanes.freshMs
+      ? lanes.equipped
       : undefined;
   }
 
-  rememberLanes(tracks: readonly string[], equipped: Map<string, string>, now = Date.now()): void {
-    this.lanes = { key: [...tracks].sort().join("|"), equipped, at: now };
+  // The last lanes read for these tracks, however old.
+  lastLanes(tracks: readonly string[]): Map<string, string> | undefined {
+    return this.lanes?.key === laneKey(tracks) ? this.lanes.equipped : undefined;
+  }
+
+  // Captured before a read, and handed back to rememberLanes with its result.
+  laneReadGeneration(): number {
+    return this.laneGeneration;
+  }
+
+  // Stores a lane read unless the user equipped a lane since it started. A
+  // failed read is stored briefly, from LANE_RETRY_MS doubling up to the
+  // listing window while the reads keep failing, so one blip is retried soon
+  // and a lasting failure costs no more than a working read.
+  rememberLanes(
+    tracks: readonly string[],
+    equipped: Map<string, string>,
+    generation: number,
+    failed = false,
+    now = Date.now(),
+  ): void {
+    if (generation !== this.laneGeneration) return;
+    this.laneFailures = failed ? this.laneFailures + 1 : 0;
+    const freshMs = failed
+      ? Math.min(LANE_RETRY_MS * 2 ** (this.laneFailures - 1), LISTING_FRESH_MS)
+      : LISTING_FRESH_MS;
+    this.lanes = { key: laneKey(tracks), equipped, at: now, freshMs };
   }
 
   // After the user equips a lane, the next refresh reads the lanes again.
   forgetLanes(): void {
+    this.laneGeneration += 1;
     this.lanes = undefined;
   }
 

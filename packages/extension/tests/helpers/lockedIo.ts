@@ -25,6 +25,7 @@ export const LOCKED_IO_CALLS = [
   "adapter.refreshCampaigns",
   "adapter.checkAuthHealth",
   "adapter.searchCategories",
+  "adapter.selectRewardLane",
   "claimTwitchChannelPointsFromPush",
   "watcher.start",
   "watcher.stop",

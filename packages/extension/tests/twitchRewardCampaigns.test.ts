@@ -398,6 +398,9 @@ describe("twitch adapter reward campaigns (#904)", () => {
       claimStatus?: string | null;
       laneError?: string | null;
       listing?: () => unknown;
+      campaigns?: TwitchDropsCampaign[];
+      trackSelections?: () => unknown;
+      directory?: (slug: string) => unknown;
     } = {},
   ) {
     const operations: string[] = [];
@@ -415,6 +418,16 @@ describe("twitch adapter reward campaigns (#904)", () => {
           return { data: { currentUser: { id: USER, login: "viewer", dropCampaigns: [] } } };
         case "RewardCampaignsAvailable":
           if (options.listing) return options.listing();
+          if (options.campaigns)
+            return {
+              data: {
+                rewardCampaignsAvailableToUser: options.campaigns.map((campaign) => ({
+                  id: campaign.id,
+                  isSitewide: true,
+                  unlockRequirements: { minuteWatchedGoal: 20, subsGoal: 0 },
+                })),
+              },
+            };
           return {
             data: {
               rewardCampaignsAvailableToUser: [
@@ -427,14 +440,26 @@ describe("twitch adapter reward campaigns (#904)", () => {
               ],
             },
           };
-        case "RewardCampaignDetails":
-          return { data: { dropsCampaign: nightOut() } };
+        case "RewardCampaignDetails": {
+          const id = String((body.variables as { id?: string }).id);
+          return {
+            data: {
+              dropsCampaign:
+                options.campaigns?.find((campaign) => campaign.id === id) ?? nightOut(),
+            },
+          };
+        }
+        case "RewardTrackSelections":
+          return options.trackSelections?.() ?? { data: { trackSelections: [] } };
         case "GameSlugs": {
           const id = String((body.variables as { g0?: string }).g0);
           return { data: { g0: { id, slug: `slug-${id}` } } };
         }
         case "DirectoryPage_Game":
-          return directory("trainer", "777");
+          return (
+            options.directory?.(String((body.variables as { slug?: string }).slug))
+            ?? directory("trainer", "777")
+          );
         case "RewardCampaignProgress": {
           const channelID = String((body.variables as { channelID?: string }).channelID);
           return (
@@ -654,5 +679,211 @@ describe("twitch adapter reward campaigns (#904)", () => {
     // The last report stands in for a while, then counts as unknown.
     expect(await requirementAt(5)).toBe("watch");
     expect(await requirementAt(10)).toBe("action");
+  });
+
+  function laneCampaign(): TwitchDropsCampaign {
+    return nightOut([
+      watchGroup("haunter", { track: "pokemon#t", lane: "gastly" }),
+      watchGroup("ivysaur", { track: "pokemon#t", lane: "bulbasaur" }),
+    ]);
+  }
+
+  const laneProgress = () => ({
+    data: {
+      channelDropCampaignsProgress: [
+        {
+          id: "night-out",
+          rewardGroups: [
+            { id: "haunter", self: inProgress(0) },
+            { id: "ivysaur", self: inProgress(0) },
+          ],
+        },
+      ],
+    },
+  });
+
+  const equippedOf = (campaigns: DropCampaign[]) =>
+    campaigns
+      .find((item) => item.id === "night-out")
+      ?.laneChoices?.[0]?.lanes.find((lane) => lane.equipped)?.lane;
+
+  it("never lets a lane read in flight undo a lane the user just picked", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    let equipped = "gastly";
+    let releaseRead: (() => void) | undefined;
+    const { fetcher } = rewardFetcher({
+      campaigns: [laneCampaign()],
+      progress: laneProgress,
+      trackSelections: () => {
+        const answer = {
+          data: { trackSelections: [{ id: "pokemon#t", track: "pokemon#t", lane: equipped }] },
+        };
+        // The first read stalls until the pick has gone through.
+        if (!releaseRead) return new Promise((resolve) => (releaseRead = () => resolve(answer)));
+        return answer;
+      },
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const adapter = () => twitchAdapter(fetcher, undefined, { discoveryState });
+    const stalled = adapter().refreshCampaigns();
+    await vi.waitFor(() => expect(releaseRead).toBeDefined());
+    const picked = parse(
+      laneCampaign(),
+      { haunter: inProgress(0), ivysaur: inProgress(0) },
+      {
+        "pokemon#t": "gastly",
+      },
+    );
+    equipped = "bulbasaur";
+    await adapter().selectRewardLane(picked, "pokemon#t", "bulbasaur");
+    releaseRead!();
+    // The stalled refresh answers with what it read; it must not be kept.
+    expect(equippedOf(await stalled)).toBe("gastly");
+    expect(equippedOf(await adapter().refreshCampaigns())).toBe("bulbasaur");
+  });
+
+  it("retries a failed lane read soon and keeps the last lanes meanwhile", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    let failing = false;
+    let reads = 0;
+    const { fetcher } = rewardFetcher({
+      campaigns: [laneCampaign()],
+      progress: laneProgress,
+      trackSelections: () => {
+        reads += 1;
+        if (failing) throw new Error("lanes exploded");
+        return {
+          data: { trackSelections: [{ id: "pokemon#t", track: "pokemon#t", lane: "gastly" }] },
+        };
+      },
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const refreshAt = async (ms: number) => {
+      vi.setSystemTime(NOW + ms);
+      return twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
+    };
+    expect(equippedOf(await refreshAt(0))).toBe("gastly");
+    failing = true;
+    // Due again after the listing window: the read fails, the lanes stand.
+    expect(equippedOf(await refreshAt(5 * 60_000 + 1))).toBe("gastly");
+    expect(reads).toBe(2);
+    // Tried again within a minute, not after another five.
+    failing = false;
+    await refreshAt(5 * 60_000 + 40_000);
+    expect(reads).toBe(3);
+  });
+
+  it("probes a campaign the probe limit skipped on the next refresh", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    const crowded = {
+      ...nightOut([
+        watchGroup("a1", {
+          progressCriteria: {
+            ...watchGroup("a1").progressCriteria,
+            categories: ["c1", "c2", "c3", "c4", "c5"].map((id) => ({ id, displayName: id })),
+          },
+        }),
+      ]),
+      id: "crowded",
+    };
+    const quiet = {
+      ...nightOut([
+        watchGroup("b1", {
+          progressCriteria: {
+            ...watchGroup("b1").progressCriteria,
+            categories: [{ id: "c9", displayName: "c9" }],
+          },
+        }),
+      ]),
+      id: "quiet",
+    };
+    const { fetcher } = rewardFetcher({
+      campaigns: [crowded, quiet],
+      directory: (slug) => directory(`streamer-${slug}`, `channel-${slug}`),
+      // Only the quiet campaign's channel lists anything.
+      progress: (channelID) => ({
+        data: {
+          channelDropCampaignsProgress:
+            channelID === "channel-c9"
+              ? [{ id: "quiet", rewardGroups: [{ id: "b1", self: inProgress(3) }] }]
+              : [],
+        },
+      }),
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const quietReward = async (minute: number) => {
+      vi.setSystemTime(NOW + minute * 60_000);
+      const campaigns = await twitchAdapter(fetcher, undefined, {
+        discoveryState,
+      }).refreshCampaigns();
+      return campaigns.find((item) => item.id === "quiet")?.rewards[0];
+    };
+    expect((await quietReward(0))?.requirement).toBe("action");
+    expect(await quietReward(1)).toMatchObject({ requirement: "watch", watchedMinutes: 3 });
+  });
+
+  it("keeps a read in flight for the old account out of the new account's cache", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    const discoveryState = new TwitchDiscoveryState();
+    let releaseProgress: (() => void) | undefined;
+    const { fetcher } = rewardFetcher({
+      progress: () =>
+        new Promise((resolve) => {
+          releaseProgress = () =>
+            resolve({
+              data: {
+                channelDropCampaignsProgress: [
+                  { id: "night-out", rewardGroups: [{ id: "g1", self: inProgress(7) }] },
+                ],
+              },
+            });
+        }),
+    });
+    const refresh = twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
+    await vi.waitFor(() => expect(releaseProgress).toBeDefined());
+    discoveryState.setAuthenticatedUser("someone-else");
+    releaseProgress!();
+    await refresh;
+    expect(discoveryState.rewardCampaigns.knownProgress(["g1"]).size).toBe(0);
+    expect(discoveryState.rewardCampaigns.freshListing()).toBeUndefined();
+  });
+
+  it("keeps requests bounded over hours of refreshes while the tray and lanes keep failing", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { fetcher, operations } = rewardFetcher({
+      campaigns: [laneCampaign()],
+      progress: () => {
+        throw new Error("tray exploded");
+      },
+      trackSelections: () => {
+        throw new Error("lanes exploded");
+      },
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const hours = 3;
+    for (let minute = 0; minute < hours * 60; minute += 1) {
+      vi.setSystemTime(NOW + minute * 60_000);
+      const campaigns = await twitchAdapter(fetcher, undefined, {
+        discoveryState,
+      }).refreshCampaigns();
+      // Never farmed: no lane is known to be equipped and no progress is known.
+      expect(
+        campaigns
+          .find((item) => item.id === "night-out")
+          ?.rewards.every((reward) => reward.requirement === "action"),
+      ).toBe(true);
+    }
+    const count = (op: string) => operations.filter((item) => item === op).length;
+    // One probe round (two categories) per progress window, and one listing
+    // and one structure read per their windows.
+    expect(count("RewardCampaignProgress")).toBeLessThanOrEqual((hours * 60 * 2) / 3 + 2);
+    expect(count("RewardCampaignsAvailable")).toBeLessThanOrEqual((hours * 60) / 5 + 1);
+    expect(count("RewardCampaignDetails")).toBeLessThanOrEqual((hours * 60) / 10 + 1);
+    // Backed off from 30 seconds up to the listing window.
+    expect(count("RewardTrackSelections")).toBeLessThanOrEqual((hours * 60) / 5 + 6);
+    expect(count("GameSlugs")).toBeLessThanOrEqual(2);
   });
 });
