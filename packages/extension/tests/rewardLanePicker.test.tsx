@@ -66,7 +66,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mount(selectLane: ((campaignId: string, track: string, lane: string) => void) | null) {
+function mount(
+  selectLane: ((campaignId: string, track: string, lane: string) => void) | null,
+  source: DropCampaign = campaign,
+) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -78,7 +81,7 @@ function mount(selectLane: ((campaignId: string, track: string, lane: string) =>
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const settings = mergeSettings(undefined);
-  const view = campaignViewFromCampaign(campaign, 0, idleSession, false, {
+  const view = campaignViewFromCampaign(source, 0, idleSession, false, {
     skipUnfinishableRewards: settings.skipUnfinishableRewards,
     deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
     settings,
@@ -131,6 +134,11 @@ function mount(selectLane: ((campaignId: string, track: string, lane: string) =>
       </I18nContext.Provider>,
     );
   });
+  act(() =>
+    container
+      .querySelector<HTMLButtonElement>('[data-queue-disclosure="action-required"]')
+      ?.click(),
+  );
   act(() => container.querySelector<HTMLButtonElement>("article button[aria-expanded]")?.click());
   return container;
 }
@@ -159,5 +167,26 @@ describe("reward lane picker (#904)", () => {
   it("shows no picker without a lane handler", () => {
     const container = mount(null);
     expect(container.querySelector("[data-lane-picker]")).toBeNull();
+  });
+
+  it("offers the picker under Action required while no lane is equipped", () => {
+    const selectLane = vi.fn();
+    const unequipped: DropCampaign = {
+      ...campaign,
+      eligibility: "eligible",
+      rewards: campaign.rewards.map((reward) => ({
+        ...reward,
+        requirement: "action" as const,
+        isWatchBased: false,
+      })),
+      laneChoices: campaign.laneChoices?.map((choice) => ({
+        ...choice,
+        lanes: choice.lanes.map((lane) => ({ ...lane, equipped: false })),
+      })),
+    };
+    const container = mount(selectLane, unequipped);
+    expect(container.textContent).toContain("rewardLanesPick");
+    act(() => container.querySelector<HTMLButtonElement>('[data-lane="gastly"]')?.click());
+    expect(selectLane).toHaveBeenCalledWith("evolutions", "pokemon#t", "gastly");
   });
 });

@@ -202,6 +202,16 @@ export function farmableRewardCampaignIds(
     .map((listing) => listing.id as string);
 }
 
+// The campaigns a tray response lists. A listed campaign is answered for, even
+// where some of its groups carry no progress (an unequipped lane).
+export function listedCampaignIds(
+  campaigns: readonly (TwitchChannelCampaignProgress | null | undefined)[],
+): Set<string> {
+  return new Set(
+    campaigns.map((campaign) => campaign?.id).filter((id): id is string => Boolean(id)),
+  );
+}
+
 // Progress per reward group id, from any number of tray responses.
 export function rewardGroupProgress(
   campaigns: readonly (TwitchChannelCampaignProgress | null | undefined)[],
@@ -227,13 +237,7 @@ export function rewardCampaignCategories(campaign: TwitchDropsCampaign): Campaig
 }
 
 export function rewardCampaignTracks(campaign: TwitchDropsCampaign): string[] {
-  return [
-    ...new Set(
-      (campaign.rewardGroups ?? [])
-        .filter((group) => group.track && group.lane != null)
-        .map((group) => group.track as string),
-    ),
-  ];
+  return [...laneTracks(campaign).keys()];
 }
 
 function isBadgeItem(item: { dropDetail?: { badge?: unknown } | null }): boolean {
@@ -268,8 +272,19 @@ function parsedTime(value: string | null | undefined): number | undefined {
   return Number.isNaN(time) ? undefined : time;
 }
 
+// The group statuses Twitch's drops tray knows. Any other is not farmed.
+export const KNOWN_REWARD_GROUP_STATUSES: ReadonlySet<string> = new Set([
+  "IN_PROGRESS",
+  "CLAIMABLE",
+  "CLAIMED",
+  "FULFILLED",
+  "EXPIRED",
+]);
+
 export interface RewardGroupState {
   status: DropReward["status"];
+  // Twitch reported a status this code does not know; the group is not farmed.
+  unknownStatus?: boolean;
   watchedMinutes: number;
   grantCount: number;
   // When the next window opens, while the group cannot earn in this one.
@@ -291,6 +306,8 @@ export function rewardGroupState(
   const completeAll = repeat?.shouldCompleteAllRepeatsToEarn === true && times > 1;
   const grantCount = Math.max(self.grantCount ?? 0, 0);
   const done: RewardGroupState = { status: "claimed", watchedMinutes: required, grantCount };
+  if (self.status && !KNOWN_REWARD_GROUP_STATUSES.has(self.status))
+    return { status: "locked", watchedMinutes: 0, grantCount, unknownStatus: true };
   if (self.status === "CLAIMED" || self.status === "FULFILLED" || self.status === "EXPIRED")
     return done;
   if (self.status === "CLAIMABLE" && (!completeAll || grantCount >= times))
@@ -347,10 +364,10 @@ function laneName(groups: readonly TwitchRewardGroup[]): string {
   return [...new Set(names)].join(" → ");
 }
 
-function laneChoices(
-  campaign: TwitchDropsCampaign,
-  equippedLanes: ReadonlyMap<string, string>,
-): CampaignLaneChoice[] {
+// The tracks whose lanes are a real choice: at least two lanes. A track with
+// one lane (Twitch keeps one track, the balls, out of lane handling) gates
+// nothing.
+function laneTracks(campaign: TwitchDropsCampaign): Map<string, Map<string, TwitchRewardGroup[]>> {
   const tracks = new Map<string, Map<string, TwitchRewardGroup[]>>();
   for (const group of campaign.rewardGroups ?? []) {
     if (!group.track || group.lane == null) continue;
@@ -358,7 +375,15 @@ function laneChoices(
     lanes.set(group.lane, [...(lanes.get(group.lane) ?? []), group]);
     tracks.set(group.track, lanes);
   }
-  return [...tracks.entries()].map(([track, lanes]) => ({
+  for (const [track, lanes] of tracks) if (lanes.size < 2) tracks.delete(track);
+  return tracks;
+}
+
+function laneChoices(
+  campaign: TwitchDropsCampaign,
+  equippedLanes: ReadonlyMap<string, string>,
+): CampaignLaneChoice[] {
+  return [...laneTracks(campaign).entries()].map(([track, lanes]) => ({
     track,
     lanes: [...lanes.entries()].map(([lane, groups]) => ({
       lane,
@@ -384,6 +409,7 @@ export function parseTwitchRewardCampaign({
   if (!campaign.id) return undefined;
   const campaignId = campaign.id;
   const rewards: DropReward[] = [];
+  const tracks = laneTracks(campaign);
   for (const group of campaign.rewardGroups ?? []) {
     if (!group.id) continue;
     const benefits = rewardBenefits(group);
@@ -393,16 +419,16 @@ export function parseTwitchRewardCampaign({
     let requirement = requirementOf(group);
     // Watching earns a lane only while it is equipped, and a group limited to
     // channels by id cannot be matched to the channels the engine watches.
-    const onLane = Boolean(group.track && group.lane != null);
+    const onLane = Boolean(group.track && group.lane != null && tracks.has(group.track));
     if (onLane && equippedLanes.get(group.track as string) !== group.lane) requirement = "action";
     if (group.progressCriteria?.channels?.length) requirement = "action";
     if (requirement === "watch" && required <= 0) requirement = "action";
     const state: RewardGroupState = self
       ? rewardGroupState(group, self, now)
       : { status: "locked", watchedMinutes: 0, grantCount: 0 };
-    // Unknown progress: treated as an action reward, so it is shown but never
-    // farmed until a progress read answers for it.
-    if (!self && requirement === "watch") requirement = "action";
+    // Unknown progress, or a status this code does not know: treated as an
+    // action reward, so it is shown but never farmed.
+    if ((!self || state.unknownStatus) && requirement === "watch") requirement = "action";
     const isWatchBased = requirement === "watch";
     const claimId = userId ? `${userId}#${campaignId}#${group.id}` : undefined;
     rewards.push({
@@ -451,7 +477,7 @@ export function parseTwitchRewardCampaign({
           : "active";
   const choices = laneChoices(campaign, equippedLanes);
   const brand = campaign.brandName?.trim() || campaign.owner?.name?.trim();
-  return withCampaignStatus(
+  const parsed = withCampaignStatus(
     {
       id: campaignId,
       platform: "twitch",
@@ -473,15 +499,24 @@ export function parseTwitchRewardCampaign({
     },
     status,
   );
+  // With no lane equipped every lane reward is an action reward, which alone
+  // would read as "no rewards" and hide the card that holds the lane picker.
+  // Kept eligible, the campaign is listed under Action required instead.
+  const awaitsLane =
+    choices.some((choice) => !choice.lanes.some((lane) => lane.equipped))
+    && rewards.some((reward) => reward.lane && reward.status !== "claimed");
+  return awaitsLane && parsed.eligibility === "no_rewards"
+    ? { ...parsed, eligibility: "eligible", eligibilityReason: "Pick a lane to earn" }
+    : parsed;
 }
 
 // Structure changes rarely; progress moves while the campaign is watched, and
 // the farmed campaign's is always read fresh from the watched channel.
-const STRUCTURE_FRESH_MS = 10 * 60_000;
-const PROGRESS_FRESH_MS = 3 * 60_000;
+export const STRUCTURE_FRESH_MS = 10 * 60_000;
+export const PROGRESS_FRESH_MS = 3 * 60_000;
 // Reward campaigns start and end rarely; the listing is not worth a request on
 // every tick.
-const LISTING_FRESH_MS = 5 * 60_000;
+export const LISTING_FRESH_MS = 5 * 60_000;
 
 // What reward-campaign discovery keeps between ticks. The extension rebuilds
 // the adapter every tick, so it lives on TwitchDiscoveryState and is replaced
@@ -491,6 +526,38 @@ export class TwitchRewardCampaignCache {
   private readonly progress = new Map<string, { self: TwitchRewardGroupSelf; at: number }>();
   private retained: DropCampaign[] = [];
   private listing?: { ids: string[]; at: number };
+  // When a read was last tried, whatever came of it: a read that keeps failing
+  // or answering nothing is tried again only after its freshness window, not
+  // on every tick.
+  private readonly attempts = new Map<string, number>();
+  private readonly slugs = new Map<string, string>();
+  private readonly reportedStatuses = new Set<string>();
+
+  attemptedRecently(key: string, windowMs: number, now = Date.now()): boolean {
+    const at = this.attempts.get(key);
+    return at !== undefined && now - at < windowMs;
+  }
+
+  recordAttempt(key: string, now = Date.now()): void {
+    this.attempts.set(key, now);
+  }
+
+  // Directory slugs by category id. The adapter's own slug cache dies with it
+  // every tick; this one lives as long as the discovery state.
+  slug(categoryId: string): string | undefined {
+    return this.slugs.get(categoryId);
+  }
+
+  rememberSlug(categoryId: string, slug: string): void {
+    this.slugs.set(categoryId, slug);
+  }
+
+  // Whether this unknown group status is new, so it is reported once.
+  firstSeenStatus(status: string): boolean {
+    if (this.reportedStatuses.has(status)) return false;
+    this.reportedStatuses.add(status);
+    return true;
+  }
   private lanes?: { key: string; equipped: Map<string, string>; at: number };
 
   // The lanes equipped on these tracks, while the last read of them is fresh.

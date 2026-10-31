@@ -261,6 +261,37 @@ describe("twitch reward campaign parsing (#904)", () => {
     expect(parse(nightOut([group]), { g1: inProgress(0) }).rewards[0]?.requirement).toBe("action");
   });
 
+  it("does not farm a group in a status it does not know", () => {
+    const campaign = parse(nightOut(), { g1: inProgress(5, { status: "PAUSED" }) });
+    expect(campaign.rewards[0]).toMatchObject({ requirement: "action" });
+    expect(evaluateCampaignFarming(campaign, settings(), { now: NOW }).farmable).toBe(false);
+  });
+
+  it("gates nothing on a track that has a single lane", () => {
+    const ball = watchGroup("g1", { track: "balls#t", lane: "duskball" });
+    const campaign = parse(nightOut([ball]), { g1: inProgress(0) });
+    expect(campaign.rewards[0]).toMatchObject({ requirement: "watch" });
+    expect(campaign.laneChoices).toBeUndefined();
+  });
+
+  it("lists a campaign waiting for a lane under Action required, not as empty", () => {
+    const haunter = watchGroup("haunter", { name: "Haunter", track: "pokemon#t", lane: "gastly" });
+    const ivysaur = watchGroup("ivysaur", {
+      name: "Ivysaur",
+      track: "pokemon#t",
+      lane: "bulbasaur",
+    });
+    const campaign = parse(nightOut([haunter, ivysaur]), {
+      haunter: inProgress(0),
+      ivysaur: inProgress(0),
+    });
+    expect(campaign.eligibility).toBe("eligible");
+    expect(evaluateCampaignFarming(campaign, settings(), { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "action_required",
+    });
+  });
+
   it("keeps a claim of one grant from marking the next one claimed", () => {
     const claimedToday = parse(nightOut(), { g1: inProgress(20, { status: "CLAIMABLE" }) });
     const recorded = {
@@ -354,6 +385,7 @@ describe("twitch adapter reward campaigns (#904)", () => {
       progress?: (channelID: string) => unknown;
       claimStatus?: string | null;
       laneError?: string | null;
+      listing?: () => unknown;
     } = {},
   ) {
     const operations: string[] = [];
@@ -370,6 +402,7 @@ describe("twitch adapter reward campaigns (#904)", () => {
         case "ViewerDropsDashboard":
           return { data: { currentUser: { id: USER, login: "viewer", dropCampaigns: [] } } };
         case "RewardCampaignsAvailable":
+          if (options.listing) return options.listing();
           return {
             data: {
               rewardCampaignsAvailableToUser: [
@@ -384,8 +417,10 @@ describe("twitch adapter reward campaigns (#904)", () => {
           };
         case "RewardCampaignDetails":
           return { data: { dropsCampaign: nightOut() } };
-        case "GameSlugs":
-          return { data: { g0: { id: "490655", slug: "pokemon-go" } } };
+        case "GameSlugs": {
+          const id = String((body.variables as { g0?: string }).g0);
+          return { data: { g0: { id, slug: `slug-${id}` } } };
+        }
         case "DirectoryPage_Game":
           return directory("trainer", "777");
         case "RewardCampaignProgress": {
@@ -507,8 +542,11 @@ describe("twitch adapter reward campaigns (#904)", () => {
 
   it("equips a lane the campaign offers and reports Twitch's refusal", async () => {
     const campaign = parse(
-      nightOut([watchGroup("haunter", { track: "pokemon#t", lane: "gastly" })]),
-      { haunter: inProgress(0) },
+      nightOut([
+        watchGroup("haunter", { track: "pokemon#t", lane: "gastly" }),
+        watchGroup("ivysaur", { track: "pokemon#t", lane: "bulbasaur" }),
+      ]),
+      { haunter: inProgress(0), ivysaur: inProgress(0) },
     );
     const { fetcher, operations, variables } = rewardFetcher();
     await twitchAdapter(fetcher).selectRewardLane(campaign, "pokemon#t", "gastly");
@@ -526,5 +564,62 @@ describe("twitch adapter reward campaigns (#904)", () => {
         "gastly",
       ),
     ).rejects.toThrow(/NOT_OWNED/);
+  });
+
+  it("probes a campaign no drops tray lists once per freshness window, not every tick", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { fetcher, operations } = rewardFetcher({
+      progress: () => ({ data: { channelDropCampaignsProgress: [] } }),
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    for (let minute = 0; minute < 10; minute += 1) {
+      vi.setSystemTime(NOW + minute * 60_000);
+      const campaigns = await twitchAdapter(fetcher, undefined, {
+        discoveryState,
+      }).refreshCampaigns();
+      expect(campaigns.find((item) => item.id === "night-out")?.rewards[0]?.requirement).toBe(
+        "action",
+      );
+    }
+    const count = (op: string) => operations.filter((item) => item === op).length;
+    // Minutes 0, 3, 6 and 9, two categories each.
+    expect(count("RewardCampaignProgress")).toBe(8);
+    expect(count("GameSlugs")).toBeLessThanOrEqual(2);
+  });
+
+  it("counts a campaign the tray lists as answered even where a group has no progress", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    const { fetcher, operations } = rewardFetcher({
+      progress: () => ({
+        data: {
+          channelDropCampaignsProgress: [
+            { id: "night-out", rewardGroups: [{ id: "g1", self: null }] },
+          ],
+        },
+      }),
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
+    vi.setSystemTime(NOW + 60_000);
+    await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
+    expect(operations.filter((op) => op === "RewardCampaignProgress")).toHaveLength(1);
+  });
+
+  it("retries a failing listing once per window and keeps the drop refresh working", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const { fetcher, operations } = rewardFetcher({
+      listing: () => {
+        throw new Error("listing exploded");
+      },
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    for (let minute = 0; minute < 10; minute += 1) {
+      vi.setSystemTime(NOW + minute * 60_000);
+      await expect(
+        twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns(),
+      ).resolves.toEqual([]);
+    }
+    expect(operations.filter((op) => op === "RewardCampaignsAvailable")).toHaveLength(2);
   });
 });
