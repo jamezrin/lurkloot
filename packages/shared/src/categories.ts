@@ -95,6 +95,12 @@ export function campaignPassesCategoryFilter(
     Partial<Pick<PlatformSettings, "blockedCategories">>,
 ): boolean {
   if (isCampaignCategoryBlocked(campaign, platformSettings)) return false;
+  // A campaign that spans several categories passes only when one category is
+  // both allowed and unblocked: the one it can be watched in
+  // (campaignForWatching). Judging the two halves on different categories
+  // would pass a campaign no channel search could ever serve.
+  if (campaign.categories?.length)
+    return (allowedCampaignCategories(campaign, platformSettings)?.length ?? 0) > 0;
   if (platformSettings.categoryMode === "all") return true;
   return categoryListIndex(campaign, platformSettings.categories) !== -1;
 }

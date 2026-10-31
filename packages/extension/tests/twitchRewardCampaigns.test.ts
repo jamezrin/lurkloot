@@ -337,6 +337,18 @@ describe("multi-category campaigns (#904)", () => {
     ).toBe(false);
   });
 
+  it("does not pass a filter whose selected categories are all blocked", () => {
+    // Selected Pokémon GO, but blocked it too: Just Chatting is unblocked but
+    // not selected, so no category is left to watch it in.
+    expect(
+      campaignPassesCategoryFilter(campaign, {
+        categoryMode: "include",
+        categories: [pokemon],
+        blockedCategories: [pokemon],
+      }),
+    ).toBe(false);
+  });
+
   it("is blocked only when every category is, and is watched in the rest", () => {
     expect(isCampaignCategoryBlocked(campaign, { blockedCategories: [chatting] })).toBe(false);
     expect(isCampaignCategoryBlocked(campaign, { blockedCategories: [chatting, pokemon] })).toBe(
@@ -621,5 +633,26 @@ describe("twitch adapter reward campaigns (#904)", () => {
       ).resolves.toEqual([]);
     }
     expect(operations.filter((op) => op === "RewardCampaignsAvailable")).toHaveLength(2);
+  });
+
+  it("stops farming on progress no tray has repeated for several windows", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    let listed = true;
+    const { fetcher } = rewardFetcher({
+      progress: () => (listed ? undefined : { data: { channelDropCampaignsProgress: [] } }),
+    });
+    const discoveryState = new TwitchDiscoveryState();
+    const requirementAt = async (minute: number) => {
+      vi.setSystemTime(NOW + minute * 60_000);
+      const campaigns = await twitchAdapter(fetcher, undefined, {
+        discoveryState,
+      }).refreshCampaigns();
+      return campaigns.find((item) => item.id === "night-out")?.rewards[0]?.requirement;
+    };
+    expect(await requirementAt(0)).toBe("watch");
+    listed = false;
+    // The last report stands in for a while, then counts as unknown.
+    expect(await requirementAt(5)).toBe("watch");
+    expect(await requirementAt(10)).toBe("action");
   });
 });

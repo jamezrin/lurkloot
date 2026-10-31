@@ -514,6 +514,9 @@ export function parseTwitchRewardCampaign({
 // the farmed campaign's is always read fresh from the watched channel.
 export const STRUCTURE_FRESH_MS = 10 * 60_000;
 export const PROGRESS_FRESH_MS = 3 * 60_000;
+// How long progress no tray has repeated still stands in. Past it the group's
+// progress is unknown again, and it is not farmed (parseTwitchRewardCampaign).
+const PROGRESS_STALE_MS = 3 * PROGRESS_FRESH_MS;
 // Reward campaigns start and end rarely; the listing is not worth a request on
 // every tick.
 export const LISTING_FRESH_MS = 5 * 60_000;
@@ -619,12 +622,12 @@ export class TwitchRewardCampaignCache {
     return result;
   }
 
-  // Whatever progress is known for these groups, however old.
-  knownProgress(groupIds: readonly string[]): Map<string, TwitchRewardGroupSelf> {
+  // Progress known for these groups that is not yet stale (PROGRESS_STALE_MS).
+  knownProgress(groupIds: readonly string[], now = Date.now()): Map<string, TwitchRewardGroupSelf> {
     const result = new Map<string, TwitchRewardGroupSelf>();
     for (const id of groupIds) {
       const entry = this.progress.get(id);
-      if (entry) result.set(id, entry.self);
+      if (entry && now - entry.at < PROGRESS_STALE_MS) result.set(id, entry.self);
     }
     return result;
   }

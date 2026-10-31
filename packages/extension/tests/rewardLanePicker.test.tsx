@@ -8,7 +8,7 @@ import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext, RewardLaneContext } from "../../popup-ui/src/context";
 import { QueuePanel } from "../../popup-ui/src/queue";
 import type { PopupAdapter } from "../../popup-ui/src/types";
-import { campaignViewFromCampaign } from "../../popup-ui/src/viewModels";
+import { campaignViewFromCampaign, gameItemsFromCampaigns } from "../../popup-ui/src/viewModels";
 
 // The popup's side of Twitch reward campaigns (#904): the lane picker, and the
 // day count on a reward earned once per window.
@@ -188,5 +188,32 @@ describe("reward lane picker (#904)", () => {
     expect(container.textContent).toContain("rewardLanesPick");
     act(() => container.querySelector<HTMLButtonElement>('[data-lane="gastly"]')?.click());
     expect(selectLane).toHaveBeenCalledWith("evolutions", "pokemon#t", "gastly");
+  });
+
+  it("never calls an equipped lane unequipped while its progress is unknown", () => {
+    const settings = mergeSettings(undefined);
+    const waiting: DropCampaign = {
+      ...campaign,
+      rewards: campaign.rewards.map((reward) =>
+        reward.id === "Haunter"
+          ? { ...reward, requirement: "action" as const, isWatchBased: false }
+          : reward,
+      ),
+    };
+    const view = campaignViewFromCampaign(waiting, 0, idleSession, false, {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+      now: NOW,
+    });
+    expect(view.rewards.map((reward) => [reward.id, reward.laneUnequipped === true])).toEqual([
+      ["Haunter", false],
+      ["Ivysaur", true],
+    ]);
+  });
+
+  it("suggests a reward campaign's real categories, not its brand", () => {
+    const games = gameItemsFromCampaigns([campaign], (key) => key);
+    expect(games.map((game) => [game.id, game.name])).toEqual([["490655", "Pokémon GO"]]);
   });
 });

@@ -80,6 +80,21 @@ import { campaignSection } from "@lurkloot/shared/campaignFilters";
 export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction): GameItem[] {
   const discovered = new Map<string, GameItem>();
   campaigns.forEach((campaign, index) => {
+    // A campaign that spans several categories offers each real one, never
+    // its brand: only a real category can be selected, starred or blocked.
+    if (campaign.categories?.length) {
+      for (const category of campaign.categories) {
+        const id = category.id.trim().toLowerCase();
+        if (!discovered.has(id))
+          discovered.set(id, {
+            id,
+            name: category.name,
+            short: initials(category.name),
+            accent: GAME_ACCENTS[index % GAME_ACCENTS.length],
+          });
+      }
+      return;
+    }
     const id = gameId(campaign);
     const existing = discovered.get(id);
     if (existing) {
@@ -388,7 +403,7 @@ export function campaignViewFromCampaign(
         ...(reward.repeat && reward.availableFrom && Date.parse(reward.availableFrom) > now
           ? { nextWindowAt: reward.availableFrom }
           : {}),
-        ...(reward.lane && requirement === "action" ? { laneUnequipped: true } : {}),
+        ...(reward.lane && !isLaneEquipped(campaign, reward.lane) ? { laneUnequipped: true } : {}),
       };
     }),
     ...(campaign.laneChoices?.length ? { laneChoices: campaign.laneChoices } : {}),
@@ -400,6 +415,19 @@ export function campaignViewFromCampaign(
       farmingBlockers[0] !== undefined
       && OUTSIDE_ACTION_REJECTION_CODES.has(farmingBlockers[0].code),
   };
+}
+
+// Whether the reward's lane is the one equipped on its track. Read from the
+// picker's own data, so the tile and the picker never disagree.
+function isLaneEquipped(
+  campaign: DropCampaign,
+  lane: NonNullable<DropCampaign["rewards"][number]["lane"]>,
+): boolean {
+  return Boolean(
+    campaign.laneChoices
+      ?.find((choice) => choice.track === lane.track)
+      ?.lanes.some((option) => option.lane === lane.lane && option.equipped),
+  );
 }
 
 function safeClaimGuidance(guidance: DropCampaign["claimGuidance"]): DropCampaign["claimGuidance"] {
