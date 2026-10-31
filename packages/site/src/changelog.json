@@ -26,7 +26,8 @@
         "kind": "fixed",
         "text": "Lurkloot no longer claims Twitch drops from campaigns whose game account isn't linked. Twitch accepted those claims but granted nothing, and the same drops showed up as claimed again each time Twitch farming was turned back on. Once you link the account, they are claimed as usual."
       }
-    ]
+    ],
+    "date": "2026-10-31"
   },
   {
     "version": "1.21.0",
