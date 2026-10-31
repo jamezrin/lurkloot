@@ -404,7 +404,7 @@ export function campaignViewFromCampaign(
         ...(reward.repeat && reward.availableFrom && Date.parse(reward.availableFrom) > now
           ? { nextWindowAt: reward.availableFrom }
           : {}),
-        ...(reward.lane && !isLaneEquipped(campaign, reward.lane) ? { laneUnequipped: true } : {}),
+        ...(reward.lane && isLaneUnequipped(campaign, reward.lane) ? { laneUnequipped: true } : {}),
       };
     }),
     ...(campaign.laneChoices?.length ? { laneChoices: campaign.laneChoices } : {}),
@@ -418,17 +418,18 @@ export function campaignViewFromCampaign(
   };
 }
 
-// Whether the reward's lane is the one equipped on its track. Read from the
-// picker's own data, so the tile and the picker never disagree.
-function isLaneEquipped(
+// Whether the reward's lane is one the picker offers but is not equipped.
+// Read from the picker's own data, so the tile and the picker never disagree:
+// a lane the picker does not offer (Twitch has not started it) is locked, not
+// waiting for the user.
+function isLaneUnequipped(
   campaign: DropCampaign,
   lane: NonNullable<DropCampaign["rewards"][number]["lane"]>,
 ): boolean {
-  return Boolean(
-    campaign.laneChoices
-      ?.find((choice) => choice.track === lane.track)
-      ?.lanes.some((option) => option.lane === lane.lane && option.equipped),
-  );
+  const option = campaign.laneChoices
+    ?.find((choice) => choice.track === lane.track)
+    ?.lanes.find((candidate) => candidate.lane === lane.lane);
+  return option !== undefined && !option.equipped;
 }
 
 function safeClaimGuidance(guidance: DropCampaign["claimGuidance"]): DropCampaign["claimGuidance"] {

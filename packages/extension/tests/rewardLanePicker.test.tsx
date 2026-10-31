@@ -219,6 +219,33 @@ describe("reward lane picker (#904)", () => {
     ]);
   });
 
+  it("calls a lane the picker does not offer locked, not unequipped", () => {
+    const settings = mergeSettings(undefined);
+    // What the parser sends when Twitch has started no lane: lanes on the
+    // rewards, no picker.
+    const { laneChoices: _laneChoices, ...noPicker } = campaign;
+    const view = campaignViewFromCampaign(
+      {
+        ...noPicker,
+        rewards: campaign.rewards.map((reward) => ({
+          ...reward,
+          requirement: "action" as const,
+          isWatchBased: false,
+        })),
+      },
+      0,
+      idleSession,
+      false,
+      {
+        skipUnfinishableRewards: settings.skipUnfinishableRewards,
+        deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+        settings,
+        now: NOW,
+      },
+    );
+    expect(view.rewards.some((reward) => reward.laneUnequipped)).toBe(false);
+  });
+
   it("names a reward campaign by its brand when no single game matches", () => {
     const settings = mergeSettings(undefined);
     const view = campaignViewFromCampaign(campaign, 0, idleSession, false, {
