@@ -35,6 +35,7 @@
     "./twitch/chatPresence": "./src/platforms/twitch/chatPresence.ts",
     "./twitch/channelUrl": "./src/platforms/twitch/channelUrl.ts",
     "./twitch/parser": "./src/platforms/twitch/parser.ts",
+    "./twitch/rewardCampaigns": "./src/platforms/twitch/rewardCampaigns.ts",
     "./twitch/watch": "./src/platforms/twitch/watch.ts",
     "./twitch/heartbeat": "./src/platforms/twitch/heartbeat/index.ts",
     "./kick": "./src/platforms/kick/index.ts",
