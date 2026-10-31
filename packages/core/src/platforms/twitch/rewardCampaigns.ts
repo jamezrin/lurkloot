@@ -379,21 +379,33 @@ function laneTracks(campaign: TwitchDropsCampaign): Map<string, Map<string, Twit
   return tracks;
 }
 
+// Only lanes the user has unlocked can be equipped, as in Twitch's own Swap
+// list: a lane whose group Twitch has started for them (IN_PROGRESS), which an
+// evolution is only once its earlier badge is owned. Equipping any other lane
+// would watch for nothing.
 function laneChoices(
   campaign: TwitchDropsCampaign,
   equippedLanes: ReadonlyMap<string, string>,
+  progress: ReadonlyMap<string, TwitchRewardGroupSelf>,
 ): CampaignLaneChoice[] {
-  return [...laneTracks(campaign).entries()].map(([track, lanes]) => ({
-    track,
-    lanes: [...lanes.entries()].map(([lane, groups]) => ({
-      lane,
-      name: laneName(groups) || lane,
-      ...(groups[0]?.rewards?.[0]?.thumbnailURL
-        ? { imageUrl: groups[0].rewards[0].thumbnailURL }
-        : {}),
-      equipped: equippedLanes.get(track) === lane,
-    })),
-  }));
+  const unlocked = (groups: TwitchRewardGroup[]) =>
+    groups.some((group) => group.id && progress.get(group.id)?.status === "IN_PROGRESS");
+  return [...laneTracks(campaign).entries()]
+    .flatMap(([track, lanes]) => {
+      const open = [...lanes.entries()].filter(([, groups]) => unlocked(groups));
+      return open.length === 0 ? [] : [{ track, lanes: open }];
+    })
+    .map(({ track, lanes }) => ({
+      track,
+      lanes: lanes.map(([lane, groups]) => ({
+        lane,
+        name: laneName(groups) || lane,
+        ...(groups[0]?.rewards?.[0]?.thumbnailURL
+          ? { imageUrl: groups[0].rewards[0].thumbnailURL }
+          : {}),
+        equipped: equippedLanes.get(track) === lane,
+      })),
+    }));
 }
 
 // A reward campaign as a DropCampaign the engine farms like any other. Each
@@ -475,7 +487,7 @@ export function parseTwitchRewardCampaign({
         : rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")
           ? "completed"
           : "active";
-  const choices = laneChoices(campaign, equippedLanes);
+  const choices = laneChoices(campaign, equippedLanes, progress);
   const brand = campaign.brandName?.trim() || campaign.owner?.name?.trim();
   const parsed = withCampaignStatus(
     {

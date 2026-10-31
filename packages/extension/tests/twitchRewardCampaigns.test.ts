@@ -292,6 +292,27 @@ describe("twitch reward campaign parsing (#904)", () => {
     });
   });
 
+  it("offers only lanes Twitch has unlocked, as its own Swap list does", () => {
+    const haunter = watchGroup("haunter", { name: "Haunter", track: "pokemon#t", lane: "gastly" });
+    const ivysaur = watchGroup("ivysaur", {
+      name: "Ivysaur",
+      track: "pokemon#t",
+      lane: "bulbasaur",
+    });
+
+    const oneOwned = parse(nightOut([haunter, ivysaur]), { haunter: inProgress(0) });
+    expect(oneOwned.laneChoices?.[0]?.lanes.map((lane) => lane.lane)).toEqual(["gastly"]);
+
+    // No badge to evolve: nothing to pick, so nothing waits on the user, even
+    // with a locked lane equipped.
+    const noneOwned = parse(nightOut([haunter, ivysaur]), {}, { "pokemon#t": "bulbasaur" });
+    expect(noneOwned.laneChoices).toBeUndefined();
+    expect(evaluateCampaignFarming(noneOwned, settings(), { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "no_rewards",
+    });
+  });
+
   it("keeps a claim of one grant from marking the next one claimed", () => {
     const claimedToday = parse(nightOut(), { g1: inProgress(20, { status: "CLAIMABLE" }) });
     const recorded = {
