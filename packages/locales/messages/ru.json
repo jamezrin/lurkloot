@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Фармить кампанию только на каналах, для которых её показывает Twitch. Twitch часто не указывает доступные кампании, поэтому часть дропов может остаться нефармленной."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Лимит времени серии просмотров"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Сколько времени просматривается строка серии, прежде чем LurkLoot перейдёт дальше, если Twitch не подтвердил серию."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Задержка повтора серии просмотров"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Сколько строка серии ждёт перед повторной попыткой, после того как её видео не воспроизвелось."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Попытки серии просмотров"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Сколько раз пробуется строка серии, если её видео не воспроизводится, прежде чем она будет показана как «Не просмотрено»."
+  },
+  "roundsSuffix": {
+    "message": "попыток"
+  },
   "autoClaimChallengesTitle": {
     "message": "Автополучение ежедневных испытаний"
   },

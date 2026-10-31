@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Farme eine Kampagne nur auf Kanälen, für die Twitch sie auflistet. Twitch lässt farmbare Kampagnen oft aus, wodurch Drops ungefarmt bleiben können."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Watch-Streak-Budget"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Wie lange eine Streak-Zeile angesehen wird, bevor LurkLoot weitergeht, wenn Twitch den Streak nicht bestätigt hat."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Wartezeit für Watch-Streak-Wiederholung"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Wie lange eine Streak-Zeile wartet, bevor sie es erneut versucht, nachdem ihr Video nicht abgespielt werden konnte."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Watch-Streak-Versuche"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Wie oft eine Streak-Zeile versucht wird, wenn ihr Video nicht abspielt, bevor sie als „Nicht angesehen“ angezeigt wird."
+  },
+  "roundsSuffix": {
+    "message": "Versuche"
+  },
   "autoClaimChallengesTitle": {
     "message": "Tägliche Challenges automatisch beanspruchen"
   },

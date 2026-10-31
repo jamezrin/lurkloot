@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Twitch がそのキャンペーンを掲載しているチャンネルでのみファームします。Twitch はファーム可能なキャンペーンを省略することが多く、ドロップがファームされない場合があります。"
   },
+  "watchStreakBudgetTitle": {
+    "message": "連続視聴の上限時間"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Twitchが連続視聴を確認しない場合、LurkLoot が次に進むまでに連続視聴の行を視聴する時間。"
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "連続視聴の再試行間隔"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "動画が再生できなかった後、連続視聴の行を再試行するまでの待ち時間。"
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "連続視聴の試行回数"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "動画が再生できない場合に連続視聴の行を試行する回数。それを過ぎると「視聴できず」と表示されます。"
+  },
+  "roundsSuffix": {
+    "message": "回"
+  },
   "autoClaimChallengesTitle": {
     "message": "デイリーチャレンジを自動受け取り"
   },

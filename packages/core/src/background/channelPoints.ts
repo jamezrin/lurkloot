@@ -457,7 +457,7 @@ export function createChannelPoints<S extends EngineSettings>(
     const run = withEventCollector(async (emit, events) => {
       try {
         let ended: { username: string } | undefined;
-        const policy = watchStreakPolicy(await ports.storage.loadSettings());
+        const policy = watchStreakPolicy(await ports.storage.loadSettings(), "twitch");
         const result = await transaction.commit(
           ["twitch"],
           () => push.current === controller && !lifecycleSlice.controllerShutdown,

@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "احصد الحملة فقط على القنوات التي تعرضها تويتش لها. غالبًا ما تغفل تويتش حملات قابلة للحصد، لذا قد تبقى بعض الدروبس دون حصد."
   },
+  "watchStreakBudgetTitle": {
+    "message": "ميزانية سلسلة المشاهدة"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "المدة التي يُشاهد فيها صف السلسلة قبل أن ينتقل LurkLoot إذا لم تؤكد Twitch السلسلة."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "تأخير إعادة محاولة سلسلة المشاهدة"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "المدة التي ينتظرها صف السلسلة قبل إعادة المحاولة بعد تعذّر تشغيل الفيديو."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "محاولات سلسلة المشاهدة"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "عدد مرات محاولة صف السلسلة عند تعذّر تشغيل الفيديو، قبل عرضه بعبارة «تعذّرت المشاهدة»."
+  },
+  "roundsSuffix": {
+    "message": "محاولات"
+  },
   "autoClaimChallengesTitle": {
     "message": "استلام التحديات اليومية تلقائيًا"
   },

@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Фармити кампанію лише на каналах, для яких її показує Twitch. Twitch часто не вказує кампанії, які можна фармити, тож частина дропів може лишитися незібраною."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Бюджет часу серії перегляду"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Скільки триває перегляд рядка серії, перш ніж LurkLoot перейде далі, якщо Twitch не підтвердив серію."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Затримка повтору серії перегляду"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Скільки рядок серії чекає перед повторною спробою, якщо його відео не відтворилося."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Спроби серії перегляду"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Скільки разів намагаються переглянути рядок серії, якщо його відео не відтворюється, перш ніж позначити його як Не переглянуто."
+  },
+  "roundsSuffix": {
+    "message": "спроб"
+  },
   "autoClaimChallengesTitle": {
     "message": "Автозабір щоденних викликів"
   },

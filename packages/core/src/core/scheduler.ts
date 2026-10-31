@@ -2037,7 +2037,7 @@ export async function* decidePlatformTick(
           || (previous.watchMode === "tabless" && !previous.lastHeartbeatAt),
         paused: false,
         now: Date.now(),
-        policy: watchStreakPolicy(settings),
+        policy: watchStreakPolicy(settings, platform),
       });
       for (const attempt of streaks.attempts) {
         const key = watchStreakAttemptKey(attempt);

@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Hanya farm kampanye di saluran yang Twitch cantumkan. Twitch sering mengabaikan kampanye yang bisa di-farm, sehingga drop bisa tertinggal."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Batas waktu streak menonton"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Berapa lama baris streak ditonton sebelum LurkLoot lanjut, jika Twitch belum mengonfirmasi streak."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Jeda coba ulang streak menonton"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Berapa lama baris streak menunggu sebelum mencoba lagi setelah videonya gagal diputar."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Percobaan streak menonton"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Berapa kali baris streak dicoba saat videonya gagal diputar, sebelum ditampilkan sebagai Gagal ditonton."
+  },
+  "roundsSuffix": {
+    "message": "percobaan"
+  },
   "autoClaimChallengesTitle": {
     "message": "Klaim tantangan harian otomatis"
   },

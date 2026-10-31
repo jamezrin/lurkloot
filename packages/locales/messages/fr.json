@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Ne farmer une campagne que sur les chaînes pour lesquelles Twitch l'affiche. Twitch omet souvent des campagnes farmables, ce qui peut laisser des drops non farmés."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Budget de série de visionnage"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Durée pendant laquelle une ligne de série est regardée avant que LurkLoot passe à la suite si Twitch n’a pas confirmé la série."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Délai avant nouvelle tentative de série de visionnage"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Délai d’attente d’une ligne de série avant de réessayer, après l’échec de lecture de sa vidéo."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Tentatives de série de visionnage"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Nombre de tentatives d’une ligne de série lorsque sa vidéo ne se lit pas, avant qu’elle soit affichée comme Lecture impossible."
+  },
+  "roundsSuffix": {
+    "message": "essais"
+  },
   "autoClaimChallengesTitle": {
     "message": "Réclamer automatiquement les défis quotidiens"
   },

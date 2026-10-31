@@ -9,14 +9,17 @@ import {
   recordWatchStreakCredit,
   watchStreakPlan,
   watchStreakPolicy,
-  WATCH_STREAK_BUDGET_MS,
   WATCH_STREAK_MAX_ATTEMPTS,
-  WATCH_STREAK_MAX_ROUNDS,
   WATCH_STREAK_RETENTION_MS,
-  WATCH_STREAK_RETRY_COOLDOWN_MS,
 } from "@lurkloot/core/watchStreaks";
 import { mergePlatformState } from "@lurkloot/core/background/platformState";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
+import {
+  applySettingsPatch,
+  DEFAULT_SETTINGS,
+  mergeSettings,
+  WATCH_STREAK_TUNING_BOUNDS,
+  type WatchStreakTuning,
+} from "@lurkloot/shared/settings";
 import {
   buildSettingsExportPayload,
   parseSettingsImportPayload,
@@ -40,7 +43,20 @@ import {
 } from "./helpers/schedulerTick";
 
 const ACCOUNT = "1000";
-const POLICY = watchStreakPolicy({ pollIntervalMinutes: 1 });
+// The policy at a poll interval, with the default tuning unless overridden.
+function policyAt(
+  pollIntervalMinutes: number,
+  tuning: Partial<WatchStreakTuning> = {},
+): ReturnType<typeof watchStreakPolicy> {
+  const settings = structuredClone(DEFAULT_SETTINGS);
+  settings.pollIntervalMinutes = pollIntervalMinutes;
+  Object.assign(settings.platform.twitch, tuning);
+  return watchStreakPolicy(settings, "twitch");
+}
+const POLICY = policyAt(1);
+const WATCH_STREAK_BUDGET_MS = POLICY.budgetMs;
+const WATCH_STREAK_MAX_ROUNDS = POLICY.maxRounds;
+const WATCH_STREAK_RETRY_COOLDOWN_MS = POLICY.retryCooldownMs;
 const ROUND_CHECKS = POLICY.unhealthyChecksPerRound;
 
 function credit(
@@ -263,7 +279,7 @@ describe("watch-streak attempts", () => {
 
 describe("watch-streak cadence", () => {
   it("keeps the one-minute limits at the default poll interval", () => {
-    expect(POLICY).toEqual({
+    expect(POLICY).toMatchObject({
       maxAccrualStepMs: 2 * 60_000,
       creditLagMs: 10 * 60_000,
       unhealthyChecksPerRound: 10,
@@ -271,12 +287,12 @@ describe("watch-streak cadence", () => {
   });
 
   it("widens the step and the payout window with the poll interval", () => {
-    expect(watchStreakPolicy({ pollIntervalMinutes: 5 })).toEqual({
+    expect(policyAt(5)).toMatchObject({
       maxAccrualStepMs: 6 * 60_000,
       creditLagMs: 10 * 60_000,
       unhealthyChecksPerRound: 2,
     });
-    expect(watchStreakPolicy({ pollIntervalMinutes: 60 })).toEqual({
+    expect(policyAt(60)).toMatchObject({
       maxAccrualStepMs: 61 * 60_000,
       creditLagMs: 65 * 60_000,
       unhealthyChecksPerRound: 2,
@@ -284,7 +300,7 @@ describe("watch-streak cadence", () => {
   });
 
   it("still never counts a gap longer than one poll interval", () => {
-    const policy = watchStreakPolicy({ pollIntervalMinutes: 5 });
+    const policy = policyAt(5);
     const session = watching(channel("alpha"));
     let streaks = accrue({ attempts: [] }, session, T0, { policy });
     streaks = accrue(streaks, session, T0 + 3 * 3_600_000, { policy });
@@ -300,11 +316,7 @@ describe("watch-streak cadence", () => {
       at: T0 + 40 * 60_000,
     };
     expect(credit(started, payout)).toBeUndefined();
-    const hourly = recordWatchStreakCredit(
-      started,
-      payout,
-      watchStreakPolicy({ pollIntervalMinutes: 60 }),
-    );
+    const hourly = recordWatchStreakCredit(started, payout, policyAt(60));
     expect(hourly?.attempt.outcome).toBe("credited");
   });
 
@@ -318,7 +330,7 @@ describe("watch-streak cadence", () => {
     // and only that one.
     streaks = accrue(streaks, session, T0 + 8 * 60_000, {
       healthy: false,
-      policy: watchStreakPolicy({ pollIntervalMinutes: 5 }),
+      policy: policyAt(5),
     });
     expect(streaks.attempts[0]).toMatchObject({
       outcome: "pending",
@@ -368,6 +380,84 @@ describe("watch-streak cadence", () => {
       mergeWatchStreakState(later, earlier),
     ])
       expect(merged!.attempts[0]).toMatchObject({ failedRounds: 1, unhealthyChecks: 0 });
+  });
+});
+
+describe("watch-streak tuning", () => {
+  it("defaults, clamps and rounds the tuning on every host", () => {
+    expect(DEFAULT_SETTINGS.platform.twitch).toMatchObject({
+      watchStreakBudgetMinutes: 15,
+      watchStreakRetryCooldownMinutes: 30,
+      watchStreakMaxRounds: 3,
+    });
+    const merged = mergeSettings({
+      platform: {
+        twitch: {
+          watchStreakBudgetMinutes: 1_000,
+          watchStreakRetryCooldownMinutes: 0,
+          watchStreakMaxRounds: 2.6,
+        },
+      },
+    } as never);
+    expect(merged.platform.twitch).toMatchObject({
+      watchStreakBudgetMinutes: 60,
+      watchStreakRetryCooldownMinutes: 10,
+      watchStreakMaxRounds: 3,
+    });
+    const garbage = mergeSettings({
+      platform: { twitch: { watchStreakBudgetMinutes: "soon", watchStreakMaxRounds: Number.NaN } },
+    } as never);
+    expect(garbage.platform.twitch).toMatchObject({
+      watchStreakBudgetMinutes: 15,
+      watchStreakMaxRounds: 3,
+    });
+  });
+
+  it("builds the policy from the tuning", () => {
+    expect(
+      policyAt(1, {
+        watchStreakBudgetMinutes: 20,
+        watchStreakRetryCooldownMinutes: 45,
+        watchStreakMaxRounds: 5,
+      }),
+    ).toMatchObject({ budgetMs: 20 * 60_000, retryCooldownMs: 45 * 60_000, maxRounds: 5 });
+  });
+
+  it("ends a running attempt at a lowered budget and never reopens one at a raised budget", () => {
+    const session = watching(channel("alpha"));
+    let streaks: WatchStreakState = { attempts: [] };
+    for (let minute = 0; minute <= 8; minute += 1)
+      streaks = accrue(streaks, session, T0 + minute * 60_000);
+    expect(streaks.attempts[0]).toMatchObject({ outcome: "pending", watchedMs: 8 * 60_000 });
+    const lowered = policyAt(1, { watchStreakBudgetMinutes: 5 });
+    streaks = accrue(streaks, session, T0 + 9 * 60_000, { policy: lowered });
+    expect(streaks.attempts[0]!.outcome).toBe("not_confirmed");
+    const raised = policyAt(1, { watchStreakBudgetMinutes: 60 });
+    const after = accrue(streaks, session, T0 + 10 * 60_000, { policy: raised });
+    expect(after.attempts).toEqual(streaks.attempts);
+  });
+
+  it("ends an attempt that already used more rounds than a lowered cap at its next round", () => {
+    const session = watching(channel("alpha"));
+    let streaks: WatchStreakState = { attempts: [] };
+    let now = T0;
+    for (let round = 0; round < 2; round += 1) {
+      for (let check = 0; check < ROUND_CHECKS; check += 1) {
+        streaks = accrue(streaks, session, now, { healthy: false });
+        now += 60_000;
+      }
+      now = Date.parse(streaks.attempts[0]!.retryAt!);
+    }
+    expect(streaks.attempts[0]).toMatchObject({ outcome: "pending", failedRounds: 2 });
+    const one = policyAt(1, { watchStreakMaxRounds: 1 });
+    // The round in progress still runs to its end; only then is the cap read.
+    streaks = accrue(streaks, session, now, { healthy: false, policy: one });
+    expect(streaks.attempts[0]!.outcome).toBe("pending");
+    for (let check = 1; check < ROUND_CHECKS; check += 1) {
+      now += 60_000;
+      streaks = accrue(streaks, session, now, { healthy: false, policy: one });
+    }
+    expect(streaks.attempts[0]).toMatchObject({ outcome: "playback_failed", failedRounds: 3 });
   });
 });
 
@@ -841,7 +931,7 @@ describe("watch-streak scheduling", () => {
         channelId: channel("streaky").channelId!,
         at: Date.now() - 55 * 60_000,
       },
-      watchStreakPolicy({ pollIntervalMinutes: 60 }),
+      policyAt(60),
     );
     expect(credited?.attempt).toMatchObject({ broadcastId: "second", outcome: "credited" });
   });
@@ -861,6 +951,43 @@ describe("watch-streak scheduling", () => {
     expect(entries).toHaveLength(WATCH_STREAK_MAX_ROUNDS);
     expect(s.watched.slice(-24).every((name) => name === "ordinary")).toBe(true);
     expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("playback_failed");
+  });
+
+  // The round cap and the rest are user settings, so the opens must still end
+  // at both ends of their ranges.
+  for (const [rounds, cooldownMinutes] of [
+    [
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakMaxRounds.max,
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakRetryCooldownMinutes.min,
+    ],
+    [
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakMaxRounds.min,
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakRetryCooldownMinutes.max,
+    ],
+  ] as const) {
+    it(`ends the returns to a row that never plays with ${rounds} rounds and a ${cooldownMinutes}-minute rest`, async () => {
+      const s = setup({ channels: ["ordinary", "streaky"], streaks: ["streaky"], restartEvery: 7 });
+      s.settings.platform.twitch.watchStreakMaxRounds = rounds;
+      s.settings.platform.twitch.watchStreakRetryCooldownMinutes = cooldownMinutes;
+      for (let minute = 0; minute < 12 * 60; minute += 1)
+        await s.tick(s.state.sessions.twitch.channel?.username !== "streaky");
+      const entries = s.watched.filter(
+        (name, index) => name === "streaky" && s.watched[index - 1] !== "streaky",
+      );
+      expect(entries).toHaveLength(rounds);
+      expect(s.watched.slice(-60).every((name) => name === "ordinary")).toBe(true);
+      expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("playback_failed");
+    });
+  }
+
+  it("spends the budget the user set", async () => {
+    const s = setup({ channels: ["streaky"], streaks: ["streaky"] });
+    s.settings.platform.twitch.watchStreakBudgetMinutes = 5;
+    for (let minute = 0; minute < 8; minute += 1) await s.tick();
+    expect(s.state.watchStreaks?.twitch?.attempts[0]).toMatchObject({
+      outcome: "not_confirmed",
+      watchedMs: 5 * 60_000,
+    });
   });
 
   it("starts a fresh attempt for a new broadcast", async () => {

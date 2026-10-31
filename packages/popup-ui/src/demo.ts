@@ -15,7 +15,12 @@ import type {
   SupportedLocale,
   TwitchExtensionSummary,
 } from "@lurkloot/shared/models";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
+import {
+  applySettingsPatch,
+  DEFAULT_SETTINGS,
+  DEFAULT_WATCH_STREAK_TUNING,
+  mergeSettings,
+} from "@lurkloot/shared/settings";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import type { PopupAdapter } from "./types";
 import { openHttpsLink } from "./links";
@@ -147,6 +152,7 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         strictCampaignAvailability: false,
         channelPointsPushClaim: true,
         watchlistStreakChannels: [],
+        ...DEFAULT_WATCH_STREAK_TUNING,
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
         unlinkedCampaigns: "include",

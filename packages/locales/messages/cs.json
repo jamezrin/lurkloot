@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Farmit kampaň jen na kanálech, které pro ni Twitch uvádí. Twitch často vynechá farmitelné kampaně, takže drops mohou zůstat nefarmené."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Časový limit série sledování"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Jak dlouho se řádek série sleduje, než LurkLoot pokračuje dál, pokud Twitch sérii nepotvrdí."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Prodleva opakování série sledování"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Jak dlouho řádek série čeká, než se znovu pokusí, když se jeho video nepřehrálo."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Pokusy série sledování"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Kolikrát se řádek série zkusí spustit, když se jeho video nepřehrává, než bude označen jako Nelze sledovat."
+  },
+  "roundsSuffix": {
+    "message": "pokusů"
+  },
   "autoClaimChallengesTitle": {
     "message": "Automaticky vyzvedávat denní výzvy"
   },

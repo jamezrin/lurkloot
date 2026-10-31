@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "کمپین را فقط در کانال‌هایی فارم کن که Twitch برایشان فهرست کرده است. Twitch اغلب کمپین‌های قابل فارم را جا می‌اندازد و ممکن است دراپ‌ها فارم نشوند."
   },
+  "watchStreakBudgetTitle": {
+    "message": "بودجه تداوم تماشا"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "هر ردیف تداوم تا چه مدت تماشا شود پیش از آنکه LurkLoot ادامه دهد، اگر Twitch تداوم را تأیید نکرده باشد."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "تأخیر تلاش دوباره تداوم تماشا"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "اگر ویدیوی ردیف تداوم پخش نشود، ردیف چقدر صبر کند تا دوباره تلاش شود."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "تلاش‌های تداوم تماشا"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "اگر ویدیوی ردیف تداوم پخش نشود، چند بار برای آن تلاش شود، پیش از آنکه با عنوان تماشا نشد نمایش داده شود."
+  },
+  "roundsSuffix": {
+    "message": "بار"
+  },
   "autoClaimChallengesTitle": {
     "message": "دریافت خودکار چالش‌های روزانه"
   },

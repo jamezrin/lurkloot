@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Farmea una campaña solo en los canales para los que Twitch la muestra. Twitch suele omitir campañas farmeables, así que esto puede dejar recompensas sin farmear."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Presupuesto de racha de visualización"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Cuánto tiempo se ve una fila de racha antes de que LurkLoot pase a la siguiente si Twitch no ha confirmado la racha."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Retraso para reintentar la racha de visualización"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Cuánto espera una fila de racha antes de volver a intentarlo, tras no poder reproducirse su vídeo."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Intentos de racha de visualización"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Cuántas veces se intenta una fila de racha cuando su vídeo no se reproduce, antes de mostrarla como No se pudo ver."
+  },
+  "roundsSuffix": {
+    "message": "intentos"
+  },
   "autoClaimChallengesTitle": {
     "message": "Auto-reclamar desafíos diarios"
   },

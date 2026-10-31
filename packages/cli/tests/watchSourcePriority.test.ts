@@ -92,4 +92,32 @@ describe("CLI watch-source priority", () => {
       "settings.platform.twitch.idleWatchlistStreakChannels is deprecated; use settings.platform.twitch.watchlistStreakChannels",
     );
   });
+
+  it("accepts and clamps the watch-streak tuning, and exports it", () => {
+    const config = parseConfig(
+      {
+        settings: {
+          platform: {
+            twitch: {
+              watchStreakBudgetMinutes: 20,
+              watchStreakRetryCooldownMinutes: 1,
+              watchStreakMaxRounds: 9,
+            },
+          },
+        },
+      },
+      "/tmp/streak-tuning-config.jsonc",
+    );
+    expect(config.warnings).toEqual([]);
+    expect(config.settings.platform.twitch).toMatchObject({
+      watchStreakBudgetMinutes: 20,
+      watchStreakRetryCooldownMinutes: 10,
+      watchStreakMaxRounds: 5,
+    });
+    expect(
+      parseCliSettingsImportPayload(
+        JSON.parse(JSON.stringify(buildCliSettingsExportPayload(config.settings))),
+      ).settings.platform.twitch,
+    ).toMatchObject({ watchStreakBudgetMinutes: 20, watchStreakMaxRounds: 5 });
+  });
 });
