@@ -174,6 +174,42 @@ describe("activity view model", () => {
         platform: "twitch",
         data: { reason: "no_progress" },
       },
+      reward_obtained: {
+        id: "reward-obtained",
+        at,
+        category: "activity",
+        code: "reward_obtained",
+        level: "info",
+        platform: "kick",
+        data: { kind: "challenge_card", source: { platform: "kick" }, rarity: "rare" },
+      },
+      points_earned: {
+        id: "points-earned",
+        at,
+        category: "activity",
+        code: "points_earned",
+        level: "info",
+        platform: "twitch",
+        data: { channelId: "77", reason: "WATCH", amount: 50 },
+      },
+      session_started: {
+        id: "session-started",
+        at,
+        category: "activity",
+        code: "session_started",
+        level: "info",
+        platform: "twitch",
+        data: { sessionId: "s1", startedAt: at },
+      },
+      session_ended: {
+        id: "session-ended",
+        at,
+        category: "activity",
+        code: "session_ended",
+        level: "info",
+        platform: "twitch",
+        data: { sessionId: "s1", startedAt: at, endedAt: at, reason: "disabled" },
+      },
     } satisfies Record<ActivityEvent["code"], ActivityHistoryRecord>;
     const diagnostic: ActivityHistoryRecord = {
       id: "diagnostic",
@@ -191,7 +227,10 @@ describe("activity view model", () => {
     };
 
     for (const event of Object.values(events)) {
-      expect(buildActivityCard(event, t)?.summary).toBe(formatActivityEvent(event, t));
+      const card = buildActivityCard(event, t);
+      // Session and reward-summary codes are rendered by the session timeline,
+      // not as cards.
+      if (card) expect(card.summary).toBe(formatActivityEvent(event, t));
     }
 
     expect(buildActivityCard(events.reward_claimed, t)).toMatchObject({
@@ -213,6 +252,22 @@ describe("activity view model", () => {
     }
     expect(buildActivityCard(legacy, t)).toBeUndefined();
     expect(buildActivityCard(diagnostic, t)).toBeUndefined();
+  });
+
+  it("renders nothing for a stored row whose code this build does not know", () => {
+    const t = (key: string) => key;
+    const record = {
+      id: "invented",
+      at: "2026-10-30T10:00:00.000Z",
+      category: "activity",
+      code: "invented_code",
+      level: "info",
+      platform: "twitch",
+      data: {},
+    } as unknown as ActivityHistoryRecord;
+
+    expect(formatActivityEvent(record, t)).toBe("");
+    expect(buildActivityCard(record, t)).toBeUndefined();
   });
 
   it("formats current activity wording from code and payload", () => {

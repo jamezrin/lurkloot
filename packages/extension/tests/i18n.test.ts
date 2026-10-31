@@ -340,6 +340,12 @@ describe("i18n", () => {
     const allowedSameAsEnglish = new Set([
       "extensionName",
       "dropsTab",
+      // Twitch's own terms for drops, raids and the bonus chest, and the
+      // loanword "Status", kept as written in several catalogs.
+      "activityTotalDrops",
+      "pointsReasonClaim",
+      "pointsReasonRaid",
+      "activitySectionStatus",
       "dropsSettingsTitle",
       "debug",
       "info",
@@ -406,10 +412,18 @@ describe("i18n", () => {
 
     // Loanwords that are correct as written in these languages.
     const loanwords: Record<string, Set<string>> = {
-      de: new Set(["rewardKindEmote"]),
-      es: new Set(["rewardKindEmote"]),
-      pt_BR: new Set(["rewardKindEmote"]),
-      fr: new Set(["rewardKindBadge"]),
+      de: new Set(["rewardKindEmote", "rewardEditionNormal", "rewardEditionGold"]),
+      es: new Set(["rewardKindEmote", "rewardEditionNormal"]),
+      pt_BR: new Set(["rewardKindEmote", "rewardEditionNormal"]),
+      fr: new Set([
+        "rewardKindBadge",
+        "activityTotalPoints",
+        "activityTotalExtension",
+        "rewardCaptureTitle",
+        "rewardEditionNormal",
+      ]),
+      id: new Set(["rewardEditionNormal", "pointsReasonWatchStreak"]),
+      tr: new Set(["rewardEditionNormal"]),
       // Czech keeps Twitch's "Extensions" product name, as navExtensions does.
       cs: new Set(["tourExtensionsTitle"]),
     };

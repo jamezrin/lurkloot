@@ -1156,7 +1156,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
         expect(host.reported).toContainEqual(
           expect.objectContaining({
             category: "activity",
-            code: "challenge_claimed",
+            code: "reward_obtained",
             platform: "kick",
           }),
         );

@@ -1,3 +1,4 @@
+import type { FarmingSessionSummary } from "./farmingSessions";
 import type { ActivityHistoryRecord, EventCategory } from "./events";
 import type {
   CategorySelection,
@@ -42,6 +43,7 @@ export type RuntimeMessage =
   | CoreRuntimeMessage
   | { type: "setTwitchExtensionEnabled"; provider: TwitchExtensionProviderId; enabled: boolean }
   | ({ type: "getActivity" } & ActivityQuery)
+  | { type: "getActivitySessions"; platform: Platform }
   | { type: "exportDiagnostics"; platform: Platform }
   | { type: "clearActivity" }
   | { type: "resetExtension" }
@@ -88,6 +90,11 @@ export interface ActivityQuery {
   query?: string;
   cursor?: string;
   limit?: number;
+}
+
+// A platform's farming sessions within the activity retention, newest first.
+export interface ActivitySessionsPage {
+  sessions: FarmingSessionSummary[];
 }
 
 export interface ActivityPage {

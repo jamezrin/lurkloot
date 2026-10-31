@@ -1,6 +1,7 @@
 import type {
   CategorySelection,
   ChannelCandidate,
+  ChannelIdentity,
   ChannelCheck,
   DropCampaign,
   DropReward,
@@ -8,6 +9,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
+import { safeHttpsUrl } from "@lurkloot/shared/rewardEvents";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabRegistry";
@@ -61,6 +63,12 @@ export type { TwitchInventoryCapability } from "./inventory/types";
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
 const CURRENT_USER_LOGIN_QUERY = "query CurrentUserLogin { currentUser { id login } }";
+// Not yet checked against Twitch's live schema; a drift shows up as a GQL error
+// and the channel is shown by its id (CLAUDE.md, "Manually Reproducing Platform
+// GQL Requests").
+const CHANNEL_IDENTITIES_QUERY =
+  "query ChannelIdentities($ids: [ID!]) { users(ids: $ids) { id login displayName profileImageURL(width: 70) } }";
+const CHANNEL_IDENTITIES_MAX = 100;
 
 // Twitch's web Client-ID — the default identity. It is the one Twitch gates
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
@@ -2802,6 +2810,45 @@ export class TwitchAdapter implements PlatformAdapter {
       );
       return undefined;
     }
+  }
+
+  async resolveChannels(
+    ids: readonly string[],
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<Record<string, ChannelIdentity>> {
+    const wanted = [...new Set(ids.filter((id) => /^\d{1,20}$/.test(id)))].slice(
+      0,
+      CHANNEL_IDENTITIES_MAX,
+    );
+    if (wanted.length === 0) return {};
+    // Anonymous, like category search: public data, sent inline.
+    const response = await this.gql<{
+      users?: Array<{
+        id?: string;
+        login?: string;
+        displayName?: string;
+        profileImageURL?: string;
+      } | null>;
+    }>(
+      "ChannelIdentities",
+      "",
+      { ids: wanted },
+      CHANNEL_IDENTITIES_QUERY,
+      "omit",
+      this.emit,
+      signal,
+    );
+    const resolved: Record<string, ChannelIdentity> = {};
+    for (const user of response.data?.users ?? []) {
+      if (!user?.id || !user.login || !wanted.includes(user.id)) continue;
+      const imageUrl = safeHttpsUrl(user.profileImageURL);
+      resolved[user.id] = {
+        login: user.login,
+        ...(user.displayName ? { displayName: user.displayName } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+      };
+    }
+    return resolved;
   }
 
   async searchCategories(query: string): Promise<CategorySelection[]> {

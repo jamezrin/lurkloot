@@ -143,6 +143,13 @@ export interface DropCampaign {
   url?: string;
 }
 
+// A channel's public identity, looked up from its platform id.
+export interface ChannelIdentity {
+  login: string;
+  displayName?: string;
+  imageUrl?: string;
+}
+
 export interface ChannelCandidate {
   platform: Platform;
   username: string;
@@ -687,6 +694,10 @@ export interface SchedulerState {
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.
   gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
+  // The open farming session per platform: from the platform's farming being
+  // enabled until it is disabled, surviving restarts. Written only by the
+  // controller's farming-session reconcile (settings commits and startup).
+  farmingSessions?: Partial<Record<Platform, { id: string; startedAt: string }>>;
   // The signed-in account's own progress on its platform, polled on its own
   // stamp (independent of challenge claiming) and shown beside the platform's
   // switch. `progress` is the last good read: a failed poll only moves the stamp.

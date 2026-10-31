@@ -1499,6 +1499,99 @@
   "activityCriticalFailureCleared": {
     "message": "Kegagalan kritis $1 ditutup; mencoba lagi."
   },
+  "activitySessionCurrent": {
+    "message": "Sesi ini"
+  },
+  "activitySessionLive": {
+    "message": "sejak $1"
+  },
+  "activitySessionOutside": {
+    "message": "Di luar sesi"
+  },
+  "activitySessionEarlier": {
+    "message": "Sebelumnya"
+  },
+  "activitySessionEmpty": {
+    "message": "Belum ada yang didapat. Hadiah dan poin akan muncul di sini saat didapatkan."
+  },
+  "activitySessionSummary": {
+    "message": "$1 poin · $2 hadiah"
+  },
+  "activitySessionStarted": {
+    "message": "Memulai sesi farming"
+  },
+  "activitySessionEnded": {
+    "message": "Mengakhiri sesi farming"
+  },
+  "activityTotalPoints": {
+    "message": "poin"
+  },
+  "activityTotalDrops": {
+    "message": "drop"
+  },
+  "activityTotalCards": {
+    "message": "kartu"
+  },
+  "activityTotalExtension": {
+    "message": "ekstensi"
+  },
+  "activitySectionRewards": {
+    "message": "Hadiah"
+  },
+  "activitySectionPoints": {
+    "message": "Poin per saluran"
+  },
+  "activitySectionStatus": {
+    "message": "Status ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 poin di $2"
+  },
+  "activityRewardObtained": {
+    "message": "Diperoleh $1"
+  },
+  "activityChannelId": {
+    "message": "Saluran $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Menonton"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Streak"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "Kartu $1"
+  },
+  "rewardPackTitle": {
+    "message": "Paket dibuka · $1 kartu"
+  },
+  "rewardCaptureTitle": {
+    "message": "Tangkapan"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Giveaway diikuti"
+  },
+  "rewardGenericTitle": {
+    "message": "Hadiah"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 menit tonton"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 emas"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendaris"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "tidak ada progres meski error berulang"
   },

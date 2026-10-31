@@ -25,12 +25,4 @@ export function isKickClaimSuccess(response: unknown): boolean {
   return isRecord(response.data) && response.data.id != null;
 }
 
-export function safeHttpsUrl(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password ? value : undefined;
-  } catch {
-    return undefined;
-  }
-}
+export { safeHttpsUrl } from "@lurkloot/shared/rewardEvents";

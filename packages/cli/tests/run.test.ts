@@ -335,8 +335,10 @@ describe("CLI scheduler tick baseline", () => {
     // subscription waits. The two ticks run concurrently, and a tick reuses
     // its own read when nothing was saved since (`loadLatest` in tickRun.ts),
     // so whether the other tick's save lands in between decides one load.
+    // The first reported batch also reads the state once to learn the open
+    // farming sessions it stamps (farmingSessions.ts).
     const stateLoads = "stateLoads" in result ? result.stateLoads : undefined;
-    expect([9, 10]).toContain(stateLoads);
+    expect([10, 11]).toContain(stateLoads);
     expect(result).toEqual({
       host: "cli",
       platform,

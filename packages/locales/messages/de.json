@@ -1499,6 +1499,99 @@
   "activityCriticalFailureCleared": {
     "message": "Kritischer Fehler von $1 verworfen; erneuter Versuch läuft."
   },
+  "activitySessionCurrent": {
+    "message": "Diese Sitzung"
+  },
+  "activitySessionLive": {
+    "message": "seit $1"
+  },
+  "activitySessionOutside": {
+    "message": "Außerhalb einer Sitzung"
+  },
+  "activitySessionEarlier": {
+    "message": "Früher"
+  },
+  "activitySessionEmpty": {
+    "message": "Noch nichts erhalten. Belohnungen und Punkte erscheinen hier, sobald sie eintreffen."
+  },
+  "activitySessionSummary": {
+    "message": "$1 Punkte · $2 Belohnungen"
+  },
+  "activitySessionStarted": {
+    "message": "Farming-Sitzung gestartet"
+  },
+  "activitySessionEnded": {
+    "message": "Farming-Sitzung beendet"
+  },
+  "activityTotalPoints": {
+    "message": "Punkte"
+  },
+  "activityTotalDrops": {
+    "message": "Drops"
+  },
+  "activityTotalCards": {
+    "message": "Karten"
+  },
+  "activityTotalExtension": {
+    "message": "Erweiterung"
+  },
+  "activitySectionRewards": {
+    "message": "Belohnungen"
+  },
+  "activitySectionPoints": {
+    "message": "Punkte nach Kanal"
+  },
+  "activitySectionStatus": {
+    "message": "Status ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 Punkte bei $2"
+  },
+  "activityRewardObtained": {
+    "message": "$1 erhalten"
+  },
+  "activityChannelId": {
+    "message": "Kanal $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Zuschauen"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Serie"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "Karte $1"
+  },
+  "rewardPackTitle": {
+    "message": "Pack geöffnet · $1 Karten"
+  },
+  "rewardCaptureTitle": {
+    "message": "Fang"
+  },
+  "rewardGiveawayTitle": {
+    "message": "An Verlosung teilgenommen"
+  },
+  "rewardGenericTitle": {
+    "message": "Belohnung"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 Min. Watchtime"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 Gold"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendär"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "trotz wiederholter Fehler kein Fortschritt"
   },

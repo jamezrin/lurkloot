@@ -1499,6 +1499,99 @@
   "activityCriticalFailureCleared": {
     "message": "$1 の重大な障害を解除しました。再試行します。"
   },
+  "activitySessionCurrent": {
+    "message": "このセッション"
+  },
+  "activitySessionLive": {
+    "message": "$1 から"
+  },
+  "activitySessionOutside": {
+    "message": "セッション外"
+  },
+  "activitySessionEarlier": {
+    "message": "それ以前"
+  },
+  "activitySessionEmpty": {
+    "message": "まだ何も獲得していません。報酬とポイントは獲得すると、ここに表示されます。"
+  },
+  "activitySessionSummary": {
+    "message": "$1 ポイント · 報酬 $2 件"
+  },
+  "activitySessionStarted": {
+    "message": "ファームセッションを開始"
+  },
+  "activitySessionEnded": {
+    "message": "ファームセッションを終了"
+  },
+  "activityTotalPoints": {
+    "message": "ポイント"
+  },
+  "activityTotalDrops": {
+    "message": "Drops"
+  },
+  "activityTotalCards": {
+    "message": "カード"
+  },
+  "activityTotalExtension": {
+    "message": "拡張機能"
+  },
+  "activitySectionRewards": {
+    "message": "報酬"
+  },
+  "activitySectionPoints": {
+    "message": "チャンネル別ポイント"
+  },
+  "activitySectionStatus": {
+    "message": "ステータス ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "$2 で +$1 ポイント"
+  },
+  "activityRewardObtained": {
+    "message": "$1 を獲得"
+  },
+  "activityChannelId": {
+    "message": "チャンネル $1"
+  },
+  "pointsReasonWatch": {
+    "message": "視聴"
+  },
+  "pointsReasonClaim": {
+    "message": "ボーナス ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "連続視聴"
+  },
+  "pointsReasonRaid": {
+    "message": "レイド"
+  },
+  "rewardCardTitle": {
+    "message": "$1 カード"
+  },
+  "rewardPackTitle": {
+    "message": "パックを開封 · カード $1 枚"
+  },
+  "rewardCaptureTitle": {
+    "message": "キャプチャ"
+  },
+  "rewardGiveawayTitle": {
+    "message": "プレゼント応募済み"
+  },
+  "rewardGenericTitle": {
+    "message": "報酬"
+  },
+  "rewardConsolationMinutes": {
+    "message": "視聴時間 +$1 分"
+  },
+  "rewardEditionNormal": {
+    "message": "通常 $1"
+  },
+  "rewardEditionGold": {
+    "message": "ゴールド $1"
+  },
+  "rewardEditionLegendary": {
+    "message": "レジェンダリー $1"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "繰り返しエラーにもかかわらず進捗なし"
   },

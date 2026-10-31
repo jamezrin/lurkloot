@@ -1302,3 +1302,75 @@ describe("Twitch watch-streak payouts (#897)", () => {
     expect(onStreak.mock.calls[0]![0].at).toBeGreaterThanOrEqual(before);
   });
 });
+
+describe("Twitch points earned", () => {
+  const pointsEvent = (reason: string, points: number) => ({
+    type: "points-earned",
+    data: {
+      timestamp: "2026-10-30T12:05:00.000Z",
+      channel_id: "77",
+      point_gain: {
+        user_id: "78020132",
+        channel_id: "77",
+        reason_code: reason,
+        total_points: points,
+      },
+    },
+  });
+
+  async function observing(owners: Parameters<TwitchChannelPointsPushController["start"]>[0]) {
+    const socket = new FakeSocket();
+    const controller = createPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "token",
+      resolveUserId: async () => "78020132",
+    });
+    await controller.start(owners);
+    completeHandshake(socket);
+    return { socket, controller, subscriptionId: currentSubscriptionId(socket) };
+  }
+
+  it("subscribes the points topic for points alone and reports each gain", async () => {
+    const onPoints = vi.fn();
+    const { socket, subscriptionId } = await observing({ onPointsEarned: onPoints });
+    expect(parsedSent(socket).find((frame) => frame.type === "subscribe")).toMatchObject({
+      subscribe: { pubsub: { topic: "community-points-user-v1.78020132" } },
+    });
+
+    socket.message(pubsubNotification(subscriptionId, pointsEvent("WATCH", 50)));
+
+    expect(onPoints).toHaveBeenCalledWith({
+      userId: "78020132",
+      channelId: "77",
+      reason: "WATCH",
+      amount: 50,
+      at: Date.parse("2026-10-30T12:05:00.000Z"),
+    });
+  });
+
+  it("reports a streak payout as points and still as a streak", async () => {
+    const onPoints = vi.fn();
+    const onStreak = vi.fn();
+    const { socket, subscriptionId } = await observing({
+      onPointsEarned: onPoints,
+      onWatchStreakEarned: onStreak,
+    });
+
+    socket.message(pubsubNotification(subscriptionId, pointsEvent("WATCH_STREAK", 450)));
+
+    expect(onPoints).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "WATCH_STREAK", amount: 450, channelId: "77" }),
+    );
+    expect(onStreak).toHaveBeenCalledOnce();
+  });
+
+  it("ignores a gain without a positive point count", async () => {
+    const onPoints = vi.fn();
+    const { socket, subscriptionId } = await observing({ onPointsEarned: onPoints });
+
+    socket.message(pubsubNotification(subscriptionId, pointsEvent("WATCH", 0)));
+    socket.message(pubsubNotification(subscriptionId, pointsEvent("WATCH", Number.NaN)));
+
+    expect(onPoints).not.toHaveBeenCalled();
+  });
+});

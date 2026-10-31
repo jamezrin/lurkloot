@@ -1,4 +1,9 @@
-import type { ChannelCandidate, EngineSettings, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  ChannelIdentity,
+  EngineSettings,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { autoClaimChannelPointsFor, watchStreakChannelsFor } from "@lurkloot/shared/settings";
 import { twitchExtensionProvider } from "../extensions/registry";
@@ -8,6 +13,7 @@ import type {
   TwitchChannelPointsClaimNotice,
   TwitchChannelPointsPushController,
   TwitchPlaybackNotice,
+  TwitchPointsEarnedNotice,
   TwitchWatchStreakNotice,
 } from "../platforms/twitch/channelPointsPush";
 import { recordWatchStreakCredit, watchStreakStateFor } from "../core/watchStreaks";
@@ -345,10 +351,92 @@ export function createChannelPoints<S extends EngineSettings>(
     );
   }
 
+  // Points gains feed the activity summary for as long as a Twitch farming
+  // session is open, whatever the claim settings say. The topic covers the
+  // whole account, so gains made on other devices are counted too.
+  function pointsWanted(settings: EngineSettings, state: SchedulerState): boolean {
+    return (
+      settings.platform.twitch.enabled
+      && state.authHealth.twitch.status === "healthy"
+      && state.farmingSessions?.twitch !== undefined
+    );
+  }
+
+  // Channel names for points gains, which carry only the channel id. One
+  // lookup per channel per controller run; a failed lookup is not retried, and
+  // the gain is shown under the id.
+  const channelIdentities = new Map<string, Promise<ChannelIdentity | undefined>>();
+  const CHANNEL_LOOKUP_TIMEOUT_MS = 10_000;
+
+  function channelIdentity(channelId: string): Promise<ChannelIdentity | undefined> {
+    const known = channelIdentities.get(channelId);
+    if (known) return known;
+    const lookup = (async () => {
+      try {
+        const [settings, state] = await Promise.all([
+          ports.storage.loadSettings(),
+          ports.storage.loadState(),
+        ]);
+        const watched = state.sessions.twitch.channel;
+        if (watched?.channelId === channelId)
+          return {
+            login: watched.username,
+            ...(watched.displayName ? { displayName: watched.displayName } : {}),
+          };
+        // Bounded: the GQL transport has no timeout of its own, and every later
+        // gain for this channel waits on this lookup.
+        const resolved = await createAdapter("twitch", settings, () => undefined).resolveChannels?.(
+          [channelId],
+          { signal: AbortSignal.timeout(CHANNEL_LOOKUP_TIMEOUT_MS) },
+        );
+        return resolved?.[channelId];
+      } catch {
+        return undefined;
+      }
+    })();
+    channelIdentities.set(channelId, lookup);
+    return lookup;
+  }
+
+  function handlePointsEarned(
+    controller: TwitchChannelPointsPushController,
+    notice: TwitchPointsEarnedNotice,
+  ): void {
+    if (push.current !== controller || lifecycleSlice.controllerShutdown) return;
+    const run = withEventCollector(async (emit, events) => {
+      const identity = await channelIdentity(notice.channelId);
+      emit({
+        category: "activity",
+        code: "points_earned",
+        level: "info",
+        platform: "twitch",
+        data: {
+          channelId: notice.channelId,
+          ...(identity?.login ? { channelLogin: identity.login } : {}),
+          ...(identity?.displayName ? { channelDisplayName: identity.displayName } : {}),
+          ...(identity?.imageUrl ? { channelImageUrl: identity.imageUrl } : {}),
+          reason: notice.reason,
+          amount: notice.amount,
+        },
+      });
+      await reportBestEffort(events);
+    });
+    trackBackgroundWork(
+      run.catch((error) => {
+        diagnosticEvent(
+          "warn",
+          `Twitch points gain could not be recorded: ${errorMessage(error)}`,
+          "twitch",
+        );
+      }),
+    );
+  }
+
   function pushWanted(settings: EngineSettings, state: SchedulerState): boolean {
     return (
       claimsWanted(settings, state)
       || streaksWanted(settings, state)
+      || pointsWanted(settings, state)
       || watchedTwitchChannelId(settings, state) !== undefined
     );
   }
@@ -451,6 +539,7 @@ export function createChannelPoints<S extends EngineSettings>(
   ): Promise<void> {
     const claims = claimsWanted(settings, state);
     const streaks = streaksWanted(settings, state);
+    const points = pointsWanted(settings, state);
     const channelId = watchedTwitchChannelId(settings, state);
     const sources = ports.twitch.supplementalSources;
     const watched = sources?.refreshNow ? watchedExtensionBroadcast(settings, state) : undefined;
@@ -461,7 +550,7 @@ export function createChannelPoints<S extends EngineSettings>(
     // A playback check pending for a channel no longer watched is moot.
     if (streamDownCheck && streamDownCheck.channelId !== channelId) cancelStreamDownCheck();
     await push.reconcile({
-      wanted: claims || streaks || channelId !== undefined,
+      wanted: claims || streaks || points || channelId !== undefined,
       factory: adapter.createChannelPointsPushController,
       open: observersOpen,
       since,
@@ -480,6 +569,12 @@ export function createChannelPoints<S extends EngineSettings>(
             ? {
                 onWatchStreakEarned: (notice: TwitchWatchStreakNotice) =>
                   handleWatchStreakNotice(controller, notice),
+              }
+            : {}),
+          ...(points
+            ? {
+                onPointsEarned: (notice: TwitchPointsEarnedNotice) =>
+                  handlePointsEarned(controller, notice),
               }
             : {}),
           ...(channelId !== undefined

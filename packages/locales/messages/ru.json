@@ -1499,6 +1499,99 @@
   "activityCriticalFailureCleared": {
     "message": "Критический сбой $1 сброшен; повтор попытки."
   },
+  "activitySessionCurrent": {
+    "message": "Эта сессия"
+  },
+  "activitySessionLive": {
+    "message": "с $1"
+  },
+  "activitySessionOutside": {
+    "message": "Вне сессии"
+  },
+  "activitySessionEarlier": {
+    "message": "Раньше"
+  },
+  "activitySessionEmpty": {
+    "message": "Пока ничего не получено. Награды и баллы появляются здесь по мере поступления."
+  },
+  "activitySessionSummary": {
+    "message": "Баллы: $1 · Награды: $2"
+  },
+  "activitySessionStarted": {
+    "message": "Сессия фарма начата"
+  },
+  "activitySessionEnded": {
+    "message": "Сессия фарма завершена"
+  },
+  "activityTotalPoints": {
+    "message": "баллы"
+  },
+  "activityTotalDrops": {
+    "message": "дропы"
+  },
+  "activityTotalCards": {
+    "message": "карты"
+  },
+  "activityTotalExtension": {
+    "message": "расширение"
+  },
+  "activitySectionRewards": {
+    "message": "Награды"
+  },
+  "activitySectionPoints": {
+    "message": "Баллы по каналам"
+  },
+  "activitySectionStatus": {
+    "message": "Статус ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "Баллы: +$1 на $2"
+  },
+  "activityRewardObtained": {
+    "message": "Получено: $1"
+  },
+  "activityChannelId": {
+    "message": "Канал $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Просмотр"
+  },
+  "pointsReasonClaim": {
+    "message": "Бонус ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Серия"
+  },
+  "pointsReasonRaid": {
+    "message": "Рейд"
+  },
+  "rewardCardTitle": {
+    "message": "Карта: $1"
+  },
+  "rewardPackTitle": {
+    "message": "Пак открыт · карт: $1"
+  },
+  "rewardCaptureTitle": {
+    "message": "Захват"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Участие в розыгрыше"
+  },
+  "rewardGenericTitle": {
+    "message": "Награда"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 мин времени просмотра"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 обычных"
+  },
+  "rewardEditionGold": {
+    "message": "$1 золотых"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 легендарных"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "нет прогресса, несмотря на повторяющиеся ошибки"
   },

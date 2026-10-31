@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { PopupAdapter } from "../../popup-ui/src/types";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { ActivityLog } from "../../popup-ui/src/activity";
@@ -57,6 +58,7 @@ function mount(options: {
   onExportAll?: () => Promise<number | undefined>;
   searchQuery?: string;
   searchingDiagnostics?: boolean;
+  sessions?: FarmingSessionSummary[];
 }) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
@@ -117,6 +119,7 @@ function mount(options: {
             onClear={() => undefined}
             writeClipboard={options.omitClipboard ? undefined : writeClipboard}
             onExportAll={options.onExportAll}
+            sessions={options.sessions}
           />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
@@ -144,10 +147,10 @@ describe("activity log view", () => {
   it("shows only activity entries while the activity view is selected", () => {
     const { container } = mount({ showDiagnostics: false });
 
-    expect(container.textContent).toContain("Claimed Golden Hat from Summer Campaign");
+    expect(container.textContent).toContain("Golden Hat");
     expect(container.textContent).not.toContain("HTTP 503");
     expect(container.textContent).toContain("Kick activity");
-    expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-activity-reward-layout]")).toHaveLength(1);
   });
 
   it("shows only diagnostics while the diagnostics view is selected", () => {
@@ -177,7 +180,26 @@ describe("activity log view", () => {
 
     expect(container.querySelector('[data-activity-card="auth_health_changed"]')).toBeNull();
     expect(container.textContent).not.toContain("authentication changed");
-    expect(container.querySelectorAll("ul > li")).toHaveLength(1);
+    expect(container.querySelectorAll("[data-activity-reward-layout]")).toHaveLength(1);
+  });
+
+  it("keeps stored tab open and close rows out of the activity stream", () => {
+    const events: ActivityHistoryRecord[] = [
+      {
+        id: "page-context-1",
+        at: "2026-07-25T12:00:01.000Z",
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      },
+      ...ACTIVITY,
+    ];
+    const { container } = mount({ showDiagnostics: false, activityEvents: events });
+
+    expect(container.querySelector('[data-activity-card="page_context_opened"]')).toBeNull();
+    expect(container.querySelectorAll("[data-activity-reward-layout]")).toHaveLength(1);
   });
 
   it("marks the selected view on the switch and requests the other one on click", () => {
@@ -380,7 +402,7 @@ describe("activity log view", () => {
     expect(container.querySelector('img[alt="Golden Hat"]')?.getAttribute("src")).toBe(
       "https://cdn.example.test/reward.png",
     );
-    expect(container.querySelector('[data-activity-card="reward_claimed"]')).not.toBeNull();
+    expect(container.querySelector('[data-activity-reward-layout="drop"]')).not.toBeNull();
     expect(container.querySelector('[data-activity-chip="automatic"]')).not.toBeNull();
 
     const action = container.querySelector<HTMLButtonElement>(
@@ -425,21 +447,156 @@ describe("activity log view", () => {
     expect(container.querySelector("[data-activity-reward-fallback]")?.textContent).toBe("G");
   });
 
-  it("renders operational events as marked cards with their localized summary", () => {
+  it("lists operational events under the day's collapsed status", () => {
     const operationalActivity: ActivityHistoryRecord[] = [
       {
-        id: "page-context-1",
+        id: "critical-1",
         at: "2026-07-25T12:00:00.000Z",
         category: "activity",
-        code: "page_context_opened",
-        level: "info",
+        code: "critical_failure_detected",
+        level: "error",
         platform: "kick",
-        data: { host: "kick.com", reason: "background_rejected" },
+        data: { reason: "no_progress" },
       },
     ];
     const { container } = mount({ showDiagnostics: false, activityEvents: operationalActivity });
 
-    expect(container.querySelector('[data-activity-card="page_context_opened"]')).not.toBeNull();
-    expect(container.textContent).toContain("Opened managed page context for kick.com");
+    expect(container.querySelector('[data-activity-status-row="critical-1"]')).toBeNull();
+    const toggle = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("activitySectionStatus"),
+    )!;
+    act(() => toggle.click());
+    expect(
+      container.querySelector('[data-activity-status-row="critical-1"]')?.textContent,
+    ).toContain("activityCriticalFailureDetected");
+  });
+
+  describe("farming sessions", () => {
+    const openSession: FarmingSessionSummary = {
+      id: "open",
+      platform: "kick",
+      startedAt: "2026-07-25T10:00:00.000Z",
+      tallies: {
+        "channel_points:77": {
+          kind: "channel_points",
+          subject: { id: "77", login: "shroud", name: "Shroud" },
+          total: 550,
+          breakdown: {
+            WATCH: { count: 1, amount: 50 },
+            CLAIM: { count: 2, amount: 100 },
+            WATCH_STREAK: { count: 1, amount: 400 },
+          },
+        },
+      },
+      rewardCounts: { challenge_card: 1 },
+    };
+    const pastSession: FarmingSessionSummary = {
+      id: "past",
+      platform: "kick",
+      startedAt: "2026-07-24T10:00:00.000Z",
+      endedAt: "2026-07-24T12:00:00.000Z",
+      tallies: {},
+      rewardCounts: { drop: 1 },
+    };
+    const card = {
+      id: "card",
+      at: "2026-07-25T11:00:00.000Z",
+      category: "activity",
+      code: "reward_obtained",
+      level: "info",
+      platform: "kick",
+      sessionId: "open",
+      data: {
+        kind: "challenge_card",
+        source: { platform: "kick" },
+        rarity: "legendary",
+        imageUrl: "https://files.kick.com/cards/legendary.png",
+      },
+    } as ActivityHistoryRecord;
+    const status = {
+      id: "status",
+      at: "2026-07-25T10:30:00.000Z",
+      category: "activity",
+      code: "interruption",
+      level: "warn",
+      platform: "kick",
+      sessionId: "open",
+      data: { reason: "runtime_restart" },
+    } as ActivityHistoryRecord;
+    const pastDrop = {
+      ...REWARD_ACTIVITY,
+      id: "past-drop",
+      at: "2026-07-24T11:00:00.000Z",
+      sessionId: "past",
+    } as ActivityHistoryRecord;
+
+    function mountSessions() {
+      return mount({
+        showDiagnostics: false,
+        sessions: [openSession, pastSession],
+        activityEvents: [card, status, pastDrop],
+      });
+    }
+
+    it("shows the open session with its card, its points by channel and collapsed status", () => {
+      const { container } = mountSessions();
+      const open = container.querySelector('[data-activity-session="open"]')!;
+
+      expect(open.textContent).toContain("activitySessionCurrent");
+      expect(
+        open.querySelector('[data-activity-reward-layout="card"] img')?.getAttribute("src"),
+      ).toBe("https://files.kick.com/cards/legendary.png");
+      const points = open.querySelector('[data-activity-points-channel="77"]')!;
+      expect(points.textContent).toContain("Shroud");
+      expect(points.textContent).toContain("+550");
+      expect(points.querySelector('[data-points-reason="WATCH_STREAK"]')).not.toBeNull();
+      expect(open.textContent).toContain("activitySectionStatus");
+      expect(open.querySelector('[data-activity-status-row="status"]')).toBeNull();
+
+      const toggle = [...open.querySelectorAll("button")].find((button) =>
+        button.textContent?.includes("activitySectionStatus"),
+      )!;
+      act(() => toggle.click());
+      expect(open.querySelector('[data-activity-status-row="status"]')).not.toBeNull();
+    });
+
+    it("says so when the current session has nothing in it yet", () => {
+      const { container } = mount({
+        showDiagnostics: false,
+        sessions: [{ ...openSession, tallies: {}, rewardCounts: {} }],
+        activityEvents: [],
+      });
+      const open = container.querySelector('[data-activity-session="open"]')!;
+
+      expect(open.querySelector("[data-activity-session-empty]")?.textContent).toBe(
+        "activitySessionEmpty",
+      );
+      expect(open.textContent).not.toContain("activitySectionRewards");
+    });
+
+    it("lists each day under its own heading", () => {
+      const { container } = mountSessions();
+      const days = [...container.querySelectorAll("[data-activity-day]")].map((section) =>
+        section.getAttribute("data-activity-day"),
+      );
+
+      expect(days).toHaveLength(2);
+      expect(
+        container.querySelector(`[data-activity-day="${days[1]}"] [data-activity-session="past"]`),
+      ).not.toBeNull();
+    });
+
+    it("folds a past session to one line and opens it on click", () => {
+      const { container } = mountSessions();
+      const past = container.querySelector('[data-activity-session="past"]')!;
+
+      expect(past.querySelector('[data-activity-reward-layout="drop"]')).toBeNull();
+      // No points were earned, so the line shows only the reward count.
+      expect(past.querySelector("[data-session-points]")).toBeNull();
+      expect(past.querySelector("[data-session-rewards]")?.textContent).toContain("1");
+
+      act(() => past.querySelector<HTMLButtonElement>("button")!.click());
+      expect(past.querySelector('[data-activity-reward-layout="drop"]')).not.toBeNull();
+    });
   });
 });

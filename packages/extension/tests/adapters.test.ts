@@ -1311,9 +1311,99 @@ describe("KickAdapter", () => {
     const adapter = kickAdapter(fetcher);
 
     await expect(adapter.claimChallenges!()).resolves.toEqual([
-      { id: "done", rarity: "legendary", recurrence: "daily" },
+      { id: "done", rarity: "legendary", recurrence: "daily", cardId: "card" },
     ]);
     expect(claimed).toEqual(["done"]);
+  });
+
+  it.each([
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/Aloo_Uncommon_card_847f069b94234a7b95c1c5201c0c296a.png",
+      { cardName: "Aloo", cardType: "emote" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/badges/cards/Unikorn_Myth_card_24a6d34c2c384575af890cf88dd162c7.png",
+      { cardName: "Unikorn", cardType: "badge" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/D;_Common_card_daac8ebf81174bbb8d565d5c60e5afbe.png",
+      { cardName: "D;", cardType: "emote" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/Pog_Champ_Rare_card_0123456789abcdef0123456789abcdef.png",
+      { cardName: "Pog_Champ", cardType: "emote" },
+    ],
+    [
+      "https://ext.cdn.kick.com/chat/emotes/cards/2f9d2b87-fcab-4b12-93aa-b5d7d50c8a89.png",
+      { cardType: "emote" },
+    ],
+    ["https://files.kick.com/somewhere/else.png", {}],
+  ])("infers a Kick card's name and kind from its art URL %s", async (cardUrl, expected) => {
+    const fetcher = jsonFetcher((url) =>
+      url.endsWith("/challenges")
+        ? {
+            data: [
+              {
+                id: "c",
+                recurrence: "daily",
+                claimed_at: null,
+                condition: { progress: 1, threshold: 1 },
+              },
+            ],
+          }
+        : { data: { winner: { id: "card", rarity: "common", card_url: cardUrl } } },
+    );
+    const [claimed] = await kickAdapter(fetcher).claimChallenges!();
+    expect({ cardName: claimed?.cardName, cardType: claimed?.cardType }).toEqual({
+      cardName: undefined,
+      cardType: undefined,
+      ...expected,
+    });
+  });
+
+  it("reports the won card's art and the consolation from a Kick challenge claim", async () => {
+    const claimResponse = (cardUrl: string) => ({
+      data: {
+        challenge_id: "done",
+        winner: { id: "card", rarity: "legendary", card_url: cardUrl },
+        consolation: {
+          watch_time_minutes: 30,
+          next_level_badge: { image_url: "https://files.kick.com/badges/12.png" },
+        },
+      },
+    });
+    const challenges = {
+      data: [
+        {
+          id: "done",
+          recurrence: "daily",
+          claimed_at: null,
+          condition: { progress: 1, threshold: 1 },
+        },
+      ],
+    };
+    const adapterFor = (cardUrl: string) =>
+      kickAdapter(
+        jsonFetcher((url) => (url.endsWith("/challenges") ? challenges : claimResponse(cardUrl))),
+      );
+
+    await expect(
+      adapterFor("https://files.kick.com/cards/legendary.png").claimChallenges!(),
+    ).resolves.toEqual([
+      {
+        id: "done",
+        rarity: "legendary",
+        recurrence: "daily",
+        cardId: "card",
+        imageUrl: "https://files.kick.com/cards/legendary.png",
+        consolation: {
+          watchTimeMinutes: 30,
+          badgeImageUrl: "https://files.kick.com/badges/12.png",
+        },
+      },
+    ]);
+    const [insecure] = await adapterFor("http://files.kick.com/cards/x.png").claimChallenges!();
+    expect(insecure).not.toHaveProperty("imageUrl");
   });
 
   it("reports an unknown rarity when the Kick claim response omits a winner", async () => {
@@ -6595,6 +6685,48 @@ describe("TwitchAdapter", () => {
     await expect(twitchAdapter(fetcher).searchCategories("fort")).resolves.toEqual([
       { id: "33214", name: "Fortnite", imageUrl: "https://art/fortnite-144x192.jpg" },
     ]);
+  });
+});
+
+describe("TwitchAdapter channel resolution", () => {
+  it("resolves channel ids to login, display name and avatar in one anonymous inline query", async () => {
+    const fetcher = jsonFetcher((url, init) => {
+      expect(url).toBe("https://gql.twitch.tv/gql");
+      const body = requestBody(init);
+      expect(body.operationName).toBe("ChannelIdentities");
+      expect(body.variables).toEqual({ ids: ["77", "88"] });
+      expect(typeof body.query).toBe("string");
+      return {
+        data: {
+          users: [
+            {
+              id: "77",
+              login: "shroud",
+              displayName: "shroud",
+              profileImageURL: "https://static-cdn.jtvnw.net/shroud.png",
+            },
+            { id: "88", login: "summit1g", displayName: "summit1g", profileImageURL: "http://x" },
+            null,
+          ],
+        },
+      };
+    });
+
+    await expect(twitchAdapter(fetcher).resolveChannels!(["77", "88", "77"])).resolves.toEqual({
+      "77": {
+        login: "shroud",
+        displayName: "shroud",
+        imageUrl: "https://static-cdn.jtvnw.net/shroud.png",
+      },
+      "88": { login: "summit1g", displayName: "summit1g" },
+    });
+  });
+
+  it("asks nothing for an empty or invalid id list", async () => {
+    const fetcher = jsonFetcher(() => {
+      throw new Error("should not fetch");
+    });
+    await expect(twitchAdapter(fetcher).resolveChannels!(["", "not-an-id"])).resolves.toEqual({});
   });
 });
 

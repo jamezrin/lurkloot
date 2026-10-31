@@ -15,7 +15,11 @@ import {
   preserveClaimedRewards,
   reconcileRefreshedCampaigns,
 } from "../core/scheduler";
-import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
+import {
+  campaignRewardData,
+  createRewardClaimGuard,
+  type RewardClaimGuard,
+} from "../core/rewardClaims";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { KICK_DROP_CLAIMS_ALARM_NAME, PLATFORMS, TWITCH_DROP_CLAIMS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
@@ -494,15 +498,7 @@ export function createClaimService<S extends EngineSettings>(
               platform: message.platform,
               level: "info",
               code: "reward_claimed",
-              data: {
-                campaignId: campaign.id,
-                campaignName: campaign.name,
-                rewardId: reward.id,
-                rewardName: reward.name,
-                ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
-                ...(campaign.url ? { campaignUrl: campaign.url } : {}),
-                method: "manual",
-              },
+              data: { ...campaignRewardData(campaign, reward), method: "manual" },
             }
           : {
               category: "diagnostic",
@@ -569,15 +565,7 @@ export function createClaimService<S extends EngineSettings>(
           platform,
           level: "info",
           code: "reward_claimed",
-          data: {
-            campaignId: item.id,
-            campaignName: item.name,
-            rewardId: candidate.id,
-            rewardName: candidate.name,
-            ...(candidate.imageUrl ? { rewardImageUrl: candidate.imageUrl } : {}),
-            ...(item.url ? { campaignUrl: item.url } : {}),
-            method: "automatic",
-          },
+          data: { ...campaignRewardData(item, candidate), method: "automatic" },
         });
       }
     }
@@ -648,20 +636,13 @@ export function createClaimService<S extends EngineSettings>(
           operation.signal.throwIfAborted();
           for (const event of claimResult.events) {
             if (event.claimed) {
+              const { level: _level, message: _message, claimed: _claimed, ...data } = event;
               emit({
                 category: "activity",
                 platform,
                 level: "info",
                 code: "reward_claimed",
-                data: {
-                  campaignId: event.campaignId,
-                  campaignName: event.campaignName,
-                  rewardId: event.rewardId,
-                  rewardName: event.rewardName,
-                  ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
-                  ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
-                  method: "automatic",
-                },
+                data: { ...data, method: "automatic" },
               });
             } else {
               emit({

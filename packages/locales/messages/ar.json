@@ -1499,6 +1499,99 @@
   "activityCriticalFailureCleared": {
     "message": "تم تجاهل العطل الحرج في $1؛ جارٍ إعادة المحاولة."
   },
+  "activitySessionCurrent": {
+    "message": "هذه الجلسة"
+  },
+  "activitySessionLive": {
+    "message": "منذ $1"
+  },
+  "activitySessionOutside": {
+    "message": "خارج الجلسة"
+  },
+  "activitySessionEarlier": {
+    "message": "سابقًا"
+  },
+  "activitySessionEmpty": {
+    "message": "لم يُحصل على شيء بعد. تظهر المكافآت والنقاط هنا فور حصولك عليها."
+  },
+  "activitySessionSummary": {
+    "message": "$1 نقطة · $2 مكافأة"
+  },
+  "activitySessionStarted": {
+    "message": "بدأت جلسة يفارم"
+  },
+  "activitySessionEnded": {
+    "message": "انتهت جلسة اليفارم"
+  },
+  "activityTotalPoints": {
+    "message": "نقاط"
+  },
+  "activityTotalDrops": {
+    "message": "دروبس"
+  },
+  "activityTotalCards": {
+    "message": "بطاقات"
+  },
+  "activityTotalExtension": {
+    "message": "الإضافة"
+  },
+  "activitySectionRewards": {
+    "message": "المكافآت"
+  },
+  "activitySectionPoints": {
+    "message": "النقاط حسب القناة"
+  },
+  "activitySectionStatus": {
+    "message": "الحالة ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 نقطة في $2"
+  },
+  "activityRewardObtained": {
+    "message": "تم الحصول على $1"
+  },
+  "activityChannelId": {
+    "message": "القناة $1"
+  },
+  "pointsReasonWatch": {
+    "message": "المشاهدة"
+  },
+  "pointsReasonClaim": {
+    "message": "مكافأة ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "سلسلة المشاهدة"
+  },
+  "pointsReasonRaid": {
+    "message": "الغارة"
+  },
+  "rewardCardTitle": {
+    "message": "بطاقة $1"
+  },
+  "rewardPackTitle": {
+    "message": "فتح حزمة · $1 بطاقة"
+  },
+  "rewardCaptureTitle": {
+    "message": "الالتقاط"
+  },
+  "rewardGiveawayTitle": {
+    "message": "تم الدخول في السحب"
+  },
+  "rewardGenericTitle": {
+    "message": "مكافأة"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 دقيقة مشاهدة"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 عادية"
+  },
+  "rewardEditionGold": {
+    "message": "$1 ذهبية"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 أسطورية"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "لا تقدّم رغم تكرار الأخطاء"
   },

@@ -240,7 +240,9 @@ describe("onboarding tour host", () => {
       }
       if (step.id === "activity") {
         expect(
-          container.querySelector('[data-tour="activity-list"] [data-activity-card]'),
+          container.querySelector(
+            '[data-tour="activity-list"] [data-activity-session], [data-tour="activity-list"] [data-activity-card]',
+          ),
         ).not.toBeNull();
       }
     }

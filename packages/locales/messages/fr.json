@@ -1499,6 +1499,99 @@
   "activityCriticalFailureCleared": {
     "message": "Échec critique de $1 ignoré ; nouvelle tentative en cours."
   },
+  "activitySessionCurrent": {
+    "message": "Cette session"
+  },
+  "activitySessionLive": {
+    "message": "depuis $1"
+  },
+  "activitySessionOutside": {
+    "message": "Hors session"
+  },
+  "activitySessionEarlier": {
+    "message": "Plus tôt"
+  },
+  "activitySessionEmpty": {
+    "message": "Rien d'obtenu pour l'instant. Les récompenses et les points s'affichent ici au fur et à mesure."
+  },
+  "activitySessionSummary": {
+    "message": "$1 points · $2 récompenses"
+  },
+  "activitySessionStarted": {
+    "message": "Session de farm démarrée"
+  },
+  "activitySessionEnded": {
+    "message": "Session de farm terminée"
+  },
+  "activityTotalPoints": {
+    "message": "points"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "cartes"
+  },
+  "activityTotalExtension": {
+    "message": "extension"
+  },
+  "activitySectionRewards": {
+    "message": "Récompenses"
+  },
+  "activitySectionPoints": {
+    "message": "Points par chaîne"
+  },
+  "activitySectionStatus": {
+    "message": "Statut ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 points sur $2"
+  },
+  "activityRewardObtained": {
+    "message": "Obtenu : $1"
+  },
+  "activityChannelId": {
+    "message": "Chaîne $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Visionnage"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Série"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "Carte $1"
+  },
+  "rewardPackTitle": {
+    "message": "Paquet ouvert · $1 cartes"
+  },
+  "rewardCaptureTitle": {
+    "message": "Capture"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Jeu-concours rejoint"
+  },
+  "rewardGenericTitle": {
+    "message": "Récompense"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min de visionnage"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 or"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 légendaire"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "aucune progression malgré des erreurs répétées"
   },

@@ -1499,6 +1499,99 @@
   "activityCriticalFailureCleared": {
     "message": "$1 치명적 오류를 해제했습니다. 다시 시도합니다."
   },
+  "activitySessionCurrent": {
+    "message": "이번 세션"
+  },
+  "activitySessionLive": {
+    "message": "$1부터"
+  },
+  "activitySessionOutside": {
+    "message": "세션 밖"
+  },
+  "activitySessionEarlier": {
+    "message": "이전"
+  },
+  "activitySessionEmpty": {
+    "message": "아직 획득한 것이 없습니다. 보상과 포인트는 획득하는 대로 여기에 표시됩니다."
+  },
+  "activitySessionSummary": {
+    "message": "$1 포인트 · 보상 $2개"
+  },
+  "activitySessionStarted": {
+    "message": "파밍 세션을 시작했습니다"
+  },
+  "activitySessionEnded": {
+    "message": "파밍 세션을 종료했습니다"
+  },
+  "activityTotalPoints": {
+    "message": "포인트"
+  },
+  "activityTotalDrops": {
+    "message": "드롭"
+  },
+  "activityTotalCards": {
+    "message": "카드"
+  },
+  "activityTotalExtension": {
+    "message": "확장 프로그램"
+  },
+  "activitySectionRewards": {
+    "message": "보상"
+  },
+  "activitySectionPoints": {
+    "message": "채널별 포인트"
+  },
+  "activitySectionStatus": {
+    "message": "상태 ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "$2에서 +$1 포인트"
+  },
+  "activityRewardObtained": {
+    "message": "$1 획득"
+  },
+  "activityChannelId": {
+    "message": "채널 $1"
+  },
+  "pointsReasonWatch": {
+    "message": "시청"
+  },
+  "pointsReasonClaim": {
+    "message": "보너스 ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "연속 시청"
+  },
+  "pointsReasonRaid": {
+    "message": "레이드"
+  },
+  "rewardCardTitle": {
+    "message": "$1 카드"
+  },
+  "rewardPackTitle": {
+    "message": "팩 개봉 · 카드 $1장"
+  },
+  "rewardCaptureTitle": {
+    "message": "캡처"
+  },
+  "rewardGiveawayTitle": {
+    "message": "응모 완료"
+  },
+  "rewardGenericTitle": {
+    "message": "보상"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1분 시청 시간"
+  },
+  "rewardEditionNormal": {
+    "message": "일반 $1"
+  },
+  "rewardEditionGold": {
+    "message": "골드 $1"
+  },
+  "rewardEditionLegendary": {
+    "message": "전설 $1"
+  },
   "criticalFailureReasonNoProgress": {
     "message": "반복 오류에도 진행 없음"
   },

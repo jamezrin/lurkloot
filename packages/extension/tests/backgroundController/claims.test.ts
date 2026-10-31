@@ -191,9 +191,14 @@ describe("background controller", () => {
       expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
         expect.objectContaining({
           category: "activity",
-          code: "challenge_claimed",
+          code: "reward_obtained",
           platform: "kick",
-          data: { challengeId: "daily", rarity: "epic", recurrence: "daily" },
+          data: {
+            kind: "challenge_card",
+            source: { platform: "kick" },
+            rarity: "epic",
+            details: [{ key: "recurrence", value: "daily" }],
+          },
         }),
       );
       expect(env.watchTabs.kick.open).not.toHaveBeenCalled();
@@ -341,9 +346,7 @@ describe("background controller", () => {
 
       const reported = env.reportEvents.mock.calls.flatMap(([events]) => events);
       expect(
-        reported.some(
-          (event) => event.category === "activity" && event.code === "challenge_claimed",
-        ),
+        reported.some((event) => event.category === "activity" && event.code === "reward_obtained"),
       ).toBe(false);
       expect(allDiagnostics(env)).toContainEqual(
         expect.objectContaining({ message: "state storage unavailable" }),
@@ -472,7 +475,7 @@ describe("background controller", () => {
       expect(
         env.reportEvents.mock.calls
           .flatMap(([events]) => events)
-          .some((event) => event.category === "activity" && event.code === "challenge_claimed"),
+          .some((event) => event.category === "activity" && event.code === "reward_obtained"),
       ).toBe(false);
     });
   });

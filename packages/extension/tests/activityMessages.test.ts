@@ -1,3 +1,4 @@
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import { describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import {
@@ -12,7 +13,12 @@ describe("activity message routing", () => {
     const load = vi.fn(async () => page);
     const exportDiagnostics = vi.fn();
     const clear = vi.fn(async () => undefined);
-    const handler = createActivityMessageHandler({ load, exportDiagnostics, clear });
+    const handler = createActivityMessageHandler({
+      load,
+      loadSessions: vi.fn(),
+      exportDiagnostics,
+      clear,
+    });
 
     await expect(
       handler({ type: "getActivity", category: "activity", platform: "twitch", limit: 80 }),
@@ -23,11 +29,34 @@ describe("activity message routing", () => {
     expect(clear).toHaveBeenCalledOnce();
   });
 
+  it("answers the farming sessions of one platform", async () => {
+    const sessions: FarmingSessionSummary[] = [
+      { id: "s1", platform: "twitch", startedAt: "x", tallies: {}, rewardCounts: {} },
+    ];
+    const loadSessions = vi.fn(async () => sessions);
+    const handler = createActivityMessageHandler({
+      load: vi.fn(),
+      loadSessions,
+      exportDiagnostics: vi.fn(),
+      clear: vi.fn(),
+    });
+
+    await expect(handler({ type: "getActivitySessions", platform: "twitch" })).resolves.toEqual({
+      sessions,
+    });
+    expect(loadSessions).toHaveBeenCalledWith("twitch");
+  });
+
   it("returns undefined without using the repository for non-activity messages", async () => {
     const load = vi.fn();
     const exportDiagnostics = vi.fn();
     const clear = vi.fn();
-    const handler = createActivityMessageHandler({ load, exportDiagnostics, clear });
+    const handler = createActivityMessageHandler({
+      load,
+      loadSessions: vi.fn(),
+      exportDiagnostics,
+      clear,
+    });
 
     await expect(handler({ type: "getSnapshot" })).resolves.toBeUndefined();
 
@@ -49,6 +78,7 @@ describe("activity message routing", () => {
     const exportDiagnostics = vi.fn(async () => events);
     const handler = createActivityMessageHandler({
       load: vi.fn(),
+      loadSessions: vi.fn(),
       clear: vi.fn(),
       exportDiagnostics,
     });
@@ -72,6 +102,36 @@ describe("activity event reporting", () => {
     level: "debug",
     message: "detail",
   };
+
+  it("stores tab open and close only as their diagnostic mirror", async () => {
+    const opened = {
+      category: "activity",
+      code: "page_context_opened",
+      level: "info",
+      platform: "kick",
+      data: { host: "kick.com", reason: "background_rejected" },
+    } satisfies EngineEvent;
+    const mirror: EngineEvent = {
+      category: "diagnostic",
+      level: "info",
+      platform: "kick",
+      message: "Opened managed page context on kick.com: reason=background_rejected",
+      mirroredActivity: true,
+    };
+    const appendWith = vi.fn(async () => undefined);
+    await createActivityEventReporter({
+      loadDiagnosticLogging: async () => true,
+      append: appendWith,
+    })([opened, mirror, activity]);
+    expect(appendWith).toHaveBeenCalledWith([mirror, activity]);
+
+    const appendWithout = vi.fn(async () => undefined);
+    await createActivityEventReporter({
+      loadDiagnosticLogging: async () => false,
+      append: appendWithout,
+    })([opened, mirror, activity]);
+    expect(appendWithout).toHaveBeenCalledWith([activity]);
+  });
 
   it("always persists activity and omits diagnostics when logging is disabled", async () => {
     const append = vi.fn(async () => undefined);

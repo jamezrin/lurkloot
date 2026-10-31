@@ -26,6 +26,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "withSettingsLock"
     | "diagnosticEvent"
     | "reportBestEffort"
+    | "reconcileFarmingSessions"
     | "markPlatformsStarting"
     | "platformTickRunning"
     | "settleCommitHooks"
@@ -51,6 +52,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     withSettingsLock,
     diagnosticEvent,
     reportBestEffort,
+    reconcileFarmingSessions,
     markPlatformsStarting,
     platformTickRunning,
     settleCommitHooks,
@@ -60,9 +62,13 @@ export function createSettingsTransitions<S extends EngineSettings>(
 
   // The jobs that follow the saved settings once the settings lock is
   // released: channel points and its push (#590), the drop-claim jobs (#597)
-  // and the Kick challenge job (#588). Each runs even if another failed, and
+  // and the Kick challenge job (#588), and the farming sessions, which open and
+  // close with the platform switches. Each runs even if another failed, and
   // the first failure is rethrown.
   async function rescheduleSettingsJobs(): Promise<void> {
+    // First, so the channel-points push reconciled below sees the session it
+    // opened or closed. It reports its own failures and never throws.
+    await reconcileFarmingSessions();
     const results = await Promise.allSettled([
       rescheduleTwitchChannelPointsJob(),
       rescheduleDropClaimJobs(),
@@ -111,7 +117,10 @@ export function createSettingsTransitions<S extends EngineSettings>(
         return nextSettings;
       });
     } finally {
+      // Startup opens a session for each platform still enabled, and closes
+      // any a platform switched off while the extension was not running.
       if (saved) await rescheduleSettingsJobs();
+      else await reconcileFarmingSessions();
     }
   }
 

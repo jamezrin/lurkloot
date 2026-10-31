@@ -95,6 +95,44 @@ const EVENTS = {
     platform: "kick",
     data: { reason: "page_context_churn" },
   },
+  reward_obtained: {
+    category: "activity",
+    code: "reward_obtained",
+    level: "info",
+    platform: "kick",
+    data: {
+      kind: "challenge_card",
+      source: { platform: "kick" },
+      rarity: "legendary",
+      details: [{ key: "recurrence", value: "daily" }],
+    },
+  },
+  points_earned: {
+    category: "activity",
+    code: "points_earned",
+    level: "info",
+    platform: "twitch",
+    data: { channelId: "77", channelLogin: "shroud", reason: "WATCH", amount: 50 },
+  },
+  session_started: {
+    category: "activity",
+    code: "session_started",
+    level: "info",
+    platform: "twitch",
+    data: { sessionId: "s1", startedAt: "2026-10-30T10:00:00.000Z" },
+  },
+  session_ended: {
+    category: "activity",
+    code: "session_ended",
+    level: "info",
+    platform: "twitch",
+    data: {
+      sessionId: "s1",
+      startedAt: "2026-10-30T10:00:00.000Z",
+      endedAt: "2026-10-30T12:00:00.000Z",
+      reason: "disabled",
+    },
+  },
   // `satisfies` keeps each entry's literal type while still failing the build if
   // a new activity code is added without a sample here.
 } satisfies Record<ActivityEvent["code"], ActivityEvent>;
@@ -213,6 +251,29 @@ describe("activity diagnostics", () => {
       activityDiagnostic(EVENTS.reward_claimed),
       { category: "diagnostic", level: "debug", message: "Kick fetch kick.com 200" },
     ]);
+  });
+
+  it("does not mirror tallied points into diagnostics", () => {
+    const events: EngineEvent[] = [];
+    const emit = withActivityDiagnostics((event) => events.push(event));
+
+    emit(EVENTS.points_earned);
+    emit(EVENTS.reward_obtained);
+
+    expect(events.map(({ emittedAt, ...event }) => event)).toEqual([
+      EVENTS.points_earned,
+      EVENTS.reward_obtained,
+      activityDiagnostic(EVENTS.reward_obtained),
+    ]);
+  });
+
+  it("flattens a reward's source and details into the diagnostic data", () => {
+    expect(activityDiagnostic(EVENTS.reward_obtained).data).toMatchObject({
+      kind: "challenge_card",
+      sourcePlatform: "kick",
+      rarity: "legendary",
+      detail_recurrence: "daily",
+    });
   });
 
   it("stamps every emitted event with the time it was emitted", () => {

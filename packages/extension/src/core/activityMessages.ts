@@ -1,7 +1,10 @@
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
+import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import type { Platform } from "@lurkloot/shared/models";
 import type {
   ActivityPage,
+  ActivitySessionsPage,
   ActivityQuery,
   CoreRuntimeMessage,
   DiagnosticsExport,
@@ -10,6 +13,7 @@ import type {
 
 interface ActivityMessageRepository {
   load(query: ActivityQuery): Promise<ActivityPage>;
+  loadSessions(platform: Platform): Promise<FarmingSessionSummary[]>;
   exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]>;
   clear(): Promise<void>;
 }
@@ -36,10 +40,13 @@ interface RuntimeMessageDispatcherDeps {
 export function createActivityMessageHandler(repository: ActivityMessageRepository) {
   return async (
     message: RuntimeMessage,
-  ): Promise<ActivityPage | DiagnosticsExport | void | undefined> => {
+  ): Promise<ActivityPage | ActivitySessionsPage | DiagnosticsExport | void | undefined> => {
     if (message.type === "getActivity") {
       const { type: _type, ...query } = message;
       return repository.load(query);
+    }
+    if (message.type === "getActivitySessions") {
+      return { sessions: await repository.loadSessions(message.platform) };
     }
     if (message.type === "exportDiagnostics") {
       return { events: await repository.exportDiagnostics(message.platform) };
@@ -60,9 +67,11 @@ export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
       // A settings read must not prevent durable activity history. Treat a
       // missing setting as diagnostics disabled and retain normal activity.
     }
-    const accepted = diagnosticLogging
-      ? events
-      : events.filter((event) => event.category === "activity");
+    // Activity that is not part of the user-facing timeline (tab open/close)
+    // is kept only through its diagnostic mirror.
+    const accepted = events.filter((event) =>
+      event.category === "activity" ? isActivityTimelineEvent(event) : diagnosticLogging,
+    );
     if (accepted.length > 0) await deps.append(accepted);
   };
 }
@@ -76,6 +85,7 @@ export function createRuntimeMessageDispatcher(deps: RuntimeMessageDispatcherDep
     if (message.type === "getTabId") return Promise.resolve(sender?.tab?.id);
     if (
       message.type === "getActivity"
+      || message.type === "getActivitySessions"
       || message.type === "exportDiagnostics"
       || message.type === "clearActivity"
     ) {

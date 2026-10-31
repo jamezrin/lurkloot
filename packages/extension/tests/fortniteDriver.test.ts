@@ -106,6 +106,7 @@ describe("Fortnite tabless earning driver", () => {
       ),
     });
     expect(captured).toHaveBeenCalledTimes(1);
+    expect(captured).toHaveBeenCalledWith({ collectableId: "sprite" });
     expect(JSON.stringify(emit.mock.calls)).not.toContain("private");
     driver.stop();
     await vi.advanceTimersByTimeAsync(60000);
