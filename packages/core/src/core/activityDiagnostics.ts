@@ -4,6 +4,7 @@ import type {
   EngineEvent,
   EventEmitter,
 } from "@lurkloot/shared/events";
+import { tallyKey } from "@lurkloot/shared/farmingSessions";
 
 // Activity entries are structured (code + data) and localized by the host UI,
 // so on their own they are useless in a bug report: the reader gets a sentence
@@ -44,8 +45,10 @@ function describe(event: ActivityEvent): string {
     case "challenge_claimed":
       return `Claimed ${event.data.rarity} ${event.data.recurrence} challenge ${event.data.challengeId}`;
     case "watch_streak_ended":
-      return event.data.outcome === "credited"
-        ? `Twitch reported the watch-streak payout on ${event.data.channel}`
+      if (event.data.outcome === "credited")
+        return `Twitch reported the watch-streak payout on ${event.data.channel}`;
+      return event.data.outcome === "playback_failed"
+        ? `Watch streak on ${event.data.channel} could not be watched: playback kept failing; moving on`
         : `Watch streak on ${event.data.channel} not confirmed within the watch budget; moving on`;
     case "page_context_opened":
       return `Opened managed page context on ${event.data.host}: reason=${event.data.reason}`;
@@ -57,6 +60,19 @@ function describe(event: ActivityEvent): string {
       return `${event.platform} flagged as critically failing: reason=${event.data.reason}`;
     case "critical_failure_cleared":
       return `${event.platform} critical failure dismissed by the user, retrying: reason=${event.data.reason}`;
+    case "reward_obtained": {
+      const via = event.data.source.extension ? ` via ${event.data.source.extension}` : "";
+      const name = event.data.name ? ` ${quoted(event.data.name)}` : "";
+      const rarity = event.data.rarity ? ` (${event.data.rarity})` : "";
+      const channel = event.data.channel ? ` on channel ${event.data.channel}` : "";
+      return `Obtained ${event.data.kind}${name}${rarity}${via}${channel}`;
+    }
+    case "points_earned":
+      return `Earned ${event.data.amount} points on channel ${event.data.channelLogin ?? event.data.channelId}: reason=${event.data.reason}`;
+    case "session_started":
+      return `${event.platform} farming session ${event.data.sessionId} started`;
+    case "session_ended":
+      return `${event.platform} farming session ${event.data.sessionId} ended: reason=${event.data.reason}`;
     default: {
       const exhaustive: never = event;
       return exhaustive;
@@ -75,7 +91,20 @@ export function activityDiagnostic(event: ActivityEvent): DiagnosticEvent {
     message: describe(event),
     code: event.code,
     mirroredActivity: true,
-    data: { ...event.data },
+    data: diagnosticData(event),
+  };
+}
+
+// Diagnostic data is a flat record, so a reward's nested source and details are
+// spread into prefixed keys.
+function diagnosticData(event: ActivityEvent): NonNullable<DiagnosticEvent["data"]> {
+  if (event.code !== "reward_obtained") return { ...event.data };
+  const { source, details, ...rest } = event.data;
+  return {
+    ...rest,
+    sourcePlatform: source.platform,
+    ...(source.extension ? { sourceExtension: source.extension } : {}),
+    ...Object.fromEntries((details ?? []).map(({ key, value }) => [`detail_${key}`, value])),
   };
 }
 
@@ -91,6 +120,9 @@ export function withActivityDiagnostics(emit: EventEmitter): EventEmitter {
     // carries emittedAt (a replayed or host-synthesised one) keeps it.
     const emittedAt = event.emittedAt ?? new Date().toISOString();
     emit({ ...event, emittedAt });
-    if (event.category === "activity") emit({ ...activityDiagnostic(event), emittedAt });
+    // Tallied events (points) are summed by the host and already logged at debug
+    // where they arrive; a mirror per gain would flood the diagnostic cap.
+    if (event.category === "activity" && tallyKey(event) === undefined)
+      emit({ ...activityDiagnostic(event), emittedAt });
   };
 }

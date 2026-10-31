@@ -85,7 +85,7 @@ function hasCampaignEnded(campaign: DropCampaign): boolean {
 export function createReporting<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   { reportingSlice }: Pick<ControllerSlices<S>, "reportingSlice">,
-  calls: Pick<ControllerCalls<S>, "selectionFingerprint">,
+  calls: Pick<ControllerCalls<S>, "selectionFingerprint" | "stampFarmingSessions">,
 ): Pick<
   ControllerCalls<S>,
   | "createAdapters"
@@ -103,7 +103,7 @@ export function createReporting<S extends EngineSettings>(
   | "emitNotifications"
   | "settleRouteReports"
 > {
-  const { selectionFingerprint } = lateBound(calls);
+  const { selectionFingerprint, stampFarmingSessions } = lateBound(calls);
 
   const warningFieldLabel = (platform: Platform, field: string): string => {
     if (platform === "twitch") {
@@ -338,8 +338,11 @@ export function createReporting<S extends EngineSettings>(
     ]);
   }
 
-  async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
-    if (events.length === 0) return;
+  async function reportBestEffort(reportedEvents: readonly EngineEvent[]): Promise<void> {
+    if (reportedEvents.length === 0) return;
+    // The one choke point every reported event passes, so each activity event
+    // is filed under its farming session here rather than at each emit site.
+    const events = await stampFarmingSessions(reportedEvents);
     const correlateControllerRun = (events: readonly EngineEvent[]): EngineEvent[] =>
       events.map((event) =>
         event.category === "diagnostic"
@@ -482,10 +485,19 @@ export function createReporting<S extends EngineSettings>(
       // events instead of a state diff. They ride notifyRewardEarned deliberately:
       // one more toggle for a single event type is not worth the settings surface.
       for (const event of tickEvents) {
-        if (event.category !== "activity" || event.code !== "challenge_claimed") continue;
+        if (
+          event.category !== "activity"
+          || event.code !== "reward_obtained"
+          || event.data.kind !== "challenge_card"
+        )
+          continue;
+        const recurrence = event.data.details?.find((detail) => detail.key === "recurrence");
         await safeNotify(
           await tr("notificationChallengeClaimed"),
-          await tr("notificationChallengeReward", [event.data.rarity, event.data.recurrence]),
+          await tr("notificationChallengeReward", [
+            event.data.rarity ?? "unknown",
+            String(recurrence?.value ?? "unknown"),
+          ]),
         );
       }
     }

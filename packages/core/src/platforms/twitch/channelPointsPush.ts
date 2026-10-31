@@ -36,6 +36,17 @@ export interface TwitchWatchStreakNotice {
   at: number;
 }
 
+// Any channel-points gain on the viewer's topic: the points-earned event with
+// its reason (WATCH, CLAIM, WATCH_STREAK, RAID, ...) and point count. The topic
+// covers the whole account, so gains made on other devices arrive too.
+export interface TwitchPointsEarnedNotice {
+  userId: string;
+  channelId: string;
+  reason: string;
+  amount: number;
+  at: number;
+}
+
 export type TwitchPlaybackNoticeType = "stream-up" | "stream-down";
 
 export interface TwitchPlaybackNotice {
@@ -51,6 +62,9 @@ export interface TwitchHermesOwners {
   // Watch-streak payouts on the same topic (#897). Subscribes the topic on its
   // own, so observing streaks never depends on claiming.
   onWatchStreakEarned?: (notice: TwitchWatchStreakNotice) => void;
+  // Every points gain on the same topic, for the activity summary. Subscribes
+  // the topic on its own, like streaks.
+  onPointsEarned?: (notice: TwitchPointsEarnedNotice) => void;
   // The watched channel's playback topic (#759).
   playback?: { channelId: string; onNotice: (notice: TwitchPlaybackNotice) => void };
   // A Twitch Extension's broadcast topic on the watched channel (#757). Only
@@ -336,7 +350,9 @@ export class TwitchChannelPointsPushController {
   }
 
   private wantsPointsTopic(): boolean {
-    return Boolean(this.owners.onClaimAvailable || this.owners.onWatchStreakEarned);
+    return Boolean(
+      this.owners.onClaimAvailable || this.owners.onWatchStreakEarned || this.owners.onPointsEarned,
+    );
   }
 
   private pointsTopic(): string | undefined {
@@ -499,6 +515,15 @@ export class TwitchChannelPointsPushController {
     }
     const data = inner.data;
     const userId = subscription.topic.slice(TWITCH_CHANNEL_POINTS_TOPIC_PREFIX.length);
+    // Before the streak branch, which returns: a streak payout is a gain too.
+    const points = pointsEarnedNotice(inner.type, data, userId);
+    if (points) {
+      try {
+        this.owners.onPointsEarned?.(points);
+      } catch (error) {
+        this.log("warn", `Twitch points callback failed: ${errorMessage(error)}`);
+      }
+    }
     const streak = watchStreakNotice(inner.type, data, userId);
     if (streak) {
       this.log("debug", `Twitch reported a watch-streak payout on channel ${streak.channelId}`);
@@ -713,6 +738,37 @@ const TWITCH_ID = /^\d{1,20}$/;
 // be a Twitch id, named consistently where the payload names it twice, and a
 // user id in the payload must be the topic's own; anything else is not a
 // payout this viewer can be credited with.
+const POINTS_REASON = /^[A-Z0-9_]{1,64}$/;
+
+function pointsEarnedNotice(
+  type: unknown,
+  data: unknown,
+  userId: string,
+): TwitchPointsEarnedNotice | undefined {
+  if (type !== "points-earned" || !isRecord(data) || !TWITCH_ID.test(userId)) return undefined;
+  const gain = isRecord(data.point_gain) ? data.point_gain : undefined;
+  if (!gain || (gain.user_id !== undefined && gain.user_id !== userId)) return undefined;
+  const channelId = gain.channel_id ?? data.channel_id;
+  const amount = gain.total_points;
+  const reason = typeof gain.reason_code === "string" ? gain.reason_code : "";
+  if (
+    typeof channelId !== "string"
+    || !TWITCH_ID.test(channelId)
+    || typeof amount !== "number"
+    || !Number.isFinite(amount)
+    || amount <= 0
+  )
+    return undefined;
+  const stamped = typeof data.timestamp === "string" ? Date.parse(data.timestamp) : Number.NaN;
+  return {
+    userId,
+    channelId,
+    reason: POINTS_REASON.test(reason) ? reason : "UNKNOWN",
+    amount,
+    at: Number.isFinite(stamped) ? stamped : Date.now(),
+  };
+}
+
 function watchStreakNotice(
   type: unknown,
   data: unknown,

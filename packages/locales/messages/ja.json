@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Twitch がそのキャンペーンを掲載しているチャンネルでのみファームします。Twitch はファーム可能なキャンペーンを省略することが多く、ドロップがファームされない場合があります。"
   },
+  "watchStreakBudgetTitle": {
+    "message": "連続視聴の上限時間"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Twitchが連続視聴を確認しない場合、LurkLoot が次に進むまでに連続視聴の行を視聴する時間。"
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "連続視聴の再試行間隔"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "動画が再生できなかった後、連続視聴の行を再試行するまでの待ち時間。"
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "連続視聴の試行回数"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "動画が再生できない場合に連続視聴の行を試行する回数。それを過ぎると「視聴できず」と表示されます。"
+  },
+  "roundsSuffix": {
+    "message": "回"
+  },
   "autoClaimChallengesTitle": {
     "message": "デイリーチャレンジを自動受け取り"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1 の連続視聴が時間内に確認されなかったため、次に進みました"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "$1 の連続視聴を実行できませんでした。再生が繰り返し失敗したため、次に進みました"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 の認証が $2 から $3 に変わりました。"
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "$1 の重大な障害を解除しました。再試行します。"
+  },
+  "activitySessionCurrent": {
+    "message": "このセッション"
+  },
+  "activitySessionLive": {
+    "message": "$1 から"
+  },
+  "activitySessionOutside": {
+    "message": "セッション外"
+  },
+  "activitySessionEarlier": {
+    "message": "それ以前"
+  },
+  "activitySessionEmpty": {
+    "message": "まだ何も獲得していません。報酬とポイントは獲得すると、ここに表示されます。"
+  },
+  "activitySessionSummary": {
+    "message": "$1 ポイント · 報酬 $2 件"
+  },
+  "activitySessionStarted": {
+    "message": "ファームセッションを開始"
+  },
+  "activitySessionEnded": {
+    "message": "ファームセッションを終了"
+  },
+  "activityTotalPoints": {
+    "message": "ポイント"
+  },
+  "activityTotalDrops": {
+    "message": "Drops"
+  },
+  "activityTotalCards": {
+    "message": "カード"
+  },
+  "activityTotalExtension": {
+    "message": "拡張機能"
+  },
+  "activitySectionRewards": {
+    "message": "報酬"
+  },
+  "activitySectionPoints": {
+    "message": "チャンネル別ポイント"
+  },
+  "activitySectionStatus": {
+    "message": "ステータス ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "$2 で +$1 ポイント"
+  },
+  "activityRewardObtained": {
+    "message": "$1 を獲得"
+  },
+  "activityChannelId": {
+    "message": "チャンネル $1"
+  },
+  "pointsReasonWatch": {
+    "message": "視聴"
+  },
+  "pointsReasonClaim": {
+    "message": "ボーナス ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "連続視聴"
+  },
+  "pointsReasonRaid": {
+    "message": "レイド"
+  },
+  "rewardCardTitle": {
+    "message": "$1 カード"
+  },
+  "rewardPackTitle": {
+    "message": "パックを開封 · カード $1 枚"
+  },
+  "rewardCaptureTitle": {
+    "message": "キャプチャ"
+  },
+  "rewardGiveawayTitle": {
+    "message": "プレゼント応募済み"
+  },
+  "rewardGenericTitle": {
+    "message": "報酬"
+  },
+  "rewardConsolationMinutes": {
+    "message": "視聴時間 +$1 分"
+  },
+  "rewardEditionNormal": {
+    "message": "通常 $1"
+  },
+  "rewardEditionGold": {
+    "message": "ゴールド $1"
+  },
+  "rewardEditionLegendary": {
+    "message": "レジェンダリー $1"
   },
   "criticalFailureReasonNoProgress": {
     "message": "繰り返しエラーにもかかわらず進捗なし"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "未確認"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "視聴できず"
   },
   "watchStreakUnavailable": {
     "message": "連続視聴不可"

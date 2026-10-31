@@ -38,6 +38,8 @@ describe("background controller", () => {
     expect(
       changes
         .slice(1)
+        // The farming-session reconcile commits global state under no platform.
+        .filter((change) => !(change.kind === "state" && change.platforms.length === 0))
         .every((change) => change.kind === "state" && change.platforms.includes("twitch")),
     ).toBe(true);
   });

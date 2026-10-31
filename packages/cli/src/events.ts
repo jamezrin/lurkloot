@@ -5,6 +5,7 @@ import type {
   PageContextOpenReason,
 } from "@lurkloot/shared/events";
 import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
+import type { RewardObtainedData } from "@lurkloot/shared/rewardEvents";
 import type { Logger } from "./logger";
 
 function formatStopReason(reason: FarmingStopReason): string {
@@ -128,8 +129,10 @@ export function formatCliEvent(event: EngineEvent): string {
     case "challenge_claimed":
       return `Claimed a ${event.data.rarity} ${event.data.recurrence} challenge`;
     case "watch_streak_ended":
-      return event.data.outcome === "credited"
-        ? `Watch streak paid out on ${event.data.channel}`
+      if (event.data.outcome === "credited")
+        return `Watch streak paid out on ${event.data.channel}`;
+      return event.data.outcome === "playback_failed"
+        ? `Could not watch ${event.data.channel} for its watch streak; moving on`
         : `Watch streak on ${event.data.channel} not confirmed; moving on`;
     case "page_context_opened":
       return `Opened background context on ${event.data.host}: ${formatPageContextOpenReason(event.data.reason)}`;
@@ -143,11 +146,33 @@ export function formatCliEvent(event: EngineEvent): string {
       return `${event.platform} is not working: ${formatCriticalFailureReason(event.data.reason)}`;
     case "critical_failure_cleared":
       return `${event.platform} critical failure dismissed; retrying`;
+    case "reward_obtained":
+      return `Obtained ${formatRewardObtained(event.data)}`;
+    case "points_earned":
+      return `+${event.data.amount} points (${event.data.reason}) on ${event.data.channelLogin ?? event.data.channelId}`;
+    case "session_started":
+      return `${event.platform} farming session started`;
+    case "session_ended":
+      return `${event.platform} farming session ended`;
     default: {
       const exhaustive: never = event;
-      return exhaustive;
+      void exhaustive;
+      return "Unknown activity";
     }
   }
+}
+
+function formatRewardObtained(data: RewardObtainedData): string {
+  const via = data.source.extension ? `${data.source.extension} ` : "";
+  const what = {
+    challenge_card: `${data.rarity ? `${data.rarity} ` : ""}challenge card`,
+    extension_capture: `${via}capture`,
+    extension_pack: `${via}pack${data.amount !== undefined ? ` (${data.amount} cards)` : ""}`,
+    extension_giveaway: `${via}giveaway entry`,
+  }[data.kind];
+  const name = data.name ? ` "${data.name}"` : "";
+  const channel = data.channel ? ` on ${data.channel}` : "";
+  return `a ${what ?? data.kind}${name}${channel}`;
 }
 
 export async function reportCliEvents(
@@ -159,7 +184,12 @@ export async function reportCliEvents(
     // mirror would say the same thing twice at the same level. The mirror still
     // carries ids and raw reason codes, so keep it behind `--log debug` instead
     // of dropping it.
-    const level = event.category === "diagnostic" && event.mirroredActivity ? "debug" : event.level;
+    // Points arrive every few minutes per channel; they stay behind `--log debug`.
+    const level =
+      (event.category === "diagnostic" && event.mirroredActivity)
+      || (event.category === "activity" && event.code === "points_earned")
+        ? "debug"
+        : event.level;
     logger.log(level, formatCliEvent(event), event.platform ?? event.category);
   }
 }

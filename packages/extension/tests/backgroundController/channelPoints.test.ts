@@ -667,25 +667,26 @@ describe("background controller", () => {
       expect(env.channelPointsPushController.starts).toBe(2);
     });
 
+    // The save opens a Twitch farming session, whose points summary keeps the
+    // push up; claim delivery is what these settings turn off.
     it.each([
-      {
-        name: "the live-event setting is off, with no playback topic to follow",
-        apply: async (env: ReturnType<typeof harness>) => {
-          await env.controller.handleMessage({
-            type: "saveSettings",
-            settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } },
-          });
-        },
-      },
-      {
-        name: "auto-claim is off, with no playback topic to follow",
-        apply: async (env: ReturnType<typeof harness>) => {
-          await env.controller.handleMessage({
-            type: "saveSettings",
-            settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } },
-          });
-        },
-      },
+      { name: "the live-event setting is off", patch: { channelPointsPushClaim: false } },
+      { name: "auto-claim is off", patch: { autoClaimChannelPoints: false } },
+    ])("stops following claims but keeps counting points when $name", async ({ patch }) => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: patch } },
+      });
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.channelPointsPushController.claimsFollowed).toBe(false);
+      expect(env.channelPointsPushController.onPointsEarned).toBeDefined();
+    });
+
+    it.each([
       {
         name: "Twitch is disabled",
         apply: async (env: ReturnType<typeof harness>) => {
@@ -711,14 +712,6 @@ describe("background controller", () => {
           await env.controller.ensureAlarm();
         },
       },
-      {
-        name: "no eligible channel remains",
-        apply: async (env: ReturnType<typeof harness>) => {
-          env.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
-          env.state.manualWatch = undefined;
-          await env.controller.ensureAlarm();
-        },
-      },
     ])("stops the observer when $name", async ({ apply }) => {
       const env = harness(pushSettings());
       await startObserver(env);
@@ -727,6 +720,19 @@ describe("background controller", () => {
       await env.rawController.settleBackgroundWork();
 
       expect(env.channelPointsPushController.stops).toBe(1);
+    });
+
+    it("stops following claims, but keeps counting points, when no eligible channel remains", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+
+      env.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
+      env.state.manualWatch = undefined;
+      await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.channelPointsPushController.claimsFollowed).toBe(false);
+      expect(env.channelPointsPushController.onPointsEarned).toBeDefined();
     });
 
     it.each(["reset", "shutdown"] as const)(
@@ -775,7 +781,8 @@ describe("background controller", () => {
       env.twitch.claimChannelPoints = vi.fn(async () => true);
 
       await env.controller.ensureAlarm();
-      expect(env.channelPointsPushController.starts).toBe(0);
+      // Up for the farming session's points, but not following claims.
+      expect(env.channelPointsPushController.claimsFollowed).toBe(false);
 
       env.deps.createAlarm.mockClear();
       await env.controller.handleMessage({
@@ -783,7 +790,7 @@ describe("background controller", () => {
         settingsPatch: { platform: { twitch: { channelPointsPushClaim: true } } },
       });
 
-      expect(env.channelPointsPushController.starts).toBe(1);
+      expect(env.channelPointsPushController.claimsFollowed).toBe(true);
       expect(env.channelPointsPushController.stops).toBe(0);
 
       await env.controller.handleMessage({
@@ -791,7 +798,9 @@ describe("background controller", () => {
         settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } },
       });
 
-      expect(env.channelPointsPushController.stops).toBe(1);
+      // The farming session the first save opened keeps the push up for points.
+      expect(env.channelPointsPushController.claimsFollowed).toBe(false);
+      expect(env.channelPointsPushController.onPointsEarned).toBeDefined();
     });
 
     it("saveSettings that enables live-event claiming resolves while start is blocked", async () => {
@@ -926,6 +935,7 @@ describe("background controller", () => {
                 outcome: "pending",
                 watchedMs: 60_000,
                 unhealthyChecks: 0,
+                failedRounds: 0,
                 startedAt: now,
                 updatedAt: now,
               },
@@ -1093,7 +1103,9 @@ describe("background controller", () => {
         env.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
         await env.controller.ensureAlarm();
         await env.rawController.settleBackgroundWork();
-        expect(env.channelPointsPushController.starts).toBe(0);
+        // The push may be up for the farming session's points; it follows no
+        // playback topic.
+        expect(env.channelPointsPushController.playback).toBeUndefined();
       });
     });
 

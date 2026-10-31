@@ -30,6 +30,21 @@ class ProviderFailure extends Error {
   }
 }
 
+export type NoPixelCardEdition = "normal" | "legendary" | "gold";
+
+// An opened pack as the activity log shows it: how many cards, and how many of
+// each edition. Card ids stay inside the driver.
+export interface NoPixelOpenedPack {
+  cardCount: number;
+  editions: Partial<Record<NoPixelCardEdition, number>>;
+}
+
+function openedPackSummary(cards: readonly { edition: NoPixelCardEdition }[]): NoPixelOpenedPack {
+  const editions: NoPixelOpenedPack["editions"] = {};
+  for (const card of cards) editions[card.edition] = (editions[card.edition] ?? 0) + 1;
+  return { cardCount: cards.length, editions };
+}
+
 // Matches the published 1.1.2 client: Bearer auth, one initialization ping,
 // channel setup, daily watchtime read and ordinary giveaway join/refetch. Since
 // 1.1.3 a giveaway names who may join, and the client offers a join only to a
@@ -40,7 +55,7 @@ export function createNoPixelDriver(
   onJoined: () => void = () => {},
   now: () => number = Date.now,
   diagnostic: (message: string) => void = () => {},
-  options: { autoOpenPacks?: boolean; onOpened?(): void } = {},
+  options: { autoOpenPacks?: boolean; onOpened?(pack: NoPixelOpenedPack): void } = {},
 ): TwitchExtensionDriverFactory {
   return async (session, emit) => {
     const lifetime = new AbortController();
@@ -55,6 +70,8 @@ export function createNoPixelDriver(
     if (parent?.aborted) abort();
     const rejectedStatuses = new Map<string, number>();
     const packAttempts = new Map<string, boolean>();
+    // What each accepted open contained, reported once its removal is confirmed.
+    const openedPacks = new Map<string, NoPixelOpenedPack>();
     let joining = false;
     // The restricted audience last reported as not joinable, so it logs once.
     let blockedAudience: string | undefined;
@@ -196,7 +213,8 @@ export function createNoPixelDriver(
               for (const [id, accepted] of packAttempts)
                 if (accepted && !packs!.includes(id)) {
                   packAttempts.set(id, false);
-                  options.onOpened?.();
+                  options.onOpened?.(openedPacks.get(id) ?? { cardCount: 0, editions: {} });
+                  openedPacks.delete(id);
                 }
             }
             confirmRemoved();
@@ -221,6 +239,7 @@ export function createNoPixelDriver(
                     )
                   )
                     throw new ProviderFailure("compatibility-error");
+                  openedPacks.set(id, openedPackSummary(cards));
                   packAttempts.set(id, true);
                 } catch (error) {
                   if (error instanceof ProviderFailure && error.rejected) packAttempts.delete(id);

@@ -1,38 +1,17 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  Check,
-  Clipboard,
-  Clock3,
-  Download,
-  ExternalLink,
-  Gift,
-  MonitorDown,
-  MonitorUp,
-  OctagonAlert,
-  Pause,
-  Play,
-  RefreshCw,
-  Shield,
-  Trophy,
-  type LucideIcon,
-} from "lucide-react";
+import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
+import type React from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Clipboard, Clock3, Download } from "lucide-react";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { Platform } from "@lurkloot/shared/models";
 import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
-import { PopupRuntimeContext, useT } from "./context";
+import { useT } from "./context";
 import { formatEventTime } from "./format";
-import { openHttpsLink } from "./links";
 import { Tabs } from "@base-ui/react/tabs";
-import { ImageWithFallback, Pill, SearchBox } from "./primitives";
-import {
-  buildActivityCard,
-  buildActivityExport,
-  formatActivityEvent,
-  type ActivityCardIcon,
-  type ActivityCardTone,
-} from "./activity.logic";
-import { Tip } from "./tooltip";
+import { SearchBox } from "./primitives";
+import { buildActivityExport } from "./activity.logic";
+import { ActivitySessionTimeline, CompactActivityRow } from "./activitySessions";
 
 // How long the button stays in its confirmation state after a successful copy.
 const COPY_FEEDBACK_MS = 2500;
@@ -59,6 +38,7 @@ export function ActivityLog({
   onClear,
   writeClipboard,
   onExportAll,
+  sessions = [],
 }: {
   activityEvents: ActivityHistoryRecord[];
   diagnosticEvents: ActivityHistoryRecord[];
@@ -83,6 +63,8 @@ export function ActivityLog({
   // control rather than offering a button that can only fail.
   writeClipboard?(text: string): Promise<boolean>;
   onExportAll?(): Promise<number | undefined>;
+  // The platform's farming sessions; the Activity view groups its rows by them.
+  sessions?: readonly FarmingSessionSummary[];
 }): React.ReactElement {
   const t = useT();
   const forPlatform = useMemo(
@@ -90,6 +72,7 @@ export function ActivityLog({
       activityEvents.filter(
         (event) =>
           (!event.platform || event.platform === platform)
+          && ("legacy" in event || isActivityTimelineEvent(event))
           && !(event.category === "activity" && event.code === "auth_health_changed"),
       ),
     [activityEvents, platform],
@@ -104,6 +87,8 @@ export function ActivityLog({
   const visible = showDiagnostics ? diagnosticsForPlatform : forPlatform;
   const trimmedSearchQuery = searchQuery.trim();
   const errorCount = visible.filter((event) => event.level === "error").length;
+  // The session timeline draws its own cards, so it sits without the list's frame.
+  const showTimeline = !showDiagnostics && (visible.length > 0 || sessions.length > 0);
   const [copied, setCopied] = useState<number | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
   const [exported, setExported] = useState<number | null>(null);
@@ -274,9 +259,15 @@ export function ActivityLog({
       ) : null}
       <div
         data-tour="activity-list"
-        className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50"
+        className={
+          showTimeline
+            ? undefined
+            : "overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50"
+        }
       >
-        {visible.length === 0 ? (
+        {showTimeline ? (
+          <ActivitySessionTimeline sessions={sessions} events={visible} platform={platform} />
+        ) : visible.length === 0 ? (
           <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">
             {showDiagnostics && searchingDiagnostics && trimmedSearchQuery
               ? t("noDiagnosticsMatch", trimmedSearchQuery)
@@ -284,13 +275,9 @@ export function ActivityLog({
           </p>
         ) : (
           <ul className="space-y-1 p-1">
-            {visible.map((event) =>
-              showDiagnostics ? (
-                <CompactActivityRow key={event.id} event={event} />
-              ) : (
-                <ActivityTimelineCard key={event.id} event={event} />
-              ),
-            )}
+            {visible.map((event) => (
+              <CompactActivityRow key={event.id} event={event} />
+            ))}
           </ul>
         )}
       </div>
@@ -306,153 +293,4 @@ export function ActivityLog({
       ) : null}
     </div>
   );
-}
-
-function CompactActivityRow({ event }: { event: ActivityHistoryRecord }): React.ReactElement {
-  const t = useT();
-
-  return (
-    <li className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
-      <span
-        className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }}
-      />
-      <span className="shrink-0 font-mono text-[10px] text-zinc-400">
-        {formatEventTime(event.at)}
-      </span>
-      <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">
-        {formatActivityEvent(event, t)}
-      </span>
-    </li>
-  );
-}
-
-function ActivityTimelineCard({ event }: { event: ActivityHistoryRecord }): React.ReactElement {
-  const t = useT();
-  const runtime = React.useContext(PopupRuntimeContext);
-  const card = buildActivityCard(event, t);
-  if (!card) return <CompactActivityRow event={event} />;
-
-  const campaignActionLabel = card.campaignName
-    ? `${t("viewDropPage")}: ${card.campaignName}`
-    : t("viewDropPage");
-
-  return (
-    <li
-      data-activity-card={event.code}
-      className="flex items-start gap-2 rounded-lg bg-zinc-50/70 px-2.5 py-2 text-[11px] leading-snug dark:bg-zinc-900/60"
-    >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent-softer)] text-[var(--accent-text)]">
-        {card.reward ? (
-          <ActivityRewardImage name={card.reward.name} imageUrl={card.reward.imageUrl} />
-        ) : (
-          <EventIcon icon={card.icon} aria-hidden="true" />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-          <p className="min-w-0 break-words font-medium text-zinc-700 dark:text-zinc-200">
-            {card.summary}
-          </p>
-          <time className="shrink-0 font-mono text-[10px] text-zinc-400">
-            {formatEventTime(event.at)}
-          </time>
-        </div>
-        {card.detail ? (
-          <p className="mt-0.5 break-words text-zinc-500 dark:text-zinc-400">{card.detail}</p>
-        ) : null}
-        {card.chips.length > 0 ? (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {card.chips.map((chip) => (
-              <span key={chip} data-activity-chip={chip}>
-                <Pill tone={activityCardPillTone(card.tone)}>{chip}</Pill>
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-      {card.campaignUrl && runtime ? (
-        <Tip label={campaignActionLabel}>
-          <button
-            type="button"
-            aria-label={campaignActionLabel}
-            onClick={(clickEvent) => {
-              clickEvent.stopPropagation();
-              openHttpsLink(card.campaignUrl!, runtime.adapter.openLink);
-            }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent-text)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500"
-          >
-            <ExternalLink size={13} aria-hidden="true" />
-          </button>
-        </Tip>
-      ) : null}
-    </li>
-  );
-}
-
-function ActivityRewardImage({
-  name,
-  imageUrl,
-}: {
-  name: string;
-  imageUrl?: string;
-}): React.ReactElement {
-  const source = imageUrl?.trim() || undefined;
-  const initial = name.trim().charAt(0).toLocaleUpperCase() || "?";
-
-  return (
-    <ImageWithFallback
-      src={source}
-      alt={name}
-      fit="contain"
-      className="p-0.5"
-      fallback={
-        <span
-          data-activity-reward-fallback
-          role="img"
-          aria-label={name}
-          className="text-sm font-bold"
-        >
-          {initial}
-        </span>
-      }
-    />
-  );
-}
-
-function EventIcon({
-  icon,
-  ...props
-}: { icon: ActivityCardIcon } & React.ComponentProps<LucideIcon>): React.ReactElement {
-  const icons = {
-    gift: Gift,
-    play: Play,
-    pause: Pause,
-    trophy: Trophy,
-    triangle: AlertTriangle,
-    "monitor-up": MonitorUp,
-    "monitor-down": MonitorDown,
-    shield: Shield,
-    "octagon-alert": OctagonAlert,
-    refresh: RefreshCw,
-  } satisfies Record<ActivityCardIcon, LucideIcon>;
-  const Icon = icons[icon];
-  return <Icon size={17} {...props} />;
-}
-
-function activityCardPillTone(
-  tone: ActivityCardTone,
-): "muted" | "accent" | "live" | "warning" | "danger" {
-  switch (tone) {
-    case "success":
-      return "live";
-    case "accent":
-      return "accent";
-    case "danger":
-      return "danger";
-    case "warning":
-      return "warning";
-    case "muted":
-      return "muted";
-  }
 }

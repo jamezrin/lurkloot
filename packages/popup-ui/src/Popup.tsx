@@ -4,11 +4,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, Clock3, RotateCcw, Settings as SettingsIcon } from "lucide-react";
 import type {
   ActivityPage,
+  ActivitySessionsPage,
   CategorySearchResult,
   CliCredentialBlob,
   DiagnosticsExport,
   RuntimeSnapshot,
 } from "@lurkloot/shared/messages";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type {
   CategorySelection,
@@ -326,6 +328,7 @@ export function PopupFrame({
   const [extensionPending, setExtensionPending] = useState(false);
   const activityOpen = view === "activity";
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
+  const [activitySessions, setActivitySessions] = useState<FarmingSessionSummary[]>([]);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
   const [reportEvents, setReportEvents] = useState<ActivityHistoryRecord[]>([]);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -509,6 +512,17 @@ export function PopupFrame({
           }
         })
         .catch(() => undefined);
+      // The session summaries the Activity view groups its rows under.
+      void adapter
+        .send<ActivitySessionsPage>({
+          type: "getActivitySessions",
+          platform: requestScope.platform,
+        })
+        .then((page) => {
+          if (!cancelled && isActivityRequestCurrent(requestScope, activityRequestScopeRef.current))
+            setActivitySessions(page?.sessions ?? []);
+        })
+        .catch(() => undefined);
     };
     refresh();
     const interval = setInterval(refresh, 5000);
@@ -526,6 +540,7 @@ export function PopupFrame({
       invalidateActivityRequests(platform, "");
     }
     setActivityStream(createActivityStream());
+    setActivitySessions([]);
     setDiagnosticStream(createActivityStream());
     setDiagnosticSearchQuery("");
     setShowDiagnostics(false);
@@ -707,6 +722,7 @@ export function PopupFrame({
         activityClearInFlightRef.current = false;
         invalidateActivityRequests();
         setActivityStream(createActivityStream());
+        setActivitySessions([]);
         setDiagnosticStream(createActivityStream());
         setDiagnosticSearchQuery("");
         invalidateActivityRequests(platform, "");
@@ -1029,6 +1045,7 @@ export function PopupFrame({
         settingsRef.current = mergeSettings(nextSnapshot.settings);
         invalidateActivityRequests("twitch");
         setActivityStream(createActivityStream());
+        setActivitySessions([]);
         setDiagnosticStream(createActivityStream());
         setShowDiagnostics(false);
         setPlatform("twitch");
@@ -1485,6 +1502,7 @@ export function PopupFrame({
                           ) : view === "activity" ? (
                             <ActivityLog
                               activityEvents={activityStream.events}
+                              sessions={activitySessions}
                               diagnosticEvents={diagnosticStream.events}
                               platform={platform}
                               lastTickAt={snapshot.state.lastTickAt}
@@ -1563,6 +1581,8 @@ export function PopupFrame({
                                         settings.platform.twitch.watchlistStreakChannels,
                                       ),
                                       statuses: snapshot.state.watchStreaks?.twitch?.rows ?? {},
+                                      budgetMinutes:
+                                        settings.platform.twitch.watchStreakBudgetMinutes,
                                       onToggle: (username, enabled) => {
                                         const current =
                                           settings.platform.twitch.watchlistStreakChannels;

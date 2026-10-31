@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Bir kampanyayı yalnızca Twitch'in onu listelediği kanallarda farmla. Twitch farmlanabilir kampanyaları sıkça atlar, bu yüzden bazı droplar farmlanmadan kalabilir."
   },
+  "watchStreakBudgetTitle": {
+    "message": "İzleme serisi süresi"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Twitch seriyi onaylamadıysa, LurkLoot'un ilerlemeden önce seri satırını ne kadar izleyeceği."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "İzleme serisi yeniden deneme bekleme süresi"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Videosu oynatılamayan seri satırının yeniden denemeden önce ne kadar bekleyeceği."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "İzleme serisi denemeleri"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Videosu oynatılamayan seri satırının, “İzlenemedi” olarak gösterilmeden önce kaç kez deneneceği."
+  },
+  "roundsSuffix": {
+    "message": "deneme"
+  },
   "autoClaimChallengesTitle": {
     "message": "Günlük görevleri otomatik al"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1 kanalındaki izleme serisi zamanında onaylanmadı; sıradakine geçildi"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "$1 kanalında izleme serisi için izleme yapılamadı: oynatma sürekli başarısız oldu; sıradakine geçildi"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 oturum durumu değişti: $2 → $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "$1 için kritik hata yoksayıldı; yeniden deneniyor."
+  },
+  "activitySessionCurrent": {
+    "message": "Bu oturum"
+  },
+  "activitySessionLive": {
+    "message": "$1'den beri"
+  },
+  "activitySessionOutside": {
+    "message": "Bir oturumun dışında"
+  },
+  "activitySessionEarlier": {
+    "message": "Daha önce"
+  },
+  "activitySessionEmpty": {
+    "message": "Henüz bir şey kazanılmadı. Ödüller ve puanlar geldikçe burada görünür."
+  },
+  "activitySessionSummary": {
+    "message": "$1 puan · $2 ödül"
+  },
+  "activitySessionStarted": {
+    "message": "Bir farm oturumu başlattı"
+  },
+  "activitySessionEnded": {
+    "message": "Farm oturumunu bitirdi"
+  },
+  "activityTotalPoints": {
+    "message": "puan"
+  },
+  "activityTotalDrops": {
+    "message": "drop"
+  },
+  "activityTotalCards": {
+    "message": "kart"
+  },
+  "activityTotalExtension": {
+    "message": "eklenti"
+  },
+  "activitySectionRewards": {
+    "message": "Ödüller"
+  },
+  "activitySectionPoints": {
+    "message": "Kanala göre puan"
+  },
+  "activitySectionStatus": {
+    "message": "Durum ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "$2 kanalında +$1 puan"
+  },
+  "activityRewardObtained": {
+    "message": "$1 alındı"
+  },
+  "activityChannelId": {
+    "message": "Kanal $1"
+  },
+  "pointsReasonWatch": {
+    "message": "İzleme"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Seri"
+  },
+  "pointsReasonRaid": {
+    "message": "Baskın"
+  },
+  "rewardCardTitle": {
+    "message": "$1 kartı"
+  },
+  "rewardPackTitle": {
+    "message": "Paket açıldı · $1 kart"
+  },
+  "rewardCaptureTitle": {
+    "message": "Yakalama"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Çekilişe katılındı"
+  },
+  "rewardGenericTitle": {
+    "message": "Ödül"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 dk izleme süresi"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 altın"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 efsanevi"
   },
   "criticalFailureReasonNoProgress": {
     "message": "tekrarlanan hatalara rağmen ilerleme yok"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Onaylanmadı"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "İzlenemedi"
   },
   "watchStreakUnavailable": {
     "message": "Seri kullanılamıyor"

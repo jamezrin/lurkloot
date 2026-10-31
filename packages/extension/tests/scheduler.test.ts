@@ -4755,6 +4755,10 @@ describe("scheduler tick", () => {
       { twitch, kick: adapter("kick", [], []) },
     );
 
+    expect(twitch.isClaimReady).toHaveBeenCalledWith(
+      expect.objectContaining({ id: ready.rewards[0]!.id }),
+      expect.objectContaining({ id: ready.id }),
+    );
     expect(twitch.claimReward).not.toHaveBeenCalled();
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
     const claimEvents = result.events.filter(
@@ -5665,7 +5669,7 @@ describe("scheduler tick", () => {
     expect(result.state.gamification?.kick?.lastCheckedAt).toBeDefined();
     expect(
       result.events.some(
-        (event) => event.category === "activity" && event.code === "challenge_claimed",
+        (event) => event.category === "activity" && event.code === "reward_obtained",
       ),
     ).toBe(true);
   });

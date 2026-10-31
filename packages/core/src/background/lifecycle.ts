@@ -86,6 +86,7 @@ export function createLifecycle<S extends EngineSettings>(
     | "abortAccountProgressPolls"
     | "abortKickChallengeClaims"
     | "abortTwitchChannelPointsClaims"
+    | "reconcileFarmingSessions"
     | "cancelHeartbeatPublicationLeases"
     | "ensureAccountProgressJob"
     | "ensureHeartbeatJob"
@@ -179,9 +180,13 @@ export function createLifecycle<S extends EngineSettings>(
     resumeTickAdmission,
     stopDiscoveryLane,
     suspendTickAdmission,
+    reconcileFarmingSessions,
   } = lateBound(calls);
 
   async function ensureAlarm(): Promise<void> {
+    // On install and update: a platform already farming gets its session, which
+    // a version without sessions never opened.
+    await reconcileFarmingSessions();
     const settings = await ports.storage.loadSettings();
     await ensureCadenceJobs(settings);
     await reconcileTwitchChannelPointsAlarm(settings);

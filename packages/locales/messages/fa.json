@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "کمپین را فقط در کانال‌هایی فارم کن که Twitch برایشان فهرست کرده است. Twitch اغلب کمپین‌های قابل فارم را جا می‌اندازد و ممکن است دراپ‌ها فارم نشوند."
   },
+  "watchStreakBudgetTitle": {
+    "message": "بودجه تداوم تماشا"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "هر ردیف تداوم تا چه مدت تماشا شود پیش از آنکه LurkLoot ادامه دهد، اگر Twitch تداوم را تأیید نکرده باشد."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "تأخیر تلاش دوباره تداوم تماشا"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "اگر ویدیوی ردیف تداوم پخش نشود، ردیف چقدر صبر کند تا دوباره تلاش شود."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "تلاش‌های تداوم تماشا"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "اگر ویدیوی ردیف تداوم پخش نشود، چند بار برای آن تلاش شود، پیش از آنکه با عنوان تماشا نشد نمایش داده شود."
+  },
+  "roundsSuffix": {
+    "message": "بار"
+  },
   "autoClaimChallengesTitle": {
     "message": "دریافت خودکار چالش‌های روزانه"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "تداوم تماشا در $1 به‌موقع تأیید نشد؛ ادامه داده شد"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "تماشای $1 برای تداوم تماشا انجام نشد: پخش مدام با خطا مواجه شد؛ ادامه داده شد"
+  },
   "activityAuthHealthChanged": {
     "message": "وضعیت احراز هویت $1 از $2 به $3 تغییر کرد."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "خطای بحرانی $1 رد شد؛ تلاش دوباره در حال انجام است."
+  },
+  "activitySessionCurrent": {
+    "message": "این نشست"
+  },
+  "activitySessionLive": {
+    "message": "از $1"
+  },
+  "activitySessionOutside": {
+    "message": "خارج از نشست"
+  },
+  "activitySessionEarlier": {
+    "message": "قبلی‌ها"
+  },
+  "activitySessionEmpty": {
+    "message": "هنوز چیزی به دست نیامده. پاداش‌ها و امتیازها همین‌جا نمایش داده می‌شوند، همان‌طور که می‌رسند."
+  },
+  "activitySessionSummary": {
+    "message": "$1 امتیاز · $2 پاداش"
+  },
+  "activitySessionStarted": {
+    "message": "نشست فارم را شروع کرد"
+  },
+  "activitySessionEnded": {
+    "message": "نشست فارم را پایان داد"
+  },
+  "activityTotalPoints": {
+    "message": "امتیاز"
+  },
+  "activityTotalDrops": {
+    "message": "دراپ‌ها"
+  },
+  "activityTotalCards": {
+    "message": "کارت‌ها"
+  },
+  "activityTotalExtension": {
+    "message": "افزونه"
+  },
+  "activitySectionRewards": {
+    "message": "پاداش‌ها"
+  },
+  "activitySectionPoints": {
+    "message": "امتیاز بر اساس کانال"
+  },
+  "activitySectionStatus": {
+    "message": "وضعیت ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 امتیاز در $2"
+  },
+  "activityRewardObtained": {
+    "message": "$1 دریافت شد"
+  },
+  "activityChannelId": {
+    "message": "کانال $1"
+  },
+  "pointsReasonWatch": {
+    "message": "تماشا"
+  },
+  "pointsReasonClaim": {
+    "message": "پاداش ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "زنجیره"
+  },
+  "pointsReasonRaid": {
+    "message": "ریید"
+  },
+  "rewardCardTitle": {
+    "message": "کارت $1"
+  },
+  "rewardPackTitle": {
+    "message": "بسته باز شد · $1 کارت"
+  },
+  "rewardCaptureTitle": {
+    "message": "گرفتن"
+  },
+  "rewardGiveawayTitle": {
+    "message": "ورود به قرعه‌کشی"
+  },
+  "rewardGenericTitle": {
+    "message": "پاداش"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 دقیقه زمان تماشا"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 عادی"
+  },
+  "rewardEditionGold": {
+    "message": "$1 طلایی"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 افسانه‌ای"
   },
   "criticalFailureReasonNoProgress": {
     "message": "با وجود خطاهای مکرر، پیشرفتی حاصل نشد"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "تأیید نشد"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "تماشا نشد"
   },
   "watchStreakUnavailable": {
     "message": "تداوم در دسترس نیست"

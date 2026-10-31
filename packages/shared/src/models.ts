@@ -143,6 +143,13 @@ export interface DropCampaign {
   url?: string;
 }
 
+// A channel's public identity, looked up from its platform id.
+export interface ChannelIdentity {
+  login: string;
+  displayName?: string;
+  imageUrl?: string;
+}
+
 export interface ChannelCandidate {
   platform: Platform;
   username: string;
@@ -505,6 +512,14 @@ export interface TwitchPlatformSettings extends PlatformSettings {
   // Always a subset of watchlistChannels, in no meaningful order: the
   // watchlist's own order decides. Empty by default.
   watchlistStreakChannels: string[];
+  // Advanced: healthy watch time a streak attempt gets before it ends as not
+  // confirmed, in minutes. A safety budget, not Twitch's own threshold.
+  watchStreakBudgetMinutes: number;
+  // Advanced: how long an attempt rests after a round that never played.
+  watchStreakRetryCooldownMinutes: number;
+  // Advanced: rounds of failed playback before an attempt ends as couldn't
+  // watch. Each round can open a watch tab, so it is bounded.
+  watchStreakMaxRounds: number;
 }
 
 export interface KickPlatformSettings extends PlatformSettings {
@@ -687,6 +702,10 @@ export interface SchedulerState {
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.
   gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
+  // The open farming session per platform: from the platform's farming being
+  // enabled until it is disabled, surviving restarts. Written only by the
+  // controller's farming-session reconcile (settings commits and startup).
+  farmingSessions?: Partial<Record<Platform, { id: string; startedAt: string }>>;
   // The signed-in account's own progress on its platform, polled on its own
   // stamp (independent of challenge claiming) and shown beside the platform's
   // switch. `progress` is the last good read: a failed poll only moves the stamp.
@@ -748,9 +767,11 @@ export interface WatchDecision {
 // attempt per signed-in account, channel and broadcast. A terminal outcome
 // stays terminal for that broadcast; a new broadcast gets a new attempt.
 // "credited": the platform reported the streak payout for this broadcast.
-// "not_confirmed": the watch budget or the failure bound ran out without that
-// report. Neither claims anything about the user's streak count.
-export type WatchStreakOutcome = "pending" | "credited" | "not_confirmed";
+// "not_confirmed": the watch budget ran out without that report.
+// "playback_failed": every round ran out of healthy checks before the budget
+// was watched (#942), so the streak was never really attempted.
+// None claims anything about the user's streak count.
+export type WatchStreakOutcome = "pending" | "credited" | "not_confirmed" | "playback_failed";
 
 export interface WatchStreakAttempt {
   accountId: string;
@@ -761,8 +782,14 @@ export interface WatchStreakAttempt {
   outcome: WatchStreakOutcome;
   // Healthy watching observed by the engine, in milliseconds.
   watchedMs: number;
-  // Ticks that found this attempt's channel selected but not healthy.
+  // Ticks in the current round that found this attempt's channel selected but
+  // not healthy. Reset when the round ends.
   unhealthyChecks: number;
+  // Rounds that ran out of healthy checks. Never reset, so merges and restarts
+  // keep the bound.
+  failedRounds: number;
+  // When a round ran out of healthy checks: the attempt rests until then.
+  retryAt?: string;
   startedAt: string;
   updatedAt: string;
   completedAt?: string;
@@ -774,6 +801,7 @@ export type WatchStreakRowStatus =
   | "watching"
   | "credited"
   | "not_confirmed"
+  | "playback_failed"
   | "unavailable";
 
 export interface WatchStreakState {

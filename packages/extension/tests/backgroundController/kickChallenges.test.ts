@@ -249,9 +249,47 @@ describe("background controller", () => {
       expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
         expect.objectContaining({
           category: "activity",
-          code: "challenge_claimed",
+          code: "reward_obtained",
           platform: "kick",
         }),
+      );
+    });
+
+    it("reports the card with its art and notifies once when reward notifications are on", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: true }));
+      watchingKickByHand(env);
+      env.kick.claimChallenges = vi.fn(async () => [
+        {
+          id: "daily",
+          rarity: "epic",
+          recurrence: "daily",
+          cardId: "card",
+          imageUrl: "https://files.kick.com/cards/epic.png",
+          consolation: { watchTimeMinutes: 30 },
+        },
+      ]);
+
+      await env.controller.runKickChallengeClaims();
+
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          code: "reward_obtained",
+          data: {
+            kind: "challenge_card",
+            source: { platform: "kick" },
+            rarity: "epic",
+            itemId: "card",
+            imageUrl: "https://files.kick.com/cards/epic.png",
+            details: [
+              { key: "recurrence", value: "daily" },
+              { key: "consolationMinutes", value: 30 },
+            ],
+          },
+        }),
+      );
+      expect(env.deps.createNotification).toHaveBeenCalledOnce();
+      expect(env.deps.createNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Challenge reward claimed" }),
       );
     });
 
@@ -271,7 +309,7 @@ describe("background controller", () => {
       expect(
         env.reportEvents.mock.calls
           .flatMap(([events]) => events)
-          .filter((event) => event.category === "activity" && event.code === "challenge_claimed"),
+          .filter((event) => event.category === "activity" && event.code === "reward_obtained"),
       ).toHaveLength(1);
     });
 

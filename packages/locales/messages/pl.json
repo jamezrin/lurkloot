@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Farmuj kampanię tylko na kanałach, na których Twitch ją wymienia. Twitch często pomija kampanie do farmienia, więc dropy mogą zostać niefarmione."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Limit czasu serii oglądania"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Jak długo wiersz serii jest oglądany, zanim LurkLoot przejdzie dalej, jeśli Twitch nie potwierdził serii."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Przerwa przed ponowieniem serii oglądania"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Jak długo wiersz serii czeka przed ponowną próbą, gdy jego wideo nie chciało się odtworzyć."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Liczba prób serii oglądania"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Ile razy wiersz serii jest próbowany, gdy jego wideo się nie odtwarza, zanim zostanie oznaczony jako Nie odtworzono."
+  },
+  "roundsSuffix": {
+    "message": "prób"
+  },
   "autoClaimChallengesTitle": {
     "message": "Automatyczne odbieranie codziennych wyzwań"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Seria oglądania na $1 nie została potwierdzona na czas; przechodzę dalej"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Nie udało się oglądać $1 dla serii oglądania: odtwarzanie wciąż kończyło się błędem; przechodzę dalej"
+  },
   "activityAuthHealthChanged": {
     "message": "Uwierzytelnianie $1 zmieniło się z $2 na $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "Krytyczna awaria $1 odrzucona; ponawianie."
+  },
+  "activitySessionCurrent": {
+    "message": "Ta sesja"
+  },
+  "activitySessionLive": {
+    "message": "od $1"
+  },
+  "activitySessionOutside": {
+    "message": "Poza sesją"
+  },
+  "activitySessionEarlier": {
+    "message": "Wcześniej"
+  },
+  "activitySessionEmpty": {
+    "message": "Nic jeszcze nie zdobyto. Nagrody i punkty pojawią się tutaj w miarę ich zdobywania."
+  },
+  "activitySessionSummary": {
+    "message": "$1 pkt · $2 nagr."
+  },
+  "activitySessionStarted": {
+    "message": "Rozpoczęto sesję farmienia"
+  },
+  "activitySessionEnded": {
+    "message": "Zakończono sesję farmienia"
+  },
+  "activityTotalPoints": {
+    "message": "punkty"
+  },
+  "activityTotalDrops": {
+    "message": "dropy"
+  },
+  "activityTotalCards": {
+    "message": "karty"
+  },
+  "activityTotalExtension": {
+    "message": "rozszerzenie"
+  },
+  "activitySectionRewards": {
+    "message": "Nagrody"
+  },
+  "activitySectionPoints": {
+    "message": "Punkty według kanału"
+  },
+  "activitySectionStatus": {
+    "message": "Status ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 pkt · $2"
+  },
+  "activityRewardObtained": {
+    "message": "Zdobyto $1"
+  },
+  "activityChannelId": {
+    "message": "Kanał $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Oglądanie"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Seria"
+  },
+  "pointsReasonRaid": {
+    "message": "Najazd"
+  },
+  "rewardCardTitle": {
+    "message": "Karta: $1"
+  },
+  "rewardPackTitle": {
+    "message": "Otwarto paczkę · $1 kart"
+  },
+  "rewardCaptureTitle": {
+    "message": "Przechwycenie"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Zgłoszono do giveaway"
+  },
+  "rewardGenericTitle": {
+    "message": "Nagroda"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min czasu oglądania"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 zwykła"
+  },
+  "rewardEditionGold": {
+    "message": "$1 złota"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendarna"
   },
   "criticalFailureReasonNoProgress": {
     "message": "brak postępu mimo powtarzających się błędów"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Niepotwierdzona"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Nie odtworzono"
   },
   "watchStreakUnavailable": {
     "message": "Seria niedostępna"

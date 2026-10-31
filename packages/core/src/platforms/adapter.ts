@@ -2,6 +2,7 @@ import type { ChatPresenceClient } from "../core/chatPresence";
 import type {
   CategorySelection,
   ChannelCandidate,
+  ChannelIdentity,
   ChannelCheck,
   DropCampaign,
   DropReward,
@@ -75,6 +76,15 @@ export interface ClaimedChallenge {
   id: string;
   rarity: string;
   recurrence: string;
+  // What was won, when the platform says: the card's id and art (https only).
+  cardId?: string;
+  imageUrl?: string;
+  // Best effort, from the art's file name: the platform reports no card name.
+  cardName?: string;
+  cardType?: "emote" | "badge";
+  // What a claim also grants besides the card (Kick: watch time toward the next
+  // level and that level's badge).
+  consolation?: { watchTimeMinutes?: number; badgeImageUrl?: string };
 }
 
 export interface PlatformAdapter {
@@ -123,8 +133,10 @@ export interface PlatformAdapter {
   ): Promise<boolean>;
   // Whether a "claimable" reward can actually be claimed right now. Twitch only
   // exposes the real drop-instance id once it releases the claim, so auto-claim
-  // must defer until then instead of POSTing a value Twitch will reject.
-  isClaimReady?(reward: DropReward): boolean;
+  // must defer until then instead of POSTing a value Twitch will reject. Twitch
+  // also defers while the campaign's game account is unlinked: it answers that
+  // claim with a success status but grants nothing.
+  isClaimReady?(reward: DropReward, campaign: DropCampaign): boolean;
   claimChannelPoints?(
     channel: ChannelCandidate,
     options?: ChannelPointsClaimOptions,
@@ -133,6 +145,13 @@ export interface PlatformAdapter {
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.
   claimChallenges?(options?: AdapterOperationOptions): Promise<ClaimedChallenge[]>;
+  // Looks up channels by platform id (login, display name, avatar), for naming
+  // channels the engine only knows by id, such as an account-wide points gain.
+  // Ids it cannot resolve are left out.
+  resolveChannels?(
+    ids: readonly string[],
+    options?: AdapterOperationOptions,
+  ): Promise<Record<string, ChannelIdentity>>;
   // Reads the signed-in account's own progress on this platform (Kick: viewer
   // level and watch streak), for display only. Undefined when the platform
   // answered without anything readable. Each platform returns its own member of

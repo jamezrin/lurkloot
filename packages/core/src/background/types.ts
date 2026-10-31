@@ -424,6 +424,10 @@ export interface ControllerCalls<S extends EngineSettings> {
   stopChatPresenceAndReport(platforms: readonly Platform[]): Promise<void>;
   stopChatPresenceInBackground(platforms: readonly Platform[]): void;
 
+  // farmingSessions.ts
+  reconcileFarmingSessions(): Promise<void>;
+  stampFarmingSessions(events: readonly EngineEvent[]): Promise<EngineEvent[]>;
+
   // accountProgress.ts
   abortAccountProgressPolls(reason: string): void;
   ensureAccountProgressJob(): Promise<void>;

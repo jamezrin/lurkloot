@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Фармить кампанию только на каналах, для которых её показывает Twitch. Twitch часто не указывает доступные кампании, поэтому часть дропов может остаться нефармленной."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Лимит времени серии просмотров"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Сколько времени просматривается строка серии, прежде чем LurkLoot перейдёт дальше, если Twitch не подтвердил серию."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Задержка повтора серии просмотров"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Сколько строка серии ждёт перед повторной попыткой, после того как её видео не воспроизвелось."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Попытки серии просмотров"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Сколько раз пробуется строка серии, если её видео не воспроизводится, прежде чем она будет показана как «Не просмотрено»."
+  },
+  "roundsSuffix": {
+    "message": "попыток"
+  },
   "autoClaimChallengesTitle": {
     "message": "Автополучение ежедневных испытаний"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Серия просмотров на $1 не подтверждена вовремя; переход к следующему"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Не удалось посмотреть $1 для серии просмотров: воспроизведение снова и снова завершалось ошибкой; переход к следующему"
+  },
   "activityAuthHealthChanged": {
     "message": "Состояние аутентификации $1 изменилось с $2 на $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "Критический сбой $1 сброшен; повтор попытки."
+  },
+  "activitySessionCurrent": {
+    "message": "Эта сессия"
+  },
+  "activitySessionLive": {
+    "message": "с $1"
+  },
+  "activitySessionOutside": {
+    "message": "Вне сессии"
+  },
+  "activitySessionEarlier": {
+    "message": "Раньше"
+  },
+  "activitySessionEmpty": {
+    "message": "Пока ничего не получено. Награды и баллы появляются здесь по мере поступления."
+  },
+  "activitySessionSummary": {
+    "message": "Баллы: $1 · Награды: $2"
+  },
+  "activitySessionStarted": {
+    "message": "Сессия фарма начата"
+  },
+  "activitySessionEnded": {
+    "message": "Сессия фарма завершена"
+  },
+  "activityTotalPoints": {
+    "message": "баллы"
+  },
+  "activityTotalDrops": {
+    "message": "дропы"
+  },
+  "activityTotalCards": {
+    "message": "карты"
+  },
+  "activityTotalExtension": {
+    "message": "расширение"
+  },
+  "activitySectionRewards": {
+    "message": "Награды"
+  },
+  "activitySectionPoints": {
+    "message": "Баллы по каналам"
+  },
+  "activitySectionStatus": {
+    "message": "Статус ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "Баллы: +$1 на $2"
+  },
+  "activityRewardObtained": {
+    "message": "Получено: $1"
+  },
+  "activityChannelId": {
+    "message": "Канал $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Просмотр"
+  },
+  "pointsReasonClaim": {
+    "message": "Бонус ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Серия"
+  },
+  "pointsReasonRaid": {
+    "message": "Рейд"
+  },
+  "rewardCardTitle": {
+    "message": "Карта: $1"
+  },
+  "rewardPackTitle": {
+    "message": "Пак открыт · карт: $1"
+  },
+  "rewardCaptureTitle": {
+    "message": "Захват"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Участие в розыгрыше"
+  },
+  "rewardGenericTitle": {
+    "message": "Награда"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 мин времени просмотра"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 обычных"
+  },
+  "rewardEditionGold": {
+    "message": "$1 золотых"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 легендарных"
   },
   "criticalFailureReasonNoProgress": {
     "message": "нет прогресса, несмотря на повторяющиеся ошибки"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Не подтверждена"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Не просмотрено"
   },
   "watchStreakUnavailable": {
     "message": "Серия недоступна"

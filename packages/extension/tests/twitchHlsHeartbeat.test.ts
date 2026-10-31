@@ -257,9 +257,59 @@ describe("Twitch HLS heartbeat", () => {
 
     await expect(strategy.tick(context())).resolves.toMatchObject({
       ok: false,
-      message: "Twitch did not return a playback playlist",
+      message: "Twitch playback playlist listed no usable stream",
     });
     expect(calls).toEqual(["GET /api/channel/hls/creator.m3u8"]);
+  });
+
+  it("names usher's error code for a refused playlist and never logs its signed url", async () => {
+    const { strategy } = strategyFor({
+      exchange: async (url) => ({
+        status: 403,
+        body: JSON.stringify([
+          {
+            url: `${MASTER_URL}?sig=sig-value&token=token-value`,
+            error: "Content is not available in your region",
+            error_code: "content_geoblocked",
+            type: "error",
+          },
+        ]),
+        url,
+      }),
+    });
+
+    const result = await strategy.tick(context());
+
+    expect(result).toMatchObject({
+      ok: false,
+      message: "Twitch refused the playback playlist (HTTP 403, content_geoblocked)",
+    });
+    expect(result.message).not.toMatch(/sig-value|token-value|region/);
+  });
+
+  it("reports a missing playback token without requesting the master playlist", async () => {
+    const exchange = vi.fn<TwitchHeartbeatExchange>();
+    const strategy = createHlsHeartbeat({
+      gql: (async () => ({ data: { streamPlaybackAccessToken: null } })) as never,
+      exchange,
+      log: () => {},
+    });
+
+    await expect(strategy.tick(context())).resolves.toMatchObject({
+      ok: false,
+      message: "Twitch returned no playback token",
+    });
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it("names only the status when usher's error code is missing or unsafe", async () => {
+    for (const body of ["<html>denied</html>", JSON.stringify([{ error_code: "x?token=1" }])]) {
+      const { strategy } = strategyFor({ exchange: async (url) => ({ status: 403, body, url }) });
+      await expect(strategy.tick(context())).resolves.toMatchObject({
+        ok: false,
+        message: "Twitch refused the playback playlist (HTTP 403)",
+      });
+    }
   });
 
   it("reacquires an expired playlist after HTTP 401 and resets the cache for a new broadcast", async () => {

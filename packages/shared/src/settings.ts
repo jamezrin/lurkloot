@@ -67,6 +67,48 @@ export type SettingsPatch = Partial<
   };
 };
 
+// How watch-streak attempts are run (#897), tunable in Advanced settings. The
+// bounds keep every value finite: the round cap and the rest are what stop a
+// row that never plays from reopening forever.
+export type WatchStreakTuning = Pick<
+  TwitchPlatformSettings,
+  "watchStreakBudgetMinutes" | "watchStreakRetryCooldownMinutes" | "watchStreakMaxRounds"
+>;
+
+export const WATCH_STREAK_TUNING_BOUNDS: Record<
+  keyof WatchStreakTuning,
+  { min: number; max: number }
+> = {
+  watchStreakBudgetMinutes: { min: 5, max: 60 },
+  watchStreakRetryCooldownMinutes: { min: 10, max: 240 },
+  watchStreakMaxRounds: { min: 1, max: 5 },
+};
+
+export const DEFAULT_WATCH_STREAK_TUNING: Readonly<WatchStreakTuning> = {
+  watchStreakBudgetMinutes: 15,
+  watchStreakRetryCooldownMinutes: 30,
+  watchStreakMaxRounds: 3,
+};
+
+// Shared by every host's normalization, so the extension and the CLI clamp
+// the same way.
+export function normalizeWatchStreakTuning(
+  value: Partial<WatchStreakTuning> | undefined,
+): WatchStreakTuning {
+  const field = (key: keyof WatchStreakTuning) =>
+    clampInteger(
+      value?.[key],
+      WATCH_STREAK_TUNING_BOUNDS[key].min,
+      WATCH_STREAK_TUNING_BOUNDS[key].max,
+      DEFAULT_WATCH_STREAK_TUNING[key],
+    );
+  return {
+    watchStreakBudgetMinutes: field("watchStreakBudgetMinutes"),
+    watchStreakRetryCooldownMinutes: field("watchStreakRetryCooldownMinutes"),
+    watchStreakMaxRounds: field("watchStreakMaxRounds"),
+  };
+}
+
 // The engine-contract defaults: the universal subset every host shares.
 // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
 export const POLL_INTERVAL_MIN_MINUTES = 1;
@@ -101,6 +143,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       strictCampaignAvailability: false,
       channelPointsPushClaim: true,
       watchlistStreakChannels: [],
+      ...DEFAULT_WATCH_STREAK_TUNING,
       alwaysEnterChat: false,
     },
     kick: {
@@ -257,6 +300,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
             IDLE_WATCHLIST_LIMIT,
           ),
         ),
+        ...normalizeWatchStreakTuning(platform?.twitch),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
@@ -557,10 +601,6 @@ export function normalizeChannelList(value: string[] | undefined, limit?: number
   return limit === undefined ? channels : channels.slice(0, limit);
 }
 
-// The healthy watch time a watch-streak attempt gets before it ends as not
-// confirmed (#897). A safety budget, not Twitch's own credit threshold.
-export const WATCH_STREAK_BUDGET_MINUTES = 15;
-
 // Watch-streak opt-ins (#897) only name channels still on the watchlist, so
 // removing a row clears its opt-in and reordering keeps it. Kept in watchlist
 // order.
@@ -596,6 +636,16 @@ function watchlistField(
 
 export function watchStreakChannelsFor(settings: EngineSettings, platform: Platform): string[] {
   return platform === "twitch" ? (settings.platform.twitch.watchlistStreakChannels ?? []) : [];
+}
+
+// A platform with no streaks reads the defaults, which nothing then uses.
+export function watchStreakTuningFor(
+  settings: EngineSettings,
+  platform: Platform,
+): WatchStreakTuning {
+  return platform === "twitch"
+    ? normalizeWatchStreakTuning(settings.platform.twitch)
+    : { ...DEFAULT_WATCH_STREAK_TUNING };
 }
 
 // The claim toggles are per-platform, so a scheduler loop holding `platform` as a

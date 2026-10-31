@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Twitch가 나열한 채널에서만 캠페인을 파밍합니다. Twitch가 파밍 가능한 캠페인을 빠뜨리는 경우가 많아 드롭을 놓칠 수 있습니다."
   },
+  "watchStreakBudgetTitle": {
+    "message": "연속 시청 시간 한도"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Twitch가 연속 시청을 확인하지 않으면 LurkLoot가 넘어가기 전까지 연속 시청 행을 시청하는 시간입니다."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "연속 시청 재시도 대기"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "영상이 재생되지 않으면 연속 시청 행이 다시 시도하기 전까지 기다리는 시간입니다."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "연속 시청 시도 횟수"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "영상이 재생되지 않을 때 연속 시청 행을 시도하는 횟수입니다. 이후에는 시청 실패로 표시됩니다."
+  },
+  "roundsSuffix": {
+    "message": "회"
+  },
   "autoClaimChallengesTitle": {
     "message": "일일 챌린지 자동 수령"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1의 연속 시청이 제때 확인되지 않아 다음으로 넘어갔습니다"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "$1의 연속 시청을 진행하지 못했습니다: 재생이 계속 실패하여 다음으로 넘어갔습니다"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 인증이 $2에서 $3(으)로 변경되었습니다."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "$1 치명적 오류를 해제했습니다. 다시 시도합니다."
+  },
+  "activitySessionCurrent": {
+    "message": "이번 세션"
+  },
+  "activitySessionLive": {
+    "message": "$1부터"
+  },
+  "activitySessionOutside": {
+    "message": "세션 밖"
+  },
+  "activitySessionEarlier": {
+    "message": "이전"
+  },
+  "activitySessionEmpty": {
+    "message": "아직 획득한 것이 없습니다. 보상과 포인트는 획득하는 대로 여기에 표시됩니다."
+  },
+  "activitySessionSummary": {
+    "message": "$1 포인트 · 보상 $2개"
+  },
+  "activitySessionStarted": {
+    "message": "파밍 세션을 시작했습니다"
+  },
+  "activitySessionEnded": {
+    "message": "파밍 세션을 종료했습니다"
+  },
+  "activityTotalPoints": {
+    "message": "포인트"
+  },
+  "activityTotalDrops": {
+    "message": "드롭"
+  },
+  "activityTotalCards": {
+    "message": "카드"
+  },
+  "activityTotalExtension": {
+    "message": "확장 프로그램"
+  },
+  "activitySectionRewards": {
+    "message": "보상"
+  },
+  "activitySectionPoints": {
+    "message": "채널별 포인트"
+  },
+  "activitySectionStatus": {
+    "message": "상태 ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "$2에서 +$1 포인트"
+  },
+  "activityRewardObtained": {
+    "message": "$1 획득"
+  },
+  "activityChannelId": {
+    "message": "채널 $1"
+  },
+  "pointsReasonWatch": {
+    "message": "시청"
+  },
+  "pointsReasonClaim": {
+    "message": "보너스 ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "연속 시청"
+  },
+  "pointsReasonRaid": {
+    "message": "레이드"
+  },
+  "rewardCardTitle": {
+    "message": "$1 카드"
+  },
+  "rewardPackTitle": {
+    "message": "팩 개봉 · 카드 $1장"
+  },
+  "rewardCaptureTitle": {
+    "message": "캡처"
+  },
+  "rewardGiveawayTitle": {
+    "message": "응모 완료"
+  },
+  "rewardGenericTitle": {
+    "message": "보상"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1분 시청 시간"
+  },
+  "rewardEditionNormal": {
+    "message": "일반 $1"
+  },
+  "rewardEditionGold": {
+    "message": "골드 $1"
+  },
+  "rewardEditionLegendary": {
+    "message": "전설 $1"
   },
   "criticalFailureReasonNoProgress": {
     "message": "반복 오류에도 진행 없음"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "확인되지 않음"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "시청 실패"
   },
   "watchStreakUnavailable": {
     "message": "연속 시청 불가"

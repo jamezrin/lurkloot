@@ -4,6 +4,7 @@ import type React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ImageWithFallback } from "../../popup-ui/src/primitives";
 import { Tip, TooltipScope } from "../../popup-ui/src/tooltip";
 
 let root: Root | undefined;
@@ -28,6 +29,17 @@ function mount(node: React.ReactElement): HTMLElement {
 
 // The positioner is the outermost element carrying data-side.
 const hint = () => document.querySelector("[data-side]")?.textContent ?? "";
+
+async function hover(element: Element): Promise<void> {
+  await act(async () => {
+    for (const type of ["pointerenter", "mouseenter", "pointermove", "mousemove"]) {
+      element.dispatchEvent(
+        new MouseEvent(type, { bubbles: type.endsWith("move"), clientX: 5, clientY: 5 }),
+      );
+    }
+    await vi.advanceTimersByTimeAsync(1000);
+  });
+}
 
 describe("popup tooltip", () => {
   it("shows the hint on hover from one shared tooltip, with no native title", async () => {
@@ -81,5 +93,31 @@ describe("popup tooltip", () => {
     const button = container.querySelector("button")!;
     expect(button.hasAttribute("title")).toBe(false);
     expect(button.hasAttribute("data-tooltip")).toBe(false);
+  });
+
+  it("shows a larger copy of a zoomable image on hover, from the same tooltip", async () => {
+    vi.useFakeTimers();
+    const container = mount(
+      <TooltipScope>
+        <ImageWithFallback src="https://example.test/box.png" alt="Game" fallback={null} zoom />
+      </TooltipScope>,
+    );
+    const image = container.querySelector<HTMLImageElement>("img")!;
+    expect(image.hasAttribute("data-zoom-image")).toBe(true);
+
+    await hover(image);
+    const preview = document.querySelector("[data-zoom-preview] img");
+    expect(preview?.getAttribute("src")).toBe("https://example.test/box.png");
+    // The thumbnail's own alt names the image; the copy is decorative.
+    expect(preview?.getAttribute("alt")).toBe("");
+  });
+
+  it("leaves an image without zoom out of the tooltip", () => {
+    const container = mount(
+      <TooltipScope>
+        <ImageWithFallback src="https://example.test/box.png" alt="Game" fallback={null} />
+      </TooltipScope>,
+    );
+    expect(container.querySelector("img")?.hasAttribute("data-zoom-image")).toBe(false);
   });
 });

@@ -584,7 +584,7 @@ export function createTickRun<S extends EngineSettings>(
             .filter(
               (event) =>
                 event.category === "activity"
-                && (event.code === "reward_claimed" || event.code === "challenge_claimed"),
+                && (event.code === "reward_claimed" || event.code === "reward_obtained"),
             );
           // The tick was rolled back, so any partial claim set is not actionable.
           for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];

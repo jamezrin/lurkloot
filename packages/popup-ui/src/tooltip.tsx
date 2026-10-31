@@ -2,10 +2,12 @@ import React from "react";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { usePortalContainer } from "./portal";
 
-type TooltipHandle = ReturnType<typeof Tooltip.createHandle<{ text: string }>>;
+// A hint is either text or an enlarged copy of a small image.
+type TooltipPayload = { text: string } | { image: string };
+type TooltipHandle = ReturnType<typeof Tooltip.createHandle<TooltipPayload>>;
 
 // Each popup owns one tooltip. Every hint is a detached trigger on that handle
-// carrying its text as the payload, so a queue of a hundred rows mounts one
+// carrying its text (or image) as the payload, so a queue of a hundred rows mounts one
 // tooltip rather than one per icon button — and two popups on one page (the
 // site renders several) never drive each other's.
 const TooltipHandleContext = React.createContext<TooltipHandle | null>(null);
@@ -40,13 +42,37 @@ export function Tip({
   );
 }
 
+/** Shows a larger copy of a small image while the pointer rests on it, from
+ * the same shared tooltip as the text hints. The copy is drawn at the image's
+ * own size, capped at 192px, so a small source is never blown up into a blur.
+ * Outside a TooltipScope the child renders untouched. Pointer hover only:
+ * nothing opens it on touch or focus, and the image's own alt still names it. */
+export function ZoomTip({
+  src,
+  children,
+}: {
+  src: string;
+  children: React.ReactElement;
+}): React.ReactElement {
+  const handle = React.useContext(TooltipHandleContext);
+  if (!handle) return children;
+  return (
+    <Tooltip.Trigger
+      handle={handle}
+      payload={{ image: src }}
+      data-zoom-image=""
+      render={children}
+    />
+  );
+}
+
 /** Wraps one popup: provides its tooltip handle and shared timing, and mounts
  * the tooltip itself. Hover opens after a short delay, and moving between hints
  * opens the next at once, the way native tooltips behave. The tooltip is
  * portalled like the popup's menus (into the shadow root in the site demo) and
  * never takes the pointer. */
 export function TooltipScope({ children }: { children: React.ReactNode }): React.ReactElement {
-  const [handle] = React.useState(() => Tooltip.createHandle<{ text: string }>());
+  const [handle] = React.useState(() => Tooltip.createHandle<TooltipPayload>());
   const [portalRef, container] = usePortalContainer();
   return (
     <TooltipHandleContext.Provider value={handle}>
@@ -61,9 +87,22 @@ export function TooltipScope({ children }: { children: React.ReactNode }): React
                 collisionPadding={8}
                 className="pointer-events-none z-50"
               >
-                <Tooltip.Popup className="max-w-[16rem] whitespace-pre-line rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium leading-snug text-white transition-opacity duration-100 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 dark:bg-zinc-100 dark:text-zinc-900">
-                  {payload?.text}
-                </Tooltip.Popup>
+                {payload && "image" in payload ? (
+                  <Tooltip.Popup
+                    data-zoom-preview=""
+                    className="overflow-hidden rounded-lg border border-zinc-200 bg-white p-1 shadow-lg transition-[opacity,scale] duration-100 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 motion-reduce:transition-none dark:border-zinc-700 dark:bg-zinc-900"
+                  >
+                    <img
+                      src={payload.image}
+                      alt=""
+                      className="block max-h-48 max-w-48 rounded-md object-contain"
+                    />
+                  </Tooltip.Popup>
+                ) : (
+                  <Tooltip.Popup className="max-w-[16rem] whitespace-pre-line rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-medium leading-snug text-white transition-opacity duration-100 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none dark:bg-zinc-100 dark:text-zinc-900">
+                    {payload && "text" in payload ? payload.text : null}
+                  </Tooltip.Popup>
+                )}
               </Tooltip.Positioner>
             </Tooltip.Portal>
           )}

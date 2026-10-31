@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Ne farmer une campagne que sur les chaînes pour lesquelles Twitch l'affiche. Twitch omet souvent des campagnes farmables, ce qui peut laisser des drops non farmés."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Budget de série de visionnage"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Durée pendant laquelle une ligne de série est regardée avant que LurkLoot passe à la suite si Twitch n’a pas confirmé la série."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Délai avant nouvelle tentative de série de visionnage"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Délai d’attente d’une ligne de série avant de réessayer, après l’échec de lecture de sa vidéo."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Tentatives de série de visionnage"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Nombre de tentatives d’une ligne de série lorsque sa vidéo ne se lit pas, avant qu’elle soit affichée comme Lecture impossible."
+  },
+  "roundsSuffix": {
+    "message": "essais"
+  },
   "autoClaimChallengesTitle": {
     "message": "Réclamer automatiquement les défis quotidiens"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Série de visionnage sur $1 non confirmée à temps ; passage au suivant"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Impossible de regarder $1 pour sa série de visionnage : la lecture n'a cessé d'échouer ; passage au suivant"
+  },
   "activityAuthHealthChanged": {
     "message": "L’authentification de $1 est passée de $2 à $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "Échec critique de $1 ignoré ; nouvelle tentative en cours."
+  },
+  "activitySessionCurrent": {
+    "message": "Cette session"
+  },
+  "activitySessionLive": {
+    "message": "depuis $1"
+  },
+  "activitySessionOutside": {
+    "message": "Hors session"
+  },
+  "activitySessionEarlier": {
+    "message": "Plus tôt"
+  },
+  "activitySessionEmpty": {
+    "message": "Rien d'obtenu pour l'instant. Les récompenses et les points s'affichent ici au fur et à mesure."
+  },
+  "activitySessionSummary": {
+    "message": "$1 points · $2 récompenses"
+  },
+  "activitySessionStarted": {
+    "message": "Session de farm démarrée"
+  },
+  "activitySessionEnded": {
+    "message": "Session de farm terminée"
+  },
+  "activityTotalPoints": {
+    "message": "points"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "cartes"
+  },
+  "activityTotalExtension": {
+    "message": "extension"
+  },
+  "activitySectionRewards": {
+    "message": "Récompenses"
+  },
+  "activitySectionPoints": {
+    "message": "Points par chaîne"
+  },
+  "activitySectionStatus": {
+    "message": "Statut ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 points sur $2"
+  },
+  "activityRewardObtained": {
+    "message": "Obtenu : $1"
+  },
+  "activityChannelId": {
+    "message": "Chaîne $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Visionnage"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Série"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "Carte $1"
+  },
+  "rewardPackTitle": {
+    "message": "Paquet ouvert · $1 cartes"
+  },
+  "rewardCaptureTitle": {
+    "message": "Capture"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Jeu-concours rejoint"
+  },
+  "rewardGenericTitle": {
+    "message": "Récompense"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min de visionnage"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 or"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 légendaire"
   },
   "criticalFailureReasonNoProgress": {
     "message": "aucune progression malgré des erreurs répétées"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Non confirmée"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Lecture impossible"
   },
   "watchStreakUnavailable": {
     "message": "Série indisponible"

@@ -6,7 +6,7 @@ import { connectFortniteSocket } from "./socket";
 type Connection = Awaited<ReturnType<typeof connectFortniteSocket>>;
 export function createFortniteDriver(options: {
   createSocket: Parameters<typeof connectFortniteSocket>[0]["createSocket"];
-  onCaptured?(): void;
+  onCaptured?(capture: { collectableId: string }): void;
   allowTakeovers?: boolean;
   onTakeoverStarted?(): void;
   random?(): number;
@@ -87,7 +87,7 @@ export function createFortniteDriver(options: {
         if (!attempt.confirmed && authoritative > watermark) {
           attempt.confirmed = true;
           confirmations.set(key, watermark + 1);
-          options.onCaptured?.();
+          options.onCaptured?.({ collectableId: attempt.collectableId });
         }
       }
       const report = model.report(current?.serverNow() ?? now());

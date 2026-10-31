@@ -6,6 +6,7 @@ import type {
   PlatformAuthStatus,
   TwitchExtensionProviderId,
 } from "./models";
+import type { PointsEarnedData, RewardObtainedData } from "./rewardEvents";
 
 // Reason codes renamed with the Idle Watchlist (schema 10). Sessions and
 // activity history stored by an older build may still carry them.
@@ -45,13 +46,15 @@ export type FarmingStopReason =
   // e.g. after an update or a revoke. Turning the platform on asks again.
   | "permission_missing";
 
-type CampaignRewardData = {
+export type CampaignRewardData = {
   campaignId: string;
   campaignName: string;
   rewardId: string;
   rewardName: string;
   rewardImageUrl?: string;
   campaignUrl?: string;
+  gameName?: string;
+  gameImageUrl?: string;
 };
 
 export type PageContextOpenReason = "background_rejected" | "managed_context_unusable";
@@ -73,7 +76,7 @@ export type TwitchExtensionAction =
   | "sprite_captured"
   | "takeover_started";
 
-export type ActivityEvent =
+export type ActivityEventBody =
   | {
       category: "activity";
       code: "twitch_extension_action";
@@ -104,7 +107,7 @@ export type ActivityEvent =
       level: "info";
       platform: Platform;
       message?: never;
-      data: CampaignRewardData & { method: "automatic" | "manual" };
+      data: CampaignRewardData & { method: "automatic" | "manual"; channel?: string };
     }
   | {
       category: "activity";
@@ -125,12 +128,13 @@ export type ActivityEvent =
   | {
       category: "activity";
       // A maintained Watchlist row's attempt for one broadcast ended
-      // (#897): Twitch reported the payout, or the watch budget ran out first.
+      // (#897): Twitch reported the payout, the watch budget ran out first, or
+      // playback never worked in any round (#942).
       code: "watch_streak_ended";
       level: "info";
       platform: Platform;
       message?: never;
-      data: { channel: string; outcome: "credited" | "not_confirmed" };
+      data: { channel: string; outcome: "credited" | "not_confirmed" | "playback_failed" };
     }
   | {
       category: "activity";
@@ -171,7 +175,52 @@ export type ActivityEvent =
       platform: Platform;
       message?: never;
       data: { reason: CriticalFailureReason };
+    }
+  | {
+      category: "activity";
+      // A listed reward that is not a drop: a Kick challenge card, a Twitch
+      // Extension pack, capture or giveaway entry. New kinds extend
+      // ListedRewardKind rather than adding a code.
+      code: "reward_obtained";
+      level: "info";
+      platform: Platform;
+      message?: never;
+      data: RewardObtainedData;
+    }
+  | {
+      category: "activity";
+      // A tallied reward: summed per channel per farming session by the host,
+      // never stored one row per gain, and not mirrored into diagnostics.
+      code: "points_earned";
+      level: "info";
+      platform: Platform;
+      message?: never;
+      data: PointsEarnedData;
+    }
+  | {
+      category: "activity";
+      code: "session_started";
+      level: "info";
+      platform: Platform;
+      message?: never;
+      data: { sessionId: string; startedAt: string };
+    }
+  | {
+      category: "activity";
+      code: "session_ended";
+      level: "info";
+      platform: Platform;
+      message?: never;
+      data: { sessionId: string; startedAt: string; endedAt: string; reason: "disabled" };
     };
+
+// The farming session an activity event belongs to, stamped where the engine
+// reports events. A string is the session's id; null means the event's
+// platform had no session open; absent means the event predates sessions or
+// has no platform.
+export type ActivitySessionStamp = { sessionId?: string | null };
+
+export type ActivityEvent = ActivityEventBody & ActivitySessionStamp;
 
 export type DiagnosticEvent = {
   category: "diagnostic";

@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Фармити кампанію лише на каналах, для яких її показує Twitch. Twitch часто не вказує кампанії, які можна фармити, тож частина дропів може лишитися незібраною."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Бюджет часу серії перегляду"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Скільки триває перегляд рядка серії, перш ніж LurkLoot перейде далі, якщо Twitch не підтвердив серію."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Затримка повтору серії перегляду"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Скільки рядок серії чекає перед повторною спробою, якщо його відео не відтворилося."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Спроби серії перегляду"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Скільки разів намагаються переглянути рядок серії, якщо його відео не відтворюється, перш ніж позначити його як Не переглянуто."
+  },
+  "roundsSuffix": {
+    "message": "спроб"
+  },
   "autoClaimChallengesTitle": {
     "message": "Автозабір щоденних викликів"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Серію перегляду на $1 не підтверджено вчасно; перейшли далі"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Не вдалося переглянути $1 для серії перегляду: відтворення раз за разом завершувалося помилкою; перейшли далі"
+  },
   "activityAuthHealthChanged": {
     "message": "Стан автентифікації $1 змінився з $2 на $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "Критичну помилку $1 скинуто; повтор спроби."
+  },
+  "activitySessionCurrent": {
+    "message": "Ця сесія"
+  },
+  "activitySessionLive": {
+    "message": "з $1"
+  },
+  "activitySessionOutside": {
+    "message": "Поза сесією"
+  },
+  "activitySessionEarlier": {
+    "message": "Раніше"
+  },
+  "activitySessionEmpty": {
+    "message": "Поки нічого не отримано. Нагороди та бали з'являтимуться тут у міру надходження."
+  },
+  "activitySessionSummary": {
+    "message": "$1 балів · $2 нагород"
+  },
+  "activitySessionStarted": {
+    "message": "Розпочато сесію фарму"
+  },
+  "activitySessionEnded": {
+    "message": "Завершено сесію фарму"
+  },
+  "activityTotalPoints": {
+    "message": "бали"
+  },
+  "activityTotalDrops": {
+    "message": "дропи"
+  },
+  "activityTotalCards": {
+    "message": "картки"
+  },
+  "activityTotalExtension": {
+    "message": "розширення"
+  },
+  "activitySectionRewards": {
+    "message": "Нагороди"
+  },
+  "activitySectionPoints": {
+    "message": "Бали за каналами"
+  },
+  "activitySectionStatus": {
+    "message": "Статус ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 балів на $2"
+  },
+  "activityRewardObtained": {
+    "message": "Отримано $1"
+  },
+  "activityChannelId": {
+    "message": "Канал $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Перегляд"
+  },
+  "pointsReasonClaim": {
+    "message": "Бонус ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Серія"
+  },
+  "pointsReasonRaid": {
+    "message": "Рейд"
+  },
+  "rewardCardTitle": {
+    "message": "Картка $1"
+  },
+  "rewardPackTitle": {
+    "message": "Відкрито пак · $1 карток"
+  },
+  "rewardCaptureTitle": {
+    "message": "Захоплення"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Участь у розіграші"
+  },
+  "rewardGenericTitle": {
+    "message": "Нагорода"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 хв перегляду"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 звичайна"
+  },
+  "rewardEditionGold": {
+    "message": "$1 золота"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 легендарна"
   },
   "criticalFailureReasonNoProgress": {
     "message": "немає прогресу попри повторювані помилки"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Не підтверджено"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Не переглянуто"
   },
   "watchStreakUnavailable": {
     "message": "Серія недоступна"

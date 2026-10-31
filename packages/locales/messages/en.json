@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Only farm a campaign on channels Twitch lists it for. Twitch often omits farmable campaigns, so this can leave drops unfarmed."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Watch streak budget"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "How long a streak row is watched before LurkLoot moves on if Twitch has not confirmed the streak."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Watch streak retry delay"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "How long a streak row waits before trying again after its video would not play."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Watch streak tries"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "How many times a streak row is tried when its video will not play, before it is shown as Couldn't watch."
+  },
+  "roundsSuffix": {
+    "message": "tries"
+  },
   "autoClaimChallengesTitle": {
     "message": "Auto-claim daily challenges"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Watch streak on $1 not confirmed in time; moved on"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Couldn't watch $1 for its watch streak: playback kept failing; moved on"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 authentication changed from $2 to $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "$1 critical failure dismissed; retrying."
+  },
+  "activitySessionCurrent": {
+    "message": "This session"
+  },
+  "activitySessionLive": {
+    "message": "since $1"
+  },
+  "activitySessionOutside": {
+    "message": "Outside a session"
+  },
+  "activitySessionEarlier": {
+    "message": "Earlier"
+  },
+  "activitySessionEmpty": {
+    "message": "Nothing obtained yet. Rewards and points show up here as they come in."
+  },
+  "activitySessionSummary": {
+    "message": "$1 points · $2 rewards"
+  },
+  "activitySessionStarted": {
+    "message": "Started a farming session"
+  },
+  "activitySessionEnded": {
+    "message": "Ended the farming session"
+  },
+  "activityTotalPoints": {
+    "message": "points"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "cards"
+  },
+  "activityTotalExtension": {
+    "message": "extension"
+  },
+  "activitySectionRewards": {
+    "message": "Rewards"
+  },
+  "activitySectionPoints": {
+    "message": "Points by channel"
+  },
+  "activitySectionStatus": {
+    "message": "Status ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 points on $2"
+  },
+  "activityRewardObtained": {
+    "message": "Obtained $1"
+  },
+  "activityChannelId": {
+    "message": "Channel $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Watching"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Streak"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "$1 card"
+  },
+  "rewardPackTitle": {
+    "message": "Pack opened · $1 cards"
+  },
+  "rewardCaptureTitle": {
+    "message": "Capture"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Giveaway entered"
+  },
+  "rewardGenericTitle": {
+    "message": "Reward"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min watch time"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 gold"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendary"
   },
   "criticalFailureReasonNoProgress": {
     "message": "no progress despite repeated errors"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Not confirmed"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Couldn't watch"
   },
   "watchStreakUnavailable": {
     "message": "Streak unavailable"

@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Farmea una campaña solo en los canales para los que Twitch la muestra. Twitch suele omitir campañas farmeables, así que esto puede dejar recompensas sin farmear."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Presupuesto de racha de visualización"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Cuánto tiempo se ve una fila de racha antes de que LurkLoot pase a la siguiente si Twitch no ha confirmado la racha."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Retraso para reintentar la racha de visualización"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Cuánto espera una fila de racha antes de volver a intentarlo, tras no poder reproducirse su vídeo."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Intentos de racha de visualización"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Cuántas veces se intenta una fila de racha cuando su vídeo no se reproduce, antes de mostrarla como No se pudo ver."
+  },
+  "roundsSuffix": {
+    "message": "intentos"
+  },
   "autoClaimChallengesTitle": {
     "message": "Auto-reclamar desafíos diarios"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "La racha de visualización en $1 no se confirmó a tiempo; se pasó al siguiente"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "No se pudo ver $1 para su racha de visualización: la reproducción siguió fallando; se pasó al siguiente"
+  },
   "activityAuthHealthChanged": {
     "message": "La autenticación de $1 cambió de $2 a $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "Se descartó el fallo crítico de $1; reintentando."
+  },
+  "activitySessionCurrent": {
+    "message": "Esta sesión"
+  },
+  "activitySessionLive": {
+    "message": "desde $1"
+  },
+  "activitySessionOutside": {
+    "message": "Fuera de una sesión"
+  },
+  "activitySessionEarlier": {
+    "message": "Antes"
+  },
+  "activitySessionEmpty": {
+    "message": "Aún no has obtenido nada. Las recompensas y los puntos aparecerán aquí a medida que lleguen."
+  },
+  "activitySessionSummary": {
+    "message": "$1 puntos · $2 recompensas"
+  },
+  "activitySessionStarted": {
+    "message": "Iniciaste una sesión de farmeo"
+  },
+  "activitySessionEnded": {
+    "message": "Terminaste la sesión de farmeo"
+  },
+  "activityTotalPoints": {
+    "message": "puntos"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "cartas"
+  },
+  "activityTotalExtension": {
+    "message": "extensión"
+  },
+  "activitySectionRewards": {
+    "message": "Recompensas"
+  },
+  "activitySectionPoints": {
+    "message": "Puntos por canal"
+  },
+  "activitySectionStatus": {
+    "message": "Estado ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 puntos en $2"
+  },
+  "activityRewardObtained": {
+    "message": "Obtuviste $1"
+  },
+  "activityChannelId": {
+    "message": "Canal $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Viendo"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonificación ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Racha"
+  },
+  "pointsReasonRaid": {
+    "message": "Incursión"
+  },
+  "rewardCardTitle": {
+    "message": "Carta de $1"
+  },
+  "rewardPackTitle": {
+    "message": "Sobre abierto · $1 cartas"
+  },
+  "rewardCaptureTitle": {
+    "message": "Captura"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Inscrito en un sorteo"
+  },
+  "rewardGenericTitle": {
+    "message": "Recompensa"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min de visualización"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 dorada"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendaria"
   },
   "criticalFailureReasonNoProgress": {
     "message": "sin progreso pese a errores repetidos"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "No confirmada"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "No se pudo ver"
   },
   "watchStreakUnavailable": {
     "message": "Racha no disponible"

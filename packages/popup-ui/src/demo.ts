@@ -1,11 +1,13 @@
 import type {
   ActivityPage,
+  ActivitySessionsPage,
   CategorySearchResult,
   DiagnosticsExport,
   PlaybackControl,
   RuntimeMessage,
   RuntimeSnapshot,
 } from "@lurkloot/shared/messages";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { ActivityEvent, StoredEngineEvent } from "@lurkloot/shared/events";
 import type {
   DropCampaign,
@@ -13,7 +15,12 @@ import type {
   SupportedLocale,
   TwitchExtensionSummary,
 } from "@lurkloot/shared/models";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
+import {
+  applySettingsPatch,
+  DEFAULT_SETTINGS,
+  DEFAULT_WATCH_STREAK_TUNING,
+  mergeSettings,
+} from "@lurkloot/shared/settings";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import type { PopupAdapter } from "./types";
 import { openHttpsLink } from "./links";
@@ -28,6 +35,7 @@ function handleDemoMessage(
   | PlaybackControl
   | CategorySearchResult
   | ActivityPage
+  | ActivitySessionsPage
   | DiagnosticsExport
   | undefined {
   switch (message.type) {
@@ -87,6 +95,8 @@ function handleDemoMessage(
         events: scenario === "tour" ? tourActivity(message.platform, message.category) : [],
         nextCursor: undefined,
       };
+    case "getActivitySessions":
+      return { sessions: scenario === "tour" ? tourSessions(message.platform) : [] };
     case "exportDiagnostics":
       return { events: [] };
     case "getPlaybackControl":
@@ -142,6 +152,7 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         strictCampaignAvailability: false,
         channelPointsPushClaim: true,
         watchlistStreakChannels: [],
+        ...DEFAULT_WATCH_STREAK_TUNING,
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
         unlinkedCampaigns: "include",
@@ -568,6 +579,62 @@ function tourSnapshot(base: RuntimeSnapshot): RuntimeSnapshot {
   };
 }
 
+// The tour's farming sessions: an open one per platform, with points by
+// channel on Twitch, and a finished Twitch session before it.
+function tourSessions(platform: Platform): FarmingSessionSummary[] {
+  const now = Date.now();
+  const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
+  const sessions: FarmingSessionSummary[] = [
+    {
+      id: "tour-tw-open",
+      platform: "twitch",
+      startedAt: at(90),
+      tallies: {
+        "channel_points:tour-1": {
+          kind: "channel_points",
+          subject: { id: "tour-1", login: "rivalspilot", name: "RivalsPilot" },
+          total: 1_420,
+          breakdown: {
+            WATCH: { count: 9, amount: 450 },
+            CLAIM: { count: 14, amount: 700 },
+            WATCH_STREAK: { count: 1, amount: 270 },
+          },
+        },
+        "channel_points:tour-2": {
+          kind: "channel_points",
+          subject: { id: "tour-2", login: "nightowlplays", name: "NightOwlPlays" },
+          total: 380,
+          breakdown: { WATCH: { count: 4, amount: 200 }, CLAIM: { count: 4, amount: 180 } },
+        },
+      },
+      rewardCounts: {},
+    },
+    {
+      id: "tour-tw-past",
+      platform: "twitch",
+      startedAt: at(320),
+      endedAt: at(180),
+      tallies: {
+        "channel_points:tour-1": {
+          kind: "channel_points",
+          subject: { id: "tour-1", login: "rivalspilot", name: "RivalsPilot" },
+          total: 2_150,
+          breakdown: { WATCH: { count: 20, amount: 1_000 }, CLAIM: { count: 23, amount: 1_150 } },
+        },
+      },
+      rewardCounts: { drop: 1 },
+    },
+    {
+      id: "tour-kick-open",
+      platform: "kick",
+      startedAt: at(160),
+      tallies: {},
+      rewardCounts: { drop: 1, challenge_card: 1 },
+    },
+  ];
+  return sessions.filter((session) => session.platform === platform);
+}
+
 function tourActivity(platform: Platform | undefined, category: string): StoredEngineEvent[] {
   if (category !== "activity") return [];
   const now = Date.now();
@@ -584,6 +651,7 @@ function tourActivity(platform: Platform | undefined, category: string): StoredE
   const kickReward = { campaignId: "kick-arena", campaignName: "Arena Clash Creator Rewards" };
   const events: StoredEngineEvent[] = [
     event("tw-started", 84, {
+      sessionId: "tour-tw-open",
       category: "activity",
       code: "farming_started",
       level: "info",
@@ -596,6 +664,7 @@ function tourActivity(platform: Platform | undefined, category: string): StoredE
       },
     }),
     event("tw-claimed", 190, {
+      sessionId: "tour-tw-past",
       category: "activity",
       code: "reward_claimed",
       level: "info",
@@ -608,6 +677,7 @@ function tourActivity(platform: Platform | undefined, category: string): StoredE
       },
     }),
     event("tw-stopped", 205, {
+      sessionId: "tour-tw-past",
       category: "activity",
       code: "farming_stopped",
       level: "info",
@@ -620,6 +690,7 @@ function tourActivity(platform: Platform | undefined, category: string): StoredE
       },
     }),
     event("kick-started", 48, {
+      sessionId: "tour-kick-open",
       category: "activity",
       code: "farming_started",
       level: "info",
@@ -632,6 +703,7 @@ function tourActivity(platform: Platform | undefined, category: string): StoredE
       },
     }),
     event("kick-claimed", 120, {
+      sessionId: "tour-kick-open",
       category: "activity",
       code: "reward_claimed",
       level: "info",
@@ -644,11 +716,17 @@ function tourActivity(platform: Platform | undefined, category: string): StoredE
       },
     }),
     event("kick-challenge", 150, {
+      sessionId: "tour-kick-open",
       category: "activity",
-      code: "challenge_claimed",
+      code: "reward_obtained",
       level: "info",
       platform: "kick",
-      data: { challengeId: "tour-daily", rarity: "Rare", recurrence: "Daily" },
+      data: {
+        kind: "challenge_card",
+        source: { platform: "kick" },
+        rarity: "rare",
+        details: [{ key: "recurrence", value: "daily" }],
+      },
     }),
   ];
   return events

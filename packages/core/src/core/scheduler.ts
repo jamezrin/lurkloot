@@ -61,7 +61,7 @@ import type {
   PageContextCloseReason,
 } from "@lurkloot/shared/events";
 import { perform } from "./effectExecutor";
-import type { ClaimReadyRewardEvent } from "./rewardClaims";
+import { challengeRewardData, claimChannel, type ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { UnusableWatchTabError } from "./watchTabError";
@@ -82,10 +82,12 @@ import { watchStreakChannelsFor } from "@lurkloot/shared/settings";
 import {
   accrueWatchStreak,
   NO_WATCH_STREAKS,
+  openWatchStreakAttempt,
   pruneWatchStreaks,
   watchStreakPlan,
   watchStreakRowStatuses,
   watchStreakAttemptKey,
+  watchStreakPolicy,
   watchStreakStateFor,
   type IdleWatchlistStreakPlan,
 } from "./watchStreaks";
@@ -1830,14 +1832,10 @@ export async function* decidePlatformTick(
         for (const challenge of yield* yieldEffect({ type: "claimChallenges", platform })) {
           emit({
             category: "activity",
-            code: "challenge_claimed",
+            code: "reward_obtained",
             level: "info",
             platform,
-            data: {
-              challengeId: challenge.id,
-              rarity: challenge.rarity,
-              recurrence: challenge.recurrence,
-            },
+            data: challengeRewardData(platform, challenge),
           });
         }
       } catch (error) {
@@ -2007,20 +2005,14 @@ export async function* decidePlatformTick(
       }
       for (const event of claimResult.events) {
         if (event.claimed) {
+          const { level: _level, message: _message, claimed: _claimed, ...data } = event;
+          const channel = claimChannel(tick.state.sessions[platform], data.campaignId);
           emit({
             category: "activity",
             platform,
             level: "info",
             code: "reward_claimed",
-            data: {
-              campaignId: event.campaignId,
-              campaignName: event.campaignName,
-              rewardId: event.rewardId,
-              rewardName: event.rewardName,
-              ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
-              ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
-              method: "automatic",
-            },
+            data: { ...data, method: "automatic", ...(channel ? { channel } : {}) },
           });
         } else {
           emitDiagnostic(emit, platform, event.level, event.message);
@@ -2045,18 +2037,32 @@ export async function* decidePlatformTick(
           || (previous.watchMode === "tabless" && !previous.lastHeartbeatAt),
         paused: false,
         now: Date.now(),
+        policy: watchStreakPolicy(settings, platform),
       });
       for (const attempt of streaks.attempts) {
-        if (attempt.outcome !== "not_confirmed") continue;
         const key = watchStreakAttemptKey(attempt);
         const earlier = before.attempts.find((entry) => watchStreakAttemptKey(entry) === key);
+        if (
+          attempt.outcome === "pending"
+          && attempt.retryAt
+          && attempt.retryAt !== earlier?.retryAt
+        ) {
+          emitDiagnostic(
+            emit,
+            platform,
+            "info",
+            `Watch streak on ${attempt.username} stopped playing; trying again after ${attempt.retryAt}`,
+          );
+          continue;
+        }
+        if (attempt.outcome !== "not_confirmed" && attempt.outcome !== "playback_failed") continue;
         if (earlier && earlier.outcome !== "pending") continue;
         emit({
           category: "activity",
           code: "watch_streak_ended",
           level: "info",
           platform,
-          data: { channel: attempt.username, outcome: "not_confirmed" },
+          data: { channel: attempt.username, outcome: attempt.outcome },
         });
       }
       tick.state.watchStreaks = {
@@ -2228,7 +2234,14 @@ export async function* decidePlatformTick(
           live.set(username, channelFromCheck(candidate, check));
       }
       const health = tick.state.authHealth[platform];
-      const streaks = watchStreakStateFor(tick.state, platform);
+      const accountId = health.status === "healthy" ? health.accountId : undefined;
+      const watching = decision.action === "idle" ? undefined : decision.channel;
+      const streaks = openWatchStreakAttempt(watchStreakStateFor(tick.state, platform), {
+        channel: watching,
+        accountId,
+        maintained: new Set(observeWatchStreaks ? streakPlan.maintained : []),
+        now: Date.now(),
+      });
       tick.state.watchStreaks = {
         ...tick.state.watchStreaks,
         [platform]: {
@@ -2237,10 +2250,10 @@ export async function* decidePlatformTick(
           rows: watchStreakRowStatuses(
             streakPlan,
             streaks,
-            health.status === "healthy" ? health.accountId : undefined,
+            accountId,
             observeWatchStreaks,
             live,
-            decision.action === "idle" ? undefined : decision.channel,
+            watching,
           ),
         },
       };

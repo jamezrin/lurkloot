@@ -1,6 +1,9 @@
-import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, Platform, WatchSession } from "@lurkloot/shared/models";
 import { canClaimReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import type { PlatformAdapter } from "../platforms/adapter";
+import type { CampaignRewardData } from "@lurkloot/shared/events";
+import { safeHttpsUrl } from "@lurkloot/shared/rewardEvents";
+import type { RewardDetail, RewardObtainedData } from "@lurkloot/shared/rewardEvents";
+import type { ClaimedChallenge, PlatformAdapter } from "../platforms/adapter";
 
 // One claim request per reward at a time within one process (#599). The
 // scheduler tick claims outside every lock, so it can overlap the drop-claim
@@ -35,22 +38,60 @@ function markClaimed(reward: DropReward): DropReward {
 // Claims every ready reward in the given campaigns. The scheduler tick reaches
 // it only through its claimRewards effect; the drop-claim job calls it directly.
 export type ClaimReadyRewardEvent =
-  | {
+  | ({
       level: "info";
       message: string;
       claimed: true;
-      campaignId: string;
-      campaignName: string;
-      rewardId: string;
-      rewardName: string;
-      rewardImageUrl?: string;
-      campaignUrl?: string;
-    }
+    } & CampaignRewardData)
   | {
       level: "info" | "warn" | "error";
       message: string;
       claimed?: false;
     };
+
+// The campaign and reward facts every drop activity event carries, built in one
+// place so each emit site reports the same ones.
+export function campaignRewardData(campaign: DropCampaign, reward: DropReward): CampaignRewardData {
+  const gameImageUrl = safeHttpsUrl(campaign.gameImageUrl);
+  return {
+    campaignId: campaign.id,
+    campaignName: campaign.name,
+    rewardId: reward.id,
+    rewardName: reward.name,
+    ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
+    ...(campaign.url ? { campaignUrl: campaign.url } : {}),
+    ...(campaign.gameName ? { gameName: campaign.gameName } : {}),
+    ...(gameImageUrl ? { gameImageUrl } : {}),
+  };
+}
+
+// A claimed gamification challenge as a listed reward. Both the tick and the
+// manual-watch job report claims through it.
+export function challengeRewardData(
+  platform: Platform,
+  challenge: ClaimedChallenge,
+): RewardObtainedData {
+  const details: RewardDetail[] = [{ key: "recurrence", value: challenge.recurrence }];
+  if (challenge.consolation?.watchTimeMinutes !== undefined)
+    details.push({ key: "consolationMinutes", value: challenge.consolation.watchTimeMinutes });
+  if (challenge.cardType) details.push({ key: "cardType", value: challenge.cardType });
+  return {
+    kind: "challenge_card",
+    source: { platform },
+    rarity: challenge.rarity,
+    ...(challenge.cardName ? { name: challenge.cardName } : {}),
+    ...(challenge.cardId ? { itemId: challenge.cardId } : {}),
+    ...(challenge.imageUrl ? { imageUrl: challenge.imageUrl } : {}),
+    details,
+  };
+}
+
+// The channel a claimed reward was being farmed on, when the platform's watch
+// session was on its campaign.
+export function claimChannel(session: WatchSession, campaignId: string): string | undefined {
+  if (session.campaignId !== campaignId || !session.channel) return undefined;
+  return session.channel.displayName ?? session.channel.username;
+}
 
 export async function claimReadyRewards(
   adapter: PlatformAdapter,
@@ -71,10 +112,10 @@ export async function claimReadyRewards(
     for (const reward of campaign.rewards) {
       signal?.throwIfAborted();
       if (reward.status === "claimable" && canClaimReward(reward)) {
-        if (adapter.isClaimReady && !adapter.isClaimReady(reward)) {
+        if (adapter.isClaimReady && !adapter.isClaimReady(reward, campaign)) {
           // Watched to completion, but the platform hasn't released the claim
-          // yet (e.g. Twitch hasn't returned the drop-instance id). Defer; the
-          // next tick re-checks once progress data catches up.
+          // yet (e.g. Twitch hasn't returned the drop-instance id, or the game
+          // account is not linked). Defer; the next tick re-checks.
           rewards.push(reward);
           stillWaitingRewardIds.add(reward.id);
           if (!previouslyWaitingRewardIds.has(reward.id)) {
@@ -103,12 +144,7 @@ export async function claimReadyRewards(
               level: "info",
               message: `Claimed ${reward.name} from ${campaign.name}`,
               claimed: true,
-              campaignId: campaign.id,
-              campaignName: campaign.name,
-              rewardId: reward.id,
-              rewardName: reward.name,
-              ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
-              ...(campaign.url ? { campaignUrl: campaign.url } : {}),
+              ...campaignRewardData(campaign, reward),
             });
           } else if (!reward.claimGuidance) {
             // A refusal that carries guidance was already explained by the

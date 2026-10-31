@@ -615,7 +615,7 @@ tested too (#598).
 | No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
-| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
+| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, a round whose playback keeps failing rests instead of ending and the round cap ends it as `playback_failed` (#942), payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
 
 ## Runtime Messages
 
@@ -1054,15 +1054,32 @@ claims to know the user's streak count.
   watched as an ordinary row. No attempt is ever made under an invented identity.
 - **Accrual is observed healthy watching only.** At the start of each tick that reaches selection,
   the previous session's watch accrues to its attempt if it is maintained and healthy now. The
-  time counted runs from the attempt's `observing` stamp and is capped at two minutes per step.
+  time counted runs from the attempt's `observing` stamp and is capped per step at the poll
+  interval plus a minute (never under two minutes), so a suspended worker never counts.
   Any watch of that broadcast counts, including Drops. A tick that exits early (pause, backoff,
   signed out) drops the stamp, so skipped time never counts.
-- **Terminal outcomes.** An attempt ends as `not_confirmed` after 15 minutes of healthy watching
-  (`WATCH_STREAK_BUDGET_MS`), or after 10 unhealthy checks. A watch that is still settling (a tab
-  in its playback grace, a tabless watch with no heartbeat yet) counts as neither. The unhealthy
-  bound is what stops a row that never plays from reopening ahead of the other sources. An attempt ends as `credited` when Twitch reports
-  the payout. A terminal attempt is never reopened for that broadcast, and toggles and reorders do
-  not reset it. A new broadcast gets a new attempt.
+- **The attempt opens when its broadcast is chosen.** The tick that picks a maintained,
+  attributable row opens its attempt (`openWatchStreakAttempt`), with nothing counted, before any
+  time accrues. Accrual only starts on the next tick, up to a whole poll interval later, and a
+  payout in between must land on this broadcast's attempt rather than be dropped or credited to
+  an earlier broadcast of the same channel.
+- **Terminal outcomes.** An attempt ends as `not_confirmed` after the watch budget of healthy
+  watching (`watchStreakBudgetMinutes`, default 15), and as `credited` when Twitch reports the payout. A terminal attempt
+  is never reopened for that broadcast, and toggles and reorders do not reset it. A new broadcast
+  gets a new attempt.
+- **Playback that keeps failing is not a spent streak (#942).** A round ends after about 10
+  minutes of unhealthy checks: `ceil(10 / pollIntervalMinutes)`, at least 2. A watch that is still settling (a tab in its
+  playback grace, a tabless watch with no heartbeat yet) does not count. A round that runs out
+  rests the attempt until `retryAt` (`watchStreakRetryCooldownMinutes`, default 30). While it rests, the verdict
+  is `cooling`, the row is an ordinary Watchlist row and its unhealthy checks do not count, so the
+  other sources run. Then the same attempt resumes with the watch time it already has. After
+  `watchStreakMaxRounds` rounds (default 3) it ends as `playback_failed`, shown as "Couldn't watch", never
+  as "Not confirmed". `failedRounds` is never reset; `unhealthyChecks` counts the current round
+  and restarts at zero when it ends. Merges keep the further round with its own checks and the
+  later `retryAt`, so a restart or a concurrent commit cannot restore spent rounds, and a poll
+  interval changed mid-attempt never moves a round already counted. A record stored before
+  `failedRounds` existed is split at ten checks per round. The round cap
+  is what stops a row that never plays from reopening ahead of the other sources.
 - **One plan for every selection path.** `watchStreakPlan` is built once per tick, and the
   prepared selection builds the same plan from its state (`SnapshotSelectionInput.watchStreaks`).
   It is passed to every watchlist chooser. Maintained rows are their own watch source,
@@ -1085,8 +1102,22 @@ claims to know the user's streak count.
   `recordWatchStreakCredit` against the latest stored state, re-checking the signed-in account.
   It then emits `watch_streak_ended` and requests a Twitch tick. The payout names no broadcast,
   so it only credits the account's latest attempt on that channel, and only if that attempt was
-  observed within 10 minutes of the payout. `claimsSubscribed` is true only when a claim owner's
+  observed within the poll interval plus 5 minutes of the payout (never under 10 minutes). `claimsSubscribed` is true only when a claim owner's
   topic is confirmed, so a streak-only subscription never suppresses claim polling.
+- **Cadence.** Ticks run at `pollIntervalMinutes` (1 to 60), and every rule above that measures
+  time between ticks reads it from `watchStreakPolicy(settings, platform)`: the accrual step, the payout
+  window and the checks per round. At the default one-minute interval these are two minutes,
+  ten minutes and ten checks. A fixed constant there starves accrual and drops payouts at a
+  longer interval; `watchStreaks.test.ts` ("watch-streak cadence") guards it.
+- **Tuning.** The budget, the rest and the round cap are Advanced settings under
+  `platform.twitch` (`WatchStreakTuning`), clamped by one shared `normalizeWatchStreakTuning`
+  that both hosts call: budget 5 to 60 minutes, rest 10 to 240 minutes, rounds 1 to 5. The
+  bounds keep the round cap finite, so a row that never plays still stops reopening, and
+  `watchStreaks.test.ts` drives hours of ticks at both ends of the range. Core reads them through
+  `watchStreakTuningFor(settings, platform)`, so `watchStreaks.ts` names no platform. A change
+  applies on the next tick: a lowered budget ends a running attempt that already has more, a
+  raised one never reopens a terminal attempt, and a lowered round cap is read when the round in
+  progress ends.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
 - **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's
@@ -1257,6 +1288,21 @@ The popup shows one category at a time. The activity/diagnostics switch selects 
 
 The CLI has no activity store. Its output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains new event data, and legacy event fields disappear after the state is loaded and saved.
 
+### Activity sessions and reward kinds
+
+Activity is a summary of what each farming session obtained, not an append-only log. A farming session runs from a platform's farming being enabled until it is disabled, across restarts. `SchedulerState.farmingSessions` holds the open session per platform and has exactly two writers, both in `packages/core/src/background/farmingSessions.ts`: the reconcile that runs first in every settings commit's follow-up jobs, and the one at startup. It commits as global state under no platform, so per-platform commit hooks do not wake for it. Signing out, a manual-watch pause, backoff or a parked platform do not end a session; they appear as status rows inside it.
+
+`reportBestEffort`, the one choke point every reported event passes, stamps each activity event that has a platform with `sessionId`: the open session's id, or the last closed session's when the event was emitted before a disable and reported after it, or `null` when the platform had none. Events with no platform are left unstamped. Twitch Extension driver events are published through `controller.reportEvents` for the same reason.
+
+Rewards come in two shapes, declared in `@lurkloot/shared/rewardEvents` and `farmingSessions`:
+
+- **Listed** rewards are one row each. Drops keep `reward_claimed`, whose consumers drive state and notifications. Everything else uses `reward_obtained` with a `kind` (`ListedRewardKind`) and general fields: `source`, `name`, `imageUrl` (https only, `safeHttpsUrl`), `amount`, `rarity`, `channel`, `itemId`, `details`.
+- **Tallied** rewards are summed per key per session and never stored as rows. Today that is `points_earned` (Twitch channel points, keyed by channel, with a per-reason breakdown); it skips the diagnostic mirror because the push already logs each gain at debug.
+
+A new reward type or Twitch Extension provider emits `reward_obtained` with a new `ListedRewardKind` member. The popup's registry (`packages/popup-ui/src/activityRewards.ts`) maps each kind to a layout; a kind without one is drawn by the generic row from the general fields, so a provider needs no popup change to show up.
+
+The extension's activity database (version 3) adds a `sessions` store. `append` folds every stamped event into its session summary with the pure `foldSessionEvent` reducer inside the same readwrite transaction that stores the rows, so concurrent batches each fold onto the latest record. Summaries keep tallies and per-kind reward counters, so a collapsed past session shows correct totals before its rows are paged in. Sessions ended more than 30 days ago are pruned with the rest of the activity; an open session never is. The popup reads them with `getActivitySessions` and groups rows by local day, then by `sessionId`: each day lists its sessions (under the day they started), an "Outside a session" block for rows stamped `null`, and the rows stored before sessions existed, all drawn through the same reward rows. Kick reports no card name, so the Kick adapter reads one from the card art's file name (`<Name>_<Rarity>_card_<hash>`) when it matches exactly; art stored under a bare UUID gets the rarity title instead. Tab open and close (`page_context_*`) stay in the engine's contract, because the churn breaker reads them, but are stored only as their diagnostic mirror (`isActivityTimelineEvent`).
+
 Kick fetch diagnostics keep individual initial-route, fallback, recovery, and
 lifecycle-update-failure evidence. Unchanged successes use fixed counters for
 `kick.com`, `web.kick.com`, `websockets.kick.com`, and one unknown-host bucket,
@@ -1288,7 +1334,7 @@ The extension host injects a browser-free supplemental target selector into the 
 
 Supplemental sessions carry their own watch identity and `tablessOnly` marker. Their heartbeat does not require invented campaign/reward IDs, and neither heartbeat failures nor ambiguous ordinary campaign discovery may cause tab fallback. Instead, once a failing heartbeat result reaches `tablessFallbackFailureLimit`, the lane's commit hook cools that provider's channel for five minutes, like an unavailable report, so the next selection moves to another channel or source. A failed due reprobe consumes its turn, and further failures never renew an active cooldown (#594). Ordinary drop sessions retain their existing watch-mode policy.
 
-Channel-scoped viewer authorization is acquired through the normal Twitch background transport. Privileged provider drivers send it directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider sessions are not restored after a worker restart. The lane's completion and cooldown deadlines are (#594): the host stores them under `twitchExtensionLane` whenever they change, as provider ids, epoch deadlines and channel logins only, and restores them on the next start after validating each entry and dropping expired ones. Without that, an MV3 worker that is stopped between alarms would forget a finished provider and probe it again on every wake. The memory is tied to the signed-in Twitch login, read from Twitch's `login` cookie (a username, not a credential). It is restored only for the same login, and a change of Twitch's auth cookie stops the providers at once but forgets what the lane learned only if the login changed: Twitch re-sets that cookie on ordinary page loads. A restore never brings back what the host has already cleared (an account change, a disable, an ordinary invalidation), and reset clears the key with the rest of local storage. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results. Every report and every piece of driver activity (a pack opened, a giveaway joined, a sprite captured, a takeover started) is published through the provider's runtime session, which drops it once the session is no longer the provider's current one or was aborted. Each of those transitions stops or replaces the session first, so the lane meets #585's rule that stale work publishes nothing, without going through the controller's commits (#594). The lane follows the controller's accepted commits through an after-commit hook, not storage events or alarms. A change to its authority (Twitch enabled, a provider's settings, auth, the session's status or channel, a manual pause or watch) stops the providers synchronously, then a reconcile brings them back in line. The hook never waits on that reconcile, so a Twitch tick or auth refresh that settles its commit hooks never waits on provider session reads. Reconciles run one at a time. A tabless-only session commits a heartbeat result every minute, which keeps the driver refresh and session renewal cadence the every-alarm reconcile used to give.
+Channel-scoped viewer authorization is acquired through the normal Twitch background transport. Privileged provider drivers send it directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider sessions are not restored after a worker restart. The lane's completion and cooldown deadlines are (#594): the host stores them under `twitchExtensionLane` whenever they change, as provider ids, epoch deadlines and channel logins only, and restores them on the next start after validating each entry and dropping expired ones. Without that, an MV3 worker that is stopped between alarms would forget a finished provider and probe it again on every wake. The memory is tied to the signed-in Twitch login, read from Twitch's `login` cookie (a username, not a credential). It is restored only for the same login, and a change of Twitch's auth cookie stops the providers at once but forgets what the lane learned only if the login changed: Twitch re-sets that cookie on ordinary page loads. A restore never brings back what the host has already cleared (an account change, a disable, an ordinary invalidation), and reset clears the key with the rest of local storage. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results. Every report and every piece of driver activity (a pack opened, a giveaway joined, a sprite captured, each reported as `reward_obtained`, and a takeover started, logged as a diagnostic) is published through the provider's runtime session, which drops it once the session is no longer the provider's current one or was aborted. Each of those transitions stops or replaces the session first, so the lane meets #585's rule that stale work publishes nothing, without going through the controller's commits (#594). The lane follows the controller's accepted commits through an after-commit hook, not storage events or alarms. A change to its authority (Twitch enabled, a provider's settings, auth, the session's status or channel, a manual pause or watch) stops the providers synchronously, then a reconcile brings them back in line. The hook never waits on that reconcile, so a Twitch tick or auth refresh that settles its commit hooks never waits on provider session reads. Reconciles run one at a time. A tabless-only session commits a heartbeat result every minute, which keeps the driver refresh and session renewal cadence the every-alarm reconcile used to give.
 
 NoPixelV uses its normal REST watchtime/giveaway protocol. Fortnite uses its normal socket handshake, versioned state reads and sprite capture commands; authoritative participant increments confirm captures, and actual server reward state determines completion. Optional takeovers require separate opt-in, server eligibility and ownership confirmation. See [provider details and live acceptance](twitch-extensions/foundation.md).
 

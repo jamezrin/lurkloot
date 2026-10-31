@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Farmit kampaň jen na kanálech, které pro ni Twitch uvádí. Twitch často vynechá farmitelné kampaně, takže drops mohou zůstat nefarmené."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Časový limit série sledování"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Jak dlouho se řádek série sleduje, než LurkLoot pokračuje dál, pokud Twitch sérii nepotvrdí."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Prodleva opakování série sledování"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Jak dlouho řádek série čeká, než se znovu pokusí, když se jeho video nepřehrálo."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Pokusy série sledování"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Kolikrát se řádek série zkusí spustit, když se jeho video nepřehrává, než bude označen jako Nelze sledovat."
+  },
+  "roundsSuffix": {
+    "message": "pokusů"
+  },
   "autoClaimChallengesTitle": {
     "message": "Automaticky vyzvedávat denní výzvy"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Série sledování u $1 nebyla včas potvrzena; přejde se dál"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Na $1 nebylo možné spustit sledování pro sérii sledování: přehrávání opakovaně selhávalo; přejde se dál"
+  },
   "activityAuthHealthChanged": {
     "message": "Autentizace $1 se změnila z $2 na $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "Kritická chyba $1 zrušena; opakování."
+  },
+  "activitySessionCurrent": {
+    "message": "Tato relace"
+  },
+  "activitySessionLive": {
+    "message": "od $1"
+  },
+  "activitySessionOutside": {
+    "message": "Mimo relaci farmení"
+  },
+  "activitySessionEarlier": {
+    "message": "Dříve"
+  },
+  "activitySessionEmpty": {
+    "message": "Zatím nic nezískáno. Odměny a body se zde zobrazí, jakmile budou přicházet."
+  },
+  "activitySessionSummary": {
+    "message": "$1 bodů · $2 odměn"
+  },
+  "activitySessionStarted": {
+    "message": "Zahájena relace farmení"
+  },
+  "activitySessionEnded": {
+    "message": "Relace farmení ukončena"
+  },
+  "activityTotalPoints": {
+    "message": "body"
+  },
+  "activityTotalDrops": {
+    "message": "drops"
+  },
+  "activityTotalCards": {
+    "message": "karty"
+  },
+  "activityTotalExtension": {
+    "message": "rozšíření"
+  },
+  "activitySectionRewards": {
+    "message": "Odměny"
+  },
+  "activitySectionPoints": {
+    "message": "Body podle kanálu"
+  },
+  "activitySectionStatus": {
+    "message": "Stav ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 bodů na $2"
+  },
+  "activityRewardObtained": {
+    "message": "Získáno: $1"
+  },
+  "activityChannelId": {
+    "message": "Kanál $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Sledování"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Série sledování"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "Karta: $1"
+  },
+  "rewardPackTitle": {
+    "message": "Balíček otevřen · $1 karet"
+  },
+  "rewardCaptureTitle": {
+    "message": "Zachycení"
+  },
+  "rewardGiveawayTitle": {
+    "message": "Zapojeno do soutěže"
+  },
+  "rewardGenericTitle": {
+    "message": "Odměna"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 min sledování"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 běžná"
+  },
+  "rewardEditionGold": {
+    "message": "$1 zlatá"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendární"
   },
   "criticalFailureReasonNoProgress": {
     "message": "navzdory opakovaným chybám žádný průběh"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Nepotvrzeno"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Nelze sledovat"
   },
   "watchStreakUnavailable": {
     "message": "Série nedostupná"

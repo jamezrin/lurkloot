@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "Farme eine Kampagne nur auf Kanälen, für die Twitch sie auflistet. Twitch lässt farmbare Kampagnen oft aus, wodurch Drops ungefarmt bleiben können."
   },
+  "watchStreakBudgetTitle": {
+    "message": "Watch-Streak-Budget"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "Wie lange eine Streak-Zeile angesehen wird, bevor LurkLoot weitergeht, wenn Twitch den Streak nicht bestätigt hat."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "Wartezeit für Watch-Streak-Wiederholung"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "Wie lange eine Streak-Zeile wartet, bevor sie es erneut versucht, nachdem ihr Video nicht abgespielt werden konnte."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "Watch-Streak-Versuche"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "Wie oft eine Streak-Zeile versucht wird, wenn ihr Video nicht abspielt, bevor sie als „Nicht angesehen“ angezeigt wird."
+  },
+  "roundsSuffix": {
+    "message": "Versuche"
+  },
   "autoClaimChallengesTitle": {
     "message": "Tägliche Challenges automatisch beanspruchen"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "Watch-Streak bei $1 wurde nicht rechtzeitig bestätigt; weiter zum nächsten Kanal"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "Watch-Streak bei $1 konnte nicht angesehen werden: Wiedergabe schlug immer wieder fehl; weiter zum nächsten Kanal"
+  },
   "activityAuthHealthChanged": {
     "message": "Die Authentifizierung von $1 wechselte von $2 zu $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "Kritischer Fehler von $1 verworfen; erneuter Versuch läuft."
+  },
+  "activitySessionCurrent": {
+    "message": "Diese Sitzung"
+  },
+  "activitySessionLive": {
+    "message": "seit $1"
+  },
+  "activitySessionOutside": {
+    "message": "Außerhalb einer Sitzung"
+  },
+  "activitySessionEarlier": {
+    "message": "Früher"
+  },
+  "activitySessionEmpty": {
+    "message": "Noch nichts erhalten. Belohnungen und Punkte erscheinen hier, sobald sie eintreffen."
+  },
+  "activitySessionSummary": {
+    "message": "$1 Punkte · $2 Belohnungen"
+  },
+  "activitySessionStarted": {
+    "message": "Farming-Sitzung gestartet"
+  },
+  "activitySessionEnded": {
+    "message": "Farming-Sitzung beendet"
+  },
+  "activityTotalPoints": {
+    "message": "Punkte"
+  },
+  "activityTotalDrops": {
+    "message": "Drops"
+  },
+  "activityTotalCards": {
+    "message": "Karten"
+  },
+  "activityTotalExtension": {
+    "message": "Erweiterung"
+  },
+  "activitySectionRewards": {
+    "message": "Belohnungen"
+  },
+  "activitySectionPoints": {
+    "message": "Punkte nach Kanal"
+  },
+  "activitySectionStatus": {
+    "message": "Status ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 Punkte bei $2"
+  },
+  "activityRewardObtained": {
+    "message": "$1 erhalten"
+  },
+  "activityChannelId": {
+    "message": "Kanal $1"
+  },
+  "pointsReasonWatch": {
+    "message": "Zuschauen"
+  },
+  "pointsReasonClaim": {
+    "message": "Bonus ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "Serie"
+  },
+  "pointsReasonRaid": {
+    "message": "Raid"
+  },
+  "rewardCardTitle": {
+    "message": "Karte $1"
+  },
+  "rewardPackTitle": {
+    "message": "Pack geöffnet · $1 Karten"
+  },
+  "rewardCaptureTitle": {
+    "message": "Fang"
+  },
+  "rewardGiveawayTitle": {
+    "message": "An Verlosung teilgenommen"
+  },
+  "rewardGenericTitle": {
+    "message": "Belohnung"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 Min. Watchtime"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 normal"
+  },
+  "rewardEditionGold": {
+    "message": "$1 Gold"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 legendär"
   },
   "criticalFailureReasonNoProgress": {
     "message": "trotz wiederholter Fehler kein Fortschritt"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "Nicht bestätigt"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "Nicht angesehen"
   },
   "watchStreakUnavailable": {
     "message": "Serie nicht verfügbar"

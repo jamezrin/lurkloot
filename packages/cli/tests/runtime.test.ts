@@ -192,6 +192,42 @@ describe("CLI engine event reporting", () => {
     ).toBe("request detail");
   });
 
+  it("formats reward, points and session activity, with points only at debug", async () => {
+    const lines: string[] = [];
+    await reportCliEvents(
+      [
+        {
+          category: "activity",
+          code: "reward_obtained",
+          level: "info",
+          platform: "kick",
+          data: { kind: "challenge_card", source: { platform: "kick" }, rarity: "legendary" },
+        },
+        {
+          category: "activity",
+          code: "points_earned",
+          level: "info",
+          platform: "twitch",
+          data: { channelId: "77", channelLogin: "shroud", reason: "WATCH_STREAK", amount: 450 },
+        },
+        {
+          category: "activity",
+          code: "session_started",
+          level: "info",
+          platform: "twitch",
+          data: { sessionId: "s1", startedAt: "2026-10-30T10:00:00.000Z" },
+        },
+      ],
+      recordingLogger(lines),
+    );
+
+    expect(lines).toEqual([
+      "INFO [kick] Obtained a legendary challenge card",
+      "DEBUG [twitch] +450 points (WATCH_STREAK) on shroud",
+      "INFO [twitch] twitch farming session started",
+    ]);
+  });
+
   it("demotes mirrored activity diagnostics so CLI output never says it twice", async () => {
     const lines: string[] = [];
     const started = rewardEvent("farming_started", "Reward A") as ActivityEvent;

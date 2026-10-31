@@ -139,7 +139,8 @@ describe("extension scheduler tick baseline", () => {
         adapterOperations: 2,
         adapterConstructions: 1,
         settingsLoads: 5,
-        stateLoads: 5,
+        // 5 + 1: the first reported batch reads the state to stamp farming sessions.
+        stateLoads: 6,
         stateSaves: 2,
         eventPublications: 6,
         watcherReconciliations: 0,
@@ -174,7 +175,8 @@ describe("extension scheduler tick baseline", () => {
       candidatesEvaluated: 1,
       adapterConstructions: 1,
       settingsLoads: 5,
-      stateLoads: 5,
+      // 5 + 1: the first reported batch reads the state to stamp farming sessions.
+      stateLoads: 6,
       stateSaves: 2,
       watcherReconciliations: 1,
     });
@@ -210,7 +212,8 @@ describe("extension scheduler tick baseline", () => {
       candidatesEvaluated: scenario === "higherPriorityUnavailable" ? 2 : 1,
       adapterConstructions: 1,
       settingsLoads: 5,
-      stateLoads: 5,
+      // 5 + 1: the first reported batch reads the state to stamp farming sessions.
+      stateLoads: 6,
       stateSaves: 2,
       watcherReconciliations: 1,
     });

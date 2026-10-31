@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "احصد الحملة فقط على القنوات التي تعرضها تويتش لها. غالبًا ما تغفل تويتش حملات قابلة للحصد، لذا قد تبقى بعض الدروبس دون حصد."
   },
+  "watchStreakBudgetTitle": {
+    "message": "ميزانية سلسلة المشاهدة"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "المدة التي يُشاهد فيها صف السلسلة قبل أن ينتقل LurkLoot إذا لم تؤكد Twitch السلسلة."
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "تأخير إعادة محاولة سلسلة المشاهدة"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "المدة التي ينتظرها صف السلسلة قبل إعادة المحاولة بعد تعذّر تشغيل الفيديو."
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "محاولات سلسلة المشاهدة"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "عدد مرات محاولة صف السلسلة عند تعذّر تشغيل الفيديو، قبل عرضه بعبارة «تعذّرت المشاهدة»."
+  },
+  "roundsSuffix": {
+    "message": "محاولات"
+  },
   "autoClaimChallengesTitle": {
     "message": "استلام التحديات اليومية تلقائيًا"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "لم تُؤكَّد سلسلة المشاهدة في $1 في الوقت المحدد؛ تم الانتقال إلى التالي"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "تعذّرت مشاهدة $1 لسلسلة المشاهدة: ظل التشغيل يفشل مرارًا؛ تم الانتقال إلى التالي"
+  },
   "activityAuthHealthChanged": {
     "message": "تغيّرت مصادقة $1 من $2 إلى $3."
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "تم تجاهل العطل الحرج في $1؛ جارٍ إعادة المحاولة."
+  },
+  "activitySessionCurrent": {
+    "message": "هذه الجلسة"
+  },
+  "activitySessionLive": {
+    "message": "منذ $1"
+  },
+  "activitySessionOutside": {
+    "message": "خارج الجلسة"
+  },
+  "activitySessionEarlier": {
+    "message": "سابقًا"
+  },
+  "activitySessionEmpty": {
+    "message": "لم يُحصل على شيء بعد. تظهر المكافآت والنقاط هنا فور حصولك عليها."
+  },
+  "activitySessionSummary": {
+    "message": "$1 نقطة · $2 مكافأة"
+  },
+  "activitySessionStarted": {
+    "message": "بدأت جلسة يفارم"
+  },
+  "activitySessionEnded": {
+    "message": "انتهت جلسة اليفارم"
+  },
+  "activityTotalPoints": {
+    "message": "نقاط"
+  },
+  "activityTotalDrops": {
+    "message": "دروبس"
+  },
+  "activityTotalCards": {
+    "message": "بطاقات"
+  },
+  "activityTotalExtension": {
+    "message": "الإضافة"
+  },
+  "activitySectionRewards": {
+    "message": "المكافآت"
+  },
+  "activitySectionPoints": {
+    "message": "النقاط حسب القناة"
+  },
+  "activitySectionStatus": {
+    "message": "الحالة ($1)"
+  },
+  "activityPointsEarned": {
+    "message": "+$1 نقطة في $2"
+  },
+  "activityRewardObtained": {
+    "message": "تم الحصول على $1"
+  },
+  "activityChannelId": {
+    "message": "القناة $1"
+  },
+  "pointsReasonWatch": {
+    "message": "المشاهدة"
+  },
+  "pointsReasonClaim": {
+    "message": "مكافأة ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "سلسلة المشاهدة"
+  },
+  "pointsReasonRaid": {
+    "message": "الغارة"
+  },
+  "rewardCardTitle": {
+    "message": "بطاقة $1"
+  },
+  "rewardPackTitle": {
+    "message": "فتح حزمة · $1 بطاقة"
+  },
+  "rewardCaptureTitle": {
+    "message": "الالتقاط"
+  },
+  "rewardGiveawayTitle": {
+    "message": "تم الدخول في السحب"
+  },
+  "rewardGenericTitle": {
+    "message": "مكافأة"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 دقيقة مشاهدة"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 عادية"
+  },
+  "rewardEditionGold": {
+    "message": "$1 ذهبية"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 أسطورية"
   },
   "criticalFailureReasonNoProgress": {
     "message": "لا تقدّم رغم تكرار الأخطاء"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "لم تُؤكَّد"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "تعذّرت المشاهدة"
   },
   "watchStreakUnavailable": {
     "message": "السلسلة غير متاحة"

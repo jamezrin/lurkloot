@@ -1001,6 +1001,27 @@
   "strictCampaignAvailabilityDescription": {
     "message": "只在 Twitch 为该掉宝活动列出的频道中挂机。Twitch 经常漏列实际可挂机的活动，启用后可能因此错过掉宝。"
   },
+  "watchStreakBudgetTitle": {
+    "message": "观看连续记录时长上限"
+  },
+  "watchStreakBudgetDescription": {
+    "message": "如果 Twitch 未确认连续记录，每行连续记录观看的时长上限，超时后 LurkLoot 将继续下一项。"
+  },
+  "watchStreakRetryCooldownTitle": {
+    "message": "观看连续记录重试延迟"
+  },
+  "watchStreakRetryCooldownDescription": {
+    "message": "视频无法播放后，每行连续记录再次尝试前的等待时长。"
+  },
+  "watchStreakMaxRoundsTitle": {
+    "message": "观看连续记录尝试次数"
+  },
+  "watchStreakMaxRoundsDescription": {
+    "message": "视频无法播放时，每行连续记录的尝试次数，超过后显示为“无法观看”。"
+  },
+  "roundsSuffix": {
+    "message": "次"
+  },
   "autoClaimChallengesTitle": {
     "message": "自动领取每日挑战"
   },
@@ -1487,6 +1508,9 @@
   "activityWatchStreakNotConfirmed": {
     "message": "$1 的观看连续记录未及时确认，已跳过"
   },
+  "activityWatchStreakPlaybackFailed": {
+    "message": "无法为 $1 观看连续记录：播放反复失败，已跳过"
+  },
   "activityAuthHealthChanged": {
     "message": "$1 的身份验证状态从 $2 变为 $3。"
   },
@@ -1495,6 +1519,99 @@
   },
   "activityCriticalFailureCleared": {
     "message": "已忽略 $1 的严重故障，正在重试。"
+  },
+  "activitySessionCurrent": {
+    "message": "本次挂机"
+  },
+  "activitySessionLive": {
+    "message": "自 $1 起"
+  },
+  "activitySessionOutside": {
+    "message": "不在挂机期间"
+  },
+  "activitySessionEarlier": {
+    "message": "更早"
+  },
+  "activitySessionEmpty": {
+    "message": "尚未获得任何内容。奖励和点数会在获得后显示在这里。"
+  },
+  "activitySessionSummary": {
+    "message": "$1 点数 · $2 项奖励"
+  },
+  "activitySessionStarted": {
+    "message": "开始了一次挂机"
+  },
+  "activitySessionEnded": {
+    "message": "结束了本次挂机"
+  },
+  "activityTotalPoints": {
+    "message": "点数"
+  },
+  "activityTotalDrops": {
+    "message": "掉宝"
+  },
+  "activityTotalCards": {
+    "message": "卡片"
+  },
+  "activityTotalExtension": {
+    "message": "扩展"
+  },
+  "activitySectionRewards": {
+    "message": "奖励"
+  },
+  "activitySectionPoints": {
+    "message": "按频道统计点数"
+  },
+  "activitySectionStatus": {
+    "message": "状态（$1）"
+  },
+  "activityPointsEarned": {
+    "message": "在 $2 获得 +$1 点数"
+  },
+  "activityRewardObtained": {
+    "message": "已获得 $1"
+  },
+  "activityChannelId": {
+    "message": "频道 $1"
+  },
+  "pointsReasonWatch": {
+    "message": "观看"
+  },
+  "pointsReasonClaim": {
+    "message": "加成 ×$1"
+  },
+  "pointsReasonWatchStreak": {
+    "message": "连续观看"
+  },
+  "pointsReasonRaid": {
+    "message": "突袭"
+  },
+  "rewardCardTitle": {
+    "message": "$1 卡片"
+  },
+  "rewardPackTitle": {
+    "message": "已打开卡包 · $1 张卡片"
+  },
+  "rewardCaptureTitle": {
+    "message": "捕获"
+  },
+  "rewardGiveawayTitle": {
+    "message": "已参加抽奖"
+  },
+  "rewardGenericTitle": {
+    "message": "奖励"
+  },
+  "rewardConsolationMinutes": {
+    "message": "+$1 分钟观看时长"
+  },
+  "rewardEditionNormal": {
+    "message": "$1 普通"
+  },
+  "rewardEditionGold": {
+    "message": "$1 金色"
+  },
+  "rewardEditionLegendary": {
+    "message": "$1 传说"
   },
   "criticalFailureReasonNoProgress": {
     "message": "反复出错且一直没有进度"
@@ -2200,6 +2317,9 @@
   },
   "watchStreakNotConfirmed": {
     "message": "未确认"
+  },
+  "watchStreakPlaybackFailed": {
+    "message": "无法观看"
   },
   "watchStreakUnavailable": {
     "message": "连续记录不可用"

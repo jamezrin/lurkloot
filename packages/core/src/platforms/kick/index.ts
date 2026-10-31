@@ -176,8 +176,62 @@ interface KickChallenge {
   condition?: { progress?: number; threshold?: number; type?: string };
 }
 
+// winner.card_url and consolation are taken from a third-party Kick client's
+// models and not yet seen in a live response here, so every field is optional.
 interface KickChallengeClaimResponse {
-  data?: { challenge_id?: string; winner?: { id?: string; rarity?: string } } | null;
+  data?: {
+    challenge_id?: string;
+    winner?: { id?: string; rarity?: string; card_url?: string };
+    consolation?: {
+      watch_time_minutes?: number;
+      next_level_badge?: { image_url?: string } | null;
+    } | null;
+  } | null;
+}
+
+// Kick reports no card name. Its card art is stored as
+// .../chat/<emotes|badges>/cards/<Name>_<Rarity>_card_<32 hex>.<ext> (seen across
+// the whole collectibles list), so the name is read from that file name when it
+// matches exactly. Many cards are stored under a bare UUID instead and get none.
+const KICK_CARD_FILE =
+  /^(.+)_(?:common|uncommon|rare|epic|legendary|myth|mythic)_card_[0-9a-f]{32}\.[a-z]+$/i;
+const KICK_CARD_KIND = /\/chat\/(emotes|badges)\/cards\/[^/]+$/;
+
+export function kickCardIdentity(
+  imageUrl: string,
+): Pick<ClaimedChallenge, "cardName" | "cardType"> {
+  let path: string;
+  try {
+    path = new URL(imageUrl).pathname;
+  } catch {
+    return {};
+  }
+  const kind = KICK_CARD_KIND.exec(path)?.[1];
+  const cardType = kind === "emotes" ? "emote" : kind === "badges" ? "badge" : undefined;
+  if (!cardType) return {};
+  let file = path.slice(path.lastIndexOf("/") + 1);
+  try {
+    file = decodeURIComponent(file);
+  } catch {
+    // Keep the raw name.
+  }
+  const cardName = KICK_CARD_FILE.exec(file)?.[1]?.trim();
+  return { cardType, ...(cardName ? { cardName } : {}) };
+}
+
+function kickChallengeConsolation(
+  value: NonNullable<KickChallengeClaimResponse["data"]>["consolation"],
+): ClaimedChallenge["consolation"] {
+  if (!value) return undefined;
+  const minutes = value.watch_time_minutes;
+  const watchTimeMinutes =
+    typeof minutes === "number" && Number.isFinite(minutes) && minutes > 0 ? minutes : undefined;
+  const badgeImageUrl = safeHttpsUrl(value.next_level_badge?.image_url);
+  if (watchTimeMinutes === undefined && !badgeImageUrl) return undefined;
+  return {
+    ...(watchTimeMinutes !== undefined ? { watchTimeMinutes } : {}),
+    ...(badgeImageUrl ? { badgeImageUrl } : {}),
+  };
 }
 
 export class KickPageContextRecoveryTracker {
@@ -927,7 +981,12 @@ export class KickAdapter implements PlatformAdapter {
           { method: "POST", signal },
           this.emit,
         );
-        const rarity = result?.data?.winner?.rarity;
+        const winner = result?.data?.winner;
+        const rarity = winner?.rarity;
+        const cardId = typeof winner?.id === "string" && winner.id.trim() ? winner.id.trim() : "";
+        const imageUrl = safeHttpsUrl(winner?.card_url);
+        const consolation = kickChallengeConsolation(result?.data?.consolation);
+        const { cardName, cardType } = imageUrl ? kickCardIdentity(imageUrl) : {};
         claimed.push({
           id,
           rarity: typeof rarity === "string" && rarity.trim() ? rarity.trim() : "unknown",
@@ -935,6 +994,11 @@ export class KickAdapter implements PlatformAdapter {
             typeof challenge.recurrence === "string" && challenge.recurrence.trim()
               ? challenge.recurrence.trim()
               : "unknown",
+          ...(cardId ? { cardId } : {}),
+          ...(imageUrl ? { imageUrl } : {}),
+          ...(cardName ? { cardName } : {}),
+          ...(cardType ? { cardType } : {}),
+          ...(consolation ? { consolation } : {}),
         });
       } catch (error) {
         signal?.throwIfAborted();

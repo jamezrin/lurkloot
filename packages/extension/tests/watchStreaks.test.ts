@@ -8,14 +8,18 @@ import {
   pruneWatchStreaks,
   recordWatchStreakCredit,
   watchStreakPlan,
-  WATCH_STREAK_BUDGET_MS,
-  WATCH_STREAK_MAX_ACCRUAL_STEP_MS,
+  watchStreakPolicy,
   WATCH_STREAK_MAX_ATTEMPTS,
-  WATCH_STREAK_MAX_UNHEALTHY_CHECKS,
   WATCH_STREAK_RETENTION_MS,
 } from "@lurkloot/core/watchStreaks";
 import { mergePlatformState } from "@lurkloot/core/background/platformState";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
+import {
+  applySettingsPatch,
+  DEFAULT_SETTINGS,
+  mergeSettings,
+  WATCH_STREAK_TUNING_BOUNDS,
+  type WatchStreakTuning,
+} from "@lurkloot/shared/settings";
 import {
   buildSettingsExportPayload,
   parseSettingsImportPayload,
@@ -30,6 +34,7 @@ import type {
   WatchStreakState,
 } from "@lurkloot/shared/models";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { IdleWatchlistStreakPlan, WatchStreakVerdict } from "@lurkloot/core/watchStreaks";
 import {
   runSchedulerTick,
@@ -38,6 +43,28 @@ import {
 } from "./helpers/schedulerTick";
 
 const ACCOUNT = "1000";
+// The policy at a poll interval, with the default tuning unless overridden.
+function policyAt(
+  pollIntervalMinutes: number,
+  tuning: Partial<WatchStreakTuning> = {},
+): ReturnType<typeof watchStreakPolicy> {
+  const settings = structuredClone(DEFAULT_SETTINGS);
+  settings.pollIntervalMinutes = pollIntervalMinutes;
+  Object.assign(settings.platform.twitch, tuning);
+  return watchStreakPolicy(settings, "twitch");
+}
+const POLICY = policyAt(1);
+const WATCH_STREAK_BUDGET_MS = POLICY.budgetMs;
+const WATCH_STREAK_MAX_ROUNDS = POLICY.maxRounds;
+const WATCH_STREAK_RETRY_COOLDOWN_MS = POLICY.retryCooldownMs;
+const ROUND_CHECKS = POLICY.unhealthyChecksPerRound;
+
+function credit(
+  streaks: WatchStreakState,
+  observation: Parameters<typeof recordWatchStreakCredit>[1],
+): ReturnType<typeof recordWatchStreakCredit> {
+  return recordWatchStreakCredit(streaks, observation, POLICY);
+}
 const T0 = Date.parse("2026-10-24T12:00:00.000Z");
 
 function channel(username: string, broadcastId = `b-${username}`): ChannelCandidate {
@@ -72,7 +99,17 @@ function accrue(
     healthy: true,
     paused: false,
     now,
+    policy: POLICY,
     ...overrides,
+  });
+}
+
+function withWatchlist(channels: string[], streaks: string[]): ExtensionSettings {
+  const settings = structuredClone(DEFAULT_SETTINGS);
+  return applySettingsPatch(settings, {
+    platform: {
+      twitch: { watchlistChannels: channels, watchlistStreakChannels: streaks },
+    },
   });
 }
 
@@ -86,7 +123,7 @@ describe("watch-streak attempts", () => {
     expect(streaks.attempts[0]!.watchedMs).toBe(60_000);
     // An hour-long suspension adds one step at most.
     streaks = accrue(streaks, session, T0 + 3_660_000);
-    expect(streaks.attempts[0]!.watchedMs).toBe(60_000 + WATCH_STREAK_MAX_ACCRUAL_STEP_MS);
+    expect(streaks.attempts[0]!.watchedMs).toBe(60_000 + POLICY.maxAccrualStepMs);
   });
 
   it("does not count time across an unhealthy check, a switch away or a pause", () => {
@@ -123,12 +160,91 @@ describe("watch-streak attempts", () => {
     expect(after.attempts).toEqual(streaks.attempts);
   });
 
-  it("bounds an attempt that never becomes healthy", () => {
+  // #942: a round that never played is not a watched streak. It rests, and
+  // only running out of rounds ends it, as playback_failed.
+  it("rests an attempt whose round never plays, then ends it as playback_failed", () => {
     const session = watching(channel("alpha"));
     let streaks: WatchStreakState = { attempts: [] };
-    for (let check = 0; check < WATCH_STREAK_MAX_UNHEALTHY_CHECKS; check += 1)
-      streaks = accrue(streaks, session, T0 + check * 60_000, { healthy: false });
-    expect(streaks.attempts[0]).toMatchObject({ outcome: "not_confirmed", watchedMs: 0 });
+    let now = T0;
+    const unhealthyRound = () => {
+      for (let check = 0; check < ROUND_CHECKS; check += 1) {
+        streaks = accrue(streaks, session, now, { healthy: false });
+        now += 60_000;
+      }
+    };
+    unhealthyRound();
+    const rested = streaks.attempts[0]!;
+    expect(rested).toMatchObject({ outcome: "pending", watchedMs: 0 });
+    expect(Date.parse(rested.retryAt!)).toBe(now - 60_000 + WATCH_STREAK_RETRY_COOLDOWN_MS);
+    const state = structuredClone(DEFAULT_STATE);
+    state.authHealth.twitch = { status: "healthy", accountId: ACCOUNT };
+    state.watchStreaks = { twitch: streaks };
+    const plan = (at: number) =>
+      watchStreakPlan("twitch", withWatchlist(["alpha"], ["alpha"]), state, true, at);
+    expect(plan(now).verdict(channel("alpha"))).toBe("cooling");
+    expect(plan(Date.parse(rested.retryAt!)).verdict(channel("alpha"))).toBe("pending");
+
+    // Watched as an ordinary row while resting: unhealthy checks do not count.
+    for (let minute = 0; minute < 5; minute += 1) {
+      streaks = accrue(streaks, session, now, { healthy: false });
+      now += 60_000;
+    }
+    expect(streaks.attempts[0]).toMatchObject({ unhealthyChecks: 0, failedRounds: 1 });
+
+    for (let round = 1; round < WATCH_STREAK_MAX_ROUNDS; round += 1) {
+      now = Date.parse(streaks.attempts[0]!.retryAt!);
+      expect(streaks.attempts[0]!.outcome).toBe("pending");
+      unhealthyRound();
+    }
+    expect(streaks.attempts).toHaveLength(1);
+    expect(streaks.attempts[0]).toMatchObject({
+      outcome: "playback_failed",
+      watchedMs: 0,
+      unhealthyChecks: 0,
+      failedRounds: WATCH_STREAK_MAX_ROUNDS,
+    });
+    const after = accrue(streaks, session, now + WATCH_STREAK_RETRY_COOLDOWN_MS);
+    expect(after.attempts).toEqual(streaks.attempts);
+  });
+
+  it("keeps a resting attempt's watched time and finishes its budget in a later round", () => {
+    const session = watching(channel("alpha"));
+    let streaks: WatchStreakState = { attempts: [] };
+    let now = T0;
+    for (let minute = 0; minute <= 5; minute += 1) {
+      streaks = accrue(streaks, session, now);
+      now += 60_000;
+    }
+    for (let check = 0; check < ROUND_CHECKS; check += 1) {
+      streaks = accrue(streaks, session, now, { healthy: false });
+      now += 60_000;
+    }
+    expect(streaks.attempts[0]).toMatchObject({ outcome: "pending", watchedMs: 5 * 60_000 });
+    now = Date.parse(streaks.attempts[0]!.retryAt!);
+    while (streaks.attempts[0]!.outcome === "pending") {
+      streaks = accrue(streaks, session, now);
+      now += 60_000;
+    }
+    expect(streaks.attempts[0]).toMatchObject({
+      outcome: "not_confirmed",
+      watchedMs: WATCH_STREAK_BUDGET_MS,
+    });
+  });
+
+  it("keeps a rest and the round count across merges and restores", () => {
+    const session = watching(channel("alpha"));
+    let resting: WatchStreakState = { attempts: [] };
+    for (let check = 0; check < ROUND_CHECKS; check += 1)
+      resting = accrue(resting, session, T0 + check * 60_000, { healthy: false });
+    const stale = accrue({ attempts: [] }, session, T0, { healthy: false });
+    const merged = mergeWatchStreakState(resting, stale)!;
+    expect(merged.attempts[0]).toMatchObject({
+      unhealthyChecks: 0,
+      failedRounds: 1,
+      retryAt: resting.attempts[0]!.retryAt,
+    });
+    const restored = normalizeWatchStreakState(JSON.parse(JSON.stringify(merged)))!;
+    expect(restored.attempts[0]!.retryAt).toBe(resting.attempts[0]!.retryAt);
   });
 
   it("neither accrues nor counts a failure while a new watch is settling", () => {
@@ -161,12 +277,196 @@ describe("watch-streak attempts", () => {
   });
 });
 
+describe("watch-streak cadence", () => {
+  it("keeps the one-minute limits at the default poll interval", () => {
+    expect(POLICY).toMatchObject({
+      maxAccrualStepMs: 2 * 60_000,
+      creditLagMs: 10 * 60_000,
+      unhealthyChecksPerRound: 10,
+    });
+  });
+
+  it("widens the step and the payout window with the poll interval", () => {
+    expect(policyAt(5)).toMatchObject({
+      maxAccrualStepMs: 6 * 60_000,
+      creditLagMs: 10 * 60_000,
+      unhealthyChecksPerRound: 2,
+    });
+    expect(policyAt(60)).toMatchObject({
+      maxAccrualStepMs: 61 * 60_000,
+      creditLagMs: 65 * 60_000,
+      unhealthyChecksPerRound: 2,
+    });
+  });
+
+  it("still never counts a gap longer than one poll interval", () => {
+    const policy = policyAt(5);
+    const session = watching(channel("alpha"));
+    let streaks = accrue({ attempts: [] }, session, T0, { policy });
+    streaks = accrue(streaks, session, T0 + 3 * 3_600_000, { policy });
+    expect(streaks.attempts[0]!.watchedMs).toBe(policy.maxAccrualStepMs);
+  });
+
+  it("credits a payout that arrived between two hourly ticks", () => {
+    const session = watching(channel("alpha"));
+    const started = accrue({ attempts: [] }, session, T0);
+    const payout = {
+      accountId: ACCOUNT,
+      channelId: channel("alpha").channelId!,
+      at: T0 + 40 * 60_000,
+    };
+    expect(credit(started, payout)).toBeUndefined();
+    const hourly = recordWatchStreakCredit(started, payout, policyAt(60));
+    expect(hourly?.attempt.outcome).toBe("credited");
+  });
+
+  it("never moves a round already counted when the poll interval changes", () => {
+    const session = watching(channel("alpha"));
+    let streaks: WatchStreakState = { attempts: [] };
+    for (let check = 0; check < 7; check += 1)
+      streaks = accrue(streaks, session, T0 + check * 60_000, { healthy: false });
+    expect(streaks.attempts[0]).toMatchObject({ unhealthyChecks: 7, failedRounds: 0 });
+    // A five-minute interval tolerates two checks: the current round ends,
+    // and only that one.
+    streaks = accrue(streaks, session, T0 + 8 * 60_000, {
+      healthy: false,
+      policy: policyAt(5),
+    });
+    expect(streaks.attempts[0]).toMatchObject({
+      outcome: "pending",
+      unhealthyChecks: 0,
+      failedRounds: 1,
+    });
+  });
+
+  it("splits a stored cumulative count into rounds", () => {
+    const attempt = (unhealthyChecks: number, extra: Record<string, unknown> = {}) => ({
+      accountId: ACCOUNT,
+      channelId: "1",
+      broadcastId: "2",
+      username: "alpha",
+      outcome: "pending",
+      watchedMs: 0,
+      unhealthyChecks,
+      startedAt: new Date(T0).toISOString(),
+      updatedAt: new Date(T0).toISOString(),
+      ...extra,
+    });
+    const restored = normalizeWatchStreakState({
+      attempts: [
+        attempt(13),
+        attempt(30, { broadcastId: "3" }),
+        attempt(4, { broadcastId: "4", failedRounds: 2 }),
+      ],
+    })!;
+    expect(
+      restored.attempts.map(({ failedRounds, unhealthyChecks }) => [failedRounds, unhealthyChecks]),
+    ).toEqual([
+      [1, 3],
+      [3, 0],
+      [2, 4],
+    ]);
+  });
+
+  it("keeps the further round when merging copies from two rounds", () => {
+    const session = watching(channel("alpha"));
+    let earlier: WatchStreakState = { attempts: [] };
+    for (let check = 0; check < ROUND_CHECKS - 1; check += 1)
+      earlier = accrue(earlier, session, T0 + check * 60_000, { healthy: false });
+    const later = accrue(earlier, session, T0 + ROUND_CHECKS * 60_000, { healthy: false });
+    expect(later.attempts[0]).toMatchObject({ failedRounds: 1, unhealthyChecks: 0 });
+    for (const merged of [
+      mergeWatchStreakState(earlier, later),
+      mergeWatchStreakState(later, earlier),
+    ])
+      expect(merged!.attempts[0]).toMatchObject({ failedRounds: 1, unhealthyChecks: 0 });
+  });
+});
+
+describe("watch-streak tuning", () => {
+  it("defaults, clamps and rounds the tuning on every host", () => {
+    expect(DEFAULT_SETTINGS.platform.twitch).toMatchObject({
+      watchStreakBudgetMinutes: 15,
+      watchStreakRetryCooldownMinutes: 30,
+      watchStreakMaxRounds: 3,
+    });
+    const merged = mergeSettings({
+      platform: {
+        twitch: {
+          watchStreakBudgetMinutes: 1_000,
+          watchStreakRetryCooldownMinutes: 0,
+          watchStreakMaxRounds: 2.6,
+        },
+      },
+    } as never);
+    expect(merged.platform.twitch).toMatchObject({
+      watchStreakBudgetMinutes: 60,
+      watchStreakRetryCooldownMinutes: 10,
+      watchStreakMaxRounds: 3,
+    });
+    const garbage = mergeSettings({
+      platform: { twitch: { watchStreakBudgetMinutes: "soon", watchStreakMaxRounds: Number.NaN } },
+    } as never);
+    expect(garbage.platform.twitch).toMatchObject({
+      watchStreakBudgetMinutes: 15,
+      watchStreakMaxRounds: 3,
+    });
+  });
+
+  it("builds the policy from the tuning", () => {
+    expect(
+      policyAt(1, {
+        watchStreakBudgetMinutes: 20,
+        watchStreakRetryCooldownMinutes: 45,
+        watchStreakMaxRounds: 5,
+      }),
+    ).toMatchObject({ budgetMs: 20 * 60_000, retryCooldownMs: 45 * 60_000, maxRounds: 5 });
+  });
+
+  it("ends a running attempt at a lowered budget and never reopens one at a raised budget", () => {
+    const session = watching(channel("alpha"));
+    let streaks: WatchStreakState = { attempts: [] };
+    for (let minute = 0; minute <= 8; minute += 1)
+      streaks = accrue(streaks, session, T0 + minute * 60_000);
+    expect(streaks.attempts[0]).toMatchObject({ outcome: "pending", watchedMs: 8 * 60_000 });
+    const lowered = policyAt(1, { watchStreakBudgetMinutes: 5 });
+    streaks = accrue(streaks, session, T0 + 9 * 60_000, { policy: lowered });
+    expect(streaks.attempts[0]!.outcome).toBe("not_confirmed");
+    const raised = policyAt(1, { watchStreakBudgetMinutes: 60 });
+    const after = accrue(streaks, session, T0 + 10 * 60_000, { policy: raised });
+    expect(after.attempts).toEqual(streaks.attempts);
+  });
+
+  it("ends an attempt that already used more rounds than a lowered cap at its next round", () => {
+    const session = watching(channel("alpha"));
+    let streaks: WatchStreakState = { attempts: [] };
+    let now = T0;
+    for (let round = 0; round < 2; round += 1) {
+      for (let check = 0; check < ROUND_CHECKS; check += 1) {
+        streaks = accrue(streaks, session, now, { healthy: false });
+        now += 60_000;
+      }
+      now = Date.parse(streaks.attempts[0]!.retryAt!);
+    }
+    expect(streaks.attempts[0]).toMatchObject({ outcome: "pending", failedRounds: 2 });
+    const one = policyAt(1, { watchStreakMaxRounds: 1 });
+    // The round in progress still runs to its end; only then is the cap read.
+    streaks = accrue(streaks, session, now, { healthy: false, policy: one });
+    expect(streaks.attempts[0]!.outcome).toBe("pending");
+    for (let check = 1; check < ROUND_CHECKS; check += 1) {
+      now += 60_000;
+      streaks = accrue(streaks, session, now, { healthy: false, policy: one });
+    }
+    expect(streaks.attempts[0]).toMatchObject({ outcome: "playback_failed", failedRounds: 3 });
+  });
+});
+
 describe("watch-streak payouts", () => {
   const alpha = channel("alpha");
   const started = accrue({ attempts: [] }, watching(alpha), T0);
 
   it("credits the account's running attempt on that channel", () => {
-    const result = recordWatchStreakCredit(started, {
+    const result = credit(started, {
       accountId: ACCOUNT,
       channelId: alpha.channelId!,
       at: T0 + 120_000,
@@ -176,18 +476,16 @@ describe("watch-streak payouts", () => {
 
   it("ignores another account, another channel, a duplicate and a stale payout", () => {
     expect(
-      recordWatchStreakCredit(started, { accountId: "2000", channelId: alpha.channelId!, at: T0 }),
+      credit(started, { accountId: "2000", channelId: alpha.channelId!, at: T0 }),
     ).toBeUndefined();
-    expect(
-      recordWatchStreakCredit(started, { accountId: ACCOUNT, channelId: "999", at: T0 }),
-    ).toBeUndefined();
-    const credited = recordWatchStreakCredit(started, {
+    expect(credit(started, { accountId: ACCOUNT, channelId: "999", at: T0 })).toBeUndefined();
+    const credited = credit(started, {
       accountId: ACCOUNT,
       channelId: alpha.channelId!,
       at: T0,
     })!.state;
     expect(
-      recordWatchStreakCredit(credited, {
+      credit(credited, {
         accountId: ACCOUNT,
         channelId: alpha.channelId!,
         at: T0 + 1,
@@ -195,7 +493,7 @@ describe("watch-streak payouts", () => {
     ).toBeUndefined();
     // Hours after the attempt was last observed: a later broadcast's payout.
     expect(
-      recordWatchStreakCredit(started, {
+      credit(started, {
         accountId: ACCOUNT,
         channelId: alpha.channelId!,
         at: T0 + 3 * 3_600_000,
@@ -203,7 +501,7 @@ describe("watch-streak payouts", () => {
     ).toBeUndefined();
     // Long before the attempt started: a previous broadcast's payout.
     expect(
-      recordWatchStreakCredit(started, {
+      credit(started, {
         accountId: ACCOUNT,
         channelId: alpha.channelId!,
         at: T0 - 3 * 3_600_000,
@@ -222,7 +520,7 @@ describe("watch-streak payouts", () => {
         },
       ],
     };
-    const result = recordWatchStreakCredit(exhausted, {
+    const result = credit(exhausted, {
       accountId: ACCOUNT,
       channelId: alpha.channelId!,
       at: T0 + WATCH_STREAK_BUDGET_MS + 30_000,
@@ -231,7 +529,7 @@ describe("watch-streak payouts", () => {
   });
 
   it("survives a tick that committed an older copy of the attempt", () => {
-    const credited = recordWatchStreakCredit(started, {
+    const credited = credit(started, {
       accountId: ACCOUNT,
       channelId: alpha.channelId!,
       at: T0 + 60_000,
@@ -241,7 +539,7 @@ describe("watch-streak payouts", () => {
     expect(merged.attempts).toHaveLength(1);
     expect(merged.attempts[0]).toMatchObject({
       outcome: "credited",
-      watchedMs: WATCH_STREAK_MAX_ACCRUAL_STEP_MS,
+      watchedMs: POLICY.maxAccrualStepMs,
     });
     expect(merged.observing).toBeUndefined();
 
@@ -311,15 +609,6 @@ describe("watch-streak storage", () => {
 });
 
 describe("watch-streak settings", () => {
-  function withWatchlist(channels: string[], streaks: string[]): ExtensionSettings {
-    const settings = structuredClone(DEFAULT_SETTINGS);
-    return applySettingsPatch(settings, {
-      platform: {
-        twitch: { watchlistChannels: channels, watchlistStreakChannels: streaks },
-      },
-    });
-  }
-
   it("defaults to none and only keeps channels on the watchlist", () => {
     expect(mergeSettings({}).platform.twitch.watchlistStreakChannels).toEqual([]);
     const settings = withWatchlist(["a", "b", "c"], ["C", "ghost", "a"]);
@@ -386,6 +675,8 @@ describe("watch-streak scheduling", () => {
       order?: WatchSourceId[];
       // Restore the state from storage every N ticks, as an MV3 restart does.
       restartEvery?: number;
+      // Minutes between ticks (pollIntervalMinutes).
+      pollMinutes?: number;
     } = {},
   ) {
     const settings = structuredClone(DEFAULT_SETTINGS);
@@ -426,6 +717,7 @@ describe("watch-streak scheduling", () => {
         },
       },
     });
+    patched.pollIntervalMinutes = options.pollMinutes ?? 1;
     let state: SchedulerState = structuredClone(DEFAULT_STATE);
     state.authHealth.twitch = { status: "healthy", accountId: ACCOUNT };
     const broadcasts = new Map<string, string>();
@@ -461,8 +753,8 @@ describe("watch-streak scheduling", () => {
     const adapters = { twitch: adapter, kick: { ...adapter, platform: "kick" as const } };
     const watched: string[] = [];
     let ticks = 0;
-    // One poll per minute. `healthy` stands for the heartbeat the controller
-    // would have recorded since the last tick.
+    // One tick per poll interval. `healthy` stands for the heartbeat the
+    // controller would have recorded since the last tick.
     async function tick(healthy = true, tickOptions: SchedulerTickTestOptions = {}) {
       ticks += 1;
       if (options.restartEvery && ticks % options.restartEvery === 0)
@@ -478,7 +770,7 @@ describe("watch-streak scheduling", () => {
       state = result.state;
       const session = state.sessions.twitch;
       watched.push(session.status === "watching" ? session.channel!.username : "-");
-      vi.setSystemTime(Date.now() + 60_000);
+      vi.setSystemTime(Date.now() + patched.pollIntervalMinutes * 60_000);
       return result;
     }
     return {
@@ -552,8 +844,150 @@ describe("watch-streak scheduling", () => {
     const lastHour = s.watched.slice(-60);
     expect(lastHour.every((name) => name === "streaky")).toBe(true);
     expect(s.state.watchStreaks?.twitch?.attempts).toHaveLength(1);
-    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
-    expect(adapter.opens).toBeLessThanOrEqual(WATCH_STREAK_MAX_UNHEALTHY_CHECKS);
+    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("playback_failed");
+    expect(s.state.watchStreaks?.twitch?.rows).toEqual({ streaky: "playback_failed" });
+    expect(adapter.opens).toBeLessThanOrEqual(ROUND_CHECKS);
+  });
+
+  // #942: playback that fails for a while must not spend the row's streak.
+  it("moves on from a row that never plays, then retries it after the rest", async () => {
+    const s = setup({
+      channels: ["broken", "working"],
+      streaks: ["broken", "working"],
+      live: ["broken", "working"],
+      restartEvery: 5,
+    });
+    let brokenPlays = false;
+    const tick = () =>
+      s.tick(brokenPlays || s.state.sessions.twitch.channel?.username !== "broken");
+    for (let minute = 0; minute < 15; minute += 1) await tick();
+    expect(s.state.watchStreaks?.twitch?.rows?.broken).toBe("pending");
+    expect(s.state.sessions.twitch.channel?.username).toBe("working");
+
+    brokenPlays = true;
+    for (let minute = 0; minute < WATCH_STREAK_RETRY_COOLDOWN_MS / 60_000 + 20; minute += 1)
+      await tick();
+    const broken = s.state.watchStreaks?.twitch?.attempts.find(
+      (attempt) => attempt.username === "broken",
+    );
+    expect(broken).toMatchObject({ outcome: "not_confirmed", watchedMs: WATCH_STREAK_BUDGET_MS });
+    const order = s.watched.filter((name, index) => name !== s.watched[index - 1]);
+    expect(order.slice(0, 3)).toEqual(["broken", "working", "broken"]);
+  });
+
+  // #942: while a row that never plays rests, something else is live and wins.
+  // Each round leaves and comes back, so the round cap is what ends the opens.
+  it("ends the returns to a row that never plays while another row is live, across hours", async () => {
+    const s = setup({ channels: ["ordinary", "streaky"], streaks: ["streaky"], restartEvery: 7 });
+    const retries: string[] = [];
+    const emit: EventEmitter = (event) => {
+      if (event.category === "diagnostic" && event.message.includes("stopped playing"))
+        retries.push(event.message);
+    };
+    for (let minute = 0; minute < 6 * 60; minute += 1)
+      await s.tick(s.state.sessions.twitch.channel?.username !== "streaky", { emit });
+    const entries = s.watched.filter(
+      (name, index) => name === "streaky" && s.watched[index - 1] !== "streaky",
+    );
+    expect(entries).toHaveLength(WATCH_STREAK_MAX_ROUNDS);
+    expect(s.watched.slice(-60).every((name) => name === "ordinary")).toBe(true);
+    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("playback_failed");
+    expect(s.state.watchStreaks?.twitch?.rows).toEqual({ streaky: "playback_failed" });
+    // One rest note per round that rested, not one per tick.
+    expect(retries).toHaveLength(WATCH_STREAK_MAX_ROUNDS - 1);
+  });
+
+  // Ticks run at the poll interval, so a healthy watch accrues a whole
+  // interval per tick, not the one-minute default's two-minute cap.
+  it("spends the budget in about its own time at a five-minute poll interval", async () => {
+    const s = setup({ channels: ["streaky"], streaks: ["streaky"], pollMinutes: 5 });
+    // One tick selects the row and the next starts observing it.
+    const ticks = WATCH_STREAK_BUDGET_MS / (5 * 60_000) + 2;
+    for (let tick = 0; tick < ticks; tick += 1) await s.tick();
+    expect(s.state.watchStreaks?.twitch?.attempts[0]).toMatchObject({
+      outcome: "not_confirmed",
+      watchedMs: WATCH_STREAK_BUDGET_MS,
+    });
+  });
+
+  // A payout can arrive before the next tick observes the watch, up to a whole
+  // poll interval after the row was chosen. It must land on this broadcast's
+  // attempt, never be dropped or credited to an earlier broadcast's.
+  it("credits a payout that arrives before the first observation", async () => {
+    const s = setup({ channels: ["streaky"], streaks: ["streaky"], pollMinutes: 60 });
+    s.broadcasts.set("streaky", "first");
+    await s.tick();
+    await s.tick();
+    s.broadcasts.set("streaky", "second");
+    s.live.delete("streaky");
+    await s.tick();
+    s.live.add("streaky");
+    await s.tick();
+    expect(s.state.sessions.twitch.channel?.broadcastId).toBe("second");
+    const credited = recordWatchStreakCredit(
+      s.state.watchStreaks!.twitch!,
+      {
+        accountId: ACCOUNT,
+        channelId: channel("streaky").channelId!,
+        at: Date.now() - 55 * 60_000,
+      },
+      policyAt(60),
+    );
+    expect(credited?.attempt).toMatchObject({ broadcastId: "second", outcome: "credited" });
+  });
+
+  it("ends the returns to a row that never plays at an hourly poll interval", async () => {
+    const s = setup({
+      channels: ["ordinary", "streaky"],
+      streaks: ["streaky"],
+      restartEvery: 7,
+      pollMinutes: 60,
+    });
+    for (let hour = 0; hour < 3 * 24; hour += 1)
+      await s.tick(s.state.sessions.twitch.channel?.username !== "streaky");
+    const entries = s.watched.filter(
+      (name, index) => name === "streaky" && s.watched[index - 1] !== "streaky",
+    );
+    expect(entries).toHaveLength(WATCH_STREAK_MAX_ROUNDS);
+    expect(s.watched.slice(-24).every((name) => name === "ordinary")).toBe(true);
+    expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("playback_failed");
+  });
+
+  // The round cap and the rest are user settings, so the opens must still end
+  // at both ends of their ranges.
+  for (const [rounds, cooldownMinutes] of [
+    [
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakMaxRounds.max,
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakRetryCooldownMinutes.min,
+    ],
+    [
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakMaxRounds.min,
+      WATCH_STREAK_TUNING_BOUNDS.watchStreakRetryCooldownMinutes.max,
+    ],
+  ] as const) {
+    it(`ends the returns to a row that never plays with ${rounds} rounds and a ${cooldownMinutes}-minute rest`, async () => {
+      const s = setup({ channels: ["ordinary", "streaky"], streaks: ["streaky"], restartEvery: 7 });
+      s.settings.platform.twitch.watchStreakMaxRounds = rounds;
+      s.settings.platform.twitch.watchStreakRetryCooldownMinutes = cooldownMinutes;
+      for (let minute = 0; minute < 12 * 60; minute += 1)
+        await s.tick(s.state.sessions.twitch.channel?.username !== "streaky");
+      const entries = s.watched.filter(
+        (name, index) => name === "streaky" && s.watched[index - 1] !== "streaky",
+      );
+      expect(entries).toHaveLength(rounds);
+      expect(s.watched.slice(-60).every((name) => name === "ordinary")).toBe(true);
+      expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("playback_failed");
+    });
+  }
+
+  it("spends the budget the user set", async () => {
+    const s = setup({ channels: ["streaky"], streaks: ["streaky"] });
+    s.settings.platform.twitch.watchStreakBudgetMinutes = 5;
+    for (let minute = 0; minute < 8; minute += 1) await s.tick();
+    expect(s.state.watchStreaks?.twitch?.attempts[0]).toMatchObject({
+      outcome: "not_confirmed",
+      watchedMs: 5 * 60_000,
+    });
   });
 
   it("starts a fresh attempt for a new broadcast", async () => {
@@ -561,16 +995,20 @@ describe("watch-streak scheduling", () => {
     for (let minute = 0; minute < 20; minute += 1) await s.tick();
     expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
     s.broadcasts.set("streaky", "b-next");
+    // Opened by the tick that chooses the new broadcast, with nothing counted.
     await s.tick();
     expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
     expect(s.state.watchStreaks?.twitch?.attempts.map((attempt) => attempt.broadcastId)).toEqual([
       "b-streaky",
-    ]);
-    await s.tick();
-    expect(s.state.watchStreaks?.twitch?.attempts.map((attempt) => attempt.broadcastId)).toEqual([
-      "b-streaky",
       "b-next",
     ]);
+    expect(s.state.watchStreaks?.twitch?.attempts[1]).toMatchObject({
+      outcome: "pending",
+      watchedMs: 0,
+      unhealthyChecks: 0,
+    });
+    await s.tick();
+    expect(s.state.watchStreaks?.twitch?.attempts).toHaveLength(2);
   });
 
   it("moves on as soon as a payout is recorded, even while retaining the watch", async () => {
@@ -578,7 +1016,7 @@ describe("watch-streak scheduling", () => {
     await s.tick();
     await s.tick();
     const attempt = s.state.watchStreaks!.twitch!.attempts[0]!;
-    const credited = recordWatchStreakCredit(s.state.watchStreaks!.twitch!, {
+    const credited = credit(s.state.watchStreaks!.twitch!, {
       accountId: ACCOUNT,
       channelId: attempt.channelId,
       at: Date.now(),
@@ -642,7 +1080,7 @@ describe("watch-streak scheduling", () => {
     await s.tick();
     await s.tick();
     const attempt = s.state.watchStreaks!.twitch!.attempts[0]!;
-    const credited = recordWatchStreakCredit(s.state.watchStreaks!.twitch!, {
+    const credited = credit(s.state.watchStreaks!.twitch!, {
       accountId: ACCOUNT,
       channelId: attempt.channelId,
       at: Date.now(),

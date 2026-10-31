@@ -33,6 +33,7 @@ import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
+import { driverRewardEvent, type DriverReward } from "../src/extensions/rewardEvents";
 import { withActivityDiagnostics } from "@lurkloot/core/activityDiagnostics";
 import type { EventEmitter, EngineEvent } from "@lurkloot/shared/events";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
@@ -52,6 +53,7 @@ import {
   clearActivityEvents,
   exportDiagnosticsEvents,
   loadActivityEvents,
+  loadActivitySessions,
 } from "../src/core/activityStorage";
 import {
   createActivityEventReporter,
@@ -98,6 +100,7 @@ const getMessage = browser.i18n.getMessage as (
 ) => string;
 const handleActivityMessage = createActivityMessageHandler({
   load: loadActivityEvents,
+  loadSessions: loadActivitySessions,
   exportDiagnostics: exportDiagnosticsEvents,
   clear: clearActivityEvents,
 });
@@ -341,23 +344,19 @@ const controller = createBackgroundController<ExtensionSettings>({
   },
 });
 
-// A driver's activity, published through its session so that nothing is
+// A driver's reward, published through its session so that nothing is
 // reported once the session has ended (#594).
-function publishDriverAction(
+function publishDriverReward(
   publish: ((events: readonly EngineEvent[]) => void) | undefined,
   channel: { username: string } | undefined,
   provider: "fortnite" | "nopixel",
-  action: "takeover_started" | "sprite_captured" | "giveaway_joined" | "pack_opened",
+  reward: DriverReward,
 ): void {
   if (!publish || !channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
   const events: EngineEvent[] = [];
-  withActivityDiagnostics((event) => events.push(event))({
-    category: "activity",
-    code: "twitch_extension_action",
-    level: "info",
-    platform: "twitch",
-    data: { provider, action, channel: channel.username },
-  });
+  withActivityDiagnostics((event) => events.push(event))(
+    driverRewardEvent(provider, channel.username, reward),
+  );
   publish(events);
 }
 
@@ -374,22 +373,32 @@ const extensionHost = createTwitchExtensionHost({
     fortnite: async (session, emit, channel, publish) =>
       createFortniteDriver({
         allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers,
+        // A takeover is not a reward: it is logged, not listed in Activity.
         onTakeoverStarted: () =>
-          publishDriverAction(publish, channel, "fortnite", "takeover_started"),
+          publish?.([
+            {
+              category: "diagnostic",
+              platform: "twitch",
+              level: "info",
+              message: `Fortnite takeover started on ${channel?.username ?? "the watched channel"}`,
+            },
+          ]),
         // Through the socket host, so it presents the extension frame's origin (#798).
         createSocket: (url) => platformWebSocket(url),
-        onCaptured: () => publishDriverAction(publish, channel, "fortnite", "sprite_captured"),
+        onCaptured: ({ collectableId }) =>
+          publishDriverReward(publish, channel, "fortnite", { type: "capture", collectableId }),
       })(session, emit, channel, publish),
     nopixel: async (session, emit, channel, publish) =>
       createNoPixelDriver(
         (url, init) => fetch(url, init),
-        () => publishDriverAction(publish, channel, "nopixel", "giveaway_joined"),
+        () => publishDriverReward(publish, channel, "nopixel", { type: "giveaway" }),
         Date.now,
         (message) =>
           publish?.([{ category: "diagnostic", platform: "twitch", level: "warn", message }]),
         {
           autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks,
-          onOpened: () => publishDriverAction(publish, channel, "nopixel", "pack_opened"),
+          onOpened: (pack) =>
+            publishDriverReward(publish, channel, "nopixel", { type: "pack", ...pack }),
         },
       )(session, emit, channel, publish),
   },
@@ -403,8 +412,10 @@ const extensionHost = createTwitchExtensionHost({
       () => undefined,
     );
   },
+  // Through the controller's report choke point, so driver rewards are stamped
+  // with the farming session like every other activity event.
   publish: (events) => {
-    void reportEvents(events).catch(() => undefined);
+    void controller.reportEvents(events);
   },
   // Completion and cooldowns outlive the service worker (#594). Reset clears
   // the key with the rest of local storage.

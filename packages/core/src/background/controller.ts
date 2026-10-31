@@ -14,6 +14,7 @@ import {
 import { createDiscovery } from "./discovery";
 import { createDiscoverySignals } from "./discoverySignals";
 import { createHeartbeatCoordinator } from "./heartbeat";
+import { createFarmingSessions } from "./farmingSessions";
 import { createAccountProgress } from "./accountProgress";
 import { createKickRuntime } from "./kickRuntime";
 import { createLifecycle } from "./lifecycle";
@@ -133,6 +134,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createChatPresence(ports, transaction, { lifecycleSlice }, calls),
     ...createKickRuntime(ports, transaction, { lifecycleSlice }, calls),
     ...createAccountProgress(ports, { lifecycleSlice }, calls),
+    ...createFarmingSessions(ports, calls),
     ...createAuthHealth(ports, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
     ...createSupplementalSources(ports),

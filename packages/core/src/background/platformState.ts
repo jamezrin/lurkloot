@@ -58,6 +58,9 @@ export const SCHEDULER_STATE_MERGE = {
   twitchExtensions: "global",
   chatPresence: "global",
   installedAt: "global",
+  // Written only by the farming-session reconcile, as a whole-state commit; a
+  // platform tick never owns it.
+  farmingSessions: "global",
 } as const satisfies Record<
   keyof SchedulerState,
   "platform" | "optionalPlatform" | "watchStreaks" | "newestTimestamp" | "global"
