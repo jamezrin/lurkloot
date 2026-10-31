@@ -1058,6 +1058,11 @@ claims to know the user's streak count.
   interval plus a minute (never under two minutes), so a suspended worker never counts.
   Any watch of that broadcast counts, including Drops. A tick that exits early (pause, backoff,
   signed out) drops the stamp, so skipped time never counts.
+- **The attempt opens when its broadcast is chosen.** The tick that picks a maintained,
+  attributable row opens its attempt (`openWatchStreakAttempt`), with nothing counted, before any
+  time accrues. Accrual only starts on the next tick, up to a whole poll interval later, and a
+  payout in between must land on this broadcast's attempt rather than be dropped or credited to
+  an earlier broadcast of the same channel.
 - **Terminal outcomes.** An attempt ends as `not_confirmed` after 15 minutes of healthy watching
   (`WATCH_STREAK_BUDGET_MS`), and as `credited` when Twitch reports the payout. A terminal attempt
   is never reopened for that broadcast, and toggles and reorders do not reset it. A new broadcast

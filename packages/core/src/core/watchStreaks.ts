@@ -245,6 +245,53 @@ export function accrueWatchStreak(
   return { ...withAttempt(streaks, attempt, found?.index), observing };
 }
 
+// Opens the attempt for the maintained broadcast a tick just chose to watch,
+// before any time accrues: accrual only starts on the next tick, a whole poll
+// interval later, and a payout in between must land on this broadcast's
+// attempt, not be dropped or credited to an earlier one. Opening counts
+// nothing; an attempt that already exists is left as it is.
+export function openWatchStreakAttempt(
+  streaks: WatchStreakState,
+  input: {
+    channel: ChannelCandidate | undefined;
+    accountId: string | undefined;
+    maintained: ReadonlySet<string>;
+    now: number;
+  },
+): WatchStreakState {
+  const channel = input.channel;
+  if (
+    !channel
+    || !isValidPlatformId(input.accountId)
+    || !isValidPlatformId(channel.channelId)
+    || !isValidPlatformId(channel.broadcastId)
+  )
+    return streaks;
+  const username = channel.username.toLowerCase();
+  if (!input.maintained.has(username)) return streaks;
+  const identity = {
+    accountId: input.accountId,
+    channelId: channel.channelId,
+    broadcastId: channel.broadcastId,
+  };
+  if (findAttempt(streaks, watchStreakAttemptKey(identity))) return streaks;
+  const nowIso = new Date(input.now).toISOString();
+  return withAttempt(
+    streaks,
+    {
+      ...identity,
+      username,
+      outcome: "pending",
+      watchedMs: 0,
+      unhealthyChecks: 0,
+      failedRounds: 0,
+      startedAt: nowIso,
+      updatedAt: nowIso,
+    },
+    undefined,
+  );
+}
+
 export interface WatchStreakCreditObservation {
   accountId: string;
   channelId: string;

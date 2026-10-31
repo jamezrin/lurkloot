@@ -82,6 +82,7 @@ import { watchStreakChannelsFor } from "@lurkloot/shared/settings";
 import {
   accrueWatchStreak,
   NO_WATCH_STREAKS,
+  openWatchStreakAttempt,
   pruneWatchStreaks,
   watchStreakPlan,
   watchStreakRowStatuses,
@@ -2233,7 +2234,14 @@ export async function* decidePlatformTick(
           live.set(username, channelFromCheck(candidate, check));
       }
       const health = tick.state.authHealth[platform];
-      const streaks = watchStreakStateFor(tick.state, platform);
+      const accountId = health.status === "healthy" ? health.accountId : undefined;
+      const watching = decision.action === "idle" ? undefined : decision.channel;
+      const streaks = openWatchStreakAttempt(watchStreakStateFor(tick.state, platform), {
+        channel: watching,
+        accountId,
+        maintained: new Set(observeWatchStreaks ? streakPlan.maintained : []),
+        now: Date.now(),
+      });
       tick.state.watchStreaks = {
         ...tick.state.watchStreaks,
         [platform]: {
@@ -2242,10 +2250,10 @@ export async function* decidePlatformTick(
           rows: watchStreakRowStatuses(
             streakPlan,
             streaks,
-            health.status === "healthy" ? health.accountId : undefined,
+            accountId,
             observeWatchStreaks,
             live,
-            decision.action === "idle" ? undefined : decision.channel,
+            watching,
           ),
         },
       };

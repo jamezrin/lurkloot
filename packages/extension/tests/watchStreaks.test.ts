@@ -820,6 +820,32 @@ describe("watch-streak scheduling", () => {
     });
   });
 
+  // A payout can arrive before the next tick observes the watch, up to a whole
+  // poll interval after the row was chosen. It must land on this broadcast's
+  // attempt, never be dropped or credited to an earlier broadcast's.
+  it("credits a payout that arrives before the first observation", async () => {
+    const s = setup({ channels: ["streaky"], streaks: ["streaky"], pollMinutes: 60 });
+    s.broadcasts.set("streaky", "first");
+    await s.tick();
+    await s.tick();
+    s.broadcasts.set("streaky", "second");
+    s.live.delete("streaky");
+    await s.tick();
+    s.live.add("streaky");
+    await s.tick();
+    expect(s.state.sessions.twitch.channel?.broadcastId).toBe("second");
+    const credited = recordWatchStreakCredit(
+      s.state.watchStreaks!.twitch!,
+      {
+        accountId: ACCOUNT,
+        channelId: channel("streaky").channelId!,
+        at: Date.now() - 55 * 60_000,
+      },
+      watchStreakPolicy({ pollIntervalMinutes: 60 }),
+    );
+    expect(credited?.attempt).toMatchObject({ broadcastId: "second", outcome: "credited" });
+  });
+
   it("ends the returns to a row that never plays at an hourly poll interval", async () => {
     const s = setup({
       channels: ["ordinary", "streaky"],
@@ -842,16 +868,20 @@ describe("watch-streak scheduling", () => {
     for (let minute = 0; minute < 20; minute += 1) await s.tick();
     expect(s.state.watchStreaks?.twitch?.attempts[0]?.outcome).toBe("not_confirmed");
     s.broadcasts.set("streaky", "b-next");
+    // Opened by the tick that chooses the new broadcast, with nothing counted.
     await s.tick();
     expect(s.state.sessions.twitch.channel?.username).toBe("streaky");
     expect(s.state.watchStreaks?.twitch?.attempts.map((attempt) => attempt.broadcastId)).toEqual([
       "b-streaky",
-    ]);
-    await s.tick();
-    expect(s.state.watchStreaks?.twitch?.attempts.map((attempt) => attempt.broadcastId)).toEqual([
-      "b-streaky",
       "b-next",
     ]);
+    expect(s.state.watchStreaks?.twitch?.attempts[1]).toMatchObject({
+      outcome: "pending",
+      watchedMs: 0,
+      unhealthyChecks: 0,
+    });
+    await s.tick();
+    expect(s.state.watchStreaks?.twitch?.attempts).toHaveLength(2);
   });
 
   it("moves on as soon as a payout is recorded, even while retaining the watch", async () => {
