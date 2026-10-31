@@ -380,9 +380,10 @@ function laneTracks(campaign: TwitchDropsCampaign): Map<string, Map<string, Twit
 }
 
 // The lanes Twitch's own Swap list offers: those with a group Twitch reports
-// IN_PROGRESS. That is not ownership: Twitch reports it for an evolution whose
-// earlier badge the user does not have, and nothing here says which badge a
-// lane evolves, so the picker tells the user a line needs that badge.
+// IN_PROGRESS. An account that owns no Pokémon badge gets no progress on any
+// evolution group, so it is offered none. Nothing in the data names the badge
+// a lane evolves (lane ids are opaque), so the picker also says a line needs
+// that badge.
 function laneChoices(
   campaign: TwitchDropsCampaign,
   equippedLanes: ReadonlyMap<string, string>,
