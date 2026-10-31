@@ -86,6 +86,7 @@ import {
   watchStreakPlan,
   watchStreakRowStatuses,
   watchStreakAttemptKey,
+  watchStreakPolicy,
   watchStreakStateFor,
   type IdleWatchlistStreakPlan,
 } from "./watchStreaks";
@@ -2035,6 +2036,7 @@ export async function* decidePlatformTick(
           || (previous.watchMode === "tabless" && !previous.lastHeartbeatAt),
         paused: false,
         now: Date.now(),
+        policy: watchStreakPolicy(settings),
       });
       for (const attempt of streaks.attempts) {
         const key = watchStreakAttemptKey(attempt);

@@ -774,9 +774,12 @@ export interface WatchStreakAttempt {
   outcome: WatchStreakOutcome;
   // Healthy watching observed by the engine, in milliseconds.
   watchedMs: number;
-  // Ticks that found this attempt's channel selected but not healthy, across
-  // every round. Never reset, so merges and restarts keep the bound.
+  // Ticks in the current round that found this attempt's channel selected but
+  // not healthy. Reset when the round ends.
   unhealthyChecks: number;
+  // Rounds that ran out of healthy checks. Never reset, so merges and restarts
+  // keep the bound.
+  failedRounds: number;
   // When a round ran out of healthy checks: the attempt rests until then.
   retryAt?: string;
   startedAt: string;

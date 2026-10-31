@@ -16,7 +16,11 @@ import type {
   TwitchPointsEarnedNotice,
   TwitchWatchStreakNotice,
 } from "../platforms/twitch/channelPointsPush";
-import { recordWatchStreakCredit, watchStreakStateFor } from "../core/watchStreaks";
+import {
+  recordWatchStreakCredit,
+  watchStreakPolicy,
+  watchStreakStateFor,
+} from "../core/watchStreaks";
 import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
@@ -453,17 +457,22 @@ export function createChannelPoints<S extends EngineSettings>(
     const run = withEventCollector(async (emit, events) => {
       try {
         let ended: { username: string } | undefined;
+        const policy = watchStreakPolicy(await ports.storage.loadSettings());
         const result = await transaction.commit(
           ["twitch"],
           () => push.current === controller && !lifecycleSlice.controllerShutdown,
           (latest) => {
             const health = latest.authHealth.twitch;
             if (health.status !== "healthy" || health.accountId !== notice.userId) return undefined;
-            const recorded = recordWatchStreakCredit(watchStreakStateFor(latest, "twitch"), {
-              accountId: notice.userId,
-              channelId: notice.channelId,
-              at: notice.at,
-            });
+            const recorded = recordWatchStreakCredit(
+              watchStreakStateFor(latest, "twitch"),
+              {
+                accountId: notice.userId,
+                channelId: notice.channelId,
+                at: notice.at,
+              },
+              policy,
+            );
             if (!recorded) return undefined;
             ended = { username: recorded.attempt.username };
             return {

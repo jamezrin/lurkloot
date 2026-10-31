@@ -21,26 +21,59 @@ import { isRecord } from "@lurkloot/shared/records";
 // Healthy watching an attempt gets before it ends as not confirmed. A safety
 // budget, not a claim about the platform's own credit threshold.
 export const WATCH_STREAK_BUDGET_MS = WATCH_STREAK_BUDGET_MINUTES * 60_000;
-// Ticks an attempt's channel may be selected but unhealthy (a tab that never
-// plays, a heartbeat that keeps failing) in one round. A round that runs out
-// is not a watched streak (#942): the attempt rests for
-// WATCH_STREAK_RETRY_COOLDOWN_MS, then resumes with the time it already has.
-export const WATCH_STREAK_MAX_UNHEALTHY_CHECKS = 10;
+// Unhealthy watching (a tab that never plays, a heartbeat that keeps failing)
+// one round tolerates, in minutes of ticks. A round that runs out is not a
+// watched streak (#942): the attempt rests for WATCH_STREAK_RETRY_COOLDOWN_MS,
+// then resumes with the time it already has.
+export const WATCH_STREAK_ROUND_MINUTES = 10;
+// A round always takes at least this many unhealthy checks, so one bad reading
+// at a long poll interval does not end it.
+export const WATCH_STREAK_MIN_ROUND_CHECKS = 2;
 // Rounds one broadcast's attempt gets before it ends as playback_failed, so a
 // row whose playback never works cannot reopen forever. Each round can open a
 // watch tab.
 export const WATCH_STREAK_MAX_ROUNDS = 3;
 export const WATCH_STREAK_RETRY_COOLDOWN_MS = 30 * 60_000;
-// The most one observation may add. Ticks are at least a minute apart; a longer
-// gap means a suspended worker or a slow tick, which never counts as watching.
-export const WATCH_STREAK_MAX_ACCRUAL_STEP_MS = 2 * 60_000;
+// The least one observation may add. Ticks run at the poll interval; a gap
+// longer than the interval plus a minute means a suspended worker or a slow
+// tick, which never counts as watching.
+export const WATCH_STREAK_MIN_ACCRUAL_STEP_MS = 2 * 60_000;
 // A payout reported this long before an attempt started still belongs to it:
 // the platform can credit within the broadcast's first minutes, before the
 // first tick that observed this account watching it.
 export const WATCH_STREAK_CREDIT_LEAD_MS = 30 * 60_000;
-// And a payout this long after an attempt was last observed still belongs to
-// it: ticks can be several minutes apart (pollIntervalMinutes).
-export const WATCH_STREAK_CREDIT_LAG_MS = 10 * 60_000;
+// The least time after an attempt was last observed that a payout still
+// belongs to it. The attempt is only observed once per tick, so the window is
+// at least the poll interval plus WATCH_STREAK_CREDIT_SLACK_MS.
+export const WATCH_STREAK_MIN_CREDIT_LAG_MS = 10 * 60_000;
+export const WATCH_STREAK_CREDIT_SLACK_MS = 5 * 60_000;
+
+// The limits that depend on how often ticks run. Every streak rule that
+// measures time between ticks reads them from here, so a longer poll interval
+// neither starves accrual nor drops a payout that arrived between two ticks.
+export interface WatchStreakPolicy {
+  // The most one observation may add.
+  maxAccrualStepMs: number;
+  // How long after an attempt was last observed a payout still belongs to it.
+  creditLagMs: number;
+  // Unhealthy checks one round tolerates.
+  unhealthyChecksPerRound: number;
+}
+
+export function watchStreakPolicy(
+  settings: Pick<EngineSettings, "pollIntervalMinutes">,
+): WatchStreakPolicy {
+  const pollMs = settings.pollIntervalMinutes * 60_000;
+  return {
+    maxAccrualStepMs: Math.max(WATCH_STREAK_MIN_ACCRUAL_STEP_MS, pollMs + 60_000),
+    creditLagMs: Math.max(WATCH_STREAK_MIN_CREDIT_LAG_MS, pollMs + WATCH_STREAK_CREDIT_SLACK_MS),
+    unhealthyChecksPerRound: Math.max(
+      WATCH_STREAK_MIN_ROUND_CHECKS,
+      Math.ceil(WATCH_STREAK_ROUND_MINUTES / settings.pollIntervalMinutes),
+    ),
+  };
+}
+
 export const WATCH_STREAK_RETENTION_MS = 7 * 24 * 60 * 60_000;
 export const WATCH_STREAK_MAX_ATTEMPTS = 200;
 
@@ -133,6 +166,7 @@ export interface WatchStreakAccrualInput {
   // A manual watch or another pause: LurkLoot is not the one watching.
   paused: boolean;
   now: number;
+  policy: WatchStreakPolicy;
 }
 
 // Whether a pending attempt is resting after a round that never played.
@@ -171,6 +205,7 @@ export function accrueWatchStreak(
         outcome: "pending",
         watchedMs: 0,
         unhealthyChecks: 0,
+        failedRounds: 0,
         startedAt: nowIso,
         updatedAt: nowIso,
       };
@@ -179,7 +214,7 @@ export function accrueWatchStreak(
     const since = streaks.observing?.key === key ? Date.parse(streaks.observing.at) : Number.NaN;
     const elapsed = input.now - since;
     if (Number.isFinite(elapsed) && elapsed > 0) {
-      attempt.watchedMs += Math.min(elapsed, WATCH_STREAK_MAX_ACCRUAL_STEP_MS);
+      attempt.watchedMs += Math.min(elapsed, input.policy.maxAccrualStepMs);
     }
     observing = { key, at: nowIso };
   } else {
@@ -188,8 +223,12 @@ export function accrueWatchStreak(
     const counts = !input.settling && !isWatchStreakCooling(attempt, input.now);
     if (counts) attempt.unhealthyChecks += 1;
     observing = undefined;
-    if (counts && attempt.unhealthyChecks % WATCH_STREAK_MAX_UNHEALTHY_CHECKS === 0) {
-      if (attempt.unhealthyChecks >= WATCH_STREAK_MAX_UNHEALTHY_CHECKS * WATCH_STREAK_MAX_ROUNDS) {
+    if (counts && attempt.unhealthyChecks >= input.policy.unhealthyChecksPerRound) {
+      // The round's checks are spent and the next round starts from none, so
+      // a policy that changes mid-attempt never moves a round already counted.
+      attempt.unhealthyChecks = 0;
+      attempt.failedRounds += 1;
+      if (attempt.failedRounds >= WATCH_STREAK_MAX_ROUNDS) {
         attempt.outcome = "playback_failed";
         attempt.completedAt = nowIso;
       } else {
@@ -216,13 +255,14 @@ export interface WatchStreakCreditObservation {
 // Records a payout against the account's latest attempt on that channel. The
 // payout names no broadcast, so it is attributed only to an attempt that was
 // running then: started no more than WATCH_STREAK_CREDIT_LEAD_MS after it, and
-// last observed no more than WATCH_STREAK_CREDIT_LAG_MS before it. Late credit for an
+// last observed no more than the policy's creditLagMs before it. Late credit for an
 // attempt whose budget just ran out still upgrades it. Returns undefined when
 // nothing matched, so a stale,
 // unrelated or other account's payout changes nothing.
 export function recordWatchStreakCredit(
   streaks: WatchStreakState,
   observation: WatchStreakCreditObservation,
+  policy: WatchStreakPolicy,
 ): { state: WatchStreakState; attempt: WatchStreakAttempt } | undefined {
   if (
     !isValidPlatformId(observation.accountId)
@@ -243,7 +283,7 @@ export function recordWatchStreakCredit(
   // Not after the attempt stopped being observed: a payout long after the
   // attempt's last update belongs to a later broadcast it never saw.
   const lastSeen = Date.parse(latest.attempt.completedAt ?? latest.attempt.updatedAt);
-  if (observation.at > lastSeen + WATCH_STREAK_CREDIT_LAG_MS) return undefined;
+  if (observation.at > lastSeen + policy.creditLagMs) return undefined;
   const at = new Date(observation.at).toISOString();
   const attempt: WatchStreakAttempt = {
     ...latest.attempt,
@@ -380,12 +420,29 @@ function mergeAttempt(left: WatchStreakAttempt, right: WatchStreakAttempt): Watc
     ...winner,
     ...(retryAt ? { retryAt } : {}),
     watchedMs: Math.max(left.watchedMs, right.watchedMs),
-    unhealthyChecks: Math.max(left.unhealthyChecks, right.unhealthyChecks),
+    // The further round wins with its own checks: a copy from an earlier
+    // round has more checks only because its round had not ended yet.
+    ...furtherRound(left, right),
     startedAt:
       Date.parse(left.startedAt) <= Date.parse(right.startedAt) ? left.startedAt : right.startedAt,
     updatedAt:
       Date.parse(left.updatedAt) >= Date.parse(right.updatedAt) ? left.updatedAt : right.updatedAt,
   };
+}
+
+function furtherRound(
+  left: WatchStreakAttempt,
+  right: WatchStreakAttempt,
+): Pick<WatchStreakAttempt, "failedRounds" | "unhealthyChecks"> {
+  const further =
+    left.failedRounds !== right.failedRounds
+      ? left.failedRounds > right.failedRounds
+        ? left
+        : right
+      : left.unhealthyChecks >= right.unhealthyChecks
+        ? left
+        : right;
+  return { failedRounds: further.failedRounds, unhealthyChecks: further.unhealthyChecks };
 }
 
 // Drops attempts older than the retention window and keeps at most the newest
@@ -465,7 +522,7 @@ function normalizeAttempt(value: unknown): WatchStreakAttempt | undefined {
     username: username.toLowerCase().slice(0, 64),
     outcome: outcome as WatchStreakOutcome,
     watchedMs: count(value.watchedMs),
-    unhealthyChecks: count(value.unhealthyChecks),
+    ...roundCounts(value.failedRounds, count(value.unhealthyChecks)),
     startedAt,
     updatedAt,
   };
@@ -474,6 +531,22 @@ function normalizeAttempt(value: unknown): WatchStreakAttempt | undefined {
   if (typeof value.retryAt === "string" && Number.isFinite(Date.parse(value.retryAt)))
     attempt.retryAt = value.retryAt;
   return attempt;
+}
+
+// Before failedRounds was stored, unhealthyChecks counted every round at ten
+// checks each (#942), so a record without it is split the same way.
+const LEGACY_CHECKS_PER_ROUND = 10;
+
+function roundCounts(
+  failedRounds: unknown,
+  unhealthyChecks: number,
+): Pick<WatchStreakAttempt, "failedRounds" | "unhealthyChecks"> {
+  if (typeof failedRounds === "number" && Number.isFinite(failedRounds) && failedRounds >= 0)
+    return { failedRounds: Math.floor(failedRounds), unhealthyChecks };
+  return {
+    failedRounds: Math.floor(unhealthyChecks / LEGACY_CHECKS_PER_ROUND),
+    unhealthyChecks: unhealthyChecks % LEGACY_CHECKS_PER_ROUND,
+  };
 }
 
 // Restores stored streak state, dropping anything malformed.
