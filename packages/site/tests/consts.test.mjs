@@ -54,7 +54,7 @@ test("keeps the structured download URL canonical", async () => {
   assert.equal(software.downloadUrl, EXTERNAL_URLS.chrome);
 });
 
-test("derives the structured software version from the released workspace version", async () => {
+test("derives the structured software version from the root application version", async () => {
   const root = JSON.parse(
     await readFile(new URL("../../../package.json", import.meta.url), "utf8"),
   );

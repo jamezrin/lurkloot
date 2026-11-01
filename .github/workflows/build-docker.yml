@@ -11,7 +11,7 @@ on:
         type: string
         default: ""
       image_tag:
-        description: Optional registry tag, independent from the committed workspace version
+        description: Optional registry tag, independent from the committed root package version
         type: string
         default: ""
       artifact_prefix:
@@ -77,7 +77,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.platform }},ignore-error=true
           push: false
           # Candidate images use a mutable candidate-X.Y.Z tag without overlaying the committed
-          # workspace version. Stable builds default the registry tag to the supplied version.
+          # root package version. Stable builds default the registry tag to the supplied version.
           tags: ${{ env.IMAGE_NAME }}:${{ inputs.image_tag || inputs.version || 'validation' }}-${{ matrix.arch }}
           outputs: type=docker,dest=/tmp/image-${{ matrix.arch }}.tar
       - name: Checksum OCI artifact

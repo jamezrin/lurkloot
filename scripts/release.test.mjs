@@ -7,8 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const releaseScript = fileURLToPath(new URL("./release.mjs", import.meta.url));
-const manifests = [
-  "package.json",
+const workspaceManifests = [
   "packages/extension/package.json",
   "packages/core/package.json",
   "packages/cli/package.json",
@@ -17,19 +16,27 @@ const manifests = [
   "packages/shared/package.json",
 ];
 
+async function writeJson(path, value) {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function readJson(path) {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
 async function fixture(t, { version = "1.4.0", date = "2026-07-15" } = {}) {
   const root = await mkdtemp(join(tmpdir(), "lurkloot-release-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  for (const path of manifests) {
-    const absolutePath = join(root, path);
-    await mkdir(dirname(absolutePath), { recursive: true });
-    const manifest = {
-      name: path === "package.json" ? "lurkloot" : `@lurkloot/${dirname(path).split("/").at(-1)}`,
-      version,
+  await writeJson(join(root, "package.json"), { name: "lurkloot", version, private: true });
+  for (const path of workspaceManifests) {
+    await writeJson(join(root, path), {
+      name: `@lurkloot/${dirname(path).split("/").at(-1)}`,
       private: true,
-    };
-    await writeFile(absolutePath, `${JSON.stringify(manifest, null, 2)}\n`);
+    });
   }
+  // A workspace directory without a manifest is not a package.
+  await mkdir(join(root, "packages/scratch"), { recursive: true });
   const changelogPath = join(root, "packages/site/src/changelog.json");
   await mkdir(dirname(changelogPath), { recursive: true });
   await writeFile(
@@ -43,38 +50,63 @@ function run(root, ...args) {
   return spawnSync(process.execPath, [releaseScript, ...args], { cwd: root, encoding: "utf8" });
 }
 
-test("check accepts synchronized manifests without release channel state", async (t) => {
+test("check accepts a version declared only in the root manifest", async (t) => {
   const root = await fixture(t);
   const result = run(root, "check");
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /1\.4\.0 is consistent/);
 });
 
-test("check rejects a mismatched workspace version", async (t) => {
+for (const version of ["1.4.0", "0.1.0"]) {
+  test(`check rejects a workspace manifest declaring version ${version}`, async (t) => {
+    const root = await fixture(t);
+    const path = join(root, "packages/core/package.json");
+    await writeJson(path, { ...(await readJson(path)), version });
+    const result = run(root, "check");
+    assert.equal(result.status, 1);
+    assert.match(
+      result.stderr,
+      new RegExp(`packages/core/package.json declares version ${version.replaceAll(".", "\\.")}`),
+    );
+  });
+}
+
+test("check finds workspace packages it was never told about", async (t) => {
   const root = await fixture(t);
-  const path = join(root, "packages/core/package.json");
-  const manifest = JSON.parse(await readFile(path, "utf8"));
-  manifest.version = "1.5.0";
-  await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeJson(join(root, "packages/new-package/package.json"), {
+    name: "@lurkloot/new-package",
+    version: "0.0.1",
+  });
   const result = run(root, "check");
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /packages\/core\/package.json has version 1\.5\.0/);
+  assert.match(result.stderr, /packages\/new-package\/package.json declares version/);
 });
 
-test("prepare synchronizes manifests and removes legacy channel state", async (t) => {
+test("check rejects a root manifest without a valid version", async (t) => {
   const root = await fixture(t);
   const rootPath = join(root, "package.json");
-  const legacyManifest = JSON.parse(await readFile(rootPath, "utf8"));
-  legacyManifest.release = { channel: "stable" };
-  await writeFile(rootPath, `${JSON.stringify(legacyManifest, null, 2)}\n`);
+  const { version: _, ...manifest } = await readJson(rootPath);
+  await writeJson(rootPath, manifest);
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+});
+
+test("prepare bumps only the root manifest and removes legacy channel state", async (t) => {
+  const root = await fixture(t);
+  const rootPath = join(root, "package.json");
+  await writeJson(rootPath, { ...(await readJson(rootPath)), release: { channel: "stable" } });
+  const before = await Promise.all(
+    workspaceManifests.map((path) => readFile(join(root, path), "utf8")),
+  );
   const result = run(root, "prepare", "1.5.0");
   assert.equal(result.status, 0, result.stderr);
-  for (const path of manifests) {
-    const manifest = JSON.parse(await readFile(join(root, path), "utf8"));
-    assert.equal(manifest.version, "1.5.0", path);
-  }
-  const rootManifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+  const rootManifest = await readJson(rootPath);
+  assert.equal(rootManifest.version, "1.5.0");
   assert.equal(rootManifest.release, undefined);
+  const after = await Promise.all(
+    workspaceManifests.map((path) => readFile(join(root, path), "utf8")),
+  );
+  assert.deepEqual(after, before);
   const changelog = JSON.parse(
     await readFile(join(root, "packages/site/src/changelog.json"), "utf8"),
   );
