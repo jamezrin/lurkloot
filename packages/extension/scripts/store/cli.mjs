@@ -84,7 +84,7 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   const [command, ...others] = rest;
   if (command === "generate") return generate(others, env, dependencies);
   const paths = dependencies.paths ?? PATHS;
-  const { version } = JSON.parse(await readFile(join(paths.packageRoot, "package.json"), "utf8"));
+  const { version } = JSON.parse(await readFile(paths.versionManifest, "utf8"));
   return storeSync(rest, env, {
     bundleDir: paths.bundle,
     // The signed-in Chrome profile every dashboard command shares, whether or not

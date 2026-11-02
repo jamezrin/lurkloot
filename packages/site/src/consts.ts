@@ -8,10 +8,10 @@ export const SITE = {
   url: "https://lurkloot.jamezrin.com",
   description:
     "Lurkloot is a free, open-source farmer for Twitch and Kick drops that runs through your own logged-in session. Use it as a browser extension, or run it headless with the prebuilt Docker image — lightweight tabless mode, auto-claim, smart channel switching, and a private, no-password design. Works with Rust, Valorant, and any drops campaign.",
-  // Released workspace version, kept in step with every published manifest by
-  // the release flow (scripts/release.mjs `packagePaths`). Surfaced in the
-  // SoftwareApplication structured data so it cannot go stale. The site's own
-  // package.json is deliberately not bumped by that flow, so read the root one.
+  // Released application version. The root package.json is the only manifest
+  // that declares it (scripts/release.mjs guards that), and the browser
+  // manifests are built from it. Surfaced in the SoftwareApplication structured
+  // data so it cannot go stale.
   version: rootPackage.version,
 } as const;
 

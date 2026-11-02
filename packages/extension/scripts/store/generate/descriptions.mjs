@@ -8,9 +8,9 @@ export const descriptionSource = (paths, locale) => join(paths.descriptions, `${
 
 // The descriptions are written by hand in store-descriptions/, so generating
 // them means copying them into the bundle and stamping the copies. The version
-// is the package's own: a description shows no build.
+// is the application's, read from the root manifest: a description shows no build.
 export async function generateDescriptions({ locales, paths = PATHS, output = console.log, env }) {
-  const { version } = JSON.parse(await readFile(join(paths.packageRoot, "package.json"), "utf8"));
+  const { version } = JSON.parse(await readFile(paths.versionManifest, "utf8"));
   const sections = [];
   for (const locale of locales) {
     await mkdir(join(paths.bundle, locale), { recursive: true });

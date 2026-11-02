@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 import { parseManifestVersion as parseVersion } from "./release/version.mjs";
 
-export const packagePaths = [
-  "package.json",
-  "packages/extension/package.json",
-  "packages/core/package.json",
-  "packages/cli/package.json",
-  "packages/locales/package.json",
-  "packages/popup-ui/package.json",
-  "packages/shared/package.json",
-];
+// The application version is declared once, in the root manifest (#184). The
+// workspace packages are private and never published, so they carry no version
+// of their own; anything that needs the application version reads the root.
+export const rootManifestPath = "package.json";
+export const workspaceDir = "packages";
+// Packages versioned independently of the application. store-sync is generic
+// and meant to be liftable into its own repository, so it keeps its own version,
+// which a release never bumps.
+export const independentlyVersioned = new Set(["packages/store-sync/package.json"]);
 export const changelogPath = "packages/site/src/changelog.json";
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -27,14 +27,41 @@ function entryFor(changelog, version) {
   return changelog.find((entry) => entry.version === version);
 }
 
+// Every packages/* directory with a manifest, found rather than listed, so a
+// new workspace package is covered without touching this script.
+async function workspaceManifests() {
+  const manifests = [];
+  for (const entry of await readdir(workspaceDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const path = `${workspaceDir}/${entry.name}/package.json`;
+    let text;
+    try {
+      text = await readFile(path, "utf8");
+    } catch (error) {
+      if (error.code === "ENOENT") continue;
+      throw error;
+    }
+    manifests.push({ path, manifest: JSON.parse(text) });
+  }
+  return manifests.sort((a, b) => a.path.localeCompare(b.path));
+}
+
 export async function checkWorkspace() {
-  const root = JSON.parse(await readFile(packagePaths[0], "utf8"));
+  const root = JSON.parse(await readFile(rootManifestPath, "utf8"));
   parseVersion(root.version);
   let failed = false;
-  for (const path of packagePaths) {
-    const manifest = JSON.parse(await readFile(path, "utf8"));
-    if (manifest.version !== root.version) {
-      console.error(`release: ${path} has version ${manifest.version}; expected ${root.version}`);
+  for (const { path, manifest } of await workspaceManifests()) {
+    if (independentlyVersioned.has(path)) {
+      try {
+        parseVersion(manifest.version);
+      } catch {
+        console.error(`release: ${path} is independently versioned but has no valid version`);
+        failed = true;
+      }
+    } else if (Object.hasOwn(manifest, "version")) {
+      console.error(
+        `release: ${path} declares version ${manifest.version}; only ${rootManifestPath} may declare the version`,
+      );
       failed = true;
     }
   }
@@ -55,12 +82,10 @@ export async function prepareWorkspace(version, date) {
   parseVersion(version);
   if (date !== undefined && !validDate(date))
     throw new Error("prepare requires a valid --date YYYY-MM-DD");
-  for (const path of packagePaths) {
-    const manifest = JSON.parse(await readFile(path, "utf8"));
-    manifest.version = version;
-    if (path === packagePaths[0]) delete manifest.release;
-    await writeFile(path, `${JSON.stringify(manifest, null, 2)}\n`);
-  }
+  const root = JSON.parse(await readFile(rootManifestPath, "utf8"));
+  root.version = version;
+  delete root.release;
+  await writeFile(rootManifestPath, `${JSON.stringify(root, null, 2)}\n`);
   const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
   let entry = entryFor(changelog, version);
   if (!entry) {
