@@ -2357,6 +2357,9 @@
   "gamesNoMoreResults": {
     "message": "Nessun altro gioco trovato."
   },
+  "navBeta": {
+    "message": "Beta"
+  },
   "navExtensions": {
     "message": "Estensioni"
   },

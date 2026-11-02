@@ -2357,6 +2357,9 @@
   "gamesNoMoreResults": {
     "message": "कोई और गेम नहीं मिला।"
   },
+  "navBeta": {
+    "message": "बीटा"
+  },
   "navExtensions": {
     "message": "एक्सटेंशन"
   },

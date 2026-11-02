@@ -2357,6 +2357,9 @@
   "gamesNoMoreResults": {
     "message": "لم يُعثر على ألعاب أخرى."
   },
+  "navBeta": {
+    "message": "تجريبي"
+  },
   "navExtensions": {
     "message": "الإضافات"
   },

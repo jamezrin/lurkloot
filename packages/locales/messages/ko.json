@@ -2357,6 +2357,9 @@
   "gamesNoMoreResults": {
     "message": "다른 게임을 찾을 수 없습니다."
   },
+  "navBeta": {
+    "message": "Beta"
+  },
   "navExtensions": {
     "message": "확장 프로그램"
   },

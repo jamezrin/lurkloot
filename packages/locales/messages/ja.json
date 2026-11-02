@@ -2357,6 +2357,9 @@
   "gamesNoMoreResults": {
     "message": "他のゲームは見つかりません。"
   },
+  "navBeta": {
+    "message": "Beta"
+  },
   "navExtensions": {
     "message": "拡張機能"
   },

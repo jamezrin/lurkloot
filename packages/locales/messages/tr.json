@@ -2357,6 +2357,9 @@
   "gamesNoMoreResults": {
     "message": "Başka oyun bulunamadı."
   },
+  "navBeta": {
+    "message": "Beta"
+  },
   "navExtensions": {
     "message": "Eklentiler"
   },
