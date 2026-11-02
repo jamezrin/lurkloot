@@ -55,7 +55,7 @@ afterEach(() => {
 
 async function mountPopup(
   hostCapabilities: PopupHostCapabilities | undefined,
-  view: "settings" | "nopixel" = "settings",
+  view: "settings" | "nopixel" | "queue" = "settings",
 ): Promise<HTMLElement> {
   document.body.innerHTML = "<div id=app></div>";
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -147,6 +147,23 @@ describe("popup host capabilities", () => {
       "page",
     );
     expect(container.querySelector('section[aria-label="NoPixelV"]')).toBeNull();
+  });
+});
+
+describe("Queue tips with host capabilities", () => {
+  // Tips are an extension preference: a host without it has no setting to
+  // turn them off, and some of them describe tab farming.
+  it("shows the tips banner only to a host with extension preferences", async () => {
+    const extension = await mountPopup(undefined, "queue");
+    expect(extension.textContent).toMatch(/\[tip[A-Z]/);
+    act(() => root?.unmount());
+    root = undefined;
+
+    const cli = await mountPopup(CLI_CAPABILITIES, "queue");
+    expect(cli.querySelector('button[data-view="queue"]')?.getAttribute("aria-current")).toBe(
+      "page",
+    );
+    expect(cli.textContent).not.toMatch(/\[tip[A-Z]/);
   });
 });
 

@@ -1751,7 +1751,9 @@ export function PopupFrame({
                                 />
                               ) : (
                                 <>
-                                  {settings.showTips ? (
+                                  {/* Tips are an extension preference: a host without
+                                      it has no setting to turn them off. */}
+                                  {hostCapabilities.extensionPreferences && settings.showTips ? (
                                     <TipsBanner
                                       initialIndex={preview ? 0 : undefined}
                                       preview={preview}

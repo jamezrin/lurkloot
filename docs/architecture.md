@@ -1266,8 +1266,8 @@ of the four.
 - `twitchExtensions`: the NoPixel and Fortnite rail entries and views, their
   settings section, and their rows in the watch order and its "place" text.
 - `credentialExport`: Settings → Export credentials.
-- `extensionPreferences`: language, start on browser launch, tips, the in-page
-  panel, diagnostic logging, and the rate and GitHub star nudges.
+- `extensionPreferences`: language, start on browser launch, the Queue's tips
+  banner and its setting, the in-page panel, diagnostic logging, and the rate and GitHub star nudges.
 
 A control that depends on a missing capability is left out, not disabled.
 Settings entries name their capability as `requires` in

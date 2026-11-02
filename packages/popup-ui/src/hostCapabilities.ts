@@ -18,8 +18,8 @@ export interface PopupHostCapabilities {
    * credentials action. */
   credentialExport: boolean;
   /** Keeps the extension's own preferences: language, start on browser
-   * launch, tips, the in-page panel, diagnostic logging, and the rate and
-   * star nudges, which record their answer there. */
+   * launch, the tips banner and its setting, the in-page panel, diagnostic
+   * logging, and the rate and star nudges, which record their answer there. */
   extensionPreferences: boolean;
 }
 
