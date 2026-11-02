@@ -5,10 +5,14 @@ import process from "node:process";
 import { parseManifestVersion as parseVersion } from "./release/version.mjs";
 
 // The application version is declared once, in the root manifest (#184). The
-// workspace packages are private and never published, so none of them carries
-// a version of its own; anything that needs the version reads the root.
+// workspace packages are private and never published, so they carry no version
+// of their own; anything that needs the application version reads the root.
 export const rootManifestPath = "package.json";
 export const workspaceDir = "packages";
+// Packages versioned independently of the application. store-sync is generic
+// and meant to be liftable into its own repository, so it keeps its own version,
+// which a release never bumps.
+export const independentlyVersioned = new Set(["packages/store-sync/package.json"]);
 export const changelogPath = "packages/site/src/changelog.json";
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -47,7 +51,14 @@ export async function checkWorkspace() {
   parseVersion(root.version);
   let failed = false;
   for (const { path, manifest } of await workspaceManifests()) {
-    if (Object.hasOwn(manifest, "version")) {
+    if (independentlyVersioned.has(path)) {
+      try {
+        parseVersion(manifest.version);
+      } catch {
+        console.error(`release: ${path} is independently versioned but has no valid version`);
+        failed = true;
+      }
+    } else if (Object.hasOwn(manifest, "version")) {
       console.error(
         `release: ${path} declares version ${manifest.version}; only ${rootManifestPath} may declare the version`,
       );

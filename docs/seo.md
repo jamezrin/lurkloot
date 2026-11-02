@@ -86,9 +86,10 @@ Emitted from `src/layouts/Base.astro`:
 
 - **`SoftwareApplication`** on every page. `softwareVersion` reads the root
   `package.json`, the only manifest that declares the application version
-  (`scripts/release.mjs check` rejects a `version` in any `packages/*`
-  manifest) and the one the browser manifests are built from — it used to be
-  hardcoded `"1.0"`.
+  (`scripts/release.mjs check` rejects a `version` in the other `packages/*`
+  manifests; only the independently versioned `store-sync` keeps its own)
+  and the one the browser manifests are built from — it used to be hardcoded
+  `"1.0"`.
 - **`BreadcrumbList`** on pages that pass `breadcrumbs`.
 - **`FAQPage`** only on pages that pass `faq`. It used to be layout-global,
   which shipped the homepage FAQ inside `/privacy` and `/changelog` — schema

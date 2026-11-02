@@ -35,6 +35,11 @@ async function fixture(t, { version = "1.4.0", date = "2026-07-15" } = {}) {
       private: true,
     });
   }
+  await writeJson(join(root, "packages/store-sync/package.json"), {
+    name: "@lurkloot/store-sync",
+    version: "0.1.0",
+    private: true,
+  });
   // A workspace directory without a manifest is not a package.
   await mkdir(join(root, "packages/scratch"), { recursive: true });
   const changelogPath = join(root, "packages/site/src/changelog.json");
@@ -71,6 +76,16 @@ for (const version of ["1.4.0", "0.1.0"]) {
   });
 }
 
+test("check requires an independently versioned package to keep a valid version", async (t) => {
+  const root = await fixture(t);
+  const path = join(root, "packages/store-sync/package.json");
+  const { version: _, ...manifest } = await readJson(path);
+  await writeJson(path, manifest);
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /store-sync\/package.json is independently versioned/);
+});
+
 test("check finds workspace packages it was never told about", async (t) => {
   const root = await fixture(t);
   await writeJson(join(root, "packages/new-package/package.json"), {
@@ -95,17 +110,14 @@ test("prepare bumps only the root manifest and removes legacy channel state", as
   const root = await fixture(t);
   const rootPath = join(root, "package.json");
   await writeJson(rootPath, { ...(await readJson(rootPath)), release: { channel: "stable" } });
-  const before = await Promise.all(
-    workspaceManifests.map((path) => readFile(join(root, path), "utf8")),
-  );
+  const untouched = [...workspaceManifests, "packages/store-sync/package.json"];
+  const before = await Promise.all(untouched.map((path) => readFile(join(root, path), "utf8")));
   const result = run(root, "prepare", "1.5.0");
   assert.equal(result.status, 0, result.stderr);
   const rootManifest = await readJson(rootPath);
   assert.equal(rootManifest.version, "1.5.0");
   assert.equal(rootManifest.release, undefined);
-  const after = await Promise.all(
-    workspaceManifests.map((path) => readFile(join(root, path), "utf8")),
-  );
+  const after = await Promise.all(untouched.map((path) => readFile(join(root, path), "utf8")));
   assert.deepEqual(after, before);
   const changelog = JSON.parse(
     await readFile(join(root, "packages/site/src/changelog.json"), "utf8"),

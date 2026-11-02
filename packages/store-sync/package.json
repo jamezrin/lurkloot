@@ -1,5 +1,6 @@
 {
   "name": "@lurkloot/store-sync",
+  "version": "0.1.0",
   "description": "Syncs a directory of store listing content to the Chrome Web Store Developer Dashboard. Knows nothing about what is in it.",
   "license": "Apache-2.0",
   "type": "module",

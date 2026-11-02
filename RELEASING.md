@@ -31,7 +31,8 @@ empty entry. That intentionally permits build-only releases, but produces an emp
    `next.lurkloot.pages.dev`.
 4. Review and merge that pull request normally, with a **merge commit**.
 5. Prepare release then cuts `release/X.Y.Z` from the resulting merge commit on `main`, commits the
-   version in the root `package.json` (the only manifest that declares it), dates the changelog,
+   version in the root `package.json` (the only manifest that declares the application version;
+   `packages/store-sync` keeps its own, which a release never bumps), dates the changelog,
    opens a generated pull request into `main`, copies the release label to it, and rebuilds the
    candidate from the release branch. The
    generated pull request's diff is only the version bump and changelog date.
