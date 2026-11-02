@@ -1249,6 +1249,37 @@ rows by ranking tier, and Skipped rows carry the reason the engine gave plus the
 single action that resolves it. Changes that can affect the active scheduler
 target can request a targeted tick for the affected platform.
 
+### Host capabilities (#977)
+
+A host of `@lurkloot/popup-ui` says what it supports through the optional
+`PopupAdapter.hostCapabilities`, a `PopupHostCapabilities` from
+`packages/popup-ui/src/hostCapabilities.ts`. Omitting it means
+`DEFAULT_HOST_CAPABILITIES`, every flag true, which is the extension; the
+toolbar popup and the site demo declare nothing. A host that declares the
+object has to set every flag, so a new flag is a type error there rather
+than a control it silently shows. A UI over the headless CLI (#979) has none
+of the four.
+
+- `tabs`: the Farming tabs group (tabless, auto-close, mute, keep videos
+  unmuted, ad focus), pause on manual watch, the tabless fallback limit and
+  Kick page-context recovery.
+- `twitchExtensions`: the NoPixel and Fortnite rail entries and views, their
+  settings section, and their rows in the watch order and its "place" text.
+- `credentialExport`: Settings → Export credentials.
+- `extensionPreferences`: language, start on browser launch, tips, the in-page
+  panel, diagnostic logging, and the rate and GitHub star nudges.
+
+A control that depends on a missing capability is left out, not disabled.
+Settings entries name their capability as `requires` in
+`settingsRegistry.tsx`, and `buildSettingsRegistry` drops them, and any group
+they empty, before search sees the tree. The rest read the flags from
+`HostCapabilitiesContext`, which `Popup.tsx` provides from the adapter. A
+view a host cannot show resolves to the Queue (`viewForHost`). A hidden watch
+source keeps its place in the saved `watchSourcePriority`; only the list leaves
+it out, and moving a row swaps it with its listed neighbour.
+`tests/popupHostCapabilities.test.tsx` guards both the default and a CLI-like
+host.
+
 ### Onboarding tour
 
 A fresh install, and a first update for someone who was never offered it, shows

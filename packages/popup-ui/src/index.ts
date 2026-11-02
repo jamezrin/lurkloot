@@ -39,6 +39,11 @@ export type {
   ScreenshotVariant,
 } from "./types";
 export type { PopupView } from "./shell";
+export {
+  DEFAULT_HOST_CAPABILITIES,
+  type PopupHostCapabilities,
+  type PopupHostCapability,
+} from "./hostCapabilities";
 export { variantShowsPopup } from "./types";
 export { SCREENSHOT_VARIANTS } from "./constants";
 
