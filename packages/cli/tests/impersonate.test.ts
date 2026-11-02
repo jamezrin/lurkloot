@@ -301,7 +301,7 @@ describe("impersonate transport", () => {
     await secondHandle.dispose();
   });
 
-  it("sends Trowel through the injected cycletls transport", async () => {
+  it("sends an explicitly selected Trowel heartbeat through the injected cycletls transport", async () => {
     const calls: Captured[] = [];
     const client = fakeClient((url, options, method) => {
       calls.push({ url, options, method });
@@ -324,7 +324,17 @@ describe("impersonate transport", () => {
       ENABLED,
       { initClient: async () => client },
     );
-    const watcher = handle.adapters.twitch.createTablessWatcher!();
+    const watcher = handle.createAdapter("twitch", () => {}, {
+      ...DEFAULT_ENGINE_SETTINGS,
+      compatibility: {
+        ...DEFAULT_ENGINE_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_ENGINE_SETTINGS.compatibility.twitch,
+          // Trowel is no longer the Android default; it stays selectable.
+          heartbeatTransport: "twitch-heartbeat-trowel-v1",
+        },
+      },
+    }).adapter.createTablessWatcher!();
     await watcher.start(
       { platform: "twitch", username: "creator", url: "https://twitch.tv/creator" },
       { userId: "viewer-id" },

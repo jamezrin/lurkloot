@@ -27,6 +27,7 @@ import { createTransport, type EnabledPlatforms } from "./transport";
 import { runLoop } from "./runtime/run";
 import { formatDiscoveredCampaign } from "./runtime/status";
 import { importCredentials } from "./auth/importCredentials";
+import { twitchBrowserLogin } from "./auth/twitchBrowserLogin";
 import { twitchDeviceLogin } from "./auth/twitchDeviceFlow";
 import { kickDeviceLogin } from "./auth/kickDeviceFlow";
 import { createLogger } from "./logger";
@@ -230,6 +231,19 @@ const runCommand: CommandModule = {
   },
 };
 
+// `auth twitch browser-login`: a normal Twitch sign-in in any browser, then the
+// address it ends on is pasted back (or piped in). Unlike device-login, the
+// token it yields sees the full drops campaign list.
+const twitchBrowserLoginCommand: CommandModule = {
+  command: "browser-login",
+  describe: "Sign in to Twitch in a browser and paste back the address it ends on",
+  handler: async (argv) => {
+    const logger = loggerOf(argv);
+    const { authDir } = configOf(argv, logger);
+    await twitchBrowserLogin(authDir, logger);
+  },
+};
+
 // `auth <platform> device-login | logout` — declared explicitly per platform so
 // each verb gets its own --help entry and shows up in shell completion.
 function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
@@ -252,6 +266,8 @@ function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
             else await kickDeviceLogin(authDir, logger);
           },
         })
+        // Twitch only: Kick has no equivalent sign-in (see twitchBrowserLogin.ts).
+        .command(platform === "twitch" ? [twitchBrowserLoginCommand] : [])
         .command({
           command: "logout",
           describe: `Forget stored ${platform} credentials`,
@@ -276,7 +292,10 @@ function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
             }
           },
         })
-        .demandCommand(1, "Specify a verb: device-login or logout")
+        .demandCommand(
+          1,
+          `Specify a verb: ${platform === "twitch" ? "browser-login, " : ""}device-login or logout`,
+        )
         .strict(),
     handler: () => {
       /* a subcommand always runs; see demandCommand above */

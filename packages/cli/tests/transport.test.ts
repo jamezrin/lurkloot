@@ -793,7 +793,7 @@ describe("createTransport", () => {
     await handle.dispose();
   });
 
-  it("sends Trowel through the HTTP transport request path", async () => {
+  it("sends an explicitly selected Trowel heartbeat through the HTTP transport request path", async () => {
     const fetchMock = vi.fn(
       async (url: string) =>
         new Response(
@@ -815,7 +815,17 @@ describe("createTransport", () => {
       "/tmp/auth",
       ENABLED,
     );
-    const watcher = handle.adapters.twitch.createTablessWatcher!();
+    const watcher = handle.createAdapter("twitch", () => {}, {
+      ...DEFAULT_ENGINE_SETTINGS,
+      compatibility: {
+        ...DEFAULT_ENGINE_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_ENGINE_SETTINGS.compatibility.twitch,
+          // Trowel is no longer the Android default; it stays selectable.
+          heartbeatTransport: "twitch-heartbeat-trowel-v1",
+        },
+      },
+    }).adapter.createTablessWatcher!();
     await watcher.start(
       { platform: "twitch", username: "creator", url: "https://twitch.tv/creator" },
       { userId: "viewer-id" },

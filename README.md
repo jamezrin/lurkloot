@@ -80,14 +80,14 @@ To try a pre-release Chrome build, see [Installing a pre-release build](docs/ins
 
 The CLI and Docker image are in beta. Twitch drop claiming from the CLI alone is not fully verified yet. They run the same farming engine on a server, a NAS, or any machine that can run a container. There is no browser window and no stream video. The published image is multi-architecture (`amd64` and `arm64`): [`ghcr.io/jamezrin/lurkloot-cli`](https://github.com/jamezrin/lurkloot/pkgs/container/lurkloot-cli).
 
-Sign in once, then leave the container running. A Twitch device login looks like this:
+Sign in once, then leave the container running. For Twitch, sign in through a browser and paste back the address Twitch sends you to:
 
 ```bash
 docker run --rm -it -v "$PWD/data:/data" \
-  ghcr.io/jamezrin/lurkloot-cli:latest auth twitch device-login
+  ghcr.io/jamezrin/lurkloot-cli:latest auth twitch browser-login
 ```
 
-That login uses Twitch's Smart TV client, so it cannot see every drop campaign. For full Twitch discovery, export credentials from the extension with Settings → Export credentials and import that file. Kick login on the same image is `auth kick device-login`. Authentication, configuration, and the command that keeps farming in the background are in the [CLI guide](packages/cli/README.md).
+That login sees every drop campaign. `auth twitch device-login` needs no browser, but Twitch only lets it see campaigns you have already started, so it finds the rest only on live channels of your chosen games. Kick login on the same image is `auth kick device-login`. Authentication, configuration, and the command that keeps farming in the background are in the [CLI guide](packages/cli/README.md).
 
 Fortnite and NoPixel run in the extension. The CLI farms Twitch and Kick.
 
