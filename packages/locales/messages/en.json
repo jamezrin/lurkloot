@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "$1-day watch streak"
+  },
+  "rewardRepeatProgress": {
+    "message": "Day $1 of $2"
+  },
+  "rewardNextWindow": {
+    "message": "Next window $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Lane not equipped"
+  },
+  "rewardLanesTitle": {
+    "message": "Lane you are earning"
+  },
+  "rewardLanesPick": {
+    "message": "Pick a lane to earn"
+  },
+  "rewardLaneEquipped": {
+    "message": "Equipped"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "A line only evolves a badge you already own. Without that badge, watching earns nothing."
   }
 }

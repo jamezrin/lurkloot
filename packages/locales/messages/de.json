@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "$1 Tage Zuschau-Serie"
+  },
+  "rewardRepeatProgress": {
+    "message": "Tag $1 von $2"
+  },
+  "rewardNextWindow": {
+    "message": "Nächstes Zeitfenster $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Linie nicht ausgerüstet"
+  },
+  "rewardLanesTitle": {
+    "message": "Linie, mit der du Fortschritt sammelst"
+  },
+  "rewardLanesPick": {
+    "message": "Linie zum Sammeln auswählen"
+  },
+  "rewardLaneEquipped": {
+    "message": "Ausgerüstet"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Eine Linie entwickelt nur ein Abzeichen, das du bereits besitzt. Ohne dieses Abzeichen bringt das Zuschauen nichts."
   }
 }

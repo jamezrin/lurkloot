@@ -33,6 +33,7 @@ export function createMessageHandler<S extends EngineSettings>(
     | "resumeFarmingAfterManualClose"
     | "saveSettingsFromMessage"
     | "searchCategories"
+    | "selectRewardLane"
     | "setPlatformEnabled"
     | "snapshot"
     | "tickNow"
@@ -47,6 +48,7 @@ export function createMessageHandler<S extends EngineSettings>(
     resumeFarmingAfterManualClose,
     saveSettingsFromMessage,
     searchCategories,
+    selectRewardLane,
     setPlatformEnabled,
     snapshot,
     tickNow,
@@ -70,6 +72,10 @@ export function createMessageHandler<S extends EngineSettings>(
     // Claims, discovery and the tick coordinator.
     claimReward: (message) => claimRewardNow(message),
     searchCategories: (message) => searchCategories(message),
+    selectRewardLane: async (message) => {
+      await selectRewardLane(message);
+      return tickNow();
+    },
     tickNow: () => tickNow(),
   };
 

@@ -103,9 +103,9 @@ describe("generating descriptions", () => {
     }
   });
 
-  it("stamps the package's own version, since a description shows no build", async () => {
+  it("stamps the root application version, since a description shows no build", async () => {
     const bundle = bundleDirectory();
-    const { version } = JSON.parse(readFileSync(join(PATHS.packageRoot, "package.json"), "utf8"));
+    const { version } = JSON.parse(readFileSync(PATHS.versionManifest, "utf8"));
 
     await generateDescriptions({ locales: ["ja"], paths: pathsFor(bundle), output: quiet });
 
@@ -267,6 +267,7 @@ describe("syncing through the Lurkloot entry point", () => {
     writeFileSync(join(root, "store-descriptions", "ja.txt"), "Japanese body\n");
     const paths = {
       packageRoot: root,
+      versionManifest: join(root, "package.json"),
       build: "/not-built",
       bundle,
       descriptions: join(root, "store-descriptions"),

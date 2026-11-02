@@ -99,6 +99,7 @@ const ADAPTER_PORTS = new Set([
   "refreshCampaigns",
   "checkAuthHealth",
   "searchCategories",
+  "selectRewardLane",
 ]);
 const DEPS_PORTS = new Set([
   "openWatchTab",

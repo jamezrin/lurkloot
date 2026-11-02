@@ -75,10 +75,10 @@ importers:
     dependencies:
       '@dnd-kit/helpers':
         specifier: ^0.5.0
-        version: 0.5.1
+        version: 0.5.3
       '@dnd-kit/react':
         specifier: ^0.5.0
-        version: 0.5.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 0.5.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@lurkloot/core':
         specifier: workspace:*
         version: link:../core
@@ -105,7 +105,7 @@ importers:
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
       motion:
         specifier: ^14.0.0
-        version: 14.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 14.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react:
         specifier: ^19.2.7
         version: 19.3.1
@@ -139,13 +139,13 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       fake-indexeddb:
         specifier: ^6.2.5
-        version: 6.2.6
+        version: 6.2.7
       happy-dom:
         specifier: ^21.0.0
         version: 21.0.4
       linkedom:
-        specifier: 0.18.14
-        version: 0.18.14
+        specifier: 0.18.15
+        version: 0.18.15
       playwright:
         specifier: ^1.61.0
         version: 1.64.1
@@ -179,10 +179,10 @@ importers:
         version: 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@dnd-kit/helpers':
         specifier: ^0.5.0
-        version: 0.5.1
+        version: 0.5.3
       '@dnd-kit/react':
         specifier: ^0.5.0
-        version: 0.5.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 0.5.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@fontsource-variable/archivo':
         specifier: ^5.3.0
         version: 5.3.0
@@ -203,7 +203,7 @@ importers:
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)
       motion:
         specifier: ^14.0.0
-        version: 14.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 14.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react:
         specifier: ^19.2.7
         version: 19.3.1
@@ -240,10 +240,10 @@ importers:
         version: 3.7.4
       '@dnd-kit/helpers':
         specifier: ^0.5.0
-        version: 0.5.1
+        version: 0.5.3
       '@dnd-kit/react':
         specifier: ^0.5.0
-        version: 0.5.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 0.5.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@fontsource-variable/archivo':
         specifier: ^5.3.0
         version: 5.3.0
@@ -276,7 +276,7 @@ importers:
         version: 18.1.2
       motion:
         specifier: ^14.0.0
-        version: 14.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 14.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       react:
         specifier: ^19.2.7
         version: 19.3.1
@@ -320,9 +320,6 @@ packages:
 
   '@1natsu/wait-element@4.2.0':
     resolution: {integrity: sha512-Om0Q+WE9mNrpY4AwMTvkFiYHv8VM7TML3PvOqXy+w6kAjLjKhGYHYX+305+a6J8RVpds9s7IF2Z5aOPYwULFNw==}
-
-  '@acemir/cssom@0.9.32':
-    resolution: {integrity: sha512-OijrAUu7rrJhSIoHNg6LMPS5e344nwUHA+1EFYYjrh64D+GmytUsfBQjci45TjT+rd5Spsp8B5xsZDT+TgyXXQ==}
 
   '@aklinker1/rollup-plugin-visualizer@5.12.0':
     resolution: {integrity: sha512-X24LvEGw6UFmy0lpGJDmXsMyBD58XmX1bbwsaMLhNoM+UMQfQ3b2RtC+nz4b/NoRK5r6QJSKJHBNVeUdwqybaQ==}
@@ -678,29 +675,29 @@ packages:
     engines: {node: '>= 0.10.4'}
     hasBin: true
 
-  '@dnd-kit/abstract@0.5.1':
-    resolution: {integrity: sha512-XI13sUYRvRgggMocjHlQhLRgENm/2GF94KF7mk+c0uxse7sbn75r0BgxoNPDlzLTDPWx6PkS0YHoeXN9JWhnOA==}
+  '@dnd-kit/abstract@0.5.3':
+    resolution: {integrity: sha512-KZQ2vftkO9BHupVzlUqB5d7JETL7ITlvslx3hrj4aObwjliAzuzV/n5wCpQllNd0Hxvg7FaQtLekJ8dplqKwbA==}
 
-  '@dnd-kit/collision@0.5.1':
-    resolution: {integrity: sha512-exQmBlWWQ6calIup4KNQudiEF8Do61Lpzw/F0M3UOhqdKi9dx0ZXGf+qfdfmew8rJzPMj3MzKeGqNMEbCKA22g==}
+  '@dnd-kit/collision@0.5.3':
+    resolution: {integrity: sha512-DBo8czkI72xnsHRWOMTn/GAyYgSWy9bmde85mrZ7ShqLhcbIbcu4PVJ3ZU9MBikePCSAVOoUTZE2gS40jogrEw==}
 
-  '@dnd-kit/dom@0.5.1':
-    resolution: {integrity: sha512-r7/l4D+nsH1mFXWkplXCkZC9JlY7UjxsVuTu4yCqzC00XgX+SXiK3Oazp42KKG3mshfBNVtm15BI9rKNlkw2fA==}
+  '@dnd-kit/dom@0.5.3':
+    resolution: {integrity: sha512-JJe+Qu/JmofGzHes3np91sQYwp5spvLcknjRkq+VO59JTqSnQNPXlhHXavRXTwQFabaaRyRzXyH/faAvubCNGw==}
 
-  '@dnd-kit/geometry@0.5.1':
-    resolution: {integrity: sha512-7X/Ro2U5qW96SihIukMitnc3pYc5n/PmHmJ28oApLBIJRfLxPLgrL6X0ZbQT7qUEfdUIqXnehobJ3jXAc4hdAA==}
+  '@dnd-kit/geometry@0.5.3':
+    resolution: {integrity: sha512-U+zscNjoHfJ1xUV+XDGF89jPCoILLivWSb/U9mfM7h83f6o3X9AS9uIwG46bXUpCqPvlI/9JcOlyga5uvfyjgw==}
 
-  '@dnd-kit/helpers@0.5.1':
-    resolution: {integrity: sha512-/nH5fpWuQmmc2FlwNAlxgZVQfAiMHeh+riGUZS69vj1Oq/MPc98APHgvjsVy7rN9MFd1XCgGYVcmb2pKvfYzNA==}
+  '@dnd-kit/helpers@0.5.3':
+    resolution: {integrity: sha512-fErbbjwKMJEdr7e+AMsXaZ6aQY4xPYBMK+nqybB34tE6/lQDLetZHsgLDKNVePsYIZCq/7uWMtlFjqysscWg5A==}
 
-  '@dnd-kit/react@0.5.1':
-    resolution: {integrity: sha512-WL8LvALUL9PqUUVun4xu4e8HO3x6rPwTxnnNwovj/VOUVyWpTmIaAK5Yj8jkzqNK01W74sQbwtffpLep1Ckj/Q==}
+  '@dnd-kit/react@0.5.3':
+    resolution: {integrity: sha512-BGn6bakgcRSoKMRQP8cRIGu59e5lGC3/sL0zVWmDMo/9CMPSxgjCcQltDn5TDTwAARnEbuwNEksor4rLtH/yEg==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
 
-  '@dnd-kit/state@0.5.1':
-    resolution: {integrity: sha512-SN0BZ0d/ob9dK8sTqk/0z3eNBWV6xPSrLbHUBbiCo9Sj3xfhPFk6ej2oZpDcqk7LWaujT57ocgdtznY7wQ2yFw==}
+  '@dnd-kit/state@0.5.3':
+    resolution: {integrity: sha512-NJTQkBglAT/SXLc+IOLiKwNvsTrWmPG5AO+7Gn0F0n8XyVaf4VCbTCuPuU48sDBfcpg23O0tfGkfZNiZbYTvMw==}
 
   '@emnapi/core@1.11.1':
     resolution: {integrity: sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==}
@@ -2214,6 +2211,10 @@ packages:
     resolution: {integrity: sha512-0LrrStPOdJj+SPCCrGhzryycLjwcgUSHBtxNA8aIDxf0GLsRh1cKYhB00Gd1lDOS4yGH69+SNn13+TWbVHETFQ==}
     engines: {node: ^10 || ^12.20.0 || ^14.13.0 || >=15.0.0, npm: '>=7.0.0'}
 
+  cssomnom@0.1.11:
+    resolution: {integrity: sha512-P4RkO1Sq2Ual77xypEmAc4MkM5k2Ha4UwtBPCOpJmXculGCYPgzsU/xnOCy084esZaPePgGkkJg4Il/HE7GS5A==}
+    engines: {node: '>=20.0.0'}
+
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
@@ -2449,8 +2450,8 @@ packages:
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
 
-  fake-indexeddb@6.2.6:
-    resolution: {integrity: sha512-ihhmr0KoET51jT8R4YhbUYuLLvr1qqO6INISygtN16i8loR8kAxtAUr4+EKHTSMjL+lggaAn4OC7DRqzrNgnuQ==}
+  fake-indexeddb@6.2.7:
+    resolution: {integrity: sha512-g0ghQ+BmU3CSZaHup5FigEAAtCmtNyxkrmID7OAeK2qONHghw1aQ2l2T1RxmfhP1H1tEXVRWArUTGVCk5832ww==}
     engines: {node: '>=18'}
 
   fast-redact@3.5.0:
@@ -2510,15 +2511,18 @@ packages:
     resolution: {integrity: sha512-8e1++BCiTzUno9v5IZ2J6bv4RU+3UKDmqWUQD0MIMVCd9AdhWkO1gw57oo1mNEX1dMq2EGI+FbWz4B92pscSQg==}
     engines: {node: '>= 18'}
 
-  framer-motion@14.7.1:
-    resolution: {integrity: sha512-mFDYZxyfeZnpvL/zEQEqLZNYVA/ya47c9TBfZb/PEoNBBVSVvCLkMrCv9U38cuw72W161XENZwZB0+4nIBLEJg==}
+  framer-motion@14.9.0:
+    resolution: {integrity: sha512-g1hZu8WoTwgsoVAaqEEcefhvR03cKGtkmrKaRrWpXhnM3LGR8jl1u2qyJ1PMVlO7LKQHE8TTRQYUlMmnrY4L+g==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
+      remix: ^3.1.0
     peerDependenciesMeta:
       react:
         optional: true
       react-dom:
+        optional: true
+      remix:
         optional: true
 
   fs-extra@11.3.6:
@@ -2975,8 +2979,8 @@ packages:
     resolution: {integrity: sha512-wM1+Z03eypVAVUCE7QdSqpVIvelbOakn1M0bPDoA4SGWPx3sNDVUiMo3L6To6WWGClB7VyXnhQ4Sn7gxiJbE6A==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  linkedom@0.18.14:
-    resolution: {integrity: sha512-BRUnkOm4YR5vo+qI3j0EbungB0vZPSCue5AdnTQRaxAGSbsOZiBFRO0rh4zlo8qXUhli8pxvnpEXDklMnlq2Rg==}
+  linkedom@0.18.15:
+    resolution: {integrity: sha512-o0w7eD/SvoCao+pUi6dzocCLuMR11g4Tv/et0W2OUzwWmUcewntSzyl+Ua/K+0yKym0Y/Mav3nFAaI5Av5jvZg==}
     engines: {node: '>=16'}
     peerDependencies:
       canvas: '>= 2'
@@ -3113,21 +3117,24 @@ packages:
   mlly@1.8.2:
     resolution: {integrity: sha512-d+ObxMQFmbt10sretNDytwt85VrbkhhUA/JBGm1MPaWJ65Cl4wOgLaB1NYvJSZ0Ef03MMEU/0xpPMXUIQ29UfA==}
 
-  motion-dom@14.7.1:
-    resolution: {integrity: sha512-p9q9F7+HoijbQjUG/cSGNmWS2t1OaAKxkd2RG5gQJRoDwoTap/Khb7K1P5rLW90crnSmx0rcRXzh3Jd5UNrpEw==}
+  motion-dom@14.9.0:
+    resolution: {integrity: sha512-wGjKbNDMHd75aLStkxLCKZ+T8/wusZHklmNLK1Ak68UrdBt2X8I4yweYR/0WonxGnBsw6oloDTIV8pN+UTvzzA==}
 
   motion-utils@14.7.0:
     resolution: {integrity: sha512-woO0/Nb7ys75f94fjvQi/6leiHGvZUYkeHUPEZ3vxsV+9OpEVhkxp01x8MlRwX0zt31EqgXsKDAoBoJLC148Tw==}
 
-  motion@14.7.1:
-    resolution: {integrity: sha512-o+q7MExUC0RuCUF62HxF9v+fNVX7pUMYZqlyigQJJFAgAsmnnSlAOYeG41hGYkamxFR0rdBA0KXpaBJ28/GGAw==}
+  motion@14.9.0:
+    resolution: {integrity: sha512-Oc+jjq/AyhwsnEUaAq2xEu/SsfKTphgsXqoxddTSLzgTdXZc6FwHcp9RLGSECccTykN1/p3gWUN4kMJAamm+1g==}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
+      remix: ^3.1.0
     peerDependenciesMeta:
       react:
         optional: true
       react-dom:
+        optional: true
+      remix:
         optional: true
 
   mri@1.2.0:
@@ -4162,8 +4169,6 @@ snapshots:
       defu: 6.1.7
       many-keys-map: 3.0.3
 
-  '@acemir/cssom@0.9.32': {}
-
   '@aklinker1/rollup-plugin-visualizer@5.12.0(rollup@4.62.2)':
     dependencies:
       open: 8.4.2
@@ -4465,46 +4470,46 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@dnd-kit/abstract@0.5.1':
+  '@dnd-kit/abstract@0.5.3':
     dependencies:
-      '@dnd-kit/geometry': 0.5.1
-      '@dnd-kit/state': 0.5.1
+      '@dnd-kit/geometry': 0.5.3
+      '@dnd-kit/state': 0.5.3
       tslib: 2.8.1
 
-  '@dnd-kit/collision@0.5.1':
+  '@dnd-kit/collision@0.5.3':
     dependencies:
-      '@dnd-kit/abstract': 0.5.1
-      '@dnd-kit/geometry': 0.5.1
+      '@dnd-kit/abstract': 0.5.3
+      '@dnd-kit/geometry': 0.5.3
       tslib: 2.8.1
 
-  '@dnd-kit/dom@0.5.1':
+  '@dnd-kit/dom@0.5.3':
     dependencies:
-      '@dnd-kit/abstract': 0.5.1
-      '@dnd-kit/collision': 0.5.1
-      '@dnd-kit/geometry': 0.5.1
-      '@dnd-kit/state': 0.5.1
+      '@dnd-kit/abstract': 0.5.3
+      '@dnd-kit/collision': 0.5.3
+      '@dnd-kit/geometry': 0.5.3
+      '@dnd-kit/state': 0.5.3
       tslib: 2.8.1
 
-  '@dnd-kit/geometry@0.5.1':
+  '@dnd-kit/geometry@0.5.3':
     dependencies:
-      '@dnd-kit/state': 0.5.1
+      '@dnd-kit/state': 0.5.3
       tslib: 2.8.1
 
-  '@dnd-kit/helpers@0.5.1':
+  '@dnd-kit/helpers@0.5.3':
     dependencies:
-      '@dnd-kit/abstract': 0.5.1
+      '@dnd-kit/abstract': 0.5.3
       tslib: 2.8.1
 
-  '@dnd-kit/react@0.5.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@dnd-kit/react@0.5.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@dnd-kit/abstract': 0.5.1
-      '@dnd-kit/dom': 0.5.1
-      '@dnd-kit/state': 0.5.1
+      '@dnd-kit/abstract': 0.5.3
+      '@dnd-kit/dom': 0.5.3
+      '@dnd-kit/state': 0.5.3
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
       tslib: 2.8.1
 
-  '@dnd-kit/state@0.5.1':
+  '@dnd-kit/state@0.5.3':
     dependencies:
       '@preact/signals-core': 1.14.4
       tslib: 2.8.1
@@ -5716,6 +5721,8 @@ snapshots:
     dependencies:
       css-tree: 2.2.1
 
+  cssomnom@0.1.11: {}
+
   csstype@3.2.3: {}
 
   cycletls@2.0.5:
@@ -5956,7 +5963,7 @@ snapshots:
 
   extend@3.0.2: {}
 
-  fake-indexeddb@6.2.6: {}
+  fake-indexeddb@6.2.7: {}
 
   fast-redact@3.5.0: {}
 
@@ -6008,9 +6015,9 @@ snapshots:
 
   formdata-node@6.0.3: {}
 
-  framer-motion@14.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+  framer-motion@14.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
-      motion-dom: 14.7.1
+      motion-dom: 14.9.0
       motion-utils: 14.7.0
       tslib: 2.8.1
     optionalDependencies:
@@ -6404,10 +6411,10 @@ snapshots:
 
   lines-and-columns@2.0.4: {}
 
-  linkedom@0.18.14:
+  linkedom@0.18.15:
     dependencies:
-      '@acemir/cssom': 0.9.32
       css-select: 7.0.0
+      cssomnom: 0.1.11
       html-escaper: 3.0.3
       htmlparser2: 10.1.0
       uhyphen: 0.2.0
@@ -6555,15 +6562,15 @@ snapshots:
       pkg-types: 1.3.1
       ufo: 1.6.4
 
-  motion-dom@14.7.1:
+  motion-dom@14.9.0:
     dependencies:
       motion-utils: 14.7.0
 
   motion-utils@14.7.0: {}
 
-  motion@14.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+  motion@14.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
-      framer-motion: 14.7.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      framer-motion: 14.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       tslib: 2.8.1
     optionalDependencies:
       react: 19.3.1
@@ -7587,7 +7594,7 @@ snapshots:
       is-wsl: 3.1.1
       json5: 2.2.3
       jszip: 3.10.1
-      linkedom: 0.18.14
+      linkedom: 0.18.15
       magicast: 0.5.3
       nano-spawn: 2.1.0
       nanospinner: 1.2.2

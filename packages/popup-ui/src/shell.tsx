@@ -53,8 +53,6 @@ interface NavItem {
   // Views that only exist on one platform. Extensions are Twitch-only, so the
   // rail hides the entry rather than showing a destination that would be empty.
   platform?: Platform;
-  // Still settling: the rail marks the entry so its rough edges are expected.
-  beta?: boolean;
 }
 
 const DROPS_ITEMS: NavItem[] = [
@@ -69,8 +67,8 @@ const DROPS_ITEMS: NavItem[] = [
 // sources follow in another. Each group lists its entries in the user's watch
 // order.
 const EXTENSION_ITEMS: NavItem[] = [
-  { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch", beta: true },
-  { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch", beta: true },
+  { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch" },
+  { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch" },
 ];
 const OTHER_ITEMS: NavItem[] = [{ view: "watchlist", labelKey: "navWatchlist", icon: Eye }];
 const SOURCE_ITEMS: NavItem[] = [...EXTENSION_ITEMS, ...OTHER_ITEMS];
@@ -285,7 +283,7 @@ function NavGroup({
           <button
             key={item.view}
             type="button"
-            aria-label={item.beta ? `${label}, ${t("navBeta")}` : label}
+            aria-label={label}
             aria-current={selected ? "page" : undefined}
             data-view={item.view}
             onClick={() => onViewChange(item.view)}
@@ -310,18 +308,6 @@ function NavGroup({
               ) : null}
             </span>
             <span className="@[560px]:inline hidden truncate">{label}</span>
-            {item.beta ? (
-              <span
-                data-rail-beta
-                aria-hidden
-                className={cn(
-                  "@[560px]:inline hidden shrink-0 rounded border px-1 py-px text-[8.5px] font-semibold uppercase leading-none tracking-[0.06em]",
-                  selected ? "border-white/30 text-zinc-200" : "border-white/15 text-zinc-500",
-                )}
-              >
-                {t("navBeta")}
-              </span>
-            ) : null}
             {count === undefined ? null : (
               <span
                 className={cn(

@@ -155,7 +155,7 @@ jobs:
           TRIGGER: ${{ github.event.pull_request.number }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          git add package.json packages/*/package.json packages/site/src/changelog.json
+          git add package.json packages/site/src/changelog.json
           git diff --cached --quiet || exit 0
           gh pr comment "$TRIGGER" --body "\`main\` already carries the version bump for \`$VERSION\`, so there is no release pull request to cut. This is the abandoned-release case: the release pull request merged but its \`production\` approval was never given. Dispatch **Release** manually to finish publishing \`$VERSION\`; do not re-apply a release label."
           echo "main already carries $VERSION; dispatch Release to finish publication" >&2
@@ -172,7 +172,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "release/$VERSION"
-          git add package.json packages/*/package.json packages/site/src/changelog.json
+          git add package.json packages/site/src/changelog.json
           git diff --cached --quiet || git commit -m "chore(release): bump version to $VERSION"
           git push --force "https://x-access-token:$GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY" \
             "HEAD:refs/heads/release/$VERSION"

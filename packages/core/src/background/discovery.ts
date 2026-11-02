@@ -60,6 +60,7 @@ export function createDiscovery<S extends EngineSettings>(
   | "drainDiscoveryEvents"
   | "selectionGeneration"
   | "searchCategories"
+  | "selectRewardLane"
 > {
   const {
     createAdapter,
@@ -555,8 +556,45 @@ export function createDiscovery<S extends EngineSettings>(
     });
   }
 
+  // The popup's lane picker (#904). The platform answers for the lane; the
+  // next refresh, which the router runs right after, shows what it took.
+  async function selectRewardLane(
+    message: Extract<CoreRuntimeMessage, { type: "selectRewardLane" }>,
+  ): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      const [settings, state] = await readSettingsAndState();
+      const campaign = state.campaigns[message.platform].find(
+        (item) => item.id === message.campaignId,
+      );
+      let adapter: PlatformAdapter | undefined;
+      try {
+        if (!campaign) throw new Error("the campaign is no longer listed");
+        adapter = createAdapters(settings, emit)[message.platform];
+        if (!adapter.selectRewardLane) throw new Error("this platform has no lanes");
+        await adapter.selectRewardLane(campaign, message.track, message.lane);
+        emit({
+          category: "diagnostic",
+          level: "info",
+          message: `Equipped lane ${message.lane} of track ${message.track} for ${campaign.name}`,
+          platform: message.platform,
+        });
+      } catch (error) {
+        emit({
+          category: "diagnostic",
+          level: "warn",
+          message: `Lane selection failed: ${errorMessage(error)}`,
+          platform: message.platform,
+        });
+      } finally {
+        adapter?.flushRouteDiagnostics?.(emit);
+      }
+      await reportBestEffort(events);
+    });
+  }
+
   return {
     searchCategories,
+    selectRewardLane,
     selectionFingerprint,
     refreshDiscovery,
     discoverySnapshot,

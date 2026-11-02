@@ -27,9 +27,9 @@ const ogImage = `${SITE.url}/og.png`;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 // Structured data: a free browser extension. `softwareVersion` is derived from
-// the released workspace version rather than hardcoded — the release flow keeps
-// the root package.json in step with every published manifest (see
-// `packagePaths` in scripts/release.mjs), so this cannot drift.
+// the released application version rather than hardcoded — the root
+// package.json is its only declaration and the browser manifests are built from
+// it (see scripts/release.mjs), so this cannot drift.
 const softwareLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",

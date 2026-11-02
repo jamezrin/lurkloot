@@ -54,6 +54,8 @@ export const PATHS = Object.freeze({
   // Ignored by git, so generating never leaves the tree dirty.
   bundle: `${packageRoot}artifacts/store`,
   descriptions: `${packageRoot}store-descriptions`,
+  // The application version lives only in the repository root manifest (#184).
+  versionManifest: fileURLToPath(new URL("../../../../package.json", import.meta.url)),
 });
 
 export function validateLocales(requested) {

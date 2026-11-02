@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { defineConfig } from "wxt";
 import tailwindcss from "@tailwindcss/vite";
@@ -23,6 +23,13 @@ import { applyProviderOptionalPermissions } from "./src/extensions/manifest";
 const messagesDir = dirname(
   createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"),
 );
+
+// The application version is declared only in the repository root manifest
+// (#184); this package.json has none. Set it explicitly so the browser
+// manifests, and the zip names WXT derives from them, carry it.
+const { version } = JSON.parse(
+  readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+) as { version: string };
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
@@ -48,6 +55,7 @@ export default defineConfig({
   }),
   manifest: ({ browser }) => ({
     default_locale: "en",
+    version,
     name: "__MSG_extensionStoreName__",
     description: "__MSG_extensionDescription__",
     // declarativeNetRequestWithHostAccess (no install warning; acts only on

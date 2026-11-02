@@ -110,6 +110,42 @@ export interface DropReward {
   subscriptionMarked?: boolean;
   isCurrentReward?: boolean;
   claimGuidance?: ClaimGuidance;
+  // A reward earned again in each window (a Twitch reward-campaign group earned
+  // on three days): how many grants are in, of how many. The current grant is
+  // what claimKey names, so a claim of one grant never counts for the next.
+  repeat?: RewardRepeat;
+  // Set when the reward sits on one lane of a track the user picks between.
+  // Only the equipped lane earns; the others are action rewards.
+  lane?: RewardLaneRef;
+}
+
+export interface RewardRepeat {
+  grantCount: number;
+  times: number;
+}
+
+export interface RewardLaneRef {
+  track: string;
+  lane: string;
+}
+
+// One lane the user can equip on a track, for the popup's picker.
+export interface CampaignLaneOption {
+  lane: string;
+  name: string;
+  imageUrl?: string;
+  equipped: boolean;
+}
+
+export interface CampaignLaneChoice {
+  track: string;
+  lanes: CampaignLaneOption[];
+}
+
+// A category a campaign that spans several earns in.
+export interface CampaignCategory {
+  id: string;
+  name: string;
 }
 
 export interface DropCampaign {
@@ -120,6 +156,15 @@ export interface DropCampaign {
   gameName?: string;
   gameImageUrl?: string;
   categoryId?: string;
+  // Set instead of categoryId on a campaign that earns in any of several
+  // categories (a Twitch reward campaign). Each one is matched on its own.
+  categories?: CampaignCategory[];
+  // Runs on every channel in its categories, not on channels that advertise it,
+  // so no per-channel availability lookup can confirm it.
+  sitewide?: boolean;
+  // Who runs the campaign, shown where a game name would be. Never a category.
+  brand?: string;
+  laneChoices?: CampaignLaneChoice[];
   startsAt?: string;
   endsAt?: string;
   status: CampaignStatus;

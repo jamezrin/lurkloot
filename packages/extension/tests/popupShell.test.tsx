@@ -155,13 +155,10 @@ describe("popup workspace shell", () => {
     ).toBe("true");
   });
 
-  it("marks the Twitch extension destinations as beta, and only them", async () => {
+  it("shows the Twitch extension destinations without a beta badge", async () => {
     const container = await mountPopup();
-    const beta = [...container.querySelectorAll("[data-rail-beta]")].map((tag) =>
-      tag.closest("button")?.getAttribute("data-view"),
-    );
-    expect(beta).toEqual(["nopixel", "fortnite"]);
-    expect(rail(container, "nopixel")?.getAttribute("aria-label")).toBe("NoPixel V, Beta");
+    expect(container.querySelector("[data-rail-beta]")).toBeNull();
+    expect(rail(container, "nopixel")?.getAttribute("aria-label")).toBe("NoPixel V");
   });
 
   it("starts the Games search afresh on the other platform", async () => {

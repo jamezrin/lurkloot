@@ -524,6 +524,9 @@ export interface ControllerCalls<S extends EngineSettings> {
   searchCategories(
     message: Extract<CoreRuntimeMessage, { type: "searchCategories" }>,
   ): Promise<CategorySearchResult>;
+  selectRewardLane(
+    message: Extract<CoreRuntimeMessage, { type: "selectRewardLane" }>,
+  ): Promise<void>;
   tickNow(): Promise<RuntimeSnapshot<S>>;
   runDropClaims(platform: Platform): Promise<void>;
 

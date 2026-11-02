@@ -2377,5 +2377,26 @@
   },
   "kickStreakDays": {
     "message": "Sequência de $1 dias assistindo"
+  },
+  "rewardRepeatProgress": {
+    "message": "Dia $1 de $2"
+  },
+  "rewardNextWindow": {
+    "message": "Próxima janela $1"
+  },
+  "rewardLaneNotEquipped": {
+    "message": "Linha não equipada"
+  },
+  "rewardLanesTitle": {
+    "message": "Linha que você está ganhando"
+  },
+  "rewardLanesPick": {
+    "message": "Escolha uma linha para ganhar"
+  },
+  "rewardLaneEquipped": {
+    "message": "Equipada"
+  },
+  "rewardLanesOwnedOnly": {
+    "message": "Uma linha só evolui um emblema que você já tem. Sem ele, assistir não rende nada."
   }
 }

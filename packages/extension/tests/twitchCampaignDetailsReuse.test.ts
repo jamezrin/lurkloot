@@ -69,6 +69,7 @@ function detailRecordingFetcher(
     const op = body.operationName;
     if (op === "Inventory") return EMPTY_INVENTORY;
     if (op === "ViewerDropsDashboard") return dashboard(listedCampaigns());
+    if (op === "RewardCampaignsAvailable") return { data: { rewardCampaignsAvailableToUser: [] } };
     if (op === "DropCampaignDetails") {
       const dropID = String((body.variables as { dropID?: string }).dropID);
       requested.push(dropID);
@@ -109,7 +110,8 @@ describe("twitch campaign details reuse (#339)", () => {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
       const first = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
       expect(requested).toEqual(["a", "b", "c"]);
-      expect(fetcher.fetchJson).toHaveBeenCalledTimes(3);
+      // Inventory, dashboard, one details batch and the reward campaign listing.
+      expect(fetcher.fetchJson).toHaveBeenCalledTimes(4);
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
       const second = await twitchAdapter(fetcher, undefined, { discoveryState }, (event) =>
@@ -118,8 +120,9 @@ describe("twitch campaign details reuse (#339)", () => {
 
       expect(requested).toEqual(["a", "b", "c"]);
       // The warm tick performs only inventory + dashboard transport requests;
-      // campaign details are served from the state shared by rebuilt adapters.
-      expect(fetcher.fetchJson).toHaveBeenCalledTimes(5);
+      // campaign details and the reward campaign listing are served from the
+      // state shared by rebuilt adapters.
+      expect(fetcher.fetchJson).toHaveBeenCalledTimes(6);
       expect(second.map((campaign) => campaign.id)).toEqual(first.map((campaign) => campaign.id));
       expect(
         events.some(
