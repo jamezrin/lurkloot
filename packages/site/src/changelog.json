@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.23.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Lurkloot now farms Twitch's sitewide reward campaigns, such as the Pokémon watch-time events that award Pichu, Pikachu and Gastly badges. They appear in the Drops queue grouped under their brand. Rewards earned once a day show which day you're on and when the next one opens. When a campaign makes you pick a lane, its card lets you choose one, and it waits under Action required until you do."
+      },
+      {
+        "kind": "improved",
+        "text": "NoPixel V and Fortnite are no longer marked Beta in the popup."
+      }
+    ]
+  },
+  {
     "version": "1.22.0",
     "changes": [
       {
