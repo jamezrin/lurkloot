@@ -115,6 +115,10 @@ const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 // How long a stream-down push vouches for an offline check (#759). A tick
 // follows the push within a minute; anything older is from another session.
 const STREAM_DOWN_HINT_TTL_MS = 10 * 60_000;
+// How long a claim Twitch refused for an unlinked game account holds that
+// campaign's claims back (#964). Linking happens on another site, so the claim
+// is retried after this window rather than on every tick.
+const UNLINKED_CLAIM_RETRY_MS = 15 * 60_000;
 // Followed channels that are live right now. Bounded generously: the preference
 // only matters for channels that also show up in a campaign's directory page.
 const FOLLOWED_CHANNELS_LIMIT = 100;
@@ -358,6 +362,27 @@ const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
     claimCommunityPoints(input: $input) { status }
   }`,
 };
+
+// Where Twitch offers "Connect" for a campaign without its own link URL.
+const TWITCH_DROPS_CAMPAIGNS_URL = "https://www.twitch.tv/drops/campaigns";
+
+interface TwitchClaimDropRewardsPayload {
+  status?: string | null;
+  dropType?: { id?: string | null } | null;
+}
+
+// Twitch answers a claim for a campaign whose game account is not linked with
+// status ELIGIBLE_FOR_ALL, but grants nothing: the dropType comes back with an
+// empty id. A granted claim, and a replay of one, carries the drop's id. The
+// status alone cannot tell them apart (#964). isUserAccountConnected is not
+// used: Twitch may report false for drops that need no game link, which still
+// grant. A payload without a dropType is taken at its status.
+export function twitchClaimGrantedNothing(
+  payload: TwitchClaimDropRewardsPayload | null | undefined,
+): boolean {
+  const dropType = payload?.dropType;
+  return dropType !== undefined && dropType !== null && !dropType.id;
+}
 
 interface TwitchGqlResponse<T> {
   data?: T;
@@ -698,6 +723,23 @@ export class TwitchDiscoveryState {
   // When the Hermes playback topic last said each channel's stream ended
   // (#759). Lives here because the push outlives the per-tick adapter.
   private readonly streamDownAt = new Map<string, number>();
+  // When Twitch last answered a claim for each campaign as "account not
+  // connected" (#964). Lives here for the same reason as streamDownAt.
+  private readonly unlinkedClaimRefusedAt = new Map<string, number>();
+
+  recordUnlinkedClaimRefusal(campaignId: string, now = Date.now()): void {
+    this.unlinkedClaimRefusedAt.set(campaignId, now);
+  }
+
+  // Whether a recent claim for this campaign was refused because its game
+  // account is not linked. Expires so a newly linked account claims again.
+  unlinkedClaimRefusedRecently(campaignId: string, now = Date.now()): boolean {
+    const at = this.unlinkedClaimRefusedAt.get(campaignId);
+    if (at === undefined) return false;
+    if (now - at < UNLINKED_CLAIM_RETRY_MS) return true;
+    this.unlinkedClaimRefusedAt.delete(campaignId);
+    return false;
+  }
 
   recordPlaybackNotice(notice: TwitchPlaybackNotice, now = Date.now()): void {
     if (notice.type === "stream-down") this.streamDownAt.set(notice.channelId, now);
@@ -748,6 +790,7 @@ export class TwitchDiscoveryState {
       this.progressConfirmedAvailabilityByPair.clear();
       this.accountLinkingDiagnosticFingerprints.clear();
       this.subscriptionEvidenceFingerprints.clear();
+      this.unlinkedClaimRefusedAt.clear();
     }
     this.authenticatedUserId = userId;
     return identityChanged;
@@ -3427,9 +3470,15 @@ export class TwitchAdapter implements PlatformAdapter {
   // drop-instance id (see parseTwitchReward). Until then, defer. An unlinked
   // campaign defers too: Twitch answers its claim with a success status but
   // grants nothing, so the drop would be claimed and reported again on every
-  // fresh inventory. Linking the account makes it claim-ready.
+  // fresh inventory. Linking the account makes it claim-ready. A campaign whose
+  // link state is unknown (found only through AvailableDrops) is tried once;
+  // if Twitch answers that the account is not connected, it waits too (#964).
   isClaimReady(reward: DropReward, campaign: DropCampaign): boolean {
-    return Boolean(reward.claimId) && campaign.accountLinked !== false;
+    return (
+      Boolean(reward.claimId)
+      && campaign.accountLinked !== false
+      && !(campaign.id && this.discoveryState.unlinkedClaimRefusedRecently(campaign.id))
+    );
   }
 
   async claimReward(
@@ -3486,13 +3535,29 @@ export class TwitchAdapter implements PlatformAdapter {
     }
   }
 
+  // Twitch granted nothing for a success-status claim because the campaign's
+  // game account is not linked (#964). The claim loop stays quiet because the
+  // reward carries guidance; isClaimReady holds the campaign back for a while
+  // so the claim is not sent again on every tick.
+  private reportUnlinkedClaimRefusal(campaign: DropCampaign, reward: DropReward): void {
+    if (campaign.id) this.discoveryState.recordUnlinkedClaimRefusal(campaign.id);
+    const url = safeHttpsUrl(campaign.accountLinkUrl) ?? TWITCH_DROPS_CAMPAIGNS_URL;
+    reward.claimGuidance = { kind: "link_required", url };
+    diagnostic(
+      this.emit,
+      "warn",
+      `Cannot claim "${reward.name}" yet — Twitch granted nothing because ${campaign.name}'s game account is not linked. Link it at ${url} and LurkLoot will claim it.`,
+      "twitch",
+    );
+  }
+
   private async runClaim(
     campaign: DropCampaign,
     reward: DropReward,
     signal?: AbortSignal,
     integrityOverride?: TwitchIntegrity,
   ): Promise<boolean> {
-    const result = await this.gql<{ claimDropRewards?: { status?: string } }>(
+    const result = await this.gql<{ claimDropRewards?: TwitchClaimDropRewardsPayload | null }>(
       "DropsPage_ClaimDropRewards",
       TWITCH_QUERIES.claimHash,
       { input: { dropInstanceID: reward.claimId } },
@@ -3502,8 +3567,13 @@ export class TwitchAdapter implements PlatformAdapter {
       signal,
       integrityOverride,
     );
-    const status = result.data?.claimDropRewards?.status;
-    if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") return true;
+    const payload = result.data?.claimDropRewards;
+    const status = payload?.status;
+    if (status === "ELIGIBLE_FOR_ALL" || status === "DROP_INSTANCE_ALREADY_CLAIMED") {
+      if (campaign.sitewide || !twitchClaimGrantedNothing(payload)) return true;
+      this.reportUnlinkedClaimRefusal(campaign, reward);
+      return false;
+    }
     // A reward-campaign group is claimed through the drops tray, which also
     // counts a limited grant or an answer without a status as success (#904).
     if (
