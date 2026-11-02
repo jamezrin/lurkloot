@@ -176,8 +176,7 @@ pnpm cli auth status
   tools on the Network tab with **Preserve log** on before you sign in, filter
   for `access_token`, and copy the `location` header of the `id.twitch.tv`
   redirect. This token sees every drop campaign without a Client-Integrity
-  token. A newly issued token may not earn watch time for its first half hour
-  or so.
+  token.
 - **`auth twitch device-login`** runs Twitch's device-code OAuth against the
   Smart TV client: it prints an activation URL + code, you approve it on any
   device, and the token and its client ID are saved together. Twitch only lets
