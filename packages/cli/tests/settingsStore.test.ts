@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse as parseJsonc } from "jsonc-parser";
 import type { EngineSettings } from "@lurkloot/shared/models";
+import { mergeEngineSettings } from "@lurkloot/shared/settings";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import { defaultConfigJsonc, loadConfig } from "../src/config";
 import {
@@ -468,6 +469,29 @@ describe("atomic writes", () => {
     await Promise.all([store.save(first), store.save(second)]);
     expect((await store.load()).pollIntervalMinutes).toBe(11);
     expect(tempFilesIn(dir)).toEqual([]);
+  });
+});
+
+describe("controller-shaped saves", () => {
+  // The controller saves applySettingsPatch output, normalized by the shared
+  // mergeEngineSettings. If that normalizer and the CLI's drift apart, every
+  // commit would rewrite the file or be rejected.
+  it("accepts mergeEngineSettings output unchanged, from the template and after every change", async () => {
+    for (const text of [BASE_CONFIG, defaultConfigJsonc()]) {
+      writeFileSync(configPath, text, "utf8");
+      const store = createCliSettingsStore(configPath);
+      await store.save(mergeEngineSettings(await store.load()));
+      expect(readFileSync(configPath, "utf8")).toBe(text);
+    }
+    const store = createCliSettingsStore(configPath);
+    const engine = await store.load();
+    for (const [path, value] of Object.entries(MUTATIONS)) {
+      setPath(engine as unknown as Record<string, unknown>, path, value);
+    }
+    await store.save(mergeEngineSettings(engine));
+    const saved = readFileSync(configPath, "utf8");
+    await store.save(mergeEngineSettings(await store.load()));
+    expect(readFileSync(configPath, "utf8")).toBe(saved);
   });
 });
 
