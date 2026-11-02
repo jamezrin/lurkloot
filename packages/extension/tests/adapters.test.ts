@@ -6463,6 +6463,152 @@ describe("TwitchAdapter", () => {
     );
   });
 
+  // #964: a campaign found only through AvailableDrops has no link state, so it
+  // is tried. Twitch then answers ELIGIBLE_FOR_ALL but grants nothing, which
+  // must not be reported as a claim (live response, 2026-11-02).
+  describe("claims Twitch answers without granting anything (#964)", () => {
+    const claimableReward = (): DropReward =>
+      ({
+        id: "drop",
+        name: "Tier 1",
+        requiredMinutes: 60,
+        watchedMinutes: 60,
+        status: "claimable",
+        claimId: "user#campaign#drop",
+      }) as DropReward;
+    const campaign = {
+      id: "campaign",
+      name: "FH EntireDirectory Oct26",
+      accountLinkUrl: "https://drops-register.ubi.com/",
+    } as DropCampaign;
+    const claimFetcher = (payload: Record<string, unknown>) => {
+      let claims = 0;
+      const fetcher = jsonFetcher((_url, init) => {
+        if (operation(init) === "DropsPage_ClaimDropRewards") {
+          claims += 1;
+          return { data: { claimDropRewards: payload } };
+        }
+        throw new Error(`Unexpected op ${operation(init)}`);
+      });
+      return { fetcher, claims: () => claims };
+    };
+    const unlinkedPayload = {
+      status: "ELIGIBLE_FOR_ALL",
+      isUserAccountConnected: false,
+      dropType: { id: "", campaign: { id: "", detailsURL: "" } },
+    };
+
+    it("does not count an unlinked account's ELIGIBLE_FOR_ALL as claimed and gives link guidance", async () => {
+      const events: unknown[] = [];
+      const discoveryState = new TwitchDiscoveryState();
+      const { fetcher } = claimFetcher(unlinkedPayload);
+      const adapter = twitchAdapter(
+        fetcher,
+        vi.fn(async () => true),
+        { discoveryState },
+        (event) => {
+          events.push(event);
+        },
+      );
+      const reward = claimableReward();
+
+      await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+      expect(reward.claimGuidance).toEqual({
+        kind: "link_required",
+        url: "https://drops-register.ubi.com/",
+      });
+      expect(JSON.stringify(events)).toContain("game account is not linked");
+    });
+
+    it("holds the campaign's claims back after the refusal, then retries once the window passes", async () => {
+      const discoveryState = new TwitchDiscoveryState();
+      const { fetcher } = claimFetcher(unlinkedPayload);
+      const adapter = twitchAdapter(
+        fetcher,
+        vi.fn(async () => true),
+        { discoveryState },
+      );
+      const reward = claimableReward();
+      expect(adapter.isClaimReady(reward, campaign)).toBe(true);
+
+      await adapter.claimReward(campaign, reward);
+
+      expect(adapter.isClaimReady(reward, campaign)).toBe(false);
+      // Another campaign is unaffected.
+      expect(adapter.isClaimReady(reward, { ...campaign, id: "other" })).toBe(true);
+      const refusedAt = Date.now();
+      expect(discoveryState.unlinkedClaimRefusedRecently("campaign", refusedAt + 14 * 60_000)).toBe(
+        true,
+      );
+      expect(discoveryState.unlinkedClaimRefusedRecently("campaign", refusedAt + 16 * 60_000)).toBe(
+        false,
+      );
+      expect(adapter.isClaimReady(reward, campaign)).toBe(true);
+    });
+
+    it("forgets refusals when the signed-in account changes", async () => {
+      const discoveryState = new TwitchDiscoveryState();
+      discoveryState.setAuthenticatedUser("user-a");
+      discoveryState.recordUnlinkedClaimRefusal("campaign");
+      discoveryState.setAuthenticatedUser("user-b");
+      expect(discoveryState.unlinkedClaimRefusedRecently("campaign")).toBe(false);
+    });
+
+    it("counts a granted claim even when Twitch reports the account as not connected", async () => {
+      // Drops that need no game link may still report isUserAccountConnected
+      // false; the filled dropType id is what says the reward was granted.
+      const { fetcher } = claimFetcher({
+        status: "ELIGIBLE_FOR_ALL",
+        isUserAccountConnected: false,
+        dropType: { id: "drop" },
+      });
+      const adapter = twitchAdapter(
+        fetcher,
+        vi.fn(async () => true),
+      );
+
+      await expect(adapter.claimReward(campaign, claimableReward())).resolves.toBe(true);
+    });
+
+    it("treats an empty dropType id as nothing granted even without the connection flag", async () => {
+      const { fetcher } = claimFetcher({ status: "ELIGIBLE_FOR_ALL", dropType: { id: "" } });
+      const adapter = twitchAdapter(
+        fetcher,
+        vi.fn(async () => true),
+      );
+
+      await expect(adapter.claimReward(campaign, claimableReward())).resolves.toBe(false);
+    });
+
+    it("counts a linked account's claim, and a replay of it, which carry the drop id", async () => {
+      const { fetcher, claims } = claimFetcher({
+        status: "ELIGIBLE_FOR_ALL",
+        isUserAccountConnected: true,
+        dropType: { id: "drop", campaign: { id: "campaign" } },
+      });
+      const adapter = twitchAdapter(
+        fetcher,
+        vi.fn(async () => true),
+      );
+
+      await expect(adapter.claimReward(campaign, claimableReward())).resolves.toBe(true);
+      await expect(adapter.claimReward(campaign, claimableReward())).resolves.toBe(true);
+      expect(claims()).toBe(2);
+    });
+
+    it("leaves sitewide reward-campaign group claims to their status", async () => {
+      const { fetcher } = claimFetcher({ status: "ELIGIBLE_FOR_ALL", dropType: { id: "" } });
+      const adapter = twitchAdapter(
+        fetcher,
+        vi.fn(async () => true),
+      );
+
+      await expect(
+        adapter.claimReward({ ...campaign, sitewide: true }, claimableReward()),
+      ).resolves.toBe(true);
+    });
+  });
+
   // Twitch answers the claim mutation for an unlinked campaign with a success
   // status but grants nothing, so the drop stays unclaimed and every fresh
   // inventory (each re-enable) would claim and report it again.
