@@ -381,8 +381,6 @@ describe("i18n", () => {
       // "Badge" is the French and Italian word too.
       "rewardBadge",
       "rewardBadgeNamed",
-      // "Beta" is the same word in Spanish, German, Italian, Portuguese and Turkish.
-      "navBeta",
       // Provider names, which are brands and never translated.
       "navNoPixel",
       "navFortnite",
