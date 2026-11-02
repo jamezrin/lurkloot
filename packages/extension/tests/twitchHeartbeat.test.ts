@@ -50,7 +50,9 @@ describe("Twitch heartbeat strategies", () => {
       expect(resolution.warnings).toEqual([]);
     });
 
-    it("selects Trowel for the CLI Android automatic resolution", () => {
+    // Twitch accepts Trowel beacons but no longer credits drop progress for
+    // them; HLS segment requests credit an Android token (verified 2026-11-02).
+    it("selects HLS for the CLI Android automatic resolution", () => {
       const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, {
         host: "cli",
         twitchIdentity: "android",
@@ -60,10 +62,11 @@ describe("Twitch heartbeat strategies", () => {
         emit,
         log,
         identity: "android",
-        post: vi.fn(),
+        exchange: vi.fn(),
       });
 
-      expect(strategy.id).toBe("twitch-heartbeat-trowel-v1");
+      expect(strategy.id).toBe("twitch-heartbeat-hls-v1");
+      expect(resolution.warnings).toEqual([]);
     });
 
     it("selects only legacy GQL for an explicit rollback", () => {

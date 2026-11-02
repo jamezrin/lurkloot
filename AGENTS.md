@@ -137,9 +137,9 @@ The repository is licensed under Apache License 2.0; see `LICENSE`. New source f
 
 Do not add features that store credentials, export cookies, or bypass platform detection. The extension relies on normal logged-in browser sessions and visible muted tabs. Keep `permissions` and `host_permissions` scoped to the services declared in `packages/extension/wxt.config.ts`, and document any new permission in the PR.
 
-The headless CLI is the one deliberate exception, kept as narrow as possible (#653). Since September 2026 Twitch accepts device login only from clients that cannot see the campaign list, so full CLI discovery needs the web client and a Kasada integrity token:
+The headless CLI is the one deliberate exception, kept as narrow as possible (#653). Since September 2026 Twitch issues device codes only to clients that cannot see the campaign list. Full CLI discovery comes either from `auth twitch browser-login`, an Android-client sign-in the user completes in their own browser and pastes back, which needs no integrity token, or from the web client with a Kasada integrity token:
 
-- The CLI may keep its own device-login and imported credentials in its private auth store.
+- The CLI may keep its own device-login, browser-login and imported credentials in its private auth store.
 - The extension's Settings → Export credentials, a user-confirmed action, may export the Twitch and Kick login cookies plus Twitch's Kasada session cookie (`KP_UIDz-ssn`). It reads that cookie from `k.twitchcdn.net`, covered by the required `https://*.twitchcdn.net/*` host permission.
 - The CLI may mint Twitch web Client-Integrity from that cookie without a browser.
 

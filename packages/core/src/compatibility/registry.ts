@@ -12,13 +12,15 @@ const twitchProfiles = frozen({
     id: "twitch-2026-10",
     title: "Twitch October 2026",
     description:
-      "Recommended Twitch profile. Web watching requests HLS segment headers; Android keeps Trowel.",
+      "Recommended Twitch profile. Web and Android watching both request HLS segment headers.",
     lifecycle: "recommended",
     hosts: ALL_HOSTS,
     identities: ALL_IDENTITIES,
     heartbeatByIdentity: frozen({
       web: "twitch-heartbeat-hls-v1",
-      android: "twitch-heartbeat-trowel-v1",
+      // Trowel no longer credits drop progress (verified live 2026-11-02);
+      // HLS does for an Android token too.
+      android: "twitch-heartbeat-hls-v1",
     }),
     inventory: "twitch-inventory-v2",
   }),
@@ -66,13 +68,15 @@ const twitchHeartbeat = frozen({
       "Requests each new Twitch media segment with HEAD, and sends minute-watched through GraphQL as twitch.tv does, which earns channel points.",
     lifecycle: "recommended",
     hosts: ALL_HOSTS,
-    identities: Object.freeze(["web"] as const),
+    identities: ALL_IDENTITIES,
   }),
   "twitch-heartbeat-trowel-v1": frozen({
     id: "twitch-heartbeat-trowel-v1",
     title: "Trowel heartbeat v1",
-    description: "Twitch Android-identity Trowel heartbeat.",
-    lifecycle: "recommended",
+    description:
+      "Twitch Android-identity Trowel heartbeat. Twitch accepts it but no longer credits drop progress for it.",
+    lifecycle: "legacy",
+    replacement: "twitch-heartbeat-hls-v1",
     hosts: Object.freeze(["cli"] as const),
     identities: Object.freeze(["android"] as const),
   }),

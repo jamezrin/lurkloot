@@ -96,15 +96,15 @@ describe("resolveCompatibility", () => {
     });
   });
 
-  it("resolves automatic CLI Android heartbeat selection", () => {
+  it("resolves automatic CLI Android heartbeat selection to HLS", () => {
     expect(
       resolveCompatibility(settings(), { host: "cli", twitchIdentity: "android" }).compatibility
         .twitch.heartbeat,
-    ).toBe("twitch-heartbeat-trowel-v1");
+    ).toBe("twitch-heartbeat-hls-v1");
   });
 
   it.each([
-    { host: "extension", twitchIdentity: "android", expected: "twitch-heartbeat-gql-v1" },
+    { host: "extension", twitchIdentity: "android", expected: "twitch-heartbeat-hls-v1" },
     { host: "cli", twitchIdentity: "web", expected: "twitch-heartbeat-hls-v1" },
   ] as const)(
     "resolves automatic $host/$twitchIdentity selection to a compatible heartbeat",
