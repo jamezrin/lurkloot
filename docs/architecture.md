@@ -1487,8 +1487,9 @@ it when the result differs from the uploaded add-on. The rules that keep the reb
   [BUILDING.md](../BUILDING.md). Packages the add-on does not bundle keep only their
   `package.json`, which the frozen lockfile needs.
 - **The archive is an allowlist.** WXT does not read `.gitignore`, so a local zip of the repository
-  root would pick up untracked files such as the CLI's `auth/credentials.json`. `excludeSources` is
-  `["**"]` and `includeSources` names each build input; `sourcesArchive.test.ts` pins both.
+  root would pick up untracked files such as the CLI's `auth/credentials.json`. `includeSources`,
+  which WXT globs in place of every file under the root, names each build input;
+  `sourcesArchive.test.ts` pins it.
 - **The build reads only what the archive carries.** Nothing in the build may depend on files the
   archive leaves out. Tailwind's automatic source detection did: it scanned the extension's tests
   and store scripts for class names. The popup stylesheet turns detection off and scans only

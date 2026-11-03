@@ -7,9 +7,11 @@ import config from "../wxt.config";
 describe("Firefox sources archive", () => {
   const zip = config.zip ?? {};
 
-  it("excludes everything and includes build inputs back", () => {
+  it("globs only the named build inputs, not the whole root", () => {
     expect(zip.sourcesRoot).toBe("../..");
-    expect(zip.excludeSources).toEqual(["**"]);
+    // WXT globs includeSources and defaults it to every file under the root.
+    expect(zip.includeSources?.length).toBeGreaterThan(0);
+    expect(zip.dotSources ?? false).toBe(false);
   });
 
   it("includes nothing from the workspace root but named files", () => {
