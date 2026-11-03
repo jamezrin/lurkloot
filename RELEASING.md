@@ -139,7 +139,7 @@ Stable publication operates on the exact merged commit and is idempotent:
   reviewer notes in `packages/extension/amo/reviewer-notes.txt`, the changelog entry as release
   notes, and desktop Firefox as its only application. Mozilla signs and publishes it after its own
   review (`scripts/amo.mjs`). A version that already exists is left in place and only its notes are
-  refreshed, so a rerun is safe; a version number taken by an unlisted upload stops the step.
+  refreshed (a refused refresh is a warning, not a failure), so a rerun is safe; a version number taken by an unlisted upload stops the step.
 - The production site deploys to `https://lurkloot.jamezrin.com`.
 - The owned mutable candidate release and tag are removed after the stable release exists.
 - `main` is merged directly into `develop` after local `pnpm verify` succeeds, in the separate

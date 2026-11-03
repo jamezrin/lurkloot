@@ -213,3 +213,19 @@ test("stops on a rejected upload before creating a version", async () => {
     false,
   );
 });
+
+test("a rerun still succeeds when AMO refuses to edit the existing version", async () => {
+  const { client } = fakeAmo({
+    [`GET ${addon}/`]: () => [200, { id: 7 }],
+    [`GET ${addon}/versions/v1.25.0/`]: () => [
+      200,
+      { id: 99, version: "1.25.0", channel: "listed", file: { status: "public" } },
+    ],
+    [`PATCH ${addon}/versions/99/`]: () => [400, { detail: "Version is locked." }],
+  });
+
+  const result = await publishVersion(publishArgs(client));
+  assert.equal(result.action, "already-submitted");
+  assert.equal(result.status, "public");
+  assert.match(result.warning, /Version is locked/);
+});

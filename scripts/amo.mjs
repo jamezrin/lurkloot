@@ -216,8 +216,15 @@ export async function publishVersion({
   await client.listing();
   const existing = await client.version(version);
   if (versionAction(existing) === "already-submitted") {
-    await client.updateVersion(existing.id, details);
-    return { action: "already-submitted", status: existing.file?.status ?? "unknown" };
+    const status = existing.file?.status ?? "unknown";
+    // The version is there, which is what publication needs. If AMO refuses to edit it (an
+    // approved version may be locked), say so rather than failing every rerun the same way.
+    try {
+      await client.updateVersion(existing.id, details);
+    } catch (error) {
+      return { action: "already-submitted", status, warning: error.message };
+    }
+    return { action: "already-submitted", status };
   }
   const upload = await waitForValidation(client, await client.upload(packageBytes, packageName), {
     ...(delay ? { delay } : {}),

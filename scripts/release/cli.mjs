@@ -240,6 +240,10 @@ const commands = {
     process.stdout.write(
       `firefox add-ons: ${result.action} ${values.version} (file status ${result.status})\n`,
     );
+    if (result.warning)
+      process.stdout.write(
+        `::warning::Firefox Add-ons kept the existing notes: ${result.warning}\n`,
+      );
   },
   async "cws-release"(values) {
     const client = new ChromeWebStoreClient({
