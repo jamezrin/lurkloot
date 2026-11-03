@@ -263,8 +263,9 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
 }
 
 // Warnings name the complete deprecated path and its replacement so the user
-// can find and fix the exact line. The CLI config file is intentionally never
-// rewritten, so these repeat on every startup until the file is edited. A
+// can find and fix the exact line. `run` never rewrites the CLI config file, so
+// these repeat on every startup until the file is edited (or until a settings
+// save through `serve` rewrites the block in its current form). A
 // diagnostic without a single replacement path — a value moved onto both
 // platforms, or one that changed what it switches — says what happened in its
 // message, so print that rather than calling the value ignored: most of them
@@ -325,6 +326,13 @@ export function loadConfig(configPath: string): CliConfig {
       throw new Error(`Could not read config at ${absolute}: ${errorMessage(readError)}`);
     }
   }
+  return parseConfig(parseConfigJsonc(text, absolute), absolute);
+}
+
+// Parses the config file's JSONC text into a raw value, naming the first syntax
+// error by line and column. Shared by loadConfig and the serve settings store
+// (settingsStore.ts), so both read the file the same way.
+export function parseConfigJsonc(text: string, absolute: string): unknown {
   const errors: ParseError[] = [];
   const raw = parseJsonc(text, errors, { allowTrailingComma: true });
   if (errors.length > 0) {
@@ -337,7 +345,7 @@ export function loadConfig(configPath: string): CliConfig {
       `Config at ${absolute} is not valid JSONC: ${printParseErrorCode(first.error)} at line ${line}, column ${column}`,
     );
   }
-  return parseConfig(raw, absolute);
+  return raw;
 }
 
 function isErrno(error: unknown, code: string): error is NodeJS.ErrnoException {
@@ -345,10 +353,9 @@ function isErrno(error: unknown, code: string): error is NodeJS.ErrnoException {
 }
 
 // Overwrites the config's `settings` block in place, keeping `transport` and
-// `authDir` untouched. Used only by `config import`: the config file is
-// otherwise never rewritten (see the warning-formatting comments above), so
-// this is a deliberate, explicit exception the user asked for by running that
-// command. The commented JSONC template is not preserved — the file becomes
+// `authDir` untouched. Used only by `config import`, an explicit command the
+// user runs. The other writer is the serve settings store (settingsStore.ts),
+// which edits the file atomically and keeps its comments; `run` never writes it. The commented JSONC template is not preserved — the file becomes
 // plain JSON after the first import — which is why the CLI logs where it wrote.
 export function saveConfigSettings(config: CliConfig, settings: CliSettings): void {
   writeFileSync(

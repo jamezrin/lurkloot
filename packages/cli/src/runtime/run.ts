@@ -6,7 +6,8 @@ import {
   WATCH_ALARM_NAME,
   type CredentialAvailability,
 } from "@lurkloot/core/controller";
-import type { Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { loadState, saveState } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
@@ -15,6 +16,27 @@ import { reportCliEvents } from "../events";
 import { subscriptionWaitKeys } from "./status";
 import { createNodeJobScheduler } from "./jobs";
 import { errorMessage } from "@lurkloot/shared/errors";
+
+// The controller the loop builds, as handed to a host started beside it.
+export type FarmingController = ReturnType<typeof createBackgroundController<EngineSettings>>;
+
+// Something long-lived that runs beside the farming loop, such as the `serve`
+// control plane. The loop starts it before the first tick and closes it first
+// on shutdown, before the controller and transport go.
+export interface FarmingHost {
+  close(): Promise<void>;
+}
+
+// Where the controller reads and writes the engine settings. The default reads
+// the config file's settings once, drops every save and applies no patch, so
+// settings messages fail: what `run` has always done. A store that validates a
+// patch against the CLI schema, keeps the headless invariants and persists to
+// config.json (#976) plugs in here.
+export interface SettingsStore {
+  load(): Promise<EngineSettings>;
+  save(settings: EngineSettings): Promise<void>;
+  applyPatch?(current: EngineSettings, patch: SettingsPatch): EngineSettings;
+}
 
 export interface RunOptions {
   settings: CliSettings;
@@ -33,6 +55,10 @@ export interface RunOptions {
     load(): Promise<SchedulerState>;
     save(state: SchedulerState): Promise<void>;
   };
+  settingsStore?: SettingsStore;
+  // Started once the controller exists, before startup reconciliation and the
+  // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
+  startHost?: (controller: FarmingController) => Promise<FarmingHost>;
 }
 
 // Logs each campaign reward newly waiting on a subscription once, and forgets
@@ -64,6 +90,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const engineSettings = toEngineSettings(settings);
   const loadRuntimeState =
     options.stateStore?.load ?? (async (): Promise<SchedulerState> => loadState(statePath));
+  const settingsStore: SettingsStore = options.settingsStore ?? {
+    load: async () => engineSettings,
+    // Settings come from the config file; the run loop never mutates them.
+    save: async () => {},
+  };
   const saveRuntimeState =
     options.stateStore?.save
     ?? (async (state: SchedulerState): Promise<void> => saveState(statePath, state));
@@ -75,9 +106,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
     // No browser tabs, integrity capture or supplemental sources.
     capabilities: CLI_CAPABILITIES,
     storage: {
-      loadSettings: async () => engineSettings,
-      // Settings come from the config file; the run loop never mutates them.
-      saveSettings: async () => {},
+      loadSettings: () => settingsStore.load(),
+      saveSettings: (next) => settingsStore.save(next),
+      ...(settingsStore.applyPatch
+        ? { applySettingsPatch: settingsStore.applyPatch.bind(settingsStore) }
+        : {}),
       loadState: loadRuntimeState,
       saveState: saveRuntimeState,
     },
@@ -146,15 +179,27 @@ export async function runLoop(options: RunOptions): Promise<void> {
 
   await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
+    let host: FarmingHost | undefined;
     const handleSigint = () => void shutdown("SIGINT");
     const handleSigterm = () => void shutdown("SIGTERM");
+    const stopJobs = () => {
+      jobs.dispose();
+      process.removeListener("SIGINT", handleSigint);
+      process.removeListener("SIGTERM", handleSigterm);
+    };
     const shutdown = async (signal: string) => {
       if (stopped) return;
       stopped = true;
       logger.info(`Received ${signal}; shutting down`, "run");
-      jobs.dispose();
-      process.removeListener("SIGINT", handleSigint);
-      process.removeListener("SIGTERM", handleSigterm);
+      stopJobs();
+      // The host goes first, so nothing reaches the controller while it stops.
+      if (host) {
+        try {
+          await host.close();
+        } catch (error) {
+          logger.error(errorMessage(error), "run");
+        }
+      }
       // Before disposing the transport: a post-claim handoff started by the last
       // tick would otherwise keep refreshing against disposed resources, and its
       // pending delay would hold the process open until the handoff's deadline.
@@ -169,6 +214,32 @@ export async function runLoop(options: RunOptions): Promise<void> {
     process.once("SIGINT", handleSigint);
     process.once("SIGTERM", handleSigterm);
     void (async () => {
+      if (options.startHost) {
+        let started: FarmingHost;
+        try {
+          started = await options.startHost(controller);
+        } catch (error) {
+          // A host that cannot start (a port in use) stops the loop the way a
+          // signal does, or the Node timers would keep the process alive.
+          if (stopped) return;
+          stopped = true;
+          stopJobs();
+          try {
+            controller.shutdown();
+            await transport.dispose();
+          } catch (teardownError) {
+            logger.error(errorMessage(teardownError), "run");
+          }
+          rejectLoop(error);
+          return;
+        }
+        // A signal during startup already tore the rest down.
+        if (stopped) {
+          await started.close().catch((error) => logger.error(errorMessage(error), "run"));
+          return;
+        }
+        host = started;
+      }
       // The restart reconciliation the extension runs on browser startup
       // (#593): register the jobs again (Node timers end with the process),
       // release heartbeat ownership held by the previous process, and pause

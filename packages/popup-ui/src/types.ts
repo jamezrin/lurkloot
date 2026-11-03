@@ -17,6 +17,7 @@ import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming
 import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
 import type { CampaignRankTier } from "@lurkloot/shared/ranking";
 import type { PopupView } from "./shell";
+import type { PopupHostCapabilities } from "./hostCapabilities";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -276,6 +277,10 @@ export interface PopupAdapter {
   resetExtension?(): Promise<RuntimeSnapshot>;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   resolveCompatibility?(settings: CompatibilitySettings): PopupCompatibilityResolution;
+  // Optional: what this host supports. Omitted means every capability, which
+  // is the extension. A host that farms without a browser (the CLI app)
+  // declares each flag, and the popup leaves out what depends on a false one.
+  hostCapabilities?: Readonly<PopupHostCapabilities>;
 }
 
 export interface PopupInitialState {

@@ -35,6 +35,12 @@ import type {
   TranslateFn,
 } from "./settingsSearch";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
+import {
+  DEFAULT_HOST_CAPABILITIES,
+  type PopupHostCapabilities,
+  type PopupHostCapability,
+  watchSourceShown,
+} from "./hostCapabilities";
 
 export interface SettingsChangeOptions {
   tickAfterSave?: boolean;
@@ -60,10 +66,16 @@ export interface SettingsRegistryContext {
   // (showsSubscriptionChoice). Without campaign data the subscription choice
   // shows only while it is narrowed, so a narrowing can always be undone.
   showSubscriptionChoice?: Partial<Record<Platform, boolean>>;
+  // What the host supports. Entries that need a missing capability are left
+  // out, and groups they empty with them. Omitted means every capability.
+  hostCapabilities?: Readonly<PopupHostCapabilities>;
 }
 
 export interface SettingsEntryDef extends SettingsEntryNode {
   render(): React.ReactNode;
+  // The host capability this setting depends on. Without it the entry is not
+  // in the tree at all, so neither the view nor search can reach it.
+  requires?: PopupHostCapability;
 }
 
 export interface SettingsGroupDef extends SettingsGroupNode<SettingsEntryDef> {
@@ -125,6 +137,7 @@ const WATCH_STREAK_TUNING_ROWS: readonly {
 
 export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSectionDef[] {
   const { t, settings, onSettingsChange } = ctx;
+  const capabilities = ctx.hostCapabilities ?? DEFAULT_HOST_CAPABILITIES;
   const setFlag = (key: keyof ExtensionSettings) => (value: boolean) =>
     void onSettingsChange({ [key]: value } as SettingsPatch);
   const tabPlaybackDisabled = settings.tablessMode;
@@ -147,6 +160,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
         entries: [
           {
             id: "general.appearance.language",
+            requires: "extensionPreferences",
             titleKey: "settingsLanguageTitle",
             descriptionKey: "settingsLanguageDescription",
             render: () => (
@@ -167,6 +181,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.appearance.autoStart",
+            requires: "extensionPreferences",
             titleKey: "autoStartTitle",
             descriptionKey: "autoStartDescription",
             render: () => (
@@ -180,6 +195,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.appearance.pauseOnManualWatch",
+            requires: "tabs",
             titleKey: "pauseManualTitle",
             descriptionKey: "pauseManualDescription",
             render: () => (
@@ -193,6 +209,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.appearance.hideTips",
+            requires: "extensionPreferences",
             titleKey: "hideTipsTitle",
             descriptionKey: "hideTipsDescription",
             render: () => (
@@ -206,6 +223,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.appearance.inPagePanel",
+            requires: "extensionPreferences",
             titleKey: "inPagePanelTitle",
             descriptionKey: "inPagePanelDescription",
             render: () => (
@@ -359,6 +377,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
         entries: [
           {
             id: "general.farmingTabs.tabless",
+            requires: "tabs",
             titleKey: "tablessTitle",
             descriptionKey: "tablessDescription",
             render: () => (
@@ -374,6 +393,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.farmingTabs.autoClose",
+            requires: "tabs",
             titleKey: "autoCloseTabsTitle",
             descriptionKey: "autoCloseTabsDescription",
             render: () => (
@@ -387,6 +407,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.farmingTabs.mute",
+            requires: "tabs",
             titleKey: "muteTabsTitle",
             descriptionKey: "muteTabsDescription",
             render: () => (
@@ -402,6 +423,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.farmingTabs.keepUnmuted",
+            requires: "tabs",
             titleKey: "keepVideosUnmutedTitle",
             descriptionKey: "keepVideosUnmutedDescription",
             render: () => (
@@ -417,6 +439,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.farmingTabs.adFocus",
+            requires: "tabs",
             titleKey: "adFocusTitle",
             descriptionKey: "adFocusDescription",
             render: () => (
@@ -464,6 +487,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.advanced.tablessFallbackFailureLimit",
+            requires: "tabs",
             titleKey: "tablessFallbackFailureLimitTitle",
             descriptionKey: "tablessFallbackFailureLimitDescription",
             render: () => (
@@ -487,6 +511,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.advanced.kickPageContextRecoverySuccesses",
+            requires: "tabs",
             titleKey: "kickPageContextRecoverySuccessesTitle",
             descriptionKey: "kickPageContextRecoverySuccessesDescription",
             render: () => (
@@ -584,6 +609,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
           },
           {
             id: "general.advanced.diagnosticLogging",
+            requires: "extensionPreferences",
             titleKey: "diagnosticLoggingTitle",
             descriptionKey: "diagnosticLoggingDescription",
             render: () => (
@@ -720,9 +746,9 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: `${platform}.watchSourcePriority.order`,
             titleKey: "watchSourcePriorityTitle",
             descriptionKey: "watchSourcePriorityDescription",
-            searchKeys: DEFAULT_WATCH_SOURCE_PRIORITY[platform].map(
-              (source) => WATCH_SOURCE_NAME_KEYS[source],
-            ),
+            searchKeys: DEFAULT_WATCH_SOURCE_PRIORITY[platform]
+              .filter((source) => watchSourceShown(source, capabilities))
+              .map((source) => WATCH_SOURCE_NAME_KEYS[source]),
             render: () => (
               <WatchSourcePriority
                 platform={platform}
@@ -901,5 +927,24 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     };
   };
 
-  return [general, platformSection("twitch"), platformSection("kick")];
+  return withHostCapabilities(
+    [general, platformSection("twitch"), platformSection("kick")],
+    capabilities,
+  );
+}
+
+// Drops every entry whose capability the host lacks, then any group left
+// empty. Platform sections stay: their rows hold no host-specific settings.
+function withHostCapabilities(
+  sections: SettingsSectionDef[],
+  capabilities: Readonly<PopupHostCapabilities>,
+): SettingsSectionDef[] {
+  const supported = (entry: SettingsEntryDef) => !entry.requires || capabilities[entry.requires];
+  return sections.map((section) => ({
+    ...section,
+    rows: section.rows.filter(supported),
+    groups: section.groups
+      .map((group) => ({ ...group, entries: group.entries.filter(supported) }))
+      .filter((group) => group.entries.length > 0),
+  }));
 }
