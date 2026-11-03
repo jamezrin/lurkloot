@@ -14,6 +14,8 @@
   ·
   <a href="https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn">Chrome Web Store</a>
   ·
+  <a href="https://addons.mozilla.org/firefox/addon/lurkloot/">Firefox Add-ons</a>
+  ·
   <a href="https://lurkloot.jamezrin.com/changelog">Changelog</a>
 </p>
 
@@ -62,19 +64,19 @@ Fortnite collects sprites and phase rewards. NoPixel earns daily packs and can j
 
 [TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) is the usual desktop alternative. Around it are forks, rewrites in Go or Rust, command-line tools, and websites you host yourself with Docker. Starting those means a language runtime, a terminal, or a server.
 
-Lurkloot is easier to set up. It installs from the Chrome Web Store into the browser you already use, and it uses the session you are already signed in with. Twitch and Kick share one popup. A beta CLI and Docker image run the same engine on a server when you want that instead.
+Lurkloot is easier to set up. It installs from the Chrome Web Store or Firefox Add-ons into the browser you already use, and it uses the session you are already signed in with. Twitch and Kick share one popup. A beta CLI and Docker image run the same engine on a server when you want that instead.
 
 ## Install the extension
 
-1. [Install Lurkloot from the Chrome Web Store](https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn). The same listing works in Chrome, Edge, Brave, Opera, and Vivaldi.
+1. Install Lurkloot from the [Chrome Web Store](https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn) for Chrome, Edge, Brave, Opera, and Vivaldi, or from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/lurkloot/) for Firefox 140 or newer on the desktop.
 2. Sign in to Twitch, Kick, or both in that browser.
 3. Open the Lurkloot popup and enable the platforms you want.
 
 Farming starts on its own. Leave the browser running.
 
-Firefox builds on [GitHub Releases](https://github.com/jamezrin/lurkloot/releases) are best-effort and untested. Testers are welcome — please [report what you find](https://github.com/jamezrin/lurkloot/issues/new?template=bug_report.yml).
+Firefox is newer than Chrome for Lurkloot. If something behaves differently there, please [report what you find](https://github.com/jamezrin/lurkloot/issues/new?template=bug_report.yml).
 
-To try a pre-release Chrome build, see [Installing a pre-release build](docs/install-prerelease.md).
+To try a pre-release build, see [Installing a pre-release build](docs/install-prerelease.md).
 
 ## Run it without a browser
 
