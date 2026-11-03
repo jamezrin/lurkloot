@@ -14,7 +14,8 @@
         "kind": "fixed",
         "text": "A Twitch drop whose game account isn't linked is no longer reported as claimed when Twitch granted nothing. Lurkloot asks you to link the account and claims the drop once you have."
       }
-    ]
+    ],
+    "date": "2026-11-03"
   },
   {
     "version": "1.23.0",
