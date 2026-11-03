@@ -445,17 +445,21 @@ function normalizeLanguageOverride(value: LanguageOverride | undefined): Languag
     : DEFAULT_SETTINGS.languageOverride;
 }
 
-export function applySettingsPatch(
-  current: ExtensionSettings,
+// Layers a patch over settings without normalizing anything: each nested
+// block (platform, compatibility, twitchExtensions) is merged one level deep, and
+// every other key replaces the current value as given. Hosts normalize or
+// validate the result their own way: the extension through applySettingsPatch
+// below, the CLI against its config schema, which rejects what this keeps
+// (an extension-only key, a wrong type) instead of dropping it.
+// twitchExtensions is layered only when either side has it, so engine-only
+// settings stay free of the extension block unless the patch adds one.
+export function overlaySettingsPatch<S extends EngineSettings>(
+  current: S,
   patch: SettingsPatch,
-): ExtensionSettings {
-  return mergeSettings({
+): S & SettingsPatch {
+  const merged: S & SettingsPatch = {
     ...current,
     ...patch,
-    twitchExtensions: {
-      nopixel: { ...current.twitchExtensions.nopixel, ...patch.twitchExtensions?.nopixel },
-      fortnite: { ...current.twitchExtensions.fortnite, ...patch.twitchExtensions?.fortnite },
-    },
     platform: {
       ...current.platform,
       twitch: {
@@ -477,7 +481,22 @@ export function applySettingsPatch(
         ...patch.compatibility?.kick,
       },
     },
-  });
+  };
+  const currentExtensions = (current as Partial<ExtensionSettings>).twitchExtensions;
+  if (currentExtensions || patch.twitchExtensions) {
+    merged.twitchExtensions = {
+      nopixel: { ...currentExtensions?.nopixel, ...patch.twitchExtensions?.nopixel },
+      fortnite: { ...currentExtensions?.fortnite, ...patch.twitchExtensions?.fortnite },
+    };
+  }
+  return merged;
+}
+
+export function applySettingsPatch(
+  current: ExtensionSettings,
+  patch: SettingsPatch,
+): ExtensionSettings {
+  return mergeSettings(overlaySettingsPatch(current, patch) as Partial<ExtensionSettings>);
 }
 
 function compatibilitySelectionOrAuto(value: unknown): string {

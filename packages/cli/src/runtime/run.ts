@@ -29,9 +29,9 @@ export interface FarmingHost {
 
 // Where the controller reads and writes the engine settings. The default reads
 // the config file's settings once, drops every save and applies no patch, so
-// settings messages fail: what `run` has always done. A store that validates a
-// patch against the CLI schema, keeps the headless invariants and persists to
-// config.json (#976) plugs in here.
+// settings messages fail: what `run` has always done. `serve` passes the
+// config-file store (settingsStore.ts, #1000), which validates a patch against
+// the CLI schema, keeps the headless invariants and saves to config.json.
 export interface SettingsStore {
   load(): Promise<EngineSettings>;
   save(settings: EngineSettings): Promise<void>;

@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { request as httpRequest } from "node:http";
 import { createServer, type Server } from "node:net";
+import { readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
 import type { EngineSettings } from "@lurkloot/shared/models";
+import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import {
   type ControlPlane,
   type ControlPlaneMessage,
@@ -19,7 +21,9 @@ import {
 } from "../src/runtime/controlPlane";
 import { serveLoop, startControllerControlPlane } from "../src/runtime/serve";
 import { describeCredentialHealth } from "../src/authStore";
+import { loadConfig } from "../src/config";
 import { createLogger } from "../src/logger";
+import { createCliSettingsStore, type CliSettingsStoreOptions } from "../src/settingsStore";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { CLI_VERSION } from "../src/version";
 import { idleTransport, memoryStateStore } from "./helpers/fakeFarming";
@@ -269,6 +273,22 @@ describe("control plane message allow-list", () => {
       ['{"type":"tickNow","x":1', 400, "invalid_json"],
       ['{"type":"setPlatformEnabled","platform":"youtube","enabled":true}', 400, "invalid_message"],
       ['{"type":"claimReward","campaignId":"c","rewardId":"r"}', 400, "invalid_message"],
+      // Fields the controller reads before the settings store sees the change.
+      ['{"type":"saveSettings"}', 400, "invalid_message"],
+      ['{"type":"saveSettings","settingsPatch":null}', 400, "invalid_message"],
+      ['{"type":"saveSettings","settingsPatch":[]}', 400, "invalid_message"],
+      ['{"type":"setPlatformEnabled","platform":"kick","enabled":"yes"}', 400, "invalid_message"],
+      ['{"type":"setAutomation","platform":"kick"}', 400, "invalid_message"],
+      [
+        '{"type":"updateIdleWatchlist","platform":"kick","channel":7,"action":"add"}',
+        400,
+        "invalid_message",
+      ],
+      [
+        '{"type":"updateIdleWatchlist","platform":"kick","channel":"a","action":"toggle"}',
+        400,
+        "invalid_message",
+      ],
     ];
     for (const [body, status, code] of cases) {
       const reply = await send(port, {
@@ -539,6 +559,273 @@ describe("serveLoop", () => {
       expect(process.listeners("SIGTERM")).toHaveLength(0);
     } finally {
       await new Promise((resolveClose) => blocker.close(resolveClose));
+    }
+  });
+});
+
+// A config in the current schema form, so a save edits values in place.
+const SERVE_CONFIG = `{
+  // Transport comment that must survive.
+  "transport": "http",
+  "authDir": "./credentials",
+  "settings": {
+    "schemaVersion": ${CURRENT_SETTINGS_SCHEMA_VERSION},
+    // Settings comment that must survive a value edit.
+    "pollIntervalMinutes": 5,
+    "autoClaim": true,
+    "platform": {
+      "twitch": {
+        "watchlistChannels": ["alpha", "beta"]
+      }
+    }
+  }
+}
+`;
+
+interface ServingConfig {
+  port: number;
+  configPath: string;
+  stop(): Promise<void>;
+}
+
+// serveLoop as `lurkloot serve` starts it: settings from the config file, and
+// the config-file store built from its path unless a test injects one.
+async function serveConfig(
+  options: { storeOptions?: CliSettingsStoreOptions } = {},
+): Promise<ServingConfig> {
+  tempDir = await mkdtemp(join(tmpdir(), "serve-settings-"));
+  const configPath = join(tempDir, "config.json");
+  writeFileSync(configPath, SERVE_CONFIG, "utf8");
+  let port = 0;
+  const running = serveLoop({
+    binding: { host: "127.0.0.1", port: 0 },
+    configPath,
+    ...(options.storeOptions
+      ? { settingsStore: createCliSettingsStore(configPath, options.storeOptions) }
+      : {}),
+    settings: loadConfig(configPath).settings,
+    statePath: join(tempDir, "state.json"),
+    stateStore: memoryStateStore(),
+    transport: idleTransport(),
+    logger: quiet,
+    checkCredentialAvailability: async () => ({ status: "available" }),
+    describeCredentials: () => describeCredentialHealth("/nonexistent-lurkloot-auth", {}),
+    onListening: (address) => {
+      port = address.port;
+    },
+  });
+  await vi.waitFor(() => expect(port).not.toBe(0));
+  // Past startup reconciliation and the first ticks.
+  await vi.waitFor(async () => {
+    const reply = await send(port, { path: "/v1/session" });
+    const auth = (reply.json as { platforms: { twitch: { auth: { status: string } } } }).platforms
+      .twitch.auth;
+    expect(auth.status).toBe("healthy");
+  });
+  return {
+    port,
+    configPath,
+    stop: async () => {
+      process.emit("SIGTERM");
+      await running;
+    },
+  };
+}
+
+async function currentSettings(port: number): Promise<EngineSettings> {
+  const reply = await postMessage(port, { type: "getSnapshot" });
+  return (reply.json as { result: { settings: EngineSettings } }).result.settings;
+}
+
+function expectCommentsAndOrderKept(text: string): void {
+  expect(text).toContain("// Transport comment that must survive.");
+  expect(text).toContain("// Settings comment that must survive a value edit.");
+  const order = [
+    '"transport"',
+    '"authDir"',
+    '"schemaVersion"',
+    '"pollIntervalMinutes"',
+    '"autoClaim"',
+    '"platform"',
+  ].map((key) => text.indexOf(key));
+  expect(order.every((index) => index >= 0)).toBe(true);
+  expect(order).toEqual([...order].sort((left, right) => left - right));
+}
+
+describe("serve saves settings to config.json", () => {
+  it("writes nothing on startup", async () => {
+    const serving = await serveConfig();
+    try {
+      await postMessage(serving.port, { type: "getSnapshot" });
+      expect(readFileSync(serving.configPath, "utf8")).toBe(SERVE_CONFIG);
+    } finally {
+      await serving.stop();
+    }
+  });
+
+  const changes: Array<{
+    message: ControlPlaneMessage;
+    check: (settings: EngineSettings) => void;
+  }> = [
+    {
+      message: { type: "saveSettings", settingsPatch: { pollIntervalMinutes: 9 } },
+      check: (settings) => expect(settings.pollIntervalMinutes).toBe(9),
+    },
+    {
+      message: { type: "updateIdleWatchlist", platform: "twitch", channel: "Gamma", action: "add" },
+      check: (settings) =>
+        expect(settings.platform.twitch.watchlistChannels).toEqual(["alpha", "beta", "gamma"]),
+    },
+    {
+      message: { type: "setPlatformEnabled", platform: "kick", enabled: false },
+      check: (settings) => expect(settings.platform.kick.enabled).toBe(false),
+    },
+    {
+      message: { type: "setAutomation", platform: "twitch", enabled: false },
+      check: (settings) => expect(settings.platform.twitch.enabled).toBe(false),
+    },
+  ];
+
+  it.each(changes)("applies and saves $message.type", async ({ message, check }) => {
+    const serving = await serveConfig();
+    try {
+      const reply = await postMessage(serving.port, message);
+      expect(reply.status).toBe(200);
+      check((reply.json as { result: { settings: EngineSettings } }).result.settings);
+      check(await currentSettings(serving.port));
+      const text = readFileSync(serving.configPath, "utf8");
+      expect(text).not.toBe(SERVE_CONFIG);
+      check(toEngineSettings(loadConfig(serving.configPath).settings));
+      expectCommentsAndOrderKept(text);
+    } finally {
+      await serving.stop();
+    }
+  });
+
+  const rejected: Array<{
+    patch: Record<string, unknown>;
+    code: string;
+    paths: string[];
+  }> = [
+    {
+      patch: { muteFarmingTabs: false },
+      code: "settings_unrepresentable",
+      paths: ["muteFarmingTabs"],
+    },
+    {
+      patch: { twitchExtensions: { nopixel: { enabled: true } } },
+      code: "settings_unrepresentable",
+      paths: ["twitchExtensions"],
+    },
+    {
+      patch: { pauseOnManualWatch: true },
+      code: "settings_unrepresentable",
+      paths: ["pauseOnManualWatch"],
+    },
+    {
+      patch: { platform: { kick: { alwaysWatch: true } } },
+      code: "settings_unrepresentable",
+      paths: ["platform.kick.alwaysWatch"],
+    },
+    {
+      patch: { pollIntervalMinutes: "soon" },
+      code: "settings_invalid",
+      paths: ["pollIntervalMinutes"],
+    },
+    {
+      patch: { pollIntervalMinutes: 999 },
+      code: "settings_invalid",
+      paths: ["pollIntervalMinutes"],
+    },
+    { patch: { priorityMode: "random" }, code: "settings_invalid", paths: ["priorityMode"] },
+    {
+      patch: { platform: { twitch: { categoryMode: "everything" } } },
+      code: "settings_invalid",
+      paths: ["platform.twitch.categoryMode"],
+    },
+    {
+      patch: {
+        platform: { twitch: { watchlistChannels: Array.from({ length: 60 }, (_, i) => `c${i}`) } },
+      },
+      code: "settings_invalid",
+      paths: ["platform.twitch.watchlistChannels"],
+    },
+  ];
+
+  it("answers a rejected change with 400 and its paths, changing nothing", async () => {
+    const serving = await serveConfig();
+    try {
+      const before = await currentSettings(serving.port);
+      for (const { patch, code, paths } of rejected) {
+        const reply = await postMessage(serving.port, {
+          type: "saveSettings",
+          settingsPatch: patch,
+        });
+        expect([reply.status, errorCode(reply)], JSON.stringify(patch)).toEqual([400, code]);
+        expect((reply.json as { error: { paths: string[] } }).error.paths).toEqual(paths);
+        expect(readFileSync(serving.configPath, "utf8")).toBe(SERVE_CONFIG);
+        expect(await currentSettings(serving.port)).toEqual(before);
+      }
+      // Nothing is left holding the settings lock or the save queue.
+      const reply = await postMessage(serving.port, {
+        type: "saveSettings",
+        settingsPatch: { autoClaim: false },
+      });
+      expect(reply.status).toBe(200);
+      expect(toEngineSettings(loadConfig(serving.configPath).settings).autoClaim).toBe(false);
+    } finally {
+      await serving.stop();
+    }
+  });
+
+  it("keeps the controller's settings when writing the file fails", async () => {
+    const serving = await serveConfig({
+      storeOptions: {
+        fileSystem: {
+          rename: async () => {
+            throw new Error("disk full");
+          },
+        },
+      },
+    });
+    try {
+      const before = await currentSettings(serving.port);
+      const reply = await postMessage(serving.port, {
+        type: "setPlatformEnabled",
+        platform: "kick",
+        enabled: false,
+      });
+      expect(reply.status).toBe(500);
+      expect(errorCode(reply)).toBe("internal_error");
+      expect(readFileSync(serving.configPath, "utf8")).toBe(SERVE_CONFIG);
+      expect(await currentSettings(serving.port)).toEqual(before);
+    } finally {
+      await serving.stop();
+    }
+  });
+
+  it("keeps farming on the last settings when the config file breaks, and saves nothing", async () => {
+    const serving = await serveConfig();
+    const broken = '{ "transport": "http", "settings": { "autoClaim": tru } }\n';
+    try {
+      const before = await currentSettings(serving.port);
+      writeFileSync(serving.configPath, broken, "utf8");
+      const snapshot = await postMessage(serving.port, { type: "getSnapshot" });
+      expect(snapshot.status).toBe(200);
+      expect((snapshot.json as { result: { settings: EngineSettings } }).result.settings).toEqual(
+        before,
+      );
+      const reply = await postMessage(serving.port, {
+        type: "saveSettings",
+        settingsPatch: { autoClaim: false },
+      });
+      expect(reply.status).toBe(503);
+      expect(errorCode(reply)).toBe("settings_unavailable");
+      // The parse error names a local path; it goes to the log, not the body.
+      expect(reply.text).not.toContain(serving.configPath);
+      expect(readFileSync(serving.configPath, "utf8")).toBe(broken);
+    } finally {
+      await serving.stop();
     }
   });
 });

@@ -5,6 +5,7 @@ import {
   DEFAULT_SETTINGS,
   mergeEngineSettings,
   mergeSettings,
+  overlaySettingsPatch,
   type SettingsPatch,
 } from "@lurkloot/shared/settings";
 import { migrateSettings } from "@lurkloot/shared/settingsSchema";
@@ -44,6 +45,43 @@ describe("engine settings", () => {
     expect(DEFAULT_SETTINGS.languageOverride).toBe("browser");
     expect(DEFAULT_SETTINGS.rateNudgeStatus).toBe("pending");
     expect(DEFAULT_SETTINGS.githubStarNudgeStatus).toBe("pending");
+  });
+});
+
+describe("overlaySettingsPatch", () => {
+  it("layers a patch without normalizing it", () => {
+    const merged = overlaySettingsPatch(DEFAULT_ENGINE_SETTINGS, {
+      pollIntervalMinutes: 999,
+      platform: { kick: { enabled: false } },
+      muteFarmingTabs: false,
+    });
+    // Kept as given, for the host to normalize or reject.
+    expect(merged.pollIntervalMinutes).toBe(999);
+    expect(merged.muteFarmingTabs).toBe(false);
+    expect(merged.platform.kick.enabled).toBe(false);
+    expect(merged.platform.twitch).toEqual(DEFAULT_ENGINE_SETTINGS.platform.twitch);
+  });
+
+  it("adds twitchExtensions only when either side has it", () => {
+    expect("twitchExtensions" in overlaySettingsPatch(DEFAULT_ENGINE_SETTINGS, {})).toBe(false);
+    expect(
+      overlaySettingsPatch(DEFAULT_ENGINE_SETTINGS, {
+        twitchExtensions: { nopixel: { enabled: true } },
+      }).twitchExtensions?.nopixel,
+    ).toEqual({ enabled: true });
+    expect(overlaySettingsPatch(DEFAULT_SETTINGS, {}).twitchExtensions).toEqual(
+      DEFAULT_SETTINGS.twitchExtensions,
+    );
+  });
+
+  it("is what applySettingsPatch normalizes", () => {
+    const patch: SettingsPatch = {
+      pollIntervalMinutes: 999,
+      platform: { twitch: { enabled: false } },
+    };
+    expect(applySettingsPatch(DEFAULT_SETTINGS, patch)).toEqual(
+      mergeSettings(overlaySettingsPatch(DEFAULT_SETTINGS, patch)),
+    );
   });
 });
 

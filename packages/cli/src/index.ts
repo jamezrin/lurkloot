@@ -292,6 +292,7 @@ const serveCommand: CommandModule = {
     );
     await serveLoop({
       binding,
+      configPath: config.configPath,
       settings: config.settings,
       statePath: statePath(argv.state as string | undefined, config),
       transport: handle,

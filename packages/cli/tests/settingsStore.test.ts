@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   chmodSync,
   lstatSync,
@@ -25,6 +25,9 @@ import {
   engineToCliSettings,
 } from "../src/settingsStore";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
+import { createLogger } from "../src/logger";
+import { runLoop, type FarmingController } from "../src/runtime/run";
+import { idleTransport, memoryStateStore } from "./helpers/fakeFarming";
 
 // One changed value for every key the CLI schema holds. The completeness test
 // below fails when a CLI key is added without an entry here.
@@ -472,6 +475,143 @@ describe("atomic writes", () => {
   });
 });
 
+// A patch that sets one dotted path.
+function patchFor(dotted: string, value: unknown): Record<string, unknown> {
+  const path = dotted.split(".");
+  const patch: Record<string, unknown> = {};
+  let current = patch;
+  for (const segment of path.slice(0, -1)) {
+    current[segment] = {};
+    current = current[segment] as Record<string, unknown>;
+  }
+  current[path[path.length - 1]] = structuredClone(value);
+  return patch;
+}
+
+describe("applyPatch", () => {
+  it("applies a change to every CLI key, as given", async () => {
+    const store = createCliSettingsStore(configPath);
+    for (const [path, value] of Object.entries(MUTATIONS)) {
+      const next = store.applyPatch(await store.load(), patchFor(path, value));
+      expect(getPath(next, path), path).toEqual(value);
+    }
+  });
+
+  it("keeps the headless invariants and the values the patch leaves alone", async () => {
+    const store = createCliSettingsStore(configPath);
+    const current = await store.load();
+    const next = store.applyPatch(current, { platform: { kick: { enabled: false } } });
+    expect(next).toEqual({
+      ...current,
+      platform: { ...current.platform, kick: { ...current.platform.kick, enabled: false } },
+    });
+    expect(next.pauseOnManualWatch).toBe(false);
+    expect(next.autoStartDropFarming).toBe(true);
+  });
+
+  it.each<[string, Record<string, unknown>, string, string[]]>([
+    ["an extension-only key", { muteFarmingTabs: true }, "unrepresentable", ["muteFarmingTabs"]],
+    [
+      "a pinned invariant",
+      { autoStartDropFarming: false },
+      "unrepresentable",
+      ["autoStartDropFarming"],
+    ],
+    ["a wrong type", { autoClaim: "yes" }, "invalid", ["autoClaim"]],
+    ["an out-of-range number", { offlineRetryLimit: 50 }, "invalid", ["offlineRetryLimit"]],
+    ["a non-integer count", { offlineRetryLimit: 2.5 }, "invalid", ["offlineRetryLimit"]],
+    [
+      "an unknown choice",
+      { platform: { kick: { unlinkedCampaigns: "maybe" } } },
+      "invalid",
+      ["platform.kick.unlinkedCampaigns"],
+    ],
+    [
+      "a bad reward filter",
+      { platform: { twitch: { rewardFilter: { kinds: ["gold"] } } } },
+      "invalid",
+      ["platform.twitch.rewardFilter.kinds"],
+    ],
+    ["a non-object platform block", { platform: { twitch: true } }, "invalid", ["platform.twitch"]],
+  ])("rejects %s with its paths", async (_label, patch, code, paths) => {
+    const store = createCliSettingsStore(configPath);
+    const error = (() => {
+      try {
+        store.applyPatch(toEngineSettings(DEFAULT_CLI_SETTINGS), patch as never);
+      } catch (caught) {
+        return caught;
+      }
+      return undefined;
+    })() as CliSettingsStoreError;
+    expect(error).toBeInstanceOf(CliSettingsStoreError);
+    expect(error.code).toBe(code);
+    expect(error.paths).toEqual(paths);
+  });
+
+  it("rejects a patch that is not an object", () => {
+    const store = createCliSettingsStore(configPath);
+    expect(() => store.applyPatch(toEngineSettings(DEFAULT_CLI_SETTINGS), null as never)).toThrow(
+      CliSettingsStoreError,
+    );
+  });
+});
+
+describe("load", () => {
+  it("returns its own copy each time", async () => {
+    const store = createCliSettingsStore(configPath);
+    const first = await store.load();
+    first.platform.twitch.watchlistChannels.push("mutated");
+    first.pollIntervalMinutes = 42;
+    const second = await store.load();
+    expect(second.platform.twitch.watchlistChannels).toEqual(["alpha", "beta"]);
+    expect(second.pollIntervalMinutes).toBe(5);
+  });
+
+  it("sees a save and a hand edit on the next call", async () => {
+    const store = createCliSettingsStore(configPath);
+    const loaded = await store.load();
+    await store.save({ ...loaded, pollIntervalMinutes: 8 });
+    expect((await store.load()).pollIntervalMinutes).toBe(8);
+    writeFileSync(
+      configPath,
+      readFileSync(configPath, "utf8").replace(
+        '"pollIntervalMinutes": 8',
+        '"pollIntervalMinutes": 12',
+      ),
+      "utf8",
+    );
+    expect((await store.load()).pollIntervalMinutes).toBe(12);
+  });
+});
+
+describe("load from a config file that stops loading", () => {
+  it("keeps the last settings it read, reports once, and reads again once the file loads", async () => {
+    const reports: CliSettingsStoreError[] = [];
+    const store = createCliSettingsStore(configPath, {
+      onUnreadable: (error) => reports.push(error),
+    });
+    const good = await store.load();
+    writeFileSync(configPath, '{ "settings": { "autoClaim": tru } }\n', "utf8");
+    expect(await store.load()).toEqual(good);
+    expect(await store.load()).toEqual(good);
+    expect(reports.map((error) => error.code)).toEqual(["config_unreadable"]);
+    // A save never writes over the broken file.
+    await expect(store.save(good)).rejects.toMatchObject({ code: "config_unreadable" });
+    writeFileSync(
+      configPath,
+      BASE_CONFIG.replace('"pollIntervalMinutes": 5', '"pollIntervalMinutes": 7'),
+    );
+    expect((await store.load()).pollIntervalMinutes).toBe(7);
+  });
+
+  it("throws when the file has never loaded", async () => {
+    writeFileSync(configPath, "{ nope", "utf8");
+    await expect(createCliSettingsStore(configPath).load()).rejects.toMatchObject({
+      code: "config_unreadable",
+    });
+  });
+});
+
 describe("controller-shaped saves", () => {
   // The controller saves applySettingsPatch output, normalized by the shared
   // mergeEngineSettings. If that normalizer and the CLI's drift apart, every
@@ -513,5 +653,37 @@ describe("store boundaries", () => {
   it("is not used by the run loop", () => {
     const run = readFileSync(new URL("../src/runtime/run.ts", import.meta.url), "utf8");
     expect(run).not.toMatch(/from\s+["'][./]*settingsStore["']/);
+  });
+
+  it("is never written by the run loop, even when a settings message reaches it", async () => {
+    const before = readFileSync(configPath, "utf8");
+    let controller: FarmingController | undefined;
+    const running = runLoop({
+      settings: loadConfig(configPath).settings,
+      statePath: join(dir, "state.json"),
+      stateStore: memoryStateStore(),
+      transport: idleTransport(),
+      logger: { ...createLogger("error"), log: () => {}, error: () => {} },
+      checkCredentialAvailability: async () => ({ status: "available" }),
+      // Only to reach the controller; `run` itself starts no host.
+      startHost: async (started) => {
+        controller = started;
+        return { close: async () => {} };
+      },
+    });
+    try {
+      await vi.waitFor(() => expect(controller).toBeDefined());
+      await expect(
+        controller!.handleMessage({ type: "saveSettings", settingsPatch: { autoClaim: false } }),
+      ).rejects.toThrow(/applySettingsPatch/);
+      await expect(
+        controller!.handleMessage({ type: "setPlatformEnabled", platform: "kick", enabled: false }),
+      ).rejects.toThrow(/applySettingsPatch/);
+    } finally {
+      process.emit("SIGTERM");
+      await running;
+    }
+    expect(readFileSync(configPath, "utf8")).toBe(before);
+    expect(readdirSync(dir).sort()).toEqual(["config.json"]);
   });
 });

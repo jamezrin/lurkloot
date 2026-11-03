@@ -204,6 +204,26 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "diagnosticLogging",
 ]);
 
+// One value the CLI settings rules reject, by dotted settings path.
+interface CliSettingsOffender {
+  path: string;
+  message: string;
+}
+
+// Thrown when the settings block breaks the CLI rules. The message lists every
+// offender; `paths` names them, so a caller can point at each one.
+export class CliSettingsValidationError extends Error {
+  readonly paths: string[];
+
+  constructor(offenders: readonly CliSettingsOffender[]) {
+    super(
+      `Invalid CLI settings:\n  - ${offenders.map((offender) => offender.message).join("\n  - ")}`,
+    );
+    this.name = "CliSettingsValidationError";
+    this.paths = [...new Set(offenders.map((offender) => offender.path))];
+  }
+}
+
 // A migration may rename a legacy key onto one the CLI rejects — `verboseLogging`
 // becomes `diagnosticLogging`, which is extension-only. Name the key the user
 // actually wrote, or the error points at a line their file does not contain. The
@@ -319,32 +339,36 @@ export function parseCliSettingsImportPayload(raw: unknown): CliSettingsParseRes
 // A kind the platform does not support is accepted on purpose: the v8 migration
 // can produce one, and normalizeRewardFilter drops it. Only values that name
 // nothing at all are errors.
-function rewardFilterOffenders(platform: string, raw: unknown): string[] {
+function rewardFilterOffenders(platform: string, raw: unknown): CliSettingsOffender[] {
   const path = `platform.${platform}.rewardFilter`;
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-    return [`"${path}" must be a JSON object`];
+    return [{ path, message: `"${path}" must be a JSON object` }];
   }
-  const offenders: string[] = [];
+  const offenders: CliSettingsOffender[] = [];
   const filter = raw as Record<string, unknown>;
   const kindLists = ["kinds", "pinnedKinds", "favouriteKinds"];
   for (const key of Object.keys(filter)) {
     if (!kindLists.includes(key) && key !== "subscriptions")
-      offenders.push(`unknown setting "${key}" under ${path}`);
+      offenders.push({ path: `${path}.${key}`, message: `unknown setting "${key}" under ${path}` });
   }
   for (const key of kindLists) {
     if (!Object.hasOwn(filter, key)) continue;
     const kinds = filter[key];
     if (!Array.isArray(kinds) || !kinds.every((kind) => REWARD_KINDS.includes(kind as never))) {
-      offenders.push(`"${path}.${key}" must be an array of: ${REWARD_KINDS.join(", ")}`);
+      offenders.push({
+        path: `${path}.${key}`,
+        message: `"${path}.${key}" must be an array of: ${REWARD_KINDS.join(", ")}`,
+      });
     }
   }
   if (
     Object.hasOwn(filter, "subscriptions")
     && !SUBSCRIPTION_REWARD_MODES.includes(filter.subscriptions as never)
   ) {
-    offenders.push(
-      `"${path}.subscriptions" must be one of: ${SUBSCRIPTION_REWARD_MODES.join(", ")}`,
-    );
+    offenders.push({
+      path: `${path}.subscriptions`,
+      message: `"${path}.subscriptions" must be one of: ${SUBSCRIPTION_REWARD_MODES.join(", ")}`,
+    });
   }
   return offenders;
 }
@@ -357,27 +381,34 @@ function parseMigratedCliSettings(
   value: Record<string, unknown>,
   diagnostics: CliSettingsDiagnostic[],
 ): CliSettings {
-  const offenders: string[] = [];
+  const offenders: CliSettingsOffender[] = [];
 
   for (const key of Object.keys(value)) {
-    if (!CLI_SETTING_KEYS.has(key)) offenders.push(describeOffender(key, diagnostics));
+    if (!CLI_SETTING_KEYS.has(key))
+      offenders.push({ path: key, message: describeOffender(key, diagnostics) });
   }
 
   const platformRaw = value.platform;
   if (platformRaw !== undefined) {
     if (platformRaw === null || typeof platformRaw !== "object" || Array.isArray(platformRaw)) {
-      offenders.push('"platform" must be a JSON object');
+      offenders.push({ path: "platform", message: '"platform" must be a JSON object' });
     } else {
       for (const [name, entry] of Object.entries(platformRaw as Record<string, unknown>)) {
         if (!PLATFORMS.includes(name as Platform)) {
-          offenders.push(`unknown platform "${name}" (expected one of: ${PLATFORMS.join(", ")})`);
+          offenders.push({
+            path: `platform.${name}`,
+            message: `unknown platform "${name}" (expected one of: ${PLATFORMS.join(", ")})`,
+          });
           continue;
         }
         if (entry && typeof entry === "object" && !Array.isArray(entry)) {
           const block = entry as Record<string, unknown>;
           for (const key of Object.keys(block)) {
             if (!CLI_PLATFORM_KEYS[name as Platform].has(key))
-              offenders.push(`unknown setting "${key}" under platform.${name}`);
+              offenders.push({
+                path: `platform.${name}.${key}`,
+                message: `unknown setting "${key}" under platform.${name}`,
+              });
           }
           // Checked by value, not just name: normalizeCategoryMode would
           // quietly fall back to "all" for a typo such as "exclude_all",
@@ -386,9 +417,10 @@ function parseMigratedCliSettings(
             Object.hasOwn(block, "categoryMode")
             && !CATEGORY_MODES.includes(block.categoryMode as never)
           ) {
-            offenders.push(
-              `"platform.${name}.categoryMode" must be one of: ${CATEGORY_MODES.join(", ")}`,
-            );
+            offenders.push({
+              path: `platform.${name}.categoryMode`,
+              message: `"platform.${name}.categoryMode" must be one of: ${CATEGORY_MODES.join(", ")}`,
+            });
           }
           if (Object.hasOwn(block, "rewardFilter")) {
             offenders.push(...rewardFilterOffenders(name, block.rewardFilter));
@@ -406,7 +438,10 @@ function parseMigratedCliSettings(
                 && (diagnostic.replacement === path || diagnostic.replacements?.includes(path)),
             )?.path;
             const subject = movedFrom ? `"${movedFrom}" (now "${path}")` : `"${path}"`;
-            offenders.push(`${subject} must be one of: ${UNLINKED_CAMPAIGN_MODES.join(", ")}`);
+            offenders.push({
+              path,
+              message: `${subject} must be one of: ${UNLINKED_CAMPAIGN_MODES.join(", ")}`,
+            });
           }
         }
       }
@@ -420,31 +455,36 @@ function parseMigratedCliSettings(
       || typeof compatibilityRaw !== "object"
       || Array.isArray(compatibilityRaw)
     ) {
-      offenders.push('"compatibility" must be a JSON object');
+      offenders.push({ path: "compatibility", message: '"compatibility" must be a JSON object' });
     } else {
       for (const [name, entry] of Object.entries(compatibilityRaw as Record<string, unknown>)) {
         if (!PLATFORMS.includes(name as Platform)) {
-          offenders.push(
-            `unknown compatibility platform "${name}" (expected one of: ${PLATFORMS.join(", ")})`,
-          );
+          offenders.push({
+            path: `compatibility.${name}`,
+            message: `unknown compatibility platform "${name}" (expected one of: ${PLATFORMS.join(", ")})`,
+          });
           continue;
         }
         if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
-          offenders.push(`"compatibility.${name}" must be a JSON object`);
+          offenders.push({
+            path: `compatibility.${name}`,
+            message: `"compatibility.${name}" must be a JSON object`,
+          });
           continue;
         }
         for (const key of Object.keys(entry as Record<string, unknown>)) {
           if (!CLI_COMPATIBILITY_KEYS[name as Platform].has(key)) {
-            offenders.push(`unknown setting "${key}" under compatibility.${name}`);
+            offenders.push({
+              path: `compatibility.${name}.${key}`,
+              message: `unknown setting "${key}" under compatibility.${name}`,
+            });
           }
         }
       }
     }
   }
 
-  if (offenders.length > 0) {
-    throw new Error(`Invalid CLI settings:\n  - ${offenders.join("\n  - ")}`);
-  }
+  if (offenders.length > 0) throw new CliSettingsValidationError(offenders);
 
   const v = value as Partial<EngineSettings>;
   return {

@@ -11,6 +11,7 @@ import type {
 import { errorMessage } from "@lurkloot/shared/errors";
 import type { CredentialSource, LocalCredentialHealth } from "../authStore";
 import type { Logger } from "../logger";
+import { CliSettingsStoreError } from "../settingsStore";
 
 // `lurkloot serve`'s local HTTP control plane (#975). It carries the popup's
 // own RuntimeMessage contract to the farming controller, behind a loopback
@@ -70,6 +71,10 @@ export type ControlPlaneErrorCode =
   | "invalid_message"
   | "unsupported_message"
   | "settings_read_only"
+  | "settings_unrepresentable"
+  | "settings_invalid"
+  | "settings_unavailable"
+  | "settings_not_saved"
   | "shutting_down"
   | "internal_error"
   // Sign-in routes (controlPlaneAuth.ts).
@@ -204,8 +209,9 @@ export interface ControlPlaneRoute {
 }
 
 export interface ControlPlaneOptions extends ServeBinding {
-  // False until the settings store can apply and keep a patch (#976); the
-  // settings messages are then refused with settings_read_only.
+  // True when the settings store applies and saves a patch (serve's config-file
+  // store, #1000). A host without one refuses the settings messages with
+  // settings_read_only.
   settingsWritable?: boolean;
   handleMessage(message: ControlPlaneMessage): Promise<unknown>;
   describeSession(): Promise<SessionView>;
@@ -226,8 +232,39 @@ export class RequestError extends Error {
     readonly code: ControlPlaneErrorCode,
     message: string,
     readonly headers: Record<string, string> = {},
+    // The settings paths a rejected change is about.
+    readonly paths?: string[],
   ) {
     super(message);
+  }
+}
+
+// A settings change the config-file store refused. A change it cannot hold or
+// accept is the caller's (400, with the offending paths); a config file it
+// cannot read or would not write back is the host's (5xx). Either way nothing
+// was saved, and the controller kept its settings.
+function settingsStoreRequestError(error: CliSettingsStoreError): RequestError {
+  switch (error.code) {
+    case "unrepresentable":
+      return new RequestError(400, "settings_unrepresentable", error.message, {}, error.paths);
+    case "invalid":
+      return new RequestError(400, "settings_invalid", error.message, {}, error.paths);
+    case "config_unreadable":
+      return new RequestError(
+        503,
+        "settings_unavailable",
+        "The config file could not be read; settings were not changed",
+        {},
+        error.paths,
+      );
+    case "verification_failed":
+      return new RequestError(
+        500,
+        "settings_not_saved",
+        "The config file could not be updated; settings were not changed",
+        {},
+        error.paths,
+      );
   }
 }
 
@@ -263,7 +300,13 @@ function sendError(response: ServerResponse, error: RequestError): void {
   sendJson(
     response,
     error.status,
-    { error: { code: error.code, message: error.message } },
+    {
+      error: {
+        code: error.code,
+        message: error.message,
+        ...(error.paths ? { paths: error.paths } : {}),
+      },
+    },
     error.headers,
   );
 }
@@ -343,7 +386,32 @@ async function readJsonBody(
 
 // Shape checks before the controller sees a message: a supported type, and a
 // known platform on the messages that name one. Field-level validation of a
-// settings patch is the settings store's job (#976).
+// settings patch is the settings store's job (#976); only the fields the
+// controller reads before the store sees the change are checked here.
+function settingsMessageFieldError(
+  type: ControlPlaneMessageType,
+  value: Record<string, unknown>,
+): string | undefined {
+  switch (type) {
+    case "saveSettings": {
+      const patch = value.settingsPatch;
+      return patch === null || typeof patch !== "object" || Array.isArray(patch)
+        ? "saveSettings needs a settingsPatch object"
+        : undefined;
+    }
+    case "setPlatformEnabled":
+    case "setAutomation":
+      return typeof value.enabled === "boolean" ? undefined : `${type} needs a boolean enabled`;
+    case "updateIdleWatchlist":
+      return typeof value.channel === "string"
+        && (value.action === "add" || value.action === "remove")
+        ? undefined
+        : "updateIdleWatchlist needs a string channel and action add or remove";
+    default:
+      return undefined;
+  }
+}
+
 export function parseControlPlaneMessage(
   value: unknown,
   settingsWritable = false,
@@ -364,6 +432,8 @@ export function parseControlPlaneMessage(
     if (typeof platform !== "string" || !PLATFORMS.includes(platform as Platform))
       throw new RequestError(400, "invalid_message", `${type} needs platform twitch or kick`);
   }
+  const fieldError = settingsMessageFieldError(type, value as Record<string, unknown>);
+  if (fieldError) throw new RequestError(400, "invalid_message", fieldError);
   if (SUPPORTED_MESSAGES[type].writesSettings && !settingsWritable)
     throw new RequestError(
       409,
@@ -449,6 +519,12 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
       .catch((error: unknown) => {
         if (error instanceof RequestError) {
           sendError(response, error);
+          return;
+        }
+        if (error instanceof CliSettingsStoreError) {
+          const mapped = settingsStoreRequestError(error);
+          if (mapped.status >= 500) logger.error(errorMessage(error), "serve");
+          sendError(response, mapped);
           return;
         }
         // Engine errors are English diagnostics with no credential values,

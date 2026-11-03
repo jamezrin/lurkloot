@@ -5,9 +5,11 @@ import { isDeepStrictEqual } from "node:util";
 import { applyEdits, modify, type FormattingOptions, type JSONPath } from "jsonc-parser";
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
+import { overlaySettingsPatch, type SettingsPatch } from "@lurkloot/shared/settings";
 import { errorMessage } from "@lurkloot/shared/errors";
 import { parseConfig, parseConfigJsonc, type CliConfig } from "./config";
 import {
+  CliSettingsValidationError,
   DEFAULT_CLI_SETTINGS,
   parseCliSettingsWithDiagnostics,
   toEngineSettings,
@@ -18,7 +20,9 @@ import {
 // `storage.loadSettings`/`saveSettings` (#976). It maps engine settings back to
 // the CLI's own schema, validates them with the rules `validate-config` uses,
 // and edits config.json atomically. `run` never uses it: the run loop reads the
-// config once and never writes it.
+// config once and never writes it. `serve` builds it from the config path
+// (serveLoop's configPath), so the settings messages its control plane
+// forwards are applied and saved here.
 //
 // Two rules decide what a save may contain:
 // - Every CLI key round-trips: load, change, save, load gives back the change.
@@ -66,19 +70,34 @@ export interface SettingsStoreFileSystem {
 
 export interface CliSettingsStoreOptions {
   fileSystem?: Partial<SettingsStoreFileSystem>;
+  // Called once when load keeps the last settings it read because the file
+  // stopped loading (a bad hand edit, an editor caught mid-write), and again
+  // only after the file has loaded once more.
+  onUnreadable?: (error: CliSettingsStoreError) => void;
 }
 
 export interface CliSettingsStore {
   // Absolute path of the config file.
   readonly configPath: string;
   // The engine settings the config file currently describes, as toEngineSettings
-  // builds them for `run`. Reads the file on every call.
+  // builds them for `run`. Parses the file again only when it changed on disk
+  // (another inode, size or modification time), so a save or a hand edit is
+  // seen by the next call. Each call returns its own copy. Once it has read the
+  // file, a file that stops loading leaves it on the last settings it read, so
+  // a broken hand edit does not fail every tick; save still refuses to write
+  // over it.
   load(): Promise<EngineSettings>;
   // Writes `settings` to the config file. Resolves once the file is replaced, or
   // at once when the file already describes these settings. Rejects with
   // CliSettingsStoreError, leaving the file untouched, when the settings cannot
   // be represented or validated. Saves are applied one at a time.
   save(settings: EngineSettings): Promise<void>;
+  // The controller's applySettingsPatch for this store: layers `patch` over
+  // `current` with the shared overlay, then validates the result with the rules
+  // save uses. Throws CliSettingsStoreError (unrepresentable or invalid, with
+  // the offending paths) instead of dropping or correcting what the patch
+  // carries, so a rejected change never reaches save.
+  applyPatch(current: EngineSettings, patch: SettingsPatch): EngineSettings;
 }
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
@@ -159,7 +178,11 @@ export function engineToCliSettings(engine: EngineSettings): CliSettings {
   try {
     parsed = parseCliSettingsWithDiagnostics(picked);
   } catch (error) {
-    throw new CliSettingsStoreError("invalid", errorMessage(error));
+    throw new CliSettingsStoreError(
+      "invalid",
+      errorMessage(error),
+      error instanceof CliSettingsValidationError ? error.paths : [],
+    );
   }
   // The migration reports nothing for current-version input, so only a limit
   // can show up here. Saving it would drop part of the value.
@@ -372,6 +395,80 @@ export function renderConfigWithSettings(
   return next;
 }
 
+function sameKind(left: unknown, right: unknown): boolean {
+  if (left === null || right === null) return left === right;
+  if (Array.isArray(left) || Array.isArray(right))
+    return Array.isArray(left) && Array.isArray(right);
+  return typeof left === typeof right;
+}
+
+// The CLI rules normalize the values they keep: a number is clamped or
+// rounded, an unknown string falls back to its default, a wrong type to the
+// default. That is right for a hand-edited file, but a patch is one deliberate
+// change, so each value it sets must come back as given. Lists and objects of
+// the right kind may still be normalized (channel names lowercased, duplicates
+// dropped, a reward filter completed).
+function patchOffenders(patch: Record<string, unknown>, result: EngineSettings): string[] {
+  const offenders: string[] = [];
+  const compare = (path: string[], value: unknown) => {
+    const normalized = valueAt(result, path);
+    if (value === undefined || normalized === undefined) return;
+    if (
+      !sameKind(value, normalized)
+      || ((typeof value === "number" || typeof value === "string") && value !== normalized)
+    ) {
+      offenders.push(path.join("."));
+    }
+  };
+  for (const [key, value] of Object.entries(patch)) {
+    if (!(NESTED_KEYS as readonly string[]).includes(key)) {
+      compare([key], value);
+      continue;
+    }
+    if (value === undefined) continue;
+    if (!isRecord(value)) {
+      offenders.push(key);
+      continue;
+    }
+    for (const platform of PLATFORMS) {
+      const entry = value[platform];
+      if (entry === undefined) continue;
+      if (!isRecord(entry)) {
+        offenders.push(`${key}.${platform}`);
+        continue;
+      }
+      for (const [nestedKey, nestedValue] of Object.entries(entry)) {
+        compare([key, platform, nestedKey], nestedValue);
+      }
+    }
+  }
+  return offenders;
+}
+
+// Applies a settings patch for the CLI: the shared overlay, then the rules
+// save checks. See CliSettingsStore.applyPatch.
+export function applyCliSettingsPatch(
+  current: EngineSettings,
+  patch: SettingsPatch,
+): EngineSettings {
+  const input: unknown = patch;
+  if (!isRecord(input)) {
+    throw new CliSettingsStoreError("invalid", "A settings patch must be a JSON object");
+  }
+  const result = toEngineSettings(engineToCliSettings(overlaySettingsPatch(current, patch)));
+  const offenders = patchOffenders(input, result);
+  if (offenders.length > 0) {
+    throw new CliSettingsStoreError(
+      "invalid",
+      `Invalid CLI settings:\n  - ${offenders
+        .map((path) => `"${path}" is not a value the CLI accepts here`)
+        .join("\n  - ")}`,
+      offenders,
+    );
+  }
+  return result;
+}
+
 const NODE_FILE_SYSTEM: SettingsStoreFileSystem = {
   async writeTempFile(path, text, mode) {
     const handle = await open(path, "wx", mode);
@@ -414,9 +511,38 @@ export function createCliSettingsStore(
   const absolute = resolve(process.cwd(), configPath);
   const fileSystem: SettingsStoreFileSystem = { ...NODE_FILE_SYSTEM, ...options.fileSystem };
   let queue: Promise<unknown> = Promise.resolve();
+  let cached: { key: string; settings: EngineSettings } | undefined;
+  let reportedUnreadable = false;
 
+  // Stat first, then read: a write landing between the two leaves a key older
+  // than the text, so the next call reads again rather than keeping stale
+  // settings. A save replaces the file by rename, which changes the inode.
   async function load(): Promise<EngineSettings> {
-    return toEngineSettings((await readConfigFile(absolute)).config.settings);
+    let key: string | undefined;
+    try {
+      const info = await stat(absolute, { bigint: true });
+      key = `${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}`;
+    } catch {
+      key = undefined;
+    }
+    if (key === undefined || cached?.key !== key) {
+      let settings: EngineSettings;
+      try {
+        settings = toEngineSettings((await readConfigFile(absolute)).config.settings);
+      } catch (error) {
+        if (!cached || !(error instanceof CliSettingsStoreError)) throw error;
+        // The key stays the last good one, so the next call reads again.
+        if (!reportedUnreadable) {
+          reportedUnreadable = true;
+          options.onUnreadable?.(error);
+        }
+        return structuredClone(cached.settings);
+      }
+      reportedUnreadable = false;
+      cached = key === undefined ? undefined : { key, settings };
+      return structuredClone(settings);
+    }
+    return structuredClone(cached.settings);
   }
 
   async function saveNow(settings: EngineSettings): Promise<void> {
@@ -435,5 +561,6 @@ export function createCliSettingsStore(
       queue = run.catch(() => undefined);
       return run;
     },
+    applyPatch: applyCliSettingsPatch,
   };
 }
