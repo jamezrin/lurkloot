@@ -472,8 +472,18 @@ the request reached the provider.
   provider reports as claimed is no longer claim-ready, so no request is sent, and it is recorded as
   claimed without publishing activity.
 - **If a reward is sent again anyway** (inventory still stale), it depends on the platform:
-  - **Twitch:** Twitch answers `DROP_INSTANCE_ALREADY_CLAIMED`, which `claimReward` treats as
-    success, so the claim publishes its activity and notification once, from the new process.
+  - **Twitch:** Twitch answers `DROP_INSTANCE_ALREADY_CLAIMED`, or `ELIGIBLE_FOR_ALL` with the
+    drop's id in `dropType` (seen live on 2026-11-02), and `claimReward` treats both as success, so
+    the claim publishes its activity and notification once, from the new process.
+- **A claim Twitch accepts without granting anything** (#964): for a campaign whose game account is
+  not linked, Twitch also answers `ELIGIBLE_FOR_ALL`, but with an empty `dropType.id`, which is the
+  signal `claimReward` reads. It ignores `isUserAccountConnected`, which may be false for drops that
+  need no game link and still grant. #946 keeps such campaigns from being claimed when the inventory says they are
+  unlinked. A campaign known only through `AvailableDrops` has no link state, so it is tried once.
+  `claimReward` then returns false with `link_required` guidance, so the claim loop stays quiet, and
+  `TwitchDiscoveryState` records the refusal. `isClaimReady` holds the campaign's claims back for
+  15 minutes, so a still-unlinked account sends one claim per window, not one per tick. Reward-campaign
+  (sitewide) group claims keep their status-only check; their payload has not been observed.
   - **Kick:** Kick's answer to a duplicate claim has not been observed. Since #606 a definitive 4xx
     from `drops/claim` is rethrown from the background transport without a page-tab retry, and
     `claimReward` classifies it as `link_required` only when `campaign.accountLinked === false`;

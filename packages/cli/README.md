@@ -159,6 +159,7 @@ Credentials live in `<authDir>/credentials.json`. The `auth` sub-commands write
 the store; `auth status` reports what is present.
 
 ```bash
+pnpm cli auth twitch browser-login   # Twitch sign-in in a browser, full campaign list
 pnpm cli auth twitch device-login    # Twitch device-code OAuth, no browser
 pnpm cli auth kick device-login      # Kick smart-TV link flow, no browser
 pnpm cli auth import creds.json      # import an extension export ("-" = stdin)
@@ -166,9 +167,22 @@ pnpm cli auth kick logout            # forget stored credentials for a platform
 pnpm cli auth status
 ```
 
+- **`auth twitch browser-login`** is the recommended Twitch login. It prints a
+  Twitch sign-in link. Open it in any browser and sign in; Twitch then sends you
+  to `https://www.twitch.tv/#access_token=…`. Paste that whole address at the
+  prompt, or pipe it in. The token is checked with Twitch and saved with its
+  client ID; it is never logged. twitch.tv can remove the `#access_token` part
+  from the address bar almost at once. If it does, open the browser's developer
+  tools on the Network tab with **Preserve log** on before you sign in, filter
+  for `access_token`, and copy the `location` header of the `id.twitch.tv`
+  redirect. This token sees every drop campaign without a Client-Integrity
+  token.
 - **`auth twitch device-login`** runs Twitch's device-code OAuth against the
   Smart TV client: it prints an activation URL + code, you approve it on any
-  device, and the token and its client ID are saved together.
+  device, and the token and its client ID are saved together. Twitch only lets
+  this token see campaigns you have already started, so the CLI finds others by
+  scanning live channels of your configured games, which misses campaigns on
+  offline channels.
 - **`auth kick device-login`** runs Kick's smart-TV link flow (the same one the
   Kick TV app uses): it prints a `kick.com/tv/login` URL + a 6-digit code; open
   it on any device where you're signed in to Kick and confirm the code, and the
@@ -182,7 +196,7 @@ pnpm cli auth status
   the permission and the export carries only the login cookies. The CLI validates the web client identity, mints integrity
   without launching a browser, and persists cookie rotation in its private
   auth store. Older exports lacking these fields cannot import Twitch; export
-  again from the updated extension or use `auth twitch device-login`.
+  again from the updated extension or use `auth twitch browser-login`.
 
 Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
@@ -198,6 +212,7 @@ private auth store, so a stale environment value cannot override a refresh.
   it discovers campaigns, refreshes authoritative progress, claims eligible
   rewards, persists state, and exits.
 - `auth import <file>` — import an extension credential export ("-" = stdin).
+- `auth twitch browser-login` — Twitch sign-in in a browser; paste back the address it ends on.
 - `auth twitch device-login` — Twitch device-code OAuth (no browser).
 - `auth kick device-login` — Kick smart-TV link flow (no browser).
 - `auth <platform> logout` — forget the stored `twitch` / `kick` credentials (an
@@ -242,7 +257,7 @@ docker build -f packages/cli/Dockerfile -t lurkloot-cli .
 # Or use the published image. The first command creates a documented config.json.
 # Authenticate Twitch and/or Kick before starting the farming loop.
 docker run --rm -it -v "$PWD/data:/data" \
-  ghcr.io/jamezrin/lurkloot-cli:latest auth twitch device-login
+  ghcr.io/jamezrin/lurkloot-cli:latest auth twitch browser-login
 docker run --rm -it -v "$PWD/data:/data" \
   ghcr.io/jamezrin/lurkloot-cli:latest auth kick device-login
 
@@ -256,7 +271,8 @@ docker run --rm -v "$PWD/data:/data" lurkloot-cli
 docker run --rm -v "$PWD/data:/data" lurkloot-cli discover --config /data/config.json
 ```
 
-Authenticate first — `auth twitch device-login` / `auth kick device-login` work
-headlessly inside the container, or run them on any host and mount the resulting
+Authenticate first — `auth twitch browser-login` (paste the address from any
+browser) and `auth twitch device-login` / `auth kick device-login` all work
+inside the container, or run them on any host and mount the resulting
 `auth/` dir in. An updated extension export can also supply Twitch and Kick
 credentials through `auth import`; Kick alone can use `SA_KICK_SESSION_TOKEN`.

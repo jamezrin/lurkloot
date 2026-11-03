@@ -1,7 +1,8 @@
 import type { PlatformCredentials } from "./authStore";
 
-// The Android client remains supported for previously issued tokens, but Twitch
-// no longer accepts new device-code requests for it.
+// The Android client no longer gets device codes, but `auth twitch
+// browser-login` still signs in with it (see auth/twitchBrowserLogin.ts). Its
+// token sees the full drops dashboard without a Client-Integrity token.
 export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
 export const TWITCH_SMARTBOX_CLIENT_ID = "ue6666qo983tsx6so1t0vnawi233wa";
 export const TWITCH_WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
