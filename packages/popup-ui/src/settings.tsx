@@ -17,6 +17,7 @@ import { cn, scrollIntoPanel } from "./primitives";
 import { AboutSection } from "./about";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
+import { useHostCapabilities } from "./hostCapabilities";
 
 export function SettingsView({
   suggestions,
@@ -64,6 +65,13 @@ export function SettingsView({
   version?: string;
 }) {
   const t = useT();
+  const hostCapabilities = useHostCapabilities();
+  // A host without the capability gets no handler, so every check below
+  // treats the action as absent.
+  const exportCredentials = hostCapabilities.credentialExport ? onExportCredentials : undefined;
+  const extensionEnabledChange = hostCapabilities.twitchExtensions
+    ? onExtensionEnabledChange
+    : undefined;
   const [query, setQuery] = useState("");
   const [exportArmed, setExportArmed] = useState(false);
   const [exportingSettings, setExportingSettings] = useState(false);
@@ -155,6 +163,7 @@ export function SettingsView({
         compatibilityResolution,
         onOpenGames,
         showSubscriptionChoice,
+        hostCapabilities,
       }),
     [
       t,
@@ -166,6 +175,7 @@ export function SettingsView({
       compatibilityResolution,
       onOpenGames,
       showSubscriptionChoice,
+      hostCapabilities,
     ],
   );
   const visible = useMemo(
@@ -173,9 +183,10 @@ export function SettingsView({
     [sections, t, query],
   );
   const searching = query.trim().length > 0;
-  const hasActions = Boolean(
-    onExportSettings || onImportSettings || onExportCredentials || onReset,
-  );
+  const hasActions = Boolean(onExportSettings || onImportSettings || exportCredentials || onReset);
+  // Only the actions a host offers can match a search, so a query for one it
+  // lacks does not open an Actions section with nothing in it. Every action
+  // that matches shows, as before.
   const actionSearchText = [
     t("settingsSectionAdvancedActions"),
     t("settingsSectionAdvancedActionsDescription"),
@@ -183,9 +194,7 @@ export function SettingsView({
     t("settingsExportHint"),
     t("settingsExportButton"),
     t("settingsImportButton"),
-    t("cliExportTitle"),
-    t("cliExportHint"),
-    t("cliExportButton"),
+    ...(exportCredentials ? [t("cliExportTitle"), t("cliExportHint"), t("cliExportButton")] : []),
     t("factoryResetTitle"),
     t("factoryResetHint"),
     t("factoryResetButton"),
@@ -193,7 +202,7 @@ export function SettingsView({
     .join(" ")
     .toLocaleLowerCase();
   const showExtensions =
-    Boolean(onExtensionEnabledChange)
+    Boolean(extensionEnabledChange)
     && (!searching || twitchExtensionSearchText(t).includes(query.trim().toLocaleLowerCase()));
   const showActions =
     hasActions && (!searching || actionSearchText.includes(query.trim().toLocaleLowerCase()));
@@ -203,11 +212,11 @@ export function SettingsView({
     .filter((section): section is NonNullable<typeof section> => Boolean(section));
 
   const extensionSettings =
-    showExtensions && onExtensionEnabledChange ? (
+    showExtensions && extensionEnabledChange ? (
       <TwitchExtensionSettings
         query={query}
         settings={settings}
-        onChange={onExtensionEnabledChange}
+        onChange={extensionEnabledChange}
         onAutoOpenPacksChange={(autoOpenPacks) =>
           onSettingsChange(
             { twitchExtensions: { nopixel: { autoOpenPacks } } },
@@ -409,7 +418,7 @@ export function SettingsView({
               )
             ) : null}
 
-            {onExportCredentials ? (
+            {exportCredentials ? (
               exportArmed ? (
                 <ActionRow title={t("cliExportTitle")} hint={t("cliExportConfirm")} tone="warning">
                   <ActionButton onClick={() => setExportArmed(false)}>
@@ -421,7 +430,7 @@ export function SettingsView({
                     primary
                     onClick={() => {
                       setExportArmed(false);
-                      void onExportCredentials();
+                      void exportCredentials();
                     }}
                   >
                     {t("cliExportConfirmButton")}
