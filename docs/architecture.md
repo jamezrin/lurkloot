@@ -1252,9 +1252,10 @@ target can request a targeted tick for the affected platform.
 ### Rate nudge store
 
 The rate nudge links to the store the running build was installed from. The
-host names it in `PopupAdapter.reviewStore`: the extension passes
-`"firefox-add-ons"` in its Firefox build and `"chrome-web-store"` otherwise,
-the site demo omits it and gets the Chrome Web Store, and `null` hides the
+host names it in `PopupAdapter.reviewStore`: both extension adapters, the
+toolbar popup and the in-page panel, pass `EXTENSION_REVIEW_STORE` from
+`packages/extension/src/core/reviewStore.ts` (`"firefox-add-ons"` in the
+Firefox build, `"chrome-web-store"` otherwise), the site demo omits it and gets the Chrome Web Store, and `null` hides the
 nudge for a host no store distributes. `reviewStoreLink` in
 `rateNudge.logic.ts` maps the store to its reviews URL and the message that
 names it (`rateNudgeBody` or `rateNudgeBodyFirefox`); `rateNudge.test.ts`
