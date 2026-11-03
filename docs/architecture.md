@@ -624,7 +624,7 @@ The Twitch device-code flow and the Kick TV link share one start/poll shape
 and `serve` both drive that shape. The browser login's parse-validate-replace path is
 `completeTwitchBrowserLogin`, used the same way. `serve` keeps one device login per platform. A new
 start, a browser login, a logout or shutdown aborts the old flow's sleep and poll, and it releases the
-flow's resources (Kick's cycletls). A flow aborted after approval saves nothing. The routes write only
+flow's resources (Kick's cycletls). A start claims the platform's slot before it awaits anything, so racing starts leave one flow. A poll that ignores the abort, such as a hung cycletls request, is raced against the signal, so a cancel never waits on it. A flow aborted after approval saves nothing. The routes write only
 the auth store. Auth health stays the probe's: after a change, `serve` sends `tickNow` and the probe
 reports the result.
 

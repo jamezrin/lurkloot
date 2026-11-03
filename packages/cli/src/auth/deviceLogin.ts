@@ -57,6 +57,35 @@ export const abortableSleep: Sleep = (ms, signal) =>
     signal?.addEventListener("abort", onAbort, { once: true });
   });
 
+// Settles with the promise, or rejects as soon as the signal aborts. A poll
+// that ignores the signal (Kick's cycletls request) then no longer holds a
+// cancel or shutdown open; the caller disposes the flow, which ends it.
+function untilAborted<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    promise.catch(() => undefined);
+    return Promise.reject(signal.reason);
+  }
+  return new Promise<T>((resolvePromise, rejectPromise) => {
+    const onAbort = () => {
+      promise.catch(() => undefined);
+      rejectPromise(signal.reason);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        if (signal.aborted) rejectPromise(signal.reason);
+        else resolvePromise(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        rejectPromise(error);
+      },
+    );
+  });
+}
+
 // Polls the flow until it is approved (returning the token) or expires
 // (DeviceLoginExpiredError). A hard poll failure and an abort reject as they
 // are. `sleep` and `now` are injectable for tests.
@@ -71,8 +100,7 @@ export async function waitForDeviceApproval(
   while (now() < deadline) {
     await sleep(intervalMs, options.signal);
     options.signal?.throwIfAborted();
-    const result = await flow.poll(options.signal);
-    options.signal?.throwIfAborted();
+    const result = await untilAborted(flow.poll(options.signal), options.signal);
     if (result.status === "approved") return result.token;
     if (result.status === "slow_down") intervalMs += SLOW_DOWN_STEP_MS;
   }

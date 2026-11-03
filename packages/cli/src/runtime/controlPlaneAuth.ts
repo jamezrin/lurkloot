@@ -179,7 +179,6 @@ export function createAuthFlows(options: AuthFlowsOptions): AuthFlows {
 
     async startDeviceLogin(platform) {
       if (closed) throw new RequestError(503, "shutting_down", "The server is shutting down");
-      await cancel(platform);
       const abort = new AbortController();
       let settle: () => void = () => {};
       const record: FlowRecord = {
@@ -189,16 +188,33 @@ export function createAuthFlows(options: AuthFlowsOptions): AuthFlows {
           settle = resolveDone;
         }),
       };
+      // Claim the slot before any await, so two starts racing each other (or
+      // a start racing close()) can never leave a flow nobody can cancel.
+      const previous = records[platform];
       records[platform] = record;
+      const cancelledError = () =>
+        closed
+          ? new RequestError(503, "shutting_down", "The server is shutting down")
+          : new RequestError(409, "login_cancelled", "The sign-in was cancelled");
+      if (previous) {
+        previous.abort.abort();
+        await previous.done;
+      }
+      if (abort.signal.aborted) {
+        finish(record, "cancelled");
+        settle();
+        throw cancelledError();
+      }
       let flow: DeviceLoginFlow;
       try {
         flow = await starters[platform](abort.signal);
       } catch (error) {
-        if (abort.signal.aborted) finish(record, "cancelled");
-        else finish(record, "failed", errorMessage(error));
         settle();
-        if (abort.signal.aborted)
-          throw new RequestError(409, "login_cancelled", "The sign-in was cancelled");
+        if (abort.signal.aborted) {
+          finish(record, "cancelled");
+          throw cancelledError();
+        }
+        finish(record, "failed", errorMessage(error));
         logger.warn(
           `${PLATFORM_LABEL[platform]} device login could not start: ${errorMessage(error)}`,
           "serve",
@@ -213,7 +229,7 @@ export function createAuthFlows(options: AuthFlowsOptions): AuthFlows {
         finish(record, "cancelled");
         await flow.dispose().catch(() => undefined);
         settle();
-        throw new RequestError(409, "login_cancelled", "The sign-in was cancelled");
+        throw cancelledError();
       }
       record.view = {
         ...record.view,

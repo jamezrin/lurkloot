@@ -176,6 +176,11 @@ function kickClient(answers: Array<{ token?: string } | Error>) {
     return next;
   });
   const dispose = vi.fn(async () => {});
+  // The client (cycletls in production) starts on the first poll.
+  const createClient = vi.fn(async () => ({
+    authenticate: authenticate as unknown as TvLinkAuthenticator,
+    dispose,
+  }));
   const start = () =>
     startKickDeviceLogin({
       link: {
@@ -183,12 +188,9 @@ function kickClient(answers: Array<{ token?: string } | Error>) {
         code: KICK_CODE,
         verificationUrl: `https://kick.com/tv/login?uuid=${KICK_UUID}&code=${KICK_CODE}`,
       },
-      createClient: async () => ({
-        authenticate: authenticate as unknown as TvLinkAuthenticator,
-        dispose,
-      }),
+      createClient,
     });
-  return { authenticate, dispose, start };
+  return { authenticate, dispose, createClient, start };
 }
 
 async function start(
@@ -480,7 +482,8 @@ describe("serve: device logins", () => {
     await vi.waitFor(() => expect(sleep.waiting).toBe(1));
 
     await send(port, "POST", "/v1/session/auth/kick/device-login");
-    expect(first.dispose).toHaveBeenCalledTimes(1);
+    // Replaced while sleeping, before its first poll: no client was started.
+    expect(first.createClient).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(sleep.waiting).toBe(1));
     sleep.release();
     await vi.waitFor(() => expect(second.authenticate).toHaveBeenCalledTimes(1));
@@ -490,9 +493,10 @@ describe("serve: device logins", () => {
     expect((await deviceLoginOf(port, "kick"))?.status).toBe("pending");
   });
 
-  it("drops an approval that lands after a cancel", async () => {
+  it("cancels and closes without waiting for a poll that never answers", async () => {
     const sleep = manualSleep();
     let approve: (value: { token?: string }) => void = () => {};
+    // Like a hung cycletls request: it ignores the abort signal.
     const authenticate = vi.fn(
       () =>
         new Promise<{ token?: string }>((resolveAuth) => {
@@ -500,7 +504,7 @@ describe("serve: device logins", () => {
         }),
     );
     const dispose = vi.fn(async () => {});
-    const { port } = await start({
+    const { port, host } = await start({
       kick: () =>
         startKickDeviceLogin({
           link: { uuid: "U", code: "1", verificationUrl: "https://kick.com/tv/login" },
@@ -511,22 +515,73 @@ describe("serve: device logins", () => {
         }),
       sleep: sleep.sleep,
     });
-    await send(port, "POST", "/v1/session/auth/kick/device-login");
-    await vi.waitFor(() => expect(sleep.waiting).toBe(1));
-    sleep.release();
-    await vi.waitFor(() => expect(authenticate).toHaveBeenCalledTimes(1));
+    const hang = async () => {
+      await send(port, "POST", "/v1/session/auth/kick/device-login");
+      await vi.waitFor(() => expect(sleep.waiting).toBe(1));
+      sleep.release();
+      await vi.waitFor(() => expect(authenticate).toHaveBeenCalledTimes(1));
+      authenticate.mockClear();
+    };
 
-    const cancelling = send(port, "DELETE", "/v1/session/auth/kick/device-login");
-    // The poll answers only after the cancel has reached the server.
-    await new Promise((resolveLater) => setTimeout(resolveLater, 50));
-    expect(dispose).not.toHaveBeenCalled();
-    approve({ token: "late-token" });
-    const cancelled = await cancelling;
+    await hang();
+    const cancelled = await send(port, "DELETE", "/v1/session/auth/kick/device-login");
     expect((cancelled.json as { deviceLogin: { status: string } }).deviceLogin.status).toBe(
       "cancelled",
     );
-    expect(loadCredentials(dir, {}).kick?.sessionToken).toBeUndefined();
     expect(dispose).toHaveBeenCalledTimes(1);
+    // The hung request answering later saves nothing.
+    approve({ token: "late-token" });
+    await new Promise((resolveLater) => setTimeout(resolveLater, 10));
+    expect(loadCredentials(dir, {}).kick?.sessionToken).toBeUndefined();
+
+    await hang();
+    await host.close();
+    expect(dispose).toHaveBeenCalledTimes(2);
+    approve({ token: "late-token" });
+    await new Promise((resolveLater) => setTimeout(resolveLater, 10));
+    expect(loadCredentials(dir, {}).kick?.sessionToken).toBeUndefined();
+  });
+
+  it("keeps one flow when two starts race, and close() reaches it", async () => {
+    const sleep = manualSleep();
+    let releaseDispose: () => void = () => {};
+    const clients = [kickClient([{}]), kickClient([{}]), kickClient([{}])];
+    // The first flow is slow to release, so both restarts wait on it together.
+    clients[0]!.dispose.mockImplementation(
+      () =>
+        new Promise<void>((resolveDispose) => {
+          releaseDispose = resolveDispose;
+        }),
+    );
+    let starts = 0;
+    const { port, host } = await start({
+      kick: () => clients[starts++]!.start(),
+      sleep: sleep.sleep,
+    });
+    await send(port, "POST", "/v1/session/auth/kick/device-login");
+    await vi.waitFor(() => expect(sleep.waiting).toBe(1));
+    sleep.release();
+    await vi.waitFor(() => expect(clients[0]!.authenticate).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(sleep.waiting).toBe(1));
+
+    const racing = [
+      send(port, "POST", "/v1/session/auth/kick/device-login"),
+      send(port, "POST", "/v1/session/auth/kick/device-login"),
+    ];
+    await vi.waitFor(() => expect(clients[0]!.dispose).toHaveBeenCalledTimes(1));
+    releaseDispose();
+    const replies = await Promise.all(racing);
+    expect(replies.map((reply) => reply.status).sort()).toEqual([200, 409]);
+    // Only the winner was started, and only it polls.
+    expect(starts).toBe(2);
+    await vi.waitFor(() => expect(sleep.waiting).toBe(1));
+    sleep.release();
+    await vi.waitFor(() => expect(clients[1]!.authenticate).toHaveBeenCalledTimes(1));
+
+    await host.close();
+    expect(clients[1]!.dispose).toHaveBeenCalledTimes(1);
+    expect(sleep.waiting).toBe(0);
+    expect(clients[2]!.createClient).not.toHaveBeenCalled();
   });
 
   it("stops polling when serve closes", async () => {
@@ -538,7 +593,8 @@ describe("serve: device logins", () => {
 
     await host.close();
 
-    expect(kick.dispose).toHaveBeenCalledTimes(1);
+    expect(kick.createClient).not.toHaveBeenCalled();
+    expect(sleep.waiting).toBe(0);
     sleep.release();
     await new Promise((resolveLater) => setTimeout(resolveLater, 10));
     expect(kick.authenticate).not.toHaveBeenCalled();

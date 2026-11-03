@@ -61,7 +61,9 @@ export async function startKickDeviceLogin(
   options: { createClient?: () => Promise<TvLinkClient>; link?: TvLink } = {},
 ): Promise<DeviceLoginFlow> {
   const link = options.link ?? requestTvLink();
-  const client = await (options.createClient ?? createCycleTvLinkClient)();
+  const createClient = options.createClient ?? createCycleTvLinkClient;
+  // Started on the first poll, so the link is shown before cycletls spins up.
+  let client: Promise<TvLinkClient> | undefined;
   return {
     platform: "kick",
     verificationUrl: link.verificationUrl,
@@ -70,11 +72,19 @@ export async function startKickDeviceLogin(
     expiresInMs: EXPIRES_IN_SECONDS * 1000,
     expiredMessage: "TV link code expired before approval",
     poll: async () => {
-      const { token } = await client.authenticate(link.uuid, link.code);
+      client ??= createClient();
+      const { token } = await (await client).authenticate(link.uuid, link.code);
       return token ? { status: "approved", token } : { status: "pending" };
     },
     credentials: (sessionToken) => ({ kick: { sessionToken } }),
-    dispose: () => client.dispose(),
+    dispose: async () => {
+      if (!client) return;
+      const started = client;
+      client = undefined;
+      // A client that never started has nothing to release.
+      const startedClient = await started.catch(() => undefined);
+      await startedClient?.dispose();
+    },
   };
 }
 
