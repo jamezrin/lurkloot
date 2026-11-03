@@ -41,7 +41,7 @@ empty entry. That intentionally permits build-only releases, but produces an emp
 7. Release runs from the merged `main` commit. Approve its `production` publication job. It promotes
    the `vX.Y.Z` prerelease to the latest release, publishing the extension artifacts it already
    carries rather than rebuilding them, retags the verified `candidate-X.Y.Z` GHCR manifest by
-   digest, then publishes the Chrome Web Store and the production site.
+   digest, then publishes the Chrome Web Store, Firefox Add-ons and the production site.
 8. A separate `sync` job then merges `main` directly into `develop` with the dedicated
    synchronization App, after verifying the merged tree. It is also gated on `production`, so it
    asks for a second approval. That separation is deliberate: it verifies a tree that is not the one
@@ -135,13 +135,25 @@ Stable publication operates on the exact merged commit and is idempotent:
   `gh attestation verify oci://ghcr.io/jamezrin/lurkloot-cli:X.Y.Z --repo jamezrin/lurkloot`.
 - Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
   after review approval.
+- Firefox Add-ons receives the Firefox ZIP on the listed channel, with the Firefox source ZIP, the
+  reviewer notes in `packages/extension/amo/reviewer-notes.txt`, the changelog entry as release
+  notes, and desktop Firefox as its only application. Mozilla signs and publishes it after its own
+  review (`scripts/amo.mjs`). A version that already exists is left in place and only its notes are
+  refreshed, so a rerun is safe; a version number taken by an unlisted upload stops the step.
 - The production site deploys to `https://lurkloot.jamezrin.com`.
 - The owned mutable candidate release and tag are removed after the stable release exists.
 - `main` is merged directly into `develop` after local `pnpm verify` succeeds, in the separate
   `sync` job. The release is complete before it runs; nothing it does can unpublish anything.
 
-Firefox Add-ons publication remains manual. Upload the Firefox and source ZIPs from the GitHub
-release to AMO.
+Firefox Add-ons publication skips, with a log line, until `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`
+exist on `production`. The listing has to be created by hand once before that; see "First
+submission" in [docs/store-readiness.md](docs/store-readiness.md). Then generate the key under
+**Tools -> Manage API Keys** on the Add-on Developer Hub, signed in as an author of the listing:
+
+```sh
+gh secret set AMO_JWT_ISSUER --env production --body "user:12345:67"
+gh secret set AMO_JWT_SECRET --env production
+```
 
 ## Branch model
 
@@ -169,7 +181,7 @@ There are exactly two environments:
 | Environment | Approval | Credentials and purpose |
 | --- | --- | --- |
 | `preview` | none | `CRX_PRIVATE_KEY`; candidate signing, candidate GHCR, preview site |
-| `production` | `jamezrin` | CWS credentials and sync App credentials; stable publication and the `develop` synchronization, approved separately |
+| `production` | `jamezrin` | CWS, AMO and sync App credentials; stable publication and the `develop` synchronization, approved separately |
 
 Repository secrets used from both channels remain `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`. Variables are `CWS_PUBLISHER_ID` and `CWS_EXTENSION_ID`.
@@ -182,6 +194,7 @@ The production environment additionally requires:
 
 - `RELEASE_SYNC_APP_ID`
 - `RELEASE_SYNC_APP_PRIVATE_KEY`
+- `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, once the Firefox Add-ons listing exists (optional until then)
 
 ## One-time dedicated App setup
 
@@ -262,6 +275,11 @@ SHAs; do not replace one with a floating tag.
   protection.
 - Missing App configuration: the credential check is the first step of publication, so the job
   fails before anything is published. Add the two production secrets and rerun Release.
+
+- Firefox Add-ons failure: the step runs after the Chrome Web Store and before the site deploy, so
+  an AMO outage or rejection leaves the site on the previous version. Rerun the `publish` job; every
+  earlier step is idempotent, and AMO keeps a version that was already created. A validation error
+  names the file and line; fix it in a new patch release, since a version number cannot be reused.
 
 The Chrome Web Store intentionally trails the GitHub release while Google reviews the submission.
 There is no polling, cancellation, or rollback workflow.
