@@ -430,6 +430,11 @@ function patchOffenders(patch: Record<string, unknown>, result: EngineSettings):
       offenders.push(key);
       continue;
     }
+    // The overlay keeps only twitch and kick, so name any other key here
+    // rather than let it vanish.
+    for (const name of Object.keys(value)) {
+      if (!PLATFORMS.includes(name as Platform)) offenders.push(`${key}.${name}`);
+    }
     for (const platform of PLATFORMS) {
       const entry = value[platform];
       if (entry === undefined) continue;

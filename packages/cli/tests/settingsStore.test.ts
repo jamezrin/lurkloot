@@ -533,6 +533,18 @@ describe("applyPatch", () => {
       ["platform.twitch.rewardFilter.kinds"],
     ],
     ["a non-object platform block", { platform: { twitch: true } }, "invalid", ["platform.twitch"]],
+    [
+      "an unknown platform",
+      { platform: { youtube: { enabled: true } } },
+      "invalid",
+      ["platform.youtube"],
+    ],
+    [
+      "an unknown compatibility platform",
+      { compatibility: { youtube: {} } },
+      "invalid",
+      ["compatibility.youtube"],
+    ],
   ])("rejects %s with its paths", async (_label, patch, code, paths) => {
     const store = createCliSettingsStore(configPath);
     const error = (() => {
