@@ -66,6 +66,22 @@ describe("popup stylesheet", () => {
     expect(css).toContain(".\\@container");
     expect(css.match(/@media[^{]*(width|height)[^{]*\{/g) ?? []).toEqual([]);
   });
+
+  // Firefox Add-ons reviewers rebuild the add-on from a sources archive that
+  // leaves out tests and store tooling. With automatic source detection on,
+  // words in those files became utilities, so the rebuild emitted a different
+  // stylesheet than the release. Only the popup-ui sources may be scanned.
+  it("scans only the popup-ui sources", async () => {
+    const compiler = await compile(await readFile(stylesPath, "utf8"), {
+      base: dirname(stylesPath),
+      onDependency: () => undefined,
+    });
+
+    expect(compiler.root).toBe("none");
+    expect(compiler.sources.filter((source) => !source.negated)).toEqual([
+      { base: dirname(stylesPath), pattern: "./**/*.{ts,tsx}", negated: false },
+    ]);
+  });
 });
 
 describe("toggle layout", () => {

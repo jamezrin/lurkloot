@@ -1,12 +1,16 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "./storeArtwork.css";
 
-/* Scan the popup-ui components explicitly. Tailwind v4's automatic source
+/* Scan the popup-ui components, and only them. Tailwind v4's automatic source
    detection is rooted at the importing project, so when the landing page pulls
    this stylesheet in through its node_modules symlink the components fall
    outside the scanned tree (node_modules is excluded) and no utilities get
-   generated. An explicit @source — resolved relative to this file — makes the
-   scan location-independent, so both the extension and the site emit the same
+   generated. In the extension it scanned the whole package instead, tests and
+   store scripts included, so a word in a test became a utility in the build
+   and the Firefox sources archive, which leaves those files out, rebuilt a
+   different stylesheet. source(none) turns detection off; the explicit @source
+   — resolved relative to this file — makes the scan location-independent, so
+   the extension, the site and a rebuild from the sources archive emit the same
    utilities. */
 @source "./**/*.{ts,tsx}";
 
