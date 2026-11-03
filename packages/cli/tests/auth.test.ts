@@ -10,9 +10,18 @@ import {
   twitchBrowserLogin,
   validateTwitchAndroidToken,
 } from "../src/auth/twitchBrowserLogin";
-import { pollForToken, requestDeviceCode } from "../src/auth/twitchDeviceFlow";
+import { requestDeviceCode, startTwitchDeviceLogin } from "../src/auth/twitchDeviceFlow";
+import {
+  abortableSleep,
+  DeviceLoginExpiredError,
+  waitForDeviceApproval,
+} from "../src/auth/deviceLogin";
 import type { Logger } from "../src/logger";
-import { pollForToken as pollForKickToken, requestTvLink } from "../src/auth/kickDeviceFlow";
+import {
+  requestTvLink,
+  startKickDeviceLogin,
+  type TvLinkAuthenticator,
+} from "../src/auth/kickDeviceFlow";
 
 let dir: string;
 beforeEach(async () => {
@@ -106,40 +115,91 @@ describe("kick device-flow", () => {
     );
   });
 
+  const kickFlow = (authenticate: ReturnType<typeof vi.fn>, dispose = vi.fn(async () => {})) =>
+    startKickDeviceLogin({
+      link: { uuid: "UUID", code: "123456", verificationUrl: "https://kick.com/tv/login" },
+      createClient: async () => ({ authenticate: authenticate as TvLinkAuthenticator, dispose }),
+    });
+
   it("returns the session token once the user approves", async () => {
     const authenticate = vi
       .fn()
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({ token: "kick-session" });
-    const token = await pollForKickToken("UUID", "123456", authenticate, 1, 60, async () => {});
+    const flow = await kickFlow(authenticate);
+    const token = await waitForDeviceApproval(flow, { sleep: async () => {} });
     expect(token).toBe("kick-session");
+    expect(flow.credentials(token)).toEqual({ kick: { sessionToken: "kick-session" } });
     expect(authenticate).toHaveBeenCalledTimes(2);
     expect(authenticate).toHaveBeenCalledWith("UUID", "123456");
   });
 
   it("throws when the code expires before approval", async () => {
     const authenticate = vi.fn().mockResolvedValue({});
+    const flow = await kickFlow(authenticate);
+    let clock = 0;
     await expect(
-      pollForKickToken("UUID", "123456", authenticate, 1, 0, async () => {}),
-    ).rejects.toThrow(/expired before approval/);
+      waitForDeviceApproval(flow, {
+        now: () => clock,
+        sleep: async (ms) => {
+          clock += ms;
+        },
+      }),
+    ).rejects.toThrow(/TV link code expired before approval/);
+    // Five-second polls over five minutes.
+    expect(authenticate).toHaveBeenCalledTimes(60);
+  });
+});
+
+describe("device login polling", () => {
+  it("clears its timer when aborted", async () => {
+    vi.useFakeTimers();
+    try {
+      const abort = new AbortController();
+      const sleeping = abortableSleep(60_000, abort.signal);
+      expect(vi.getTimerCount()).toBe(1);
+      abort.abort(new Error("cancelled"));
+      await expect(sleeping).rejects.toThrow("cancelled");
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("raises DeviceLoginExpiredError with the flow's own message", async () => {
+    const flow = {
+      platform: "twitch" as const,
+      verificationUrl: "https://example.test",
+      userCode: "CODE",
+      intervalMs: 1000,
+      expiresInMs: 0,
+      expiredMessage: "gone",
+      poll: vi.fn(),
+      credentials: () => ({}),
+      dispose: async () => {},
+    };
+    const failure = waitForDeviceApproval(flow, { sleep: async () => {} });
+    await expect(failure).rejects.toBeInstanceOf(DeviceLoginExpiredError);
+    await expect(failure).rejects.toThrow("gone");
+    expect(flow.poll).not.toHaveBeenCalled();
   });
 });
 
 describe("twitch device-flow polling", () => {
-  it("requests a code with the Smart TV client accepted by Twitch", async () => {
-    const fetchMock = vi.fn(
-      async (_url: string, _init?: RequestInit) =>
-        new Response(
-          JSON.stringify({
-            device_code: "device",
-            user_code: "user",
-            verification_uri: "https://www.twitch.tv/activate",
-            interval: 5,
-            expires_in: 300,
-          }),
-          { status: 200 },
-        ),
+  const deviceCode = () =>
+    new Response(
+      JSON.stringify({
+        device_code: "device",
+        user_code: "user",
+        verification_uri: "https://www.twitch.tv/activate",
+        interval: 5,
+        expires_in: 300,
+      }),
+      { status: 200 },
     );
+
+  it("requests a code with the Smart TV client accepted by Twitch", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => deviceCode());
     vi.stubGlobal("fetch", fetchMock);
 
     await requestDeviceCode();
@@ -148,24 +208,46 @@ describe("twitch device-flow polling", () => {
     expect(body.get("client_id")).toBe("ue6666qo983tsx6so1t0vnawi233wa");
   });
 
-  it("returns the access token once the user authorizes", async () => {
+  it("returns the access token once the user authorizes, backing off on slow_down", async () => {
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce(deviceCode())
       .mockResolvedValueOnce({ json: async () => ({ message: "authorization_pending" }) })
+      .mockResolvedValueOnce({ json: async () => ({ message: "slow_down" }) })
       .mockResolvedValueOnce({ json: async () => ({ access_token: "device-token" }) });
-    vi.stubGlobal("fetch", fetchMock);
-    const token = await pollForToken("dev-code", 1, 60, "client", async () => {});
+    const flow = await startTwitchDeviceLogin({
+      clientId: "client",
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+    expect(flow).toMatchObject({
+      verificationUrl: "https://www.twitch.tv/activate",
+      userCode: "user",
+      intervalMs: 5000,
+      expiresInMs: 300_000,
+    });
+    const sleeps: number[] = [];
+    const token = await waitForDeviceApproval(flow, {
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      },
+    });
     expect(token).toBe("device-token");
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(sleeps).toEqual([5000, 5000, 10_000]);
+    expect(flow.credentials(token)).toEqual({
+      twitch: { authToken: "device-token", clientId: "client" },
+    });
+    const pollBody = fetchMock.mock.calls[1]?.[1]?.body as URLSearchParams;
+    expect(pollBody.get("device_code")).toBe("device");
   });
 
   it("throws on a hard authorization error", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ json: async () => ({ message: "invalid device code" }) }),
-    );
-    await expect(pollForToken("dev-code", 1, 60, "client", async () => {})).rejects.toThrow(
-      /invalid device code/,
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(deviceCode())
+      .mockResolvedValue({ json: async () => ({ message: "invalid device code" }) });
+    const flow = await startTwitchDeviceLogin({ fetchImpl: fetchMock as unknown as typeof fetch });
+    await expect(waitForDeviceApproval(flow, { sleep: async () => {} })).rejects.toThrow(
+      /Device authorization failed: invalid device code/,
     );
   });
 });

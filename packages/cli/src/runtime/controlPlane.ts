@@ -71,7 +71,13 @@ export type ControlPlaneErrorCode =
   | "unsupported_message"
   | "settings_read_only"
   | "shutting_down"
-  | "internal_error";
+  | "internal_error"
+  // Sign-in routes (controlPlaneAuth.ts).
+  | "invalid_request"
+  | "invalid_redirect"
+  | "login_rejected"
+  | "login_cancelled"
+  | "upstream_unavailable";
 
 export class ServeConfigError extends Error {}
 
@@ -187,6 +193,16 @@ export function buildSessionView(input: {
   };
 }
 
+// A route a feature module adds beside the built-in ones, such as the sign-in
+// routes. It runs behind the same Host, Origin and token guard; a POST body is
+// read with the same content-type requirement and size limit before the
+// handler runs (an empty body reads as {}).
+export interface ControlPlaneRoute {
+  method: "GET" | "POST" | "DELETE";
+  path: string;
+  handle(body: unknown): Promise<{ status?: number; body: unknown }>;
+}
+
 export interface ControlPlaneOptions extends ServeBinding {
   // False until the settings store can apply and keep a patch (#976); the
   // settings messages are then refused with settings_read_only.
@@ -195,6 +211,7 @@ export interface ControlPlaneOptions extends ServeBinding {
   describeSession(): Promise<SessionView>;
   logger: Logger;
   maxBodyBytes?: number;
+  routes?: readonly ControlPlaneRoute[];
 }
 
 export interface ControlPlane {
@@ -203,7 +220,7 @@ export interface ControlPlane {
   close(): Promise<void>;
 }
 
-class RequestError extends Error {
+export class RequestError extends Error {
   constructor(
     readonly status: number,
     readonly code: ControlPlaneErrorCode,
@@ -257,6 +274,14 @@ const ROUTES: Record<string, "GET" | "POST"> = {
   "/v1/session/messages": "POST",
 };
 
+function requestPath(request: IncomingMessage): string {
+  try {
+    return new URL(request.url ?? "/", "http://control-plane").pathname;
+  } catch {
+    return "/";
+  }
+}
+
 function readBody(request: IncomingMessage, limit: number): Promise<string> {
   const declared = Number(request.headers["content-length"]);
   if (Number.isFinite(declared) && declared > limit)
@@ -295,6 +320,25 @@ function readBody(request: IncomingMessage, limit: number): Promise<string> {
       rejectBody(error);
     });
   });
+}
+
+// A JSON content type forces a CORS preflight, which fails with no CORS
+// headers, so a cross-site form or text/plain POST never gets here.
+async function readJsonBody(
+  request: IncomingMessage,
+  limit: number,
+  allowEmpty = false,
+): Promise<unknown> {
+  const contentType = request.headers["content-type"] ?? "";
+  if (!/^application\/json\s*(;|$)/i.test(contentType))
+    throw new RequestError(415, "unsupported_media_type", "Send application/json");
+  const text = await readBody(request, limit);
+  if (allowEmpty && !text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new RequestError(400, "invalid_json", "The body is not valid JSON");
+  }
 }
 
 // Shape checks before the controller sees a message: a supported type, and a
@@ -364,7 +408,22 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   const route = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (closing) throw new RequestError(503, "shutting_down", "The server is shutting down");
     guard(request);
-    const path = new URL(request.url ?? "/", "http://control-plane").pathname;
+    const path = requestPath(request);
+    const extra = options.routes?.filter((candidate) => candidate.path === path) ?? [];
+    if (extra.length > 0) {
+      const match = extra.find((candidate) => candidate.method === request.method);
+      if (!match) {
+        const allowed = extra.map((candidate) => candidate.method).join(", ");
+        throw new RequestError(405, "method_not_allowed", `This endpoint allows ${allowed}`, {
+          allow: allowed,
+        });
+      }
+      const body =
+        match.method === "POST" ? await readJsonBody(request, maxBodyBytes, true) : undefined;
+      const result = await match.handle(body);
+      sendJson(response, result.status ?? 200, result.body);
+      return;
+    }
     const method = ROUTES[path];
     if (!method) throw new RequestError(404, "not_found", "No such endpoint");
     if (request.method !== method)
@@ -379,18 +438,7 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
       sendJson(response, 200, await options.describeSession());
       return;
     }
-    // A JSON content type forces a CORS preflight, which fails with no CORS
-    // headers, so a cross-site form or text/plain POST never gets here.
-    const contentType = request.headers["content-type"] ?? "";
-    if (!/^application\/json\s*(;|$)/i.test(contentType))
-      throw new RequestError(415, "unsupported_media_type", "Send application/json");
-    const text = await readBody(request, maxBodyBytes);
-    let body: unknown;
-    try {
-      body = JSON.parse(text);
-    } catch {
-      throw new RequestError(400, "invalid_json", "The body is not valid JSON");
-    }
+    const body = await readJsonBody(request, maxBodyBytes);
     const message = parseControlPlaneMessage(body, options.settingsWritable ?? false);
     const result = await options.handleMessage(message);
     sendJson(response, 200, { result: result ?? null });
@@ -409,7 +457,8 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
         sendError(response, new RequestError(500, "internal_error", "The request failed"));
       })
       .finally(() => {
-        logger.debug(`${request.method} ${request.url} ${response.statusCode}`, "serve");
+        // The path only: a query string is the client's and could carry anything.
+        logger.debug(`${request.method} ${requestPath(request)} ${response.statusCode}`, "serve");
         // An unread body (refused or over the limit) must not keep the socket.
         if (!request.complete) response.once("finish", () => request.destroy());
       });

@@ -19,7 +19,7 @@ import {
 } from "@lurkloot/core/twitch/heartbeat";
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
 import type { PlatformCredentials } from "../authStore";
-import { twitchClientIdentity } from "../twitch";
+import { TWITCH_WEB_CLIENT_ID, twitchClientIdentity } from "../twitch";
 import type { TwitchIntegrity, TwitchIntegrityRequest } from "@lurkloot/core/twitchIntegrity";
 
 export interface CliTwitchIntegrity {
@@ -108,6 +108,11 @@ export function createCliAdapters(
     settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
   ) => {
     const identity = twitchClientIdentity(creds);
+    // The web integrity manager belongs to the web session the process started
+    // with. Once a sign-in has replaced that session, it must not mint or
+    // attach integrity for the new client.
+    const twitchIntegrity =
+      identity.clientId === TWITCH_WEB_CLIENT_ID ? deps.twitchIntegrity : undefined;
     const twitchIdentity = identity.userAgent ? "android" : "web";
     const resolution = resolveCompatibility(settings.compatibility, {
       host: "cli",
@@ -118,12 +123,10 @@ export function createCliAdapters(
       platform === "twitch"
         ? new TwitchAdapter(
             deps.twitchFetcher(),
-            (request) => deps.twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
+            (request) => twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
             {
               ...identity,
-              ...(deps.twitchIntegrity
-                ? { currentIntegrity: () => deps.twitchIntegrity?.current() }
-                : {}),
+              ...(twitchIntegrity ? { currentIntegrity: () => twitchIntegrity.current() } : {}),
               compatibility: resolution.compatibility.twitch,
               discoveryState: twitchDiscoveryState,
               strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,

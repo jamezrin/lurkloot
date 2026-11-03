@@ -243,6 +243,41 @@ server. On SIGINT/SIGTERM the server closes first, then the loop shuts down as
 | `GET /v1/session` | `{ id, version, platforms }`. `id` is `"default"` (one process serves one account; the id exists so more can follow). Each platform has `enabled` and `auth`: the engine's last live `status` with its `reasonCode`/`checkedAt`, plus `credential: { present, source, status }`, the same network-free reading as `auth status`. Never a token, cookie or account id. |
 | `POST /v1/session/messages` | Body: one `RuntimeMessage` (`@lurkloot/shared/messages`), the popup's own contract, with `Content-Type: application/json`. Answers `{ "result": … }`: the controller's `handleMessage` result (a snapshot for most messages), or `null`. |
 
+### Signing in over the control plane
+
+The sign-in routes run the same flows as the `auth` commands and write the same
+private auth store (`<authDir>/credentials.json`). They add no other way to get a
+credential.
+
+| Endpoint | Answer |
+| --- | --- |
+| `GET /v1/session/auth` | `{ platforms: { twitch, kick } }`. Each has `auth` (the same masked view as `GET /v1/session`) and `deviceLogin`, the platform's current or last device login, or `null`. |
+| `GET /v1/session/auth/twitch/browser-login` | `{ platform, authorizeUrl, redirectUri }`: the link `auth twitch browser-login` prints. |
+| `POST /v1/session/auth/twitch/browser-login` | Body `{ "address": "https://www.twitch.tv/#access_token=…" }`, the address Twitch ended on. The server reads the token, checks it with Twitch, then replaces the stored Twitch login with it. Answers `{ platform, environmentOverride, login? }` (the Twitch login name, never the account id). A pending Twitch device login is cancelled. |
+| `POST /v1/session/auth/{twitch,kick}/device-login` | Starts the Twitch device-code flow or the Kick TV link, and cancels one already in flight for that platform. Answers `{ deviceLogin }` with `status: "pending"`, `verificationUrl`, `userCode` and `expiresAt`. |
+| `GET /v1/session/auth/{twitch,kick}/device-login` | `{ deviceLogin }`. Poll it: `status` goes from `pending` to `approved`, `expired`, `failed` (with `error.message`) or `cancelled`. Only `approved` writes the store. |
+| `DELETE /v1/session/auth/{twitch,kick}/device-login` | Cancels the flow; a late approval is dropped. Answers `{ deviceLogin }`. |
+| `POST /v1/session/auth/{twitch,kick}/logout` | Forgets the platform's stored credentials, as `auth <platform> logout` does, and cancels its device login. Answers `{ platform, forgotten, environmentOverride }`. |
+
+Every POST needs `Content-Type: application/json`; an empty body counts as
+`{}`. `environmentOverride: true` means an `SA_*` variable still supplies the
+platform's credential, so the engine keeps using that one. One device login
+runs per platform. Closing `serve` stops the polling.
+
+The running loop picks a change up without a restart: the transport reloads the
+store before it builds each platform adapter. After a sign-in or logout, `serve`
+also asks for a tick, so the auth probe reports the new state at once.
+
+A failed, expired or cancelled sign-in leaves the stored credentials as they
+were. Sign-in errors use these codes:
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 400 | `invalid_redirect`, `invalid_request` | The address has no token, or Twitch refused the sign-in; or the body has no `address`. |
+| 409 | `login_cancelled` | The device login was replaced or cancelled while it was starting. |
+| 422 | `login_rejected` | Twitch rejected the token, or it was not issued to the sign-in link's client. |
+| 502 | `upstream_unavailable` | Twitch or Kick could not be reached to start a flow or check a token. |
+
 Supported messages: `getSnapshot`, `tickNow`, `claimReward`,
 `selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
 settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`
@@ -281,6 +316,15 @@ Errors are JSON, `{ "error": { "code", "message" } }`:
   cannot send without a CORS preflight.
 - **No secrets out.** No response or log line carries a token, cookie or
   credential value; the session view is built from named safe fields only.
+  The pasted Twitch address and a Twitch device code are never returned or
+  logged, and the request log records the path without its query string. The
+  Kick link and code go back to the caller, who must open them. They are never
+  logged, because anyone holding both can collect the session once it is approved.
+  `packages/cli/tests/serveAuth.test.ts` checks every sign-in response and log line
+  for planted tokens.
+- **Sign-in needs the same access as everything else.** On a non-loopback bind
+  only a holder of `LURKLOOT_SERVE_TOKEN` can start a sign-in or log out, and the
+  token must travel over HTTPS.
 
 ```bash
 # local

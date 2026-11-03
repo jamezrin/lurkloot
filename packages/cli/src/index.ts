@@ -23,7 +23,11 @@ import {
   hasTwitchAuth,
   loadCredentials,
 } from "./authStore";
-import { createTransport, type EnabledPlatforms } from "./transport";
+import {
+  createCredentialRefreshingTransport,
+  createTransport,
+  type EnabledPlatforms,
+} from "./transport";
 import { runLoop } from "./runtime/run";
 import { serveLoop } from "./runtime/serve";
 import {
@@ -72,8 +76,10 @@ function statePath(stateArg: string | undefined, config: CliConfig): string {
   return join(dirname(config.configPath), "state.json");
 }
 
-// Re-reads the file/env credential store each tick (so a login mid-run is
-// noticed) and reports availability to the engine's pre-probe gate. Never
+// Re-reads the file/env credential store on each probe and reports
+// availability to the engine's pre-probe gate. The transport reads the same
+// store again before each adapter is built (createCredentialRefreshingTransport),
+// so a login mid-run is used, not only noticed. Never
 // inspects browser cookies and never returns a credential value.
 function runCredentialAvailability(authDir: string, platform: Platform) {
   return credentialAvailabilityOf(describeCredentialHealth(authDir)[platform]);
@@ -220,11 +226,12 @@ const runCommand: CommandModule = {
     const config = configOf(argv, logger);
     const transport = resolveTransport(config, argv.transport as string | undefined);
     const creds = loadCredentials(config.authDir);
-    const handle = await createTransport(
-      transport,
+    // The store is reloaded before each adapter is built, so a login or logout
+    // made while this runs reaches the engine without a restart.
+    const handle = createCredentialRefreshingTransport(
+      await createTransport(transport, creds, config.authDir, enabledPlatforms(config)),
       creds,
       config.authDir,
-      enabledPlatforms(config),
     );
     await runLoop({
       settings: config.settings,
@@ -276,11 +283,12 @@ const serveCommand: CommandModule = {
     const config = configOf(argv, logger);
     const transport = resolveTransport(config, argv.transport as string | undefined);
     const creds = loadCredentials(config.authDir);
-    const handle = await createTransport(
-      transport,
+    // The store is reloaded before each adapter is built, so a login or logout
+    // made while this runs reaches the engine without a restart.
+    const handle = createCredentialRefreshingTransport(
+      await createTransport(transport, creds, config.authDir, enabledPlatforms(config)),
       creds,
       config.authDir,
-      enabledPlatforms(config),
     );
     await serveLoop({
       binding,
@@ -291,6 +299,7 @@ const serveCommand: CommandModule = {
       checkCredentialAvailability: async (platform) =>
         runCredentialAvailability(config.authDir, platform),
       describeCredentials: () => describeCredentialHealth(config.authDir),
+      auth: { authDir: config.authDir },
     });
   },
 };
