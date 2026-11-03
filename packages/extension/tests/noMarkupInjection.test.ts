@@ -13,6 +13,7 @@ const bundled = [
   resolve(here, "../entrypoints"),
   resolve(here, "../../core/src"),
   resolve(here, "../../shared/src"),
+  resolve(here, "../../locales/src"),
   resolve(here, "../../popup-ui/src"),
 ];
 
@@ -25,9 +26,25 @@ function sourceFiles(dir: string): string[] {
 }
 
 const MARKUP_WRITE =
-  /\.(?:innerHTML|outerHTML)\s*=[^=]|\binsertAdjacentHTML\s*\(|\bdangerouslySetInnerHTML\b|\bdocument\.write(?:ln)?\s*\(/;
+  /(?:\.(?:innerHTML|outerHTML)|\[\s*["'`](?:innerHTML|outerHTML)["'`]\s*\])\s*\+?=(?!=)|\binsertAdjacentHTML\s*\(|\bdangerouslySetInnerHTML\b|\bdocument\.write(?:ln)?\s*\(/;
 
 describe("bundled sources", () => {
+  it("recognizes every way of writing markup", () => {
+    for (const write of [
+      'el.innerHTML = "<b></b>";',
+      'el.innerHTML += "<b></b>";',
+      'el.outerHTML="<b></b>";',
+      'el["innerHTML"] = html;',
+      "el['outerHTML'] += html;",
+      'el.insertAdjacentHTML("beforeend", html);',
+      "<div dangerouslySetInnerHTML={{ __html: html }} />",
+      "document.write(html);",
+    ])
+      expect(MARKUP_WRITE.test(write), write).toBe(true);
+    for (const read of ["if (el.innerHTML === html) {}", "const html = el.innerHTML;"])
+      expect(MARKUP_WRITE.test(read), read).toBe(false);
+  });
+
   it("never write markup strings into the DOM", () => {
     const offenders = bundled
       .flatMap(sourceFiles)
