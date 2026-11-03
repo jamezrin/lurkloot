@@ -177,7 +177,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | The discovery-signal service's `onTickConcluded` hook (after a tick commits, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
-| Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op under `run` and the settings store under `serve` |
+| Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's settings come from an injectable `SettingsStore` (`packages/cli/src/runtime/run.ts`); the default store drops saves and applies no patch. The config-file store (`packages/cli/src/settingsStore.ts`) is not wired into `serve` yet |
 | Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The Kick runtime's `releasePageContexts` effect handler (#588), `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start, removal of the context's tab (forgotten whoever closed it, without pausing; #588) | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
 | Claim operations (the claim service's drop-claim operations, waiting reward ids and handoffs, the Kick runtime's challenge claim operations, the channel-points service's claim operations, push-claim queue and push observer) and claim guards (the claim service's `RewardClaimGuard`s, the Kick runtime's `KickChallengeClaimGate`, the channel-points `ChannelPointsClaimGate`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | None for the request: the tick (#599), the drop-claim job and manual claims (#597), the channel-points job and push (#590) and the Kick challenge job (#588) claim with no lock, then commit their result onto the latest state under the platform lock. The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (the token, the persisted token, the lifecycle generation) | The integrity service's own state (#589). The token has one in-memory copy, in the tab registry, with the capture waiters and in-flight acquisition; the service is its only writer; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, and Twitch's enabled flag from any settings save (#589): a save that disables Twitch cancels a mint in flight and holds off integrity work until it ends, and a serialized reconcile after it follows the stored flag, so a failed save needs no rollback | A newer lifecycle generation, and for persistence a host reset | The service's own lanes, no controller lock (#589): token bookkeeping, then the refresh alarm. A schedule re-checks it owns the lifecycle inside the alarm lane, where a disable's clear also runs | Token reloaded from storage | Extension only |
@@ -534,7 +534,7 @@ of optional hooks:
 
 | Port | Extension | CLI |
 | --- | --- | --- |
-| `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings from the config file. `run` never writes it; `serve` saves through the settings store (`src/settingsStore.ts`) |
+| `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings through an injectable `SettingsStore`, by default the config file's, never written. The config-file store (`src/settingsStore.ts`) that saves them is not wired into `serve` yet |
 | `events` | Activity store, OS notifications, locale catalogs | The logger |
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
@@ -597,6 +597,30 @@ releases its tabs, and normalizes the settings. It does not resume farming: the 
 CLI pins `autoStartDropFarming` to true, since it always resumes its enabled platforms and the
 reconciliation would otherwise switch them off. Before #593, a CLI restart skipped all of this and
 let heartbeat recovery resume the previous watch from its persisted cadence.
+
+### CLI control plane (#975)
+
+`lurkloot run` and `lurkloot serve` share one loop, `runLoop` (`packages/cli/src/runtime/run.ts`).
+`serve` passes a `startHost` hook that starts the HTTP control plane
+(`packages/cli/src/runtime/controlPlane.ts`) once the controller exists, before startup
+reconciliation, and the loop closes it first on shutdown; `run` passes none and starts no server
+(`packages/cli/tests/runNoServer.test.ts`). The control plane only forwards the popup's
+`RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
+messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
+
+Settings reach the controller through the loop's `SettingsStore` seam: `load`, `save` and an
+optional `applyPatch`. The default keeps the CLI's long-standing behavior (the config file's
+settings, saves dropped, no patch), and while a store has no `applyPatch` the control plane
+refuses settings messages with `settings_read_only`. A store that validates patches against the
+CLI schema, keeps the headless invariants (`pauseOnManualWatch: false`,
+`autoStartDropFarming: true`) and writes `config.json` is #976's.
+
+The bind is loopback unless `LURKLOOT_SERVE_TOKEN` is set; a token, when set, is required on
+every request; a loopback bind refuses non-loopback `Host` headers (DNS rebinding) and foreign
+`Origin`s; there are no CORS headers. No response carries a credential value: the controller
+never holds one, and `GET /v1/session` is assembled from named fields of the snapshot's auth
+health and the credential store's presence reading, never by spreading objects, so it carries no
+account id either. A `getSnapshot` answer is the popup's full snapshot, account id included.
 
 ### Characterization coverage
 
