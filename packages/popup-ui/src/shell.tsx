@@ -15,6 +15,7 @@ import type { Platform, WatchSourceId } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
 import { useT } from "./context";
+import { type PopupHostCapabilities, useHostCapabilities } from "./hostCapabilities";
 import { statusColor } from "./automation";
 import { LurklootMark } from "./mark";
 import { cn } from "./primitives";
@@ -89,6 +90,17 @@ const FOOTER_ITEMS: NavItem[] = [
   { view: "settings", labelKey: "navSettings", icon: SettingsIcon },
 ];
 
+/** The view a host can show: one of a capability it lacks falls back to the
+ * Queue, so no stored or requested view lands on a hidden destination. */
+export function viewForHost(
+  view: PopupView,
+  capabilities: Readonly<PopupHostCapabilities>,
+): PopupView {
+  return !capabilities.twitchExtensions && EXTENSION_ITEMS.some((item) => item.view === view)
+    ? "queue"
+    : view;
+}
+
 export function viewForPlatform(view: PopupView, platform: Platform): PopupView {
   const item = [...DROPS_ITEMS, ...SOURCE_ITEMS, ...FOOTER_ITEMS].find(
     (entry) => entry.view === view,
@@ -130,6 +142,7 @@ export function WorkspaceRail({
   onOpenChangelog?(): void;
 }): React.ReactElement {
   const t = useT();
+  const hostCapabilities = useHostCapabilities();
   const liveView = liveSource ? WATCH_SOURCE_VIEWS[liveSource] : undefined;
   const inWatchOrder = (items: NavItem[]): NavItem[] =>
     sourceOrder
@@ -164,7 +177,7 @@ export function WorkspaceRail({
       <NavGroup
         labelKey="navExtensions"
         tourId="rail-extensions"
-        items={inWatchOrder(EXTENSION_ITEMS)}
+        items={hostCapabilities.twitchExtensions ? inWatchOrder(EXTENSION_ITEMS) : []}
         view={view}
         platform={platform}
         counts={counts}

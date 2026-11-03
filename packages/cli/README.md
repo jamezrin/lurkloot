@@ -211,6 +211,9 @@ private auth store, so a stale environment value cannot override a refresh.
   persisting `state.json`. `pnpm cli run --once` is the explicit refresh command:
   it discovers campaigns, refreshes authoritative progress, claims eligible
   rewards, persists state, and exits.
+- `serve [--host 127.0.0.1] [--port 8420]` — the same farming loop as `run`,
+  plus a local HTTP control plane (see [Control plane](#control-plane-serve)).
+  It takes `--transport` and `--state` like `run`, but has no `--once`.
 - `auth import <file>` — import an extension credential export ("-" = stdin).
 - `auth twitch browser-login` — Twitch sign-in in a browser; paste back the address it ends on.
 - `auth twitch device-login` — Twitch device-code OAuth (no browser).
@@ -225,6 +228,69 @@ are accepted everywhere. For shell autocomplete, source the generated script:
 
 ```bash
 pnpm cli completion >> ~/.bashrc   # or ~/.zshrc, then restart your shell
+```
+
+## Control plane (`serve`)
+
+`lurkloot serve` farms exactly like `lurkloot run` (one shared loop) and also
+answers a small HTTP API, so an app UI can operate the CLI. `run` never starts a
+server. On SIGINT/SIGTERM the server closes first, then the loop shuts down as
+`run` does.
+
+| Endpoint | Answer |
+| --- | --- |
+| `GET /v1/health` | `{ "status": "ok" }`, for liveness checks. |
+| `GET /v1/session` | `{ id, version, platforms }`. `id` is `"default"` (one process serves one account; the id exists so more can follow). Each platform has `enabled` and `auth`: the engine's last live `status` with its `reasonCode`/`checkedAt`, plus `credential: { present, source, status }`, the same network-free reading as `auth status`. Never a token, cookie or account id. |
+| `POST /v1/session/messages` | Body: one `RuntimeMessage` (`@lurkloot/shared/messages`), the popup's own contract, with `Content-Type: application/json`. Answers `{ "result": … }`: the controller's `handleMessage` result (a snapshot for most messages), or `null`. |
+
+Supported messages: `getSnapshot`, `tickNow`, `claimReward`,
+`selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
+settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`
+and `setAutomation`. Settings come from the config file, which `serve` does not
+write yet, so the settings messages answer `409 settings_read_only` for now.
+Live updates come from polling `getSnapshot`.
+
+Errors are JSON, `{ "error": { "code", "message" } }`:
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, or a missing/unknown `platform`. |
+| 401 | `unauthorized` | A token is configured and the request lacks `Authorization: Bearer <token>`. |
+| 403 | `forbidden_host`, `forbidden_origin` | See the security model below. |
+| 404 / 405 | `not_found`, `method_not_allowed` | Unknown endpoint or method. |
+| 409 | `settings_read_only` | A settings message while settings are read-only. |
+| 413 | `payload_too_large` | Body over 64 KiB. |
+| 415 | `unsupported_media_type` | A POST that is not `application/json`. |
+| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, activity and reset messages). |
+| 500 | `internal_error` | The controller failed; the details go to the log only. |
+
+### Security model
+
+- **Loopback by default.** `serve` binds `127.0.0.1`. Any other `--host`
+  (`0.0.0.0`, a LAN address) refuses to start unless an access token is set in
+  `LURKLOOT_SERVE_TOKEN` (at least 16 characters). The token is read from the
+  environment only, never from a flag (it would show in `ps`) or the config
+  file. For a remote Docker host, terminate HTTPS in front of it.
+- **Bearer token.** With a token set, every request, loopback included, needs
+  `Authorization: Bearer <token>`. It is compared in constant time.
+- **DNS rebinding.** On a loopback bind, a request whose `Host` header is not
+  `localhost`, `127.x.x.x` or `[::1]` is refused.
+- **Cross-site requests.** There are no CORS headers, so a browser lets no other
+  site read a response. A request with an `Origin` other than the server's own
+  is refused, and a POST must be `application/json`, which a cross-site page
+  cannot send without a CORS preflight.
+- **No secrets out.** No response or log line carries a token, cookie or
+  credential value; the session view is built from named safe fields only.
+
+```bash
+# local
+lurkloot serve
+curl -s http://127.0.0.1:8420/v1/session
+curl -s -H 'content-type: application/json' -d '{"type":"getSnapshot"}' \
+  http://127.0.0.1:8420/v1/session/messages
+
+# reachable from other machines: a token is required
+LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" lurkloot serve --host 0.0.0.0
 ```
 
 ## Event logging
