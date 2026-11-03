@@ -2,6 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "baseBranchPatterns": ["develop"],
   "extends": ["config:recommended"],
+  "minimumReleaseAge": "1 day",
+  "internalChecksFilter": "strict",
   "packageRules": [
     {
       "description": "Automerge non-major dependency updates after CI passes",
