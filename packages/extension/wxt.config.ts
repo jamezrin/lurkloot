@@ -130,12 +130,34 @@ export default defineConfig({
       },
     },
   }),
+  // The sources zip is what Firefox Add-ons reviewers rebuild the add-on from,
+  // so it is the workspace root: the extension bundles @lurkloot/core, shared,
+  // locales and popup-ui, and the lockfile pins every dependency. BUILDING.md
+  // carries the rebuild commands. Packages the extension does not build from
+  // keep only their package.json, so the frozen lockfile still installs.
+  // WXT already drops dotfiles, node_modules, tests and .output.
   zip: {
-    sourcesRoot: ".",
+    sourcesRoot: "../..",
     artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",
     sourcesTemplate: "{{name}}-{{version}}-sources.zip",
-    // Generated, gitignored outputs (store screenshots/promo tiles) live here;
-    // keep them out of the AMO sources zip.
-    excludeSources: ["artifacts/**"],
+    excludeSources: [
+      ".worktrees/**",
+      "references/**",
+      "docs/**",
+      "scripts/**",
+      "skills-lock.json",
+      "packages/cli/**",
+      "packages/site/**",
+      "packages/store-sync/**",
+      "packages/extension/tests/**",
+      "packages/extension/artifacts/**",
+      "packages/extension/scripts/**",
+      "packages/extension/store-descriptions/**",
+    ],
+    includeSources: [
+      "packages/cli/package.json",
+      "packages/site/package.json",
+      "packages/store-sync/package.json",
+    ],
   },
 });

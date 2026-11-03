@@ -54,12 +54,34 @@ Paste-ready for the Chrome Web Store host-permission field (under 1000 character
 
 Existing Chrome users may need to approve the expanded site access after updating. Required access stays limited to Twitch, Kick, and the CDN/IVS/extension hosts above, for drop farming only.
 
+## Firefox Add-ons
+
+Firefox builds as a Manifest V2 add-on with a persistent background page (`lurkloot@jamezrin.name`, Firefox 140 or newer, desktop only). Every release attaches `lurkloot-X.Y.Z-firefox.zip` and `lurkloot-X.Y.Z-firefox-sources.zip`.
+
+- **Sources archive.** Reviewers rebuild the add-on from it and reject a mismatch. It is the workspace root minus the packages the add-on does not bundle, with [BUILDING.md](../BUILDING.md) at its top. `scripts/check-firefox-sources.sh` extracts it into an empty directory, follows BUILDING.md and compares the result with the add-on zip file by file; the build workflow runs it on every release build. The popup stylesheet scans only the popup-ui sources (`source(none)` in `packages/popup-ui/src/styles.css`) because automatic detection made the stylesheet depend on files the archive leaves out.
+- **No markup injection.** Review flags any markup string written into the DOM by the add-on's own code. `tests/noMarkupInjection.test.ts` keeps it out of every bundled package; the remaining `innerHTML` lines `web-ext lint` reports are React DOM internals.
+- **Android.** `web-ext lint` warns that `data_collection_permissions` needs Firefox for Android 142. The add-on farms in desktop tabs, so it is listed for desktop only and declares no `gecko_android` support; the warning does not block a submission.
+
+### First submission (manual, once)
+
+The listing has to exist before releases can upload to it.
+
+1. Sign in to the [Add-on Developer Hub](https://addons.mozilla.org/developers/) with the account that will own the listing.
+2. **Submit a New Add-on** → **On this site** → upload `lurkloot-X.Y.Z-firefox.zip` from the latest release. Select **Firefox** only, not Firefox for Android.
+3. Answer **Yes** to source code and upload `lurkloot-X.Y.Z-firefox-sources.zip`.
+4. Listing: name **Lurkloot**, slug `lurkloot`, the summary and description from the Chrome Web Store listing above, category **Games & Entertainment**, license **Apache License 2.0**, the privacy policy from `privacy-policy.md`, homepage `https://lurkloot.jamezrin.com`, support site `https://github.com/jamezrin/lurkloot/issues`.
+5. Notes to reviewer: the approval notes kept beside the release publisher (see RELEASING.md).
+6. Screenshots: the Chrome Web Store screenshots are 1280×800 and are accepted as they are.
+
+Releases after that upload new versions automatically; see RELEASING.md.
+
 ## Release verification
 
 ```bash
 pnpm verify
 pnpm zip
 pnpm zip:firefox
+scripts/check-firefox-sources.sh packages/extension/.output/*-sources.zip packages/extension/.output/*-firefox.zip
 ```
 
 Manual acceptance remains required with real logged-in Twitch and Kick sessions before publishing because both platforms can change private API and page behavior without notice. Use the popup to enable each platform, verify that visible tab mode opens pinned watch tabs through the user's normal browser session, verify tabless mode falls back when unhealthy, and confirm rewards progress on the platform inventory pages.
