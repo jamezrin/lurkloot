@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "Chrome Web Store での短いレビューが大きな助けになります。"
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Firefox アドオンでの短いレビューが大きな助けになります。"
+  },
   "rateNudgeAction": {
     "message": "評価する"
   },

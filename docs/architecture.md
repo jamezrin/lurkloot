@@ -1249,6 +1249,17 @@ rows by ranking tier, and Skipped rows carry the reason the engine gave plus the
 single action that resolves it. Changes that can affect the active scheduler
 target can request a targeted tick for the affected platform.
 
+### Rate nudge store
+
+The rate nudge links to the store the running build was installed from. The
+host names it in `PopupAdapter.reviewStore`: the extension passes
+`"firefox-add-ons"` in its Firefox build and `"chrome-web-store"` otherwise,
+the site demo omits it and gets the Chrome Web Store, and `null` hides the
+nudge for a host no store distributes. `reviewStoreLink` in
+`rateNudge.logic.ts` maps the store to its reviews URL and the message that
+names it (`rateNudgeBody` or `rateNudgeBodyFirefox`); `rateNudge.test.ts`
+pins the mapping. popup-ui never inspects the browser itself.
+
 ### Onboarding tour
 
 A fresh install, and a first update for someone who was never offered it, shows

@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "یک نظر کوتاه در فروشگاه وب Chrome خیلی کمک می‌کند."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "یک نظر کوتاه در فروشگاه افزونه‌های Firefox خیلی کمک می‌کند."
+  },
   "rateNudgeAction": {
     "message": "امتیاز بده"
   },

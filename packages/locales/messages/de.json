@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "Eine kurze Bewertung im Chrome Web Store hilft sehr."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Eine kurze Bewertung in den Firefox-Add-ons hilft sehr."
+  },
   "rateNudgeAction": {
     "message": "Bewerten"
   },

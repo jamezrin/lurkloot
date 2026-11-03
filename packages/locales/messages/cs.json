@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "Krátké hodnocení v Chrome Web Store hodně pomůže."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Krátké hodnocení v Doplňcích pro Firefox hodně pomůže."
+  },
   "rateNudgeAction": {
     "message": "Ohodnotit"
   },

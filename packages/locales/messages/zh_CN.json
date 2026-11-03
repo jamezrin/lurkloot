@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "在 Chrome 应用商店留下简短评价会很有帮助。"
   },
+  "rateNudgeBodyFirefox": {
+    "message": "在 Firefox 附加组件商店留下简短评价会很有帮助。"
+  },
   "rateNudgeAction": {
     "message": "去评价"
   },

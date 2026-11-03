@@ -56,6 +56,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
     openLink: (url) => openHttpsLink(url, (safeUrl) => void browser.tabs.create({ url: safeUrl })),
+    reviewStore: import.meta.env.FIREFOX ? "firefox-add-ons" : "chrome-web-store",
     getPendingChangelogVersion: loadPendingChangelogVersion,
     dismissPendingChangelogVersion,
     changelogUrl,

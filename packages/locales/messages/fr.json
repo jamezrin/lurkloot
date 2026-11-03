@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "Un petit avis sur le Chrome Web Store aide beaucoup."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Un petit avis sur les Modules complémentaires Firefox aide beaucoup."
+  },
   "rateNudgeAction": {
     "message": "Noter"
   },

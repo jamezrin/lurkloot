@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "تقييم سريع على متجر Chrome يساعد كثيرًا."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "تقييم سريع على متجر Firefox Add-ons يساعد كثيرًا."
+  },
   "rateNudgeAction": {
     "message": "قيّمه"
   },
