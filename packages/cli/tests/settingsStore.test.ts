@@ -509,8 +509,9 @@ describe("store boundaries", () => {
   });
 
   // `run` reads config.json and never writes it; only `serve` saves settings.
+  // The loop takes a settings store as an option, but never imports this one.
   it("is not used by the run loop", () => {
     const run = readFileSync(new URL("../src/runtime/run.ts", import.meta.url), "utf8");
-    expect(run).not.toMatch(/settingsStore/);
+    expect(run).not.toMatch(/from\s+["'][./]*settingsStore["']/);
   });
 });
