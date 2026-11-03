@@ -66,12 +66,13 @@ Firefox builds as a Manifest V2 add-on with a persistent background page (`lurkl
 
 The listing has to exist before releases can upload to it.
 
-1. Sign in to the [Add-on Developer Hub](https://addons.mozilla.org/developers/) with the account that will own the listing.
-2. **Submit a New Add-on** → **On this site** → upload `lurkloot-X.Y.Z-firefox.zip` from the latest release. Select **Firefox** only, not Firefox for Android.
-3. Answer **Yes** to source code and upload `lurkloot-X.Y.Z-firefox-sources.zip`.
-4. Listing: name **Lurkloot**, slug `lurkloot`, the summary and description from the Chrome Web Store listing above, category **Games & Entertainment**, license **Apache License 2.0**, the privacy policy from `privacy-policy.md`, homepage `https://lurkloot.jamezrin.com`, support site `https://github.com/jamezrin/lurkloot/issues`.
-5. Notes to reviewer: the approval notes kept beside the release publisher (see RELEASING.md).
-6. Screenshots: the Chrome Web Store screenshots are 1280×800 and are accepted as they are.
+1. Decide the data-collection declaration before the upload; it is a manifest field (`browser_specific_settings.gecko.data_collection_permissions` in `wxt.config.ts`), not a listing setting. It says `required: ["none"]` today. Check it against Mozilla's categories for the user-confirmed credential export (a local file, never transmitted) and the opt-in Twitch Extension providers, whose backends receive a channel-scoped viewer authorization. Declare what applies under `optional` if anything does, and ship it in a release.
+2. Sign in to the [Add-on Developer Hub](https://addons.mozilla.org/developers/) with the account that will own the listing.
+3. **Submit a New Add-on** → **On this site** → upload `lurkloot-X.Y.Z-firefox.zip` from a release that includes the workspace sources archive and the Firefox review link in the popup; 1.24.0 and earlier ship a sources archive reviewers cannot build. Select **Firefox** only, not Firefox for Android.
+4. Answer **Yes** to source code and upload `lurkloot-X.Y.Z-firefox-sources.zip`.
+5. Listing: name **Lurkloot**, slug `lurkloot` (the site, README and popup link to it; it was free on 2026-11-03), the summary and description from the Chrome Web Store listing above without "never exports cookies or tokens", which the credential export contradicts, category **Games & Entertainment**, license **Apache License 2.0**, the privacy policy from `privacy-policy.md`, homepage `https://lurkloot.jamezrin.com`, support site `https://github.com/jamezrin/lurkloot/issues`.
+6. Notes to reviewer: the approval notes kept beside the release publisher (see RELEASING.md).
+7. Screenshots: the Chrome Web Store screenshots are 1280×800 and are accepted as they are.
 
 Releases after that upload new versions automatically; see RELEASING.md.
 
