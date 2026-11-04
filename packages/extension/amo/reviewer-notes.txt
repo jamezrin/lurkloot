@@ -1,0 +1,23 @@
+Lurkloot collects Twitch and Kick viewer drops in the user's own signed-in browser session. It opens visible, pinned, muted watch tabs on channels that earn drops, or optionally sends the platforms' own watch heartbeats without a tab, and claims rewards. It is open source (Apache-2.0): https://github.com/jamezrin/lurkloot
+
+BUILDING
+The source archive is the pnpm workspace. BUILDING.md at its root has the steps: Node 24, pnpm 12.16.1, then `pnpm install --frozen-lockfile` and `pnpm build:firefox`. The output in packages/extension/.output/firefox-mv2/ matches the uploaded package file for file; the release pipeline checks this on every build.
+
+TESTING
+Sign in to twitch.tv or kick.com in the same profile, open the toolbar popup and turn a platform on. The popup lists the active campaigns, and the extension opens a muted watch tab for one.
+
+PERMISSIONS
+- tabs, scripting: open, mute, pin and close only the extension's own watch tabs, and run same-origin requests in a Twitch or Kick page (scripting MAIN world) so they use the page's session.
+- cookies: reads the Twitch auth-token and unique_id cookies and Kick's session_token to authorize requests to those platforms' own APIs. Nothing is stored or sent elsewhere.
+- webRequest: reads the Client-Integrity header the user's own Twitch page sends to gql.twitch.tv, so reward claims can repeat it. Read only.
+- webRequestBlocking, declarativeNetRequestWithHostAccess: set the Origin header of requests and WebSockets the extension itself opens to Twitch and Kick to the platform's site (https://www.twitch.tv, https://kick.com). The platforms refuse a moz-extension:// origin. No other header is changed, and the webRequest listener only touches requests whose originUrl is the extension. Opted-in Fortnite rewards use that Twitch Extension's own frame origin for its backend socket.
+- alarms, storage, notifications: the scheduler tick, local settings and logs, and optional "reward earned" notifications.
+- Host permissions: Twitch and Kick, their CDNs (ttvnw.net video, jtvnw.net images, twitchcdn.net, live-video.net) and ext-twitch.tv. Two Twitch Extension reward providers are optional permissions, requested only when the user turns them on.
+
+CREDENTIAL EXPORT
+Settings > Export credentials, after a confirmation, downloads a local JSON file holding the Twitch and Kick session cookies and Twitch's Kasada session cookie (KP_UIDz-ssn, read from k.twitchcdn.net), for the user's own Lurkloot command-line runtime. It is never sent anywhere and the extension itself never uses the Kasada cookie.
+
+REMOTE CODE AND DATA
+No remote code, no analytics, no Lurkloot server. Settings and logs stay on the device.
+
+The bundled innerHTML warnings come from React DOM.
