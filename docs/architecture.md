@@ -1476,3 +1476,26 @@ change runtime state or normal popup layout. The opening story shows the whole p
 actual size; the others crop it with scoped camera styles or use editorial artwork.
 Localized headings fit after bundled fonts load; the screenshot generator waits for that fit,
 and rejects overflowing copy, clipped subjects or an out-of-canvas focus region.
+
+## Firefox Add-ons sources
+
+Firefox Add-ons reviewers rebuild the add-on from `lurkloot-X.Y.Z-firefox-sources.zip` and reject
+it when the result differs from the uploaded add-on. The rules that keep the rebuild exact:
+
+- **The archive is the workspace.** `zip` in `packages/extension/wxt.config.ts` roots it at the
+  repository, so it carries every package the add-on bundles, the lockfile and
+  [BUILDING.md](../BUILDING.md). Packages the add-on does not bundle keep only their
+  `package.json`, which the frozen lockfile needs.
+- **The archive is an allowlist.** WXT does not read `.gitignore`, so a local zip of the repository
+  root would pick up untracked files such as the CLI's `auth/credentials.json`. `includeSources`,
+  which WXT globs in place of every file under the root, names each build input;
+  `sourcesArchive.test.ts` pins it.
+- **The build reads only what the archive carries.** Nothing in the build may depend on files the
+  archive leaves out. Tailwind's automatic source detection did: it scanned the extension's tests
+  and store scripts for class names. The popup stylesheet turns detection off and scans only
+  `packages/popup-ui/src`; `popupStylesheet.test.ts` pins that.
+- **Proved on every build.** `scripts/check-firefox-sources.sh` rebuilds from the archive in an
+  empty directory and compares the output with the add-on zip file by file. The build workflow runs
+  it after the release zips are normalized.
+- **No markup injection.** Bundled code builds DOM nodes rather than assigning markup strings, which
+  review flags. `noMarkupInjection.test.ts` covers every bundled package.
