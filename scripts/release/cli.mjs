@@ -12,6 +12,7 @@ import {
   serviceAccountToken,
   waitForUpload,
 } from "../cws.mjs";
+import { AddonsClient, plainReleaseNotes, publishVersion } from "../amo.mjs";
 import { assertReleaseAssets, releasePolicy } from "./pipeline.mjs";
 import {
   GitHubClient,
@@ -79,6 +80,19 @@ export function pendingNotesAllowed({ pending }) {
   if (pending === undefined || pending === "false") return false;
   if (pending === "true") return true;
   throw new Error("--pending must be true or false");
+}
+
+// The add-on's gecko id, as declared in packages/extension/wxt.config.ts.
+export const FIREFOX_ADDON_ID = "lurkloot@jamezrin.name";
+export const FIREFOX_REVIEWER_NOTES = "packages/extension/amo/reviewer-notes.txt";
+
+// Firefox Add-ons publication starts once both credentials exist in the production environment.
+// Until the listing has been submitted by hand there are none, and the step skips; one without
+// the other is a misconfiguration.
+export function amoPublishingEnabled({ issuer, secret }) {
+  if (!issuer && !secret) return false;
+  if (issuer && secret) return true;
+  throw new Error("AMO_JWT_ISSUER and AMO_JWT_SECRET must be set together");
 }
 
 function githubClient() {
@@ -204,6 +218,32 @@ const commands = {
     }
     await applyRepositoryConfig({ client: githubClient(), syncAppId });
     process.stdout.write("repository release rulesets applied\n");
+  },
+  async "amo-release"(values) {
+    const issuer = process.env.AMO_JWT_ISSUER;
+    const secret = process.env.AMO_JWT_SECRET;
+    if (!amoPublishingEnabled({ issuer, secret })) {
+      process.stdout.write("firefox add-ons: no credentials configured, skipping\n");
+      return;
+    }
+    const changelog = JSON.parse(await readFile(changelogPath, "utf8"));
+    const result = await publishVersion({
+      client: new AddonsClient({ issuer, secret, addonId: FIREFOX_ADDON_ID }),
+      version: values.version,
+      packageBytes: await readFile(values.package),
+      packageName: basename(values.package),
+      sourceBytes: await readFile(values.sources),
+      sourceName: basename(values.sources),
+      approvalNotes: (await readFile(FIREFOX_REVIEWER_NOTES, "utf8")).trim(),
+      releaseNotes: plainReleaseNotes(releaseNotes(changelog, values.version)),
+    });
+    process.stdout.write(
+      `firefox add-ons: ${result.action} ${values.version} (file status ${result.status})\n`,
+    );
+    if (result.warning)
+      process.stdout.write(
+        `::warning::Firefox Add-ons kept the existing notes: ${result.warning}\n`,
+      );
   },
   async "cws-release"(values) {
     const client = new ChromeWebStoreClient({

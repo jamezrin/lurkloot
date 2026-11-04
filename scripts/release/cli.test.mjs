@@ -1,8 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
+  amoPublishingEnabled,
   candidateStatus,
   configureApplyRequested,
+  FIREFOX_ADDON_ID,
+  FIREFOX_REVIEWER_NOTES,
   formatAppTokenOutput,
   parseArgs,
   resolvePolicy,
@@ -87,4 +91,24 @@ test("policy resolution accepts a space-separated exclusion list", () => {
     }).version,
     "1.6.0",
   );
+});
+
+test("firefox add-ons publication is off until both credentials exist", () => {
+  assert.equal(amoPublishingEnabled({}), false);
+  assert.equal(amoPublishingEnabled({ issuer: "user:1:2", secret: "s" }), true);
+  assert.throws(() => amoPublishingEnabled({ issuer: "user:1:2" }), /must be set together/);
+  assert.throws(() => amoPublishingEnabled({ secret: "s" }), /must be set together/);
+});
+
+test("publishes to the add-on id the extension manifest declares", async () => {
+  const config = await readFile(
+    new URL("../../packages/extension/wxt.config.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(config, new RegExp(`id: "${FIREFOX_ADDON_ID.replaceAll(".", "\\.")}"`));
+});
+
+test("the reviewer notes the publisher sends exist", async () => {
+  const notes = await readFile(new URL(`../../${FIREFOX_REVIEWER_NOTES}`, import.meta.url), "utf8");
+  assert.ok(notes.trim().length > 0);
 });
