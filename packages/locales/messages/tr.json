@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "Mağazada bize yorum ve değerlendirme bırakarak destek olabilirsiniz."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Firefox Eklentileri mağazasında bize yorum ve değerlendirme bırakarak destek olabilirsiniz."
+  },
   "rateNudgeAction": {
     "message": "Değerlendir"
   },

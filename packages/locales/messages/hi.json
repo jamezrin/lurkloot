@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "Chrome Web Store पर एक छोटी समीक्षा बहुत मदद करती है।"
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Firefox Add-ons पर एक छोटी समीक्षा बहुत मदद करती है।"
+  },
   "rateNudgeAction": {
     "message": "रेटिंग दें"
   },

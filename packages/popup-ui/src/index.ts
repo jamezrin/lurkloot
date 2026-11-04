@@ -36,6 +36,7 @@ export type {
   OnboardingAudience,
   PopupAdapter,
   PopupInitialState,
+  ReviewStore,
   ScreenshotVariant,
 } from "./types";
 export type { PopupView } from "./shell";

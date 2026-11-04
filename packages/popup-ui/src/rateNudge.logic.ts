@@ -1,4 +1,22 @@
+import { CHROME_WEB_STORE_REVIEW_URL, FIREFOX_ADD_ONS_REVIEW_URL } from "./constants";
+import type { ReviewStore } from "./types";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface ReviewStoreLink {
+  href: string;
+  bodyKey: "rateNudgeBody" | "rateNudgeBodyFirefox";
+}
+
+// Where the rate nudge sends the user, and the line that names that store. A
+// host that sets no store gets the Chrome Web Store; one that sets null has
+// nowhere to review, so the nudge stays hidden.
+export function reviewStoreLink(store: ReviewStore | null | undefined): ReviewStoreLink | null {
+  if (store === null) return null;
+  if (store === "firefox-add-ons")
+    return { href: FIREFOX_ADD_ONS_REVIEW_URL, bodyKey: "rateNudgeBodyFirefox" };
+  return { href: CHROME_WEB_STORE_REVIEW_URL, bodyKey: "rateNudgeBody" };
+}
 
 // Pure trigger predicate, kept dependency-free so it can be unit-tested without
 // pulling in the React component tree. Shows the nudge only while pending and

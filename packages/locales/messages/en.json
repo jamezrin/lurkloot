@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "A quick review on the Chrome Web Store helps a lot."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "A quick review on Firefox Add-ons helps a lot."
+  },
   "rateNudgeAction": {
     "message": "Rate it"
   },

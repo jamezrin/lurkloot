@@ -21,6 +21,7 @@ import {
   dismissPendingChangelogVersion,
   loadPendingChangelogVersion,
 } from "../../src/core/updateNotice";
+import { EXTENSION_REVIEW_STORE } from "../../src/core/reviewStore";
 
 const URL_PARAMS = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
 
@@ -56,6 +57,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
     getUiLanguage: () => browser.i18n.getUILanguage(),
     openLink: (url) => openHttpsLink(url, (safeUrl) => void browser.tabs.create({ url: safeUrl })),
+    reviewStore: EXTENSION_REVIEW_STORE,
     getPendingChangelogVersion: loadPendingChangelogVersion,
     dismissPendingChangelogVersion,
     changelogUrl,

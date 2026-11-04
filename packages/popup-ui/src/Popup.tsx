@@ -96,7 +96,12 @@ import {
   type ActivityRequestScope,
   type ActivityStream,
 } from "./activity.logic";
-import { RateNudge, shouldShowGithubStarNudge, shouldShowRateNudge } from "./rateNudge";
+import {
+  RateNudge,
+  reviewStoreLink,
+  shouldShowGithubStarNudge,
+  shouldShowRateNudge,
+} from "./rateNudge";
 import { GithubStarNudge } from "./githubStarNudge";
 import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
@@ -1348,12 +1353,14 @@ export function PopupFrame({
       ? { version: pendingChangelogVersion, href: adapter.changelogUrl(pendingChangelogVersion) }
       : undefined;
   const now = new Date();
+  const reviewStore = reviewStoreLink(adapter.reviewStore);
   const noticeSlot = popupNoticeSlot({
     preview,
     hasUpdateNotice: Boolean(updateNotice),
     // Both nudges record their answer in the extension's own preferences.
     showRateNudge:
       hostCapabilities.extensionPreferences
+      && reviewStore !== null
       && shouldShowRateNudge(
         snapshot.state.installedAt,
         settings.rateNudgeStatus,
@@ -1490,9 +1497,10 @@ export function PopupFrame({
                                     onDismiss={dismissUpdateNotice}
                                   />
                                 ) : null}
-                                {noticeSlot === "rate" ? (
+                                {noticeSlot === "rate" && reviewStore ? (
                                   <RateNudge
                                     key="rate-nudge"
+                                    store={reviewStore}
                                     onRate={() => void updateSettings({ rateNudgeStatus: "rated" })}
                                     onDismiss={() =>
                                       void updateSettings({ rateNudgeStatus: "dismissed" })

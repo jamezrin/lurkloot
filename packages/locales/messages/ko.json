@@ -1391,6 +1391,9 @@
   "rateNudgeBody": {
     "message": "Chrome Web Store에 짧은 리뷰를 남겨 주시면 큰 도움이 됩니다."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Firefox 부가 기능에 짧은 리뷰를 남겨 주시면 큰 도움이 됩니다."
+  },
   "rateNudgeAction": {
     "message": "평가하기"
   },

@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser";
 import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
+import { EXTENSION_REVIEW_STORE } from "./reviewStore";
 import { createRuntimeRequestSender } from "./runtimeRequests";
 
 // Popup adapter for the in-page panel document (entrypoints/inpagePanel).
@@ -38,5 +39,8 @@ export function createInPagePanelAdapter(): PopupAdapter {
     // The panel is an extension document, so it has the same `browser.tabs`
     // access the toolbar popup does and opens links the same way.
     openLink: (url) => openHttpsLink(url, (safeUrl) => void browser.tabs.create({ url: safeUrl })),
+    // The panel shows the rate nudge too, so it names the same store the
+    // toolbar popup does.
+    reviewStore: EXTENSION_REVIEW_STORE,
   };
 }
