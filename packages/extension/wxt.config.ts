@@ -130,12 +130,36 @@ export default defineConfig({
       },
     },
   }),
+  // The sources zip is what Firefox Add-ons reviewers rebuild the add-on from,
+  // so it is rooted at the workspace: the extension bundles @lurkloot/core,
+  // shared, locales and popup-ui, and the lockfile pins every dependency.
+  // BUILDING.md carries the rebuild commands. includeSources is the allowlist
+  // of build inputs WXT globs, so a local zip can never pick up untracked files
+  // such as CLI credentials (WXT ignores .gitignore).
+  // Packages the extension does not build from keep only their package.json,
+  // so the frozen lockfile still installs. tests/sourcesArchive.test.ts pins it.
   zip: {
-    sourcesRoot: ".",
+    sourcesRoot: "../..",
     artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",
     sourcesTemplate: "{{name}}-{{version}}-sources.zip",
-    // Generated, gitignored outputs (store screenshots/promo tiles) live here;
-    // keep them out of the AMO sources zip.
-    excludeSources: ["artifacts/**"],
+    includeSources: [
+      "BUILDING.md",
+      "README.md",
+      "LICENSE",
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "tsconfig.base.json",
+      "biome.json",
+      "mise.toml",
+      "packages/cli/package.json",
+      "packages/site/package.json",
+      "packages/store-sync/package.json",
+      "packages/{core,shared,locales,popup-ui,extension}/{package.json,tsconfig.json}",
+      "packages/{core,shared,popup-ui}/src/**",
+      "packages/locales/{src,messages}/**",
+      "packages/extension/{entrypoints,src,public}/**",
+      "packages/extension/wxt.config.ts",
+    ],
   },
 });
