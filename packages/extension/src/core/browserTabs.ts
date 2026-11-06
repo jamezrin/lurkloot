@@ -19,6 +19,7 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
 import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "@lurkloot/core/timestamps";
+import { withAbortSignal } from "@lurkloot/core/abort";
 import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import {
   fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity,
@@ -1106,21 +1107,6 @@ function pageFetchInitJson(init?: RequestInit): string | null {
   if (!init) return null;
   const { signal: _signal, ...serializableInit } = init;
   return JSON.stringify(serializableInit);
-}
-
-async function withAbortSignal<T>(operation: Promise<T>, signal?: AbortSignal | null): Promise<T> {
-  if (!signal) return operation;
-  signal.throwIfAborted();
-  let onAbort!: () => void;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    onAbort = () => reject(signal.reason);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-  try {
-    return await Promise.race([operation, aborted]);
-  } finally {
-    signal.removeEventListener("abort", onAbort);
-  }
 }
 
 function unwrapPageFetchResult<T>(candidate: unknown): T {

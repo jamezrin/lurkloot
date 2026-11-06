@@ -340,7 +340,9 @@ and never take the commit lock or call `saveState` themselves.
   lane tables) is allowed. A platform's own service registers its policy in the controller's
   `PlatformPolicySlice`, and only Twitch integrity registers any:
   - **Tick readiness:** before a tick farms Twitch, integrity prepares its token; a platform that
-    is not ready is kept out of the tick.
+    is not ready is kept out of the tick. Readiness first asks the credentials port: with no
+    Twitch session it mints nothing and holds nothing back, so the auth probe reports
+    `missing_credentials` on that same tick instead of after a page context times out.
   - **Switch transition:** integrity owns the Twitch switch's transition generation. A later switch,
     shutdown or reset supersedes it, and the switch stops before marking the platform starting or
     ticking once it is not current. A platform with no transition is always current.

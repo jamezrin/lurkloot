@@ -755,6 +755,35 @@ describe("background controller", () => {
       expect(order).toEqual(["integrity", "auth", "scheduler"]);
     });
 
+    // Signed out, a mint can only time out: the page has no session to mint
+    // for. Readiness used to open a twitch.tv tab and wait the full timeout,
+    // and its failure held Twitch out of the auth probe, so the user saw
+    // "checking" for a whole extra tick before being asked to sign in.
+    it("skips integrity readiness and reports missing credentials in the same tick when signed out", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async () => false,
+        checkCredentialAvailability: async () => ({ status: "missing" }),
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+      expect(env.state.authHealth.twitch.status).toBe("missing_credentials");
+      expect(env.twitch.checkAuthHealth).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+    });
+
+    it("still prepares integrity when the credential lookup itself fails", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async () => true,
+        checkCredentialAvailability: async () => ({ status: "unavailable" }),
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+    });
+
     it("correlates integrity readiness diagnostics with their scheduler tick", async () => {
       const env = harness(undefined, {
         ensureTwitchIntegrity: async (emit) => {
