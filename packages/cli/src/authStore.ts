@@ -24,12 +24,15 @@ export const CREDENTIALS_FILE = "credentials.json";
 // Loads credentials from <authDir>/credentials.json, then layers SA_* env
 // overrides on top so Docker secrets / CI win over the on-disk store. Every
 // field is optional — a transport simply runs anonymously where a credential is
-// missing. The login flows that populate the store land in a later phase.
+// missing. The `auth` commands and `serve` sign-in routes write the store.
 export function loadCredentials(
   authDir: string,
   env: NodeJS.ProcessEnv = process.env,
 ): PlatformCredentials {
-  const stored = readStore(join(authDir, CREDENTIALS_FILE));
+  return withEnvironment(readStore(join(authDir, CREDENTIALS_FILE)), env);
+}
+
+function withEnvironment(stored: PlatformCredentials, env: NodeJS.ProcessEnv): PlatformCredentials {
   return {
     twitch: {
       authToken: env.SA_TWITCH_AUTH_TOKEN ?? stored.twitch?.authToken,
@@ -43,6 +46,24 @@ export function loadCredentials(
       sessionToken: env.SA_KICK_SESSION_TOKEN ?? stored.kick?.sessionToken,
     },
   };
+}
+
+// Reloads the store into an existing credentials object, in place. The
+// transports read their credentials through that object at request time, so a
+// login or logout written while `run` or `serve` is running reaches the next
+// adapter built (see createCredentialRefreshingTransport). An unreadable store
+// leaves the last good credentials alone rather than wiping them; the
+// availability check reports that failure on its own.
+export function refreshCredentials(
+  target: PlatformCredentials,
+  authDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
+  const { store, lookupFailed } = readStoreDetailed(join(authDir, CREDENTIALS_FILE));
+  if (lookupFailed) return;
+  const fresh = withEnvironment(store, env);
+  target.twitch = fresh.twitch;
+  target.kick = fresh.kick;
 }
 
 // Merges new credentials into <authDir>/credentials.json, preserving any

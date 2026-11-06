@@ -1,5 +1,5 @@
 import type { Transport } from "../config";
-import { saveCredentials, type PlatformCredentials } from "../authStore";
+import { refreshCredentials, saveCredentials, type PlatformCredentials } from "../authStore";
 import { TwitchWebIntegrityManager } from "../auth/twitchWebIntegrity";
 import { TWITCH_WEB_CLIENT_ID } from "../twitch";
 import { createHttpTransport } from "./http";
@@ -25,8 +25,12 @@ export async function createTransport(
           authToken: twitch.authToken,
           deviceId: twitch.deviceId ?? "",
           kasadaSessionCookie: twitch.kasadaSessionCookie,
-          onSessionCookie: (value) =>
-            saveCredentials(authDir, { twitch: { kasadaSessionCookie: value } }),
+          // A sign-in since start may have replaced the web session; its
+          // rotated cookie must not be merged into the new login.
+          onSessionCookie: (value) => {
+            if (credentials.twitch?.clientId !== TWITCH_WEB_CLIENT_ID) return;
+            saveCredentials(authDir, { twitch: { kasadaSessionCookie: value } });
+          },
         })
       : undefined;
   switch (transport) {
@@ -37,4 +41,31 @@ export async function createTransport(
     default:
       throw new Error(`Unknown transport: ${transport as string}`);
   }
+}
+
+// Reloads the credential store into the transport's credentials object before
+// each adapter is built, so `run` and `serve` pick up a login or logout made
+// while they run (from `auth …` in another terminal or the control plane's
+// sign-in routes) without a restart. Before the adapter, not in the
+// availability check: the adapter fixes the Twitch Client-ID when it is built,
+// and a new token sent with the previous login's Client-ID would be rejected.
+export function createCredentialRefreshingTransport(
+  handle: TransportHandle,
+  credentials: PlatformCredentials,
+  authDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): TransportHandle {
+  const refresh = () => refreshCredentials(credentials, authDir, env);
+  return {
+    adapters: handle.adapters,
+    createAdapter: (platform, emit, settings) => {
+      refresh();
+      return handle.createAdapter(platform, emit, settings);
+    },
+    createAdapters: (emit, settings) => {
+      refresh();
+      return handle.createAdapters(emit, settings);
+    },
+    dispose: () => handle.dispose(),
+  };
 }

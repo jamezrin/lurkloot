@@ -615,10 +615,32 @@ refuses settings messages with `settings_read_only`. A store that validates patc
 CLI schema, keeps the headless invariants (`pauseOnManualWatch: false`,
 `autoStartDropFarming: true`) and writes `config.json` is #976's.
 
+Sign-in over the control plane (#978) lives in `packages/cli/src/runtime/controlPlaneAuth.ts`,
+added through the control plane's `routes` option, so `controlPlane.ts` keeps only the request
+guard, body handling and dispatch. It runs the CLI's own login modules and adds no credential path.
+The Twitch device-code flow and the Kick TV link share one start/poll shape
+(`packages/cli/src/auth/deviceLogin.ts`: a `DeviceLoginFlow` started by `startTwitchDeviceLogin` or
+`startKickDeviceLogin`, driven by `waitForDeviceApproval`), and the `auth … device-login` commands
+and `serve` both drive that shape. The browser login's parse-validate-replace path is
+`completeTwitchBrowserLogin`, used the same way. `serve` keeps one device login per platform. A new
+start, a browser login, a logout or shutdown aborts the old flow's sleep and poll, and it releases the
+flow's resources (Kick's cycletls). A start claims the platform's slot before it awaits anything, so racing starts leave one flow. A poll that ignores the abort, such as a hung cycletls request, is raced against the signal, so a cancel never waits on it. A flow aborted after approval saves nothing. The routes write only
+the auth store. Auth health stays the probe's: after a change, `serve` sends `tickNow` and the probe
+reports the result.
+
+The credential store is live for both `run` and `serve`. The transports read credentials through one
+object at request time, and `createCredentialRefreshingTransport`
+(`packages/cli/src/transport/index.ts`) reloads the store into that object before each adapter is
+built. It has to run before the adapter, not in the availability check, because the adapter fixes
+the Twitch Client-ID when it is built. An unreadable store keeps the last good credentials. The web
+integrity manager belongs to the web session the process started with. Adapters use it only while
+the current Twitch client is the web client, so switching *to* an imported web session still needs a
+restart. `packages/cli/tests/credentialRefresh.test.ts` guards the reload at the request level.
+
 The bind is loopback unless `LURKLOOT_SERVE_TOKEN` is set; a token, when set, is required on
 every request; a loopback bind refuses non-loopback `Host` headers (DNS rebinding) and foreign
 `Origin`s; there are no CORS headers. No response carries a credential value: the controller
-never holds one, and `GET /v1/session` is assembled from named fields of the snapshot's auth
+never reads one, the sign-in routes answer with presence, source and the Twitch login name only, and `GET /v1/session` is assembled from named fields of the snapshot's auth
 health and the credential store's presence reading, never by spreading objects, so it carries no
 account id either. A `getSnapshot` answer is the popup's full snapshot, account id included.
 
