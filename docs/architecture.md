@@ -177,7 +177,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | The discovery-signal service's `onTickConcluded` hook (after a tick commits, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
-| Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's settings come from an injectable `SettingsStore` (`packages/cli/src/runtime/run.ts`); the default store drops saves and applies no patch. The config-file store (`packages/cli/src/settingsStore.ts`) is not wired into `serve` yet |
+| Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's settings come from an injectable `SettingsStore` (`packages/cli/src/runtime/run.ts`); the default store (`run`) drops saves and applies no patch. `serve` uses the config-file store (`packages/cli/src/settingsStore.ts`, #1000), which applies and saves them |
 | Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The Kick runtime's `releasePageContexts` effect handler (#588), `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start, removal of the context's tab (forgotten whoever closed it, without pausing; #588) | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
 | Claim operations (the claim service's drop-claim operations, waiting reward ids and handoffs, the Kick runtime's challenge claim operations, the channel-points service's claim operations, push-claim queue and push observer) and claim guards (the claim service's `RewardClaimGuard`s, the Kick runtime's `KickChallengeClaimGate`, the channel-points `ChannelPointsClaimGate`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | None for the request: the tick (#599), the drop-claim job and manual claims (#597), the channel-points job and push (#590) and the Kick challenge job (#588) claim with no lock, then commit their result onto the latest state under the platform lock. The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (the token, the persisted token, the lifecycle generation) | The integrity service's own state (#589). The token has one in-memory copy, in the tab registry, with the capture waiters and in-flight acquisition; the service is its only writer; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, and Twitch's enabled flag from any settings save (#589): a save that disables Twitch cancels a mint in flight and holds off integrity work until it ends, and a serialized reconcile after it follows the stored flag, so a failed save needs no rollback | A newer lifecycle generation, and for persistence a host reset | The service's own lanes, no controller lock (#589): token bookkeeping, then the refresh alarm. A schedule re-checks it owns the lifecycle inside the alarm lane, where a disable's clear also runs | Token reloaded from storage | Extension only |
@@ -534,7 +534,7 @@ of optional hooks:
 
 | Port | Extension | CLI |
 | --- | --- | --- |
-| `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings through an injectable `SettingsStore`, by default the config file's, never written. The config-file store (`src/settingsStore.ts`) that saves them is not wired into `serve` yet |
+| `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings through an injectable `SettingsStore`: under `run` the config file's, never written; under `serve` the config-file store (`src/settingsStore.ts`, #1000), which saves them to `config.json` |
 | `events` | Activity store, OS notifications, locale catalogs | The logger |
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
@@ -551,9 +551,21 @@ comments, key order, `transport` and `authDir` as written. A field the CLI schem
 saved only while it holds the value `toEngineSettings` gives it (`tablessMode`, the pinned
 `pauseOnManualWatch` and `autoStartDropFarming`); any other value, or an extension-only field such
 as `muteFarmingTabs`, is rejected with `CliSettingsStoreError` and the file is left untouched.
-`run` never uses the store. `config import` (`saveConfigSettings`) is the only other writer of the
-file. `packages/cli/tests/settingsStore.test.ts` guards the round trip for every CLI key, the
-rejections, the atomic write and the run boundary.
+The store also provides the controller's `applySettingsPatch` (#1000): it layers the patch over the
+current settings with the shared `overlaySettingsPatch` (the same overlay the extension's
+`applySettingsPatch` normalizes), then runs the result through `engineToCliSettings`, so the patch
+is checked by the rules a save uses rather than a second copy of them. Where the extension
+normalizes silently, the CLI rejects: a value the patch sets must come back from the CLI rules as
+given, so a wrong type, an out-of-range number or an unknown choice is `invalid` instead of being
+clamped or defaulted. A rejected patch throws inside the settings commit before anything is saved,
+and a save that fails leaves the file as it was; the controller has no settings of its own beyond
+what `load` returns, so in both cases its settings stay unchanged. `load` re-parses the file only
+when its inode, size or modification time changed, so a save or a hand edit is seen on the next
+call. `run` never uses the store. `config import` (`saveConfigSettings`) is the only other writer of
+the file. `packages/cli/tests/settingsStore.test.ts` guards the round trip for every CLI key, the
+patch rules, the rejections, the atomic write and the run boundary, including a `run` loop that
+receives settings messages and never writes the file; `packages/cli/tests/serve.test.ts` drives
+each settings message over HTTP.
 
 Each host passes a static `capabilities` object (`EXTENSION_CAPABILITIES`, `CLI_CAPABILITIES`),
 written by hand. `createBackgroundController` throws `HostCapabilityMismatchError` when a
@@ -609,11 +621,16 @@ reconciliation, and the loop closes it first on shutdown; `run` passes none and 
 messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
 
 Settings reach the controller through the loop's `SettingsStore` seam: `load`, `save` and an
-optional `applyPatch`. The default keeps the CLI's long-standing behavior (the config file's
-settings, saves dropped, no patch), and while a store has no `applyPatch` the control plane
-refuses settings messages with `settings_read_only`. A store that validates patches against the
-CLI schema, keeps the headless invariants (`pauseOnManualWatch: false`,
-`autoStartDropFarming: true`) and writes `config.json` is #976's.
+optional `applyPatch`. The default, which `run` uses, keeps the CLI's long-standing behavior (the
+config file's settings, saves dropped, no patch). `serve` builds the config-file store from the
+config path (`serveLoop`'s `configPath`), which validates patches against the CLI schema, keeps
+the headless invariants (`pauseOnManualWatch: false`, `autoStartDropFarming: true`) and writes
+`config.json` (#1000). The control plane refuses settings messages with `settings_read_only` only
+for a store without `applyPatch`. It checks the message fields the controller reads before the
+store sees a change (`settingsPatch` is an object, `enabled` a boolean, a watchlist `channel` a
+string) and maps `CliSettingsStoreError`: `unrepresentable` and `invalid` give a 400 carrying the
+offending settings `paths`, `config_unreadable` a 503 and `verification_failed` a 500, whose
+details go to the log only.
 
 Sign-in over the control plane (#978) lives in `packages/cli/src/runtime/controlPlaneAuth.ts`,
 added through the control plane's `routes` option, so `controlPlane.ts` keeps only the request

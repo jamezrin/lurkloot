@@ -281,23 +281,41 @@ were. Sign-in errors use these codes:
 Supported messages: `getSnapshot`, `tickNow`, `claimReward`,
 `selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
 settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`
-and `setAutomation`. Settings come from the config file, which `serve` does not
-write yet, so the settings messages answer `409 settings_read_only` for now.
-Live updates come from polling `getSnapshot`.
+and `setAutomation`. Live updates come from polling `getSnapshot`.
 
-Errors are JSON, `{ "error": { "code", "message" } }`:
+A settings message is applied by the running loop and saved to the config file
+(`--config`, `config.json` by default) at once. Only the values that change are
+rewritten, through a temporary file and a rename, so the file keeps its
+comments, key order, `transport` and `authDir`. A change the CLI config cannot
+hold is refused and nothing is written: an extension-only setting (such as
+`muteFarmingTabs`), a value the CLI pins (`pauseOnManualWatch`,
+`autoStartDropFarming`), or a value `validate-config` would reject or correct (a
+wrong type, an out-of-range number, an unknown choice, a watchlist over the
+limit). `run` never writes the config file. Change settings through the API
+while `serve` runs, or edit the file while it is stopped: a hand edit is read
+the next time the loop loads its settings, but nothing that follows a settings
+change (switching a platform on or off, the poll interval) runs for it until a
+restart.
+
+Errors are JSON, `{ "error": { "code", "message" } }`. A refused settings change
+also carries `paths`, the dotted settings paths it is about (for example
+`"platform.twitch.watchlistChannels"`):
 
 | Status | `code` | When |
 | --- | --- | --- |
-| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, or a missing/unknown `platform`. |
+| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, a missing/unknown `platform`, or a settings message without its fields (`settingsPatch` object, boolean `enabled`, string `channel`). |
+| 400 | `settings_unrepresentable` | The change sets something the CLI config cannot hold, or changes a value the CLI pins. Nothing is written. |
+| 400 | `settings_invalid` | The change has a value the CLI settings rules reject. Nothing is written. |
 | 401 | `unauthorized` | A token is configured and the request lacks `Authorization: Bearer <token>`. |
 | 403 | `forbidden_host`, `forbidden_origin` | See the security model below. |
 | 404 / 405 | `not_found`, `method_not_allowed` | Unknown endpoint or method. |
-| 409 | `settings_read_only` | A settings message while settings are read-only. |
+| 409 | `settings_read_only` | A settings message to a host started without a settings store that saves (not `lurkloot serve`). |
 | 413 | `payload_too_large` | Body over 64 KiB. |
 | 415 | `unsupported_media_type` | A POST that is not `application/json`. |
 | 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, activity and reset messages). |
 | 500 | `internal_error` | The controller failed; the details go to the log only. |
+| 500 | `settings_not_saved` | The edited config would not load back as the new settings; nothing was written. Details in the log. |
+| 503 | `settings_unavailable` | The config file cannot be read or parsed (fix it, then retry); nothing was written. Details in the log. |
 
 ### Security model
 
@@ -331,6 +349,10 @@ Errors are JSON, `{ "error": { "code", "message" } }`:
 lurkloot serve
 curl -s http://127.0.0.1:8420/v1/session
 curl -s -H 'content-type: application/json' -d '{"type":"getSnapshot"}' \
+  http://127.0.0.1:8420/v1/session/messages
+# stop farming Kick; saved to config.json
+curl -s -H 'content-type: application/json' \
+  -d '{"type":"setPlatformEnabled","platform":"kick","enabled":false}' \
   http://127.0.0.1:8420/v1/session/messages
 
 # reachable from other machines: a token is required

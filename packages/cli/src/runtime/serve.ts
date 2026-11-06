@@ -1,6 +1,7 @@
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { LocalCredentialHealth } from "../authStore";
+import { createCliSettingsStore } from "../settingsStore";
 import { CLI_VERSION } from "../version";
 import { errorMessage } from "@lurkloot/shared/errors";
 import {
@@ -14,6 +15,10 @@ import { runLoop, type FarmingController, type FarmingHost, type RunOptions } fr
 
 export interface ServeOptions extends Omit<RunOptions, "once" | "startHost"> {
   binding: ServeBinding;
+  // The config file the settings come from. Without an injected settingsStore,
+  // serve reads and saves settings through the config-file store on this path,
+  // so the control plane's settings messages are applied and kept (#1000).
+  configPath?: string;
   // The network-free credential reading `auth status` reports. Presence and
   // source only; never a credential value.
   describeCredentials: () => Record<Platform, LocalCredentialHealth>;
@@ -83,9 +88,22 @@ export async function startControllerControlPlane(
 }
 
 // `lurkloot serve`: the `run` farming loop, plus the control plane started
-// beside it and closed first on shutdown.
+// beside it and closed first on shutdown. Unlike `run`, it saves the settings
+// the control plane changes to the config file.
 export function serveLoop(options: ServeOptions): Promise<void> {
-  const { binding, describeCredentials, onListening, auth, ...runOptions } = options;
+  const { binding, configPath, describeCredentials, onListening, auth, ...rest } = options;
+  const settingsStore =
+    rest.settingsStore
+    ?? (configPath
+      ? createCliSettingsStore(configPath, {
+          onUnreadable: (error) =>
+            rest.logger.warn(
+              `${error.message}; keeping the settings last read until it loads again`,
+              "config",
+            ),
+        })
+      : undefined);
+  const runOptions = { ...rest, ...(settingsStore ? { settingsStore } : {}) };
   return runLoop({
     ...runOptions,
     startHost: (controller) =>
