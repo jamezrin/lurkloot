@@ -154,6 +154,27 @@ describe("control plane client", () => {
     expect(sessionStorage.getItem(TOKEN_STORAGE_KEY)).toBe("correct-token-0123456789");
   });
 
+  it("keeps using the token in memory when sessionStorage refuses it", async () => {
+    const refusing = {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException("quota", "QuotaExceededError");
+      },
+      removeItem: () => undefined,
+    } as unknown as Storage;
+    const { fetchImpl, seen } = guardedServe("correct-token-0123456789");
+    const promptToken = vi.fn<TokenPrompt>(async () => "correct-token-0123456789");
+    const client = createControlPlaneClient({
+      tokenStore: sessionTokenStore(refusing),
+      promptToken,
+      fetchImpl,
+    });
+    await client.request("GET", "/v1/session");
+    await client.request("GET", "/v1/session");
+    expect(promptToken).toHaveBeenCalledTimes(1);
+    expect(seen.at(-1)).toBe("Bearer correct-token-0123456789");
+  });
+
   it("gives up with the 401 when the prompt is dismissed", async () => {
     sessionStorage.clear();
     const { fetchImpl } = guardedServe("correct-token-0123456789");

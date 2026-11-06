@@ -58,13 +58,19 @@ export function AccountsView({ api }: { api: AuthApi }): React.ReactElement {
   const t = useT();
   const [status, setStatus] = useState<Record<Platform, PlatformAuthView> | null>(null);
   const [loadError, setLoadError] = useState<string | undefined>();
+  // Only the latest status read may land: a poll that started before a
+  // sign-in or sign-out must not put the old status back.
+  const requestSeq = useRef(0);
 
   const refresh = useCallback(async () => {
+    const seq = ++requestSeq.current;
     try {
       const answer = await api.status();
+      if (seq !== requestSeq.current) return;
       setStatus(answer.platforms);
       setLoadError(undefined);
     } catch (error) {
+      if (seq !== requestSeq.current) return;
       setLoadError(describeAuthError(error, t));
     }
   }, [api, t]);
@@ -404,7 +410,8 @@ export function BrowserLogin({
             <input
               ref={inputRef}
               data-browser-login-address
-              type="text"
+              // Masked: the address carries the Twitch token.
+              type="password"
               name="twitch-redirect"
               autoComplete="off"
               autoCorrect="off"
