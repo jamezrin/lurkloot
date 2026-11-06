@@ -1,7 +1,12 @@
 export {
   Popup,
+  POPUP_FRAME_CLASS,
   screenshotVariant,
+  type PopupWindowFrame,
 } from "./Popup";
+// For a host's own views rendered inside the frame (PopupWindowFrame.hostViews).
+export { usePopupRuntime, useT } from "./context";
+export { cn } from "./primitives";
 export { PromoTile, StoreScreenshot } from "./marketing";
 export { CriticalFailurePanel } from "./criticalFailure";
 export { createDemoPopupAdapter } from "./demo";
@@ -39,7 +44,7 @@ export type {
   ReviewStore,
   ScreenshotVariant,
 } from "./types";
-export type { PopupView } from "./shell";
+export type { PopupHostView, PopupView } from "./shell";
 export {
   DEFAULT_HOST_CAPABILITIES,
   type PopupHostCapabilities,

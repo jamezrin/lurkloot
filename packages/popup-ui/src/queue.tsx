@@ -30,6 +30,7 @@ import {
   type SortableDragEndEvent,
 } from "./primitives";
 import { Dropdown } from "./dropdown";
+import { CAMPAIGN_GRID_CLASS, CAMPAIGN_GRID_SPAN_CLASS } from "./constants";
 import { RewardFilterMenu } from "./rewardFilterMenu";
 
 const TIER_LABEL_KEYS: Record<CampaignRankTier, string> = {
@@ -327,7 +328,7 @@ export function QueuePanel({
             {t("campaignSearchNoResults", query.trim())}
           </p>
         ) : (
-          <div data-queue-group="search" className="space-y-1">
+          <div data-queue-group="search" className={cn("space-y-1", CAMPAIGN_GRID_CLASS)}>
             {searchResults.map((campaign, index) => {
               const queueIndex = queued.findIndex((entry) => entry.id === campaign.id);
               return (
@@ -371,7 +372,11 @@ export function QueuePanel({
             if (rows.length === 0) return null;
             const pinned = tier === "pinned";
             const group = (
-              <div key={tier} data-queue-group={tier} className="space-y-1">
+              <div
+                key={tier}
+                data-queue-group={tier}
+                className={cn("space-y-1", CAMPAIGN_GRID_CLASS)}
+              >
                 <GroupDivider
                   label={t(TIER_LABEL_KEYS[tier])}
                   hint={
@@ -756,7 +761,7 @@ function GroupDivider({
   action?: { label: string; onClick(): void; attribute?: string };
 }): React.ReactElement {
   return (
-    <div className="flex items-center gap-2 pt-2">
+    <div className={cn("flex items-center gap-2 pt-2", CAMPAIGN_GRID_SPAN_CLASS)}>
       <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</span>
       {typeof hint === "string" ? (
         <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span>
@@ -821,7 +826,7 @@ function Disclosure({
       </button>
       <AnimatePresence initial={false}>
         {expanded ? (
-          <div key={`${group}-rows`} className="lurk-reveal space-y-1">
+          <div key={`${group}-rows`} className={cn("lurk-reveal space-y-1", CAMPAIGN_GRID_CLASS)}>
             {children}
           </div>
         ) : null}

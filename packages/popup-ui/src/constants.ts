@@ -155,3 +155,10 @@ export const SCREENSHOT_WATCHLIST_LIVE: Record<
 
 export const PROMO_GRADIENT =
   "radial-gradient(circle at 16% 18%, rgba(145,71,255,0.40), transparent 38%), radial-gradient(circle at 86% 82%, rgba(83,252,24,0.26), transparent 40%)";
+
+// A campaign list lays its cards out in two columns once its panel is wide
+// enough, which only a full-window frame is: the popup's panel never reaches
+// it, so the popup keeps its single column. A divider inside spans both.
+export const CAMPAIGN_GRID_CLASS =
+  "@[1000px]:grid @[1000px]:grid-cols-2 @[1000px]:items-start @[1000px]:gap-x-2 @[1000px]:gap-y-1 @[1000px]:space-y-0";
+export const CAMPAIGN_GRID_SPAN_CLASS = "@[1000px]:col-span-full";
