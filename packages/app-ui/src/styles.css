@@ -1,0 +1,13 @@
+@import "@lurkloot/popup-ui/fonts.css";
+@import "@lurkloot/popup-ui/styles.css";
+
+/* popup-ui's stylesheet scans only popup-ui's own components (source(none)
+   plus its own @source), so the app's components are added here. */
+@source "./**/*.{ts,tsx}";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}

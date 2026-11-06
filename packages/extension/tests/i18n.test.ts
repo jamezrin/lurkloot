@@ -377,6 +377,9 @@ describe("i18n", () => {
       "navPlatform",
       // The tour's step counter is only numbers and a slash.
       "tourProgress",
+      // "Code" is the German, French and Czech word too (the app UI's device
+      // sign-in code).
+      "appDeviceLoginCode",
       "navExtensions",
       // "Badge" is the French and Italian word too.
       "rewardBadge",

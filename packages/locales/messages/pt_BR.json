@@ -2401,5 +2401,197 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Uma linha só evolui um emblema que você já tem. Sem ele, assistir não rende nada."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Não há histórico de atividade aqui"
+  },
+  "activityNoHistoryBody": {
+    "message": "O Lurkloot registra aqui o que faz no log, não em um histórico para navegar. Abaixo está o que ele está fazendo agora."
+  },
+  "activityLastCheck": {
+    "message": "Última verificação"
+  },
+  "activityNoCheckYet": {
+    "message": "Ainda não"
+  },
+  "appNavAccounts": {
+    "message": "Contas"
+  },
+  "appAccountsIntro": {
+    "message": "Entre no Lurkloot na Twitch e na Kick. Seu login fica salvo no armazenamento privado do Lurkloot, na máquina em que ele roda. Esta página nunca mostra nem guarda um token."
+  },
+  "appAccountSignedIn": {
+    "message": "Conectado"
+  },
+  "appAccountChecking": {
+    "message": "Verificando…"
+  },
+  "appAccountSignedOut": {
+    "message": "Não conectado"
+  },
+  "appAccountRejected": {
+    "message": "Login não é mais válido"
+  },
+  "appAccountUnavailable": {
+    "message": "Não é possível verificar agora"
+  },
+  "appAccountSourceStored": {
+    "message": "Salvo pelo Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "De uma variável de ambiente"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Uma variável de ambiente SA_* ainda fornece este login, então o Lurkloot continuará usando-a independentemente do que você entrar ou sair aqui. Remova a variável e reinicie o Lurkloot para usar o login desta página."
+  },
+  "appAccountSignOut": {
+    "message": "Sair"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Desconectado."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Desconectado, mas uma variável de ambiente SA_* ainda conecta o Lurkloot."
+  },
+  "appAccountNothingToForget": {
+    "message": "Não havia nenhum login salvo para esquecer."
+  },
+  "appRecommended": {
+    "message": "Recomendado"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Entre com seu navegador"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Vê todas as campanhas de drops."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Abra a página de login da Twitch e entre."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Abrir login da Twitch"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Depois, a Twitch envia você para $1. Copie esse endereço inteiro da barra de endereços."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Cole o endereço para o qual a Twitch enviou você"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Concluir login"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Conectado à Twitch."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Conectado à Twitch como $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "O endereço não tem a parte #access_token?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "A twitch.tv pode removê-la da barra de endereços quase imediatamente. Antes de entrar, abra as ferramentas de desenvolvedor do navegador na aba Network e ative Preserve log. Depois entre, filtre por access_token e copie o cabeçalho location do redirecionamento de id.twitch.tv. Cole esse valor aqui."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Entre com um código"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Não precisa de login no navegador aqui, mas a Twitch só mostra este login para as campanhas que você já começou."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Vincule com um código de TV"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Abra o link em qualquer dispositivo em que você esteja conectado à Kick e confirme o código."
+  },
+  "appDeviceLoginStart": {
+    "message": "Obter um código"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Abrir link"
+  },
+  "appDeviceLoginCode": {
+    "message": "Código"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Aguardando você confirmar o código…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Cancelar"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Conectado."
+  },
+  "appDeviceLoginExpired": {
+    "message": "O código expirou. Obtenha um novo para tentar de novo."
+  },
+  "appDeviceLoginFailed": {
+    "message": "O login falhou. Obtenha um novo código para tentar de novo."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "O login foi cancelado."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "Esse endereço não tem token de login. Copie o endereço completo para o qual a Twitch enviou você."
+  },
+  "appErrorLoginRejected": {
+    "message": "A Twitch recusou este login. Comece de novo pela página de login."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Não foi possível acessar a Twitch ou a Kick. Tente novamente em instantes."
+  },
+  "appErrorNetwork": {
+    "message": "Não é possível acessar o Lurkloot. O lurkloot serve ainda está em execução?"
+  },
+  "appErrorUnauthorized": {
+    "message": "O token de acesso foi recusado."
+  },
+  "appErrorGeneric": {
+    "message": "A solicitação falhou ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "O Lurkloot não pode salvar esta configuração no arquivo de configuração: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "O Lurkloot recusou este valor: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "O Lurkloot não conseguiu atualizar o arquivo de configuração. Nada foi alterado."
+  },
+  "appErrorUnsupported": {
+    "message": "O Lurkloot não pode fazer isso aqui."
+  },
+  "appConnecting": {
+    "message": "Conectando ao Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "Não é possível acessar o Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "Inicie com lurkloot serve e tente novamente."
+  },
+  "appRetry": {
+    "message": "Tentar novamente"
+  },
+  "appConnectionLost": {
+    "message": "A conexão com o Lurkloot foi perdida. Tentando novamente…"
+  },
+  "appDismiss": {
+    "message": "Dispensar"
+  },
+  "appTokenTitle": {
+    "message": "Token de acesso"
+  },
+  "appTokenBody": {
+    "message": "Este Lurkloot precisa do token de acesso, o valor de LURKLOOT_SERVE_TOKEN. Ele fica guardado apenas nesta aba do navegador."
+  },
+  "appTokenRejected": {
+    "message": "Esse token foi recusado. Confira e tente novamente."
+  },
+  "appTokenLabel": {
+    "message": "Token de acesso"
+  },
+  "appTokenSubmit": {
+    "message": "Continuar"
   }
 }
