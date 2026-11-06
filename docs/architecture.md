@@ -1050,7 +1050,7 @@ For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligibl
 
 In the extension, most platform calls go through the page-context fetch helpers in `packages/extension/src/core/browserTabs.ts`, bound to the browser by `packages/extension/src/core/tabs.ts`. They find or open a temporary tab on the platform origin, then execute `fetch` in the page `MAIN` world. This keeps requests inside the browser's normal logged-in session and any page clearance context.
 
-For Kick, `pageFetchJson` reads `session_token` from the Kick page context and adds it as a bearer token for `web.kick.com` API calls. For Twitch, GraphQL requests use Twitch's public web client id and normal browser credentials unless a public channel check explicitly passes `credentials: "omit"`. Twitch claim mutations also replay a short-lived Client-Integrity bundle captured from page-origin Twitch GraphQL traffic.
+For Kick, `pageFetchJson` reads `session_token` from the Kick page context and adds it as a bearer token for `web.kick.com` API calls. For Twitch, GraphQL requests use Twitch's public web client id and normal browser credentials unless a public channel check explicitly passes `credentials: "omit"`. Twitch claim mutations also replay a short-lived Client-Integrity bundle captured from page-origin Twitch GraphQL traffic. Only a request that also carries `Authorization` is captured: a signed-out page sends Client-Integrity for an anonymous session, which no authenticated request can use (`integrityFromHeaders`).
 
 Temporary page-context tabs are reference-counted per origin and removed after the fetches complete when the extension created them. Existing user tabs reused for page-context fetches are not closed.
 
