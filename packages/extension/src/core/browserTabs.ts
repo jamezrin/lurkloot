@@ -35,10 +35,13 @@ import {
   INTEGRITY_REFRESH_TIMEOUT_MS,
   isValidTwitchIntegrity,
   managedTabBreakerOpen,
+  noteManagedTwitchMint,
   noteOpeningWatchTab,
   noteTabClosure,
+  noteTwitchIntegrityRejected,
   observePageContextRecovery,
   resetPlaybackPriming,
+  twitchMintHeld,
   waitForIntegrityCapture,
   type PageContextSource,
   type PageContextTab,
@@ -795,6 +798,14 @@ export async function ensureTwitchIntegrityWithBrowser(
   }
 
   const rejectedToken = request?.rejectedToken ?? registry.twitchIntegrity?.integrity;
+  if (noteTwitchIntegrityRejected(registry, rejectedToken)) {
+    diagnostic(
+      acquisitionEmit,
+      "warn",
+      "Twitch keeps rejecting integrity tokens this browser has just minted, so Lurkloot stopped opening twitch.tv tabs to mint more; claims and the drops dashboard may fail until a twitch.tv tab you open yourself provides a token, or Twitch is turned off and on",
+      "twitch",
+    );
+  }
   const captured = await startTwitchIntegrityAcquisition(
     registry,
     browserApi,
@@ -832,6 +843,15 @@ function startTwitchIntegrityAcquisition(
   onManagedPageContextOpen?: () => void | Promise<void>,
   callerSignal?: AbortSignal,
 ): Promise<TwitchIntegrityAcquisitionResult | undefined> {
+  if (twitchMintHeld(registry)) {
+    diagnostic(
+      emit,
+      "debug",
+      "Not opening a twitch.tv page context: minting is held after Twitch rejected freshly minted tokens",
+      "twitch",
+    );
+    return Promise.resolve(undefined);
+  }
   if (registry.inFlightIntegrityAcquisition) {
     diagnostic(
       emit,
@@ -997,6 +1017,8 @@ async function mintTwitchIntegrity(
         "twitch",
       );
     }
+    if (captured && pageContext.createdByExtension)
+      noteManagedTwitchMint(registry, captured.value.integrity);
     return captured
       ? {
           value: captured.value,

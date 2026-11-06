@@ -96,6 +96,11 @@ export interface TabRegistry {
   integrityWaiters: Array<(capture?: TwitchIntegrityCapture) => void>;
   twitchContextBoot: TwitchContextBootTiming | undefined;
   inFlightIntegrityAcquisition: TwitchIntegrityAcquisition | undefined;
+  // The managed mint hold (#1003): see noteTwitchIntegrityRejected.
+  twitchManagedMint: { token: string; capturedAt: number } | undefined;
+  // Freshly minted tokens Twitch rejected, by when it rejected them.
+  twitchFreshMintRejections: Map<string, number>;
+  twitchMintHeld: boolean;
   // Replays the valid captured integrity token on background Twitch GQL.
   twitchRequestIdentity: TwitchRequestIdentity;
 }
@@ -119,6 +124,9 @@ export function createTabRegistry(): TabRegistry {
     integrityWaiters: [],
     twitchContextBoot: undefined,
     inFlightIntegrityAcquisition: undefined,
+    twitchManagedMint: undefined,
+    twitchFreshMintRejections: new Map(),
+    twitchMintHeld: false,
     twitchRequestIdentity: createTwitchRequestIdentity(() => currentValidTwitchIntegrity(registry)),
   };
   return registry;
@@ -257,6 +265,14 @@ export function setTwitchIntegrity(
   emit: EventEmitter = ignoreEvent,
 ): void {
   registry.twitchIntegrity = value;
+  // A token this browser minted without the extension's help (the user's own
+  // twitch.tv tab) shows Twitch trusts it again, so the hold lifts.
+  if (
+    value
+    && options?.sourceTabId !== registry.twitchContextBoot?.tabId
+    && value.integrity !== registry.twitchManagedMint?.token
+  )
+    releaseTwitchMintHold(registry);
   const generation = ++registry.twitchIntegrityCaptureGeneration;
   if (value == null) {
     registry.latestTwitchIntegrityCapture = undefined;
@@ -331,6 +347,60 @@ export interface TwitchIntegrityAcquisition {
 
 export function cancelTwitchIntegrityAcquisition(registry: TabRegistry, reason?: unknown): void {
   registry.inFlightIntegrityAcquisition?.abort.abort(reason);
+  // Only the integrity lifecycle cancels (Twitch disabled, a host reset,
+  // shutdown), and each of those is a fresh start for the hold too.
+  releaseTwitchMintHold(registry);
+}
+
+// Twitch rejecting a token the extension's own page context minted moments
+// ago means the browser itself is not trusted, and minting again only opens
+// another tab to get another rejected token (#1003, two tabs a minute,
+// forever). One such rejection may be a blip and gets one more mint; a second
+// holds every mint (readiness, proactive and recovery alike) until a token
+// arrives from a tab the extension did not open, or the integrity lifecycle
+// restarts. A hold, not a backoff: a capped backoff still reopens forever.
+export const TWITCH_FRESH_MINT_WINDOW_MS = 5 * 60 * 1000;
+export const TWITCH_FRESH_MINT_REJECTION_LIMIT = 2;
+// Rejections further apart than this are unrelated blips, not one episode.
+export const TWITCH_FRESH_MINT_EPISODE_MS = 30 * 60 * 1000;
+
+export function noteManagedTwitchMint(
+  registry: TabRegistry,
+  token: string,
+  at: number = Date.now(),
+): void {
+  registry.twitchManagedMint = { token, capturedAt: at };
+}
+
+// Records that Twitch rejected `rejectedToken`. Returns true when this
+// rejection is the one that engages the hold.
+export function noteTwitchIntegrityRejected(
+  registry: TabRegistry,
+  rejectedToken: string | undefined,
+  at: number = Date.now(),
+): boolean {
+  const mint = registry.twitchManagedMint;
+  if (registry.twitchMintHeld || rejectedToken == null || mint?.token !== rejectedToken)
+    return false;
+  if (at - mint.capturedAt > TWITCH_FRESH_MINT_WINDOW_MS) return false;
+  for (const [token, rejectedAt] of registry.twitchFreshMintRejections) {
+    if (at - rejectedAt > TWITCH_FRESH_MINT_EPISODE_MS)
+      registry.twitchFreshMintRejections.delete(token);
+  }
+  registry.twitchFreshMintRejections.set(rejectedToken, at);
+  if (registry.twitchFreshMintRejections.size < TWITCH_FRESH_MINT_REJECTION_LIMIT) return false;
+  registry.twitchMintHeld = true;
+  return true;
+}
+
+export function twitchMintHeld(registry: TabRegistry): boolean {
+  return registry.twitchMintHeld;
+}
+
+export function releaseTwitchMintHold(registry: TabRegistry): void {
+  registry.twitchMintHeld = false;
+  registry.twitchFreshMintRejections.clear();
+  registry.twitchManagedMint = undefined;
 }
 
 export function hasReplacementTwitchIntegrity(

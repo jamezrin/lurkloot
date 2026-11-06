@@ -5,6 +5,7 @@ import {
   noteTwitchGqlRequest,
   setTwitchIntegrity,
   syncManagedTabBreakers,
+  twitchMintHeld,
 } from "../core/tabRegistry";
 import { recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
@@ -685,6 +686,27 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         )
       : undefined;
     if (credentials?.status === "missing") return true;
+    // Minting is held because Twitch rejects every token this browser mints
+    // (#1003). Readiness cannot get a token, and holding Twitch out of the
+    // tick would stop it farming altogether once the held token ages out; the
+    // tick goes on without one, and each read falls back as it would.
+    if (twitchMintHeld(tabRegistry)) {
+      await reportBestEffort(
+        correlateTickDiagnostics(
+          [
+            {
+              category: "diagnostic",
+              platform: "twitch",
+              level: "debug",
+              message:
+                "Twitch integrity minting is held after repeated rejections; ticking without a fresh token",
+            },
+          ],
+          tickContext,
+        ),
+      );
+      return true;
+    }
     const port = integrityPort;
     return withEventCollector(async (emit, events) => {
       const lifecycleGeneration = integritySlice.lifecycleGeneration;
