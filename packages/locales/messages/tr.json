@@ -2401,5 +2401,197 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Bir hat yalnızca zaten sahip olduğun rozeti evrimleştirir. Bu rozet olmadan izlemek hiçbir şey kazandırmaz."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Burada etkinlik geçmişi yok"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot yaptıklarını burada göz atabileceğiniz bir geçmiş olarak değil, günlüğe yazar. Aşağıda şu anda ne yaptığı görünüyor."
+  },
+  "activityLastCheck": {
+    "message": "Son kontrol"
+  },
+  "activityNoCheckYet": {
+    "message": "Henüz yok"
+  },
+  "appNavAccounts": {
+    "message": "Hesaplar"
+  },
+  "appAccountsIntro": {
+    "message": "Lurkloot'u Twitch ve Kick'e giriş yaptırın. Oturum açma bilginiz, Lurkloot'un çalıştığı makinedeki kendi özel deposunda saklanır. Bu sayfa hiçbir zaman belirteç göstermez veya saklamaz."
+  },
+  "appAccountSignedIn": {
+    "message": "Oturum açıldı"
+  },
+  "appAccountChecking": {
+    "message": "Kontrol ediliyor…"
+  },
+  "appAccountSignedOut": {
+    "message": "Oturum açılmadı"
+  },
+  "appAccountRejected": {
+    "message": "Oturum açma artık geçerli değil"
+  },
+  "appAccountUnavailable": {
+    "message": "Şu an kontrol edilemiyor"
+  },
+  "appAccountSourceStored": {
+    "message": "Lurkloot tarafından kaydedildi"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "Bir ortam değişkeninden"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Bir SA_* ortam değişkeni bu oturum açmayı hâlâ sağlıyor; bu yüzden Lurkloot, burada oturum açsanız da kapatsanız da onu kullanmaya devam eder. Bu sayfadaki oturum açmayı kullanmak için değişkeni kaldırın ve Lurkloot'u yeniden başlatın."
+  },
+  "appAccountSignOut": {
+    "message": "Oturumu kapat"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Oturum kapatıldı."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Oturum kapatıldı, ama bir SA_* ortam değişkeni Lurkloot'u hâlâ oturum açmış tutuyor."
+  },
+  "appAccountNothingToForget": {
+    "message": "Unutulacak kayıtlı bir oturum açma yoktu."
+  },
+  "appRecommended": {
+    "message": "Önerilen"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Tarayıcınızla oturum açın"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Tüm drop kampanyalarını görür."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Twitch oturum açma sayfasını açın ve oturum açın."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Twitch oturum açmasını aç"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Twitch sizi ardından $1 adresine yönlendirir. Bu adresin tamamını adres çubuğundan kopyalayın."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Twitch'in sizi yönlendirdiği adresi yapıştırın"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Oturum açmayı tamamla"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Twitch'e oturum açıldı."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "$1 olarak Twitch'e oturum açıldı."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "Adrese #access_token kısmı eklenmedi mi?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv bunu adres çubuğundan neredeyse hemen kaldırabilir. Oturum açmadan önce tarayıcının geliştirici araçlarını açın, Network sekmesine geçin ve Preserve log seçeneğini açın. Sonra oturum açın, access_token ile filtreleyin ve id.twitch.tv yönlendirmesinin location başlığını kopyalayıp buraya yapıştırın."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Kodla oturum açın"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Burada tarayıcıda oturum açmanız gerekmez, ancak Twitch bu oturum açmayı yalnızca zaten başlattığınız kampanyalar için gösterir."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "TV kodu ile bağlayın"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Kick'te oturum açtığınız herhangi bir cihazda bağlantıyı açın ve kodu onaylayın."
+  },
+  "appDeviceLoginStart": {
+    "message": "Kod al"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Bağlantıyı aç"
+  },
+  "appDeviceLoginCode": {
+    "message": "Kod"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Kodun onaylanması bekleniyor…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "İptal"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Oturum açıldı."
+  },
+  "appDeviceLoginExpired": {
+    "message": "Kodun süresi doldu. Tekrar denemek için yeni bir kod alın."
+  },
+  "appDeviceLoginFailed": {
+    "message": "Oturum açma başarısız oldu. Tekrar denemek için yeni bir kod alın."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "Oturum açma iptal edildi."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "Bu adreste oturum açma belirteci yok. Twitch'in sizi yönlendirdiği adresin tamamını kopyalayın."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch bu oturum açmayı reddetti. Oturum açma sayfasından yeniden başlayın."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Twitch veya Kick'e ulaşılamadı. Biraz sonra tekrar deneyin."
+  },
+  "appErrorNetwork": {
+    "message": "Lurkloot'a ulaşılamıyor. lurkloot serve hâlâ çalışıyor mu?"
+  },
+  "appErrorUnauthorized": {
+    "message": "Erişim belirteci reddedildi."
+  },
+  "appErrorGeneric": {
+    "message": "İstek başarısız oldu ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot bu ayarı yapılandırma dosyasına kaydedemez: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot bu değeri reddetti: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot yapılandırma dosyasını güncelleyemedi. Hiçbir şey değiştirilmedi."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot bunu burada yapamaz."
+  },
+  "appConnecting": {
+    "message": "Lurkloot'a bağlanılıyor…"
+  },
+  "appUnreachableTitle": {
+    "message": "Lurkloot'a ulaşılamıyor"
+  },
+  "appUnreachableBody": {
+    "message": "lurkloot serve komutuyla başlatın, sonra tekrar deneyin."
+  },
+  "appRetry": {
+    "message": "Tekrar dene"
+  },
+  "appConnectionLost": {
+    "message": "Lurkloot ile bağlantı koptu. Yeniden deneniyor…"
+  },
+  "appDismiss": {
+    "message": "Kapat"
+  },
+  "appTokenTitle": {
+    "message": "Erişim belirteci"
+  },
+  "appTokenBody": {
+    "message": "Bu Lurkloot, LURKLOOT_SERVE_TOKEN değeri olan erişim belirtecine ihtiyaç duyar. Yalnızca bu tarayıcı sekmesinde tutulur."
+  },
+  "appTokenRejected": {
+    "message": "Bu belirteç reddedildi. Kontrol edip tekrar deneyin."
+  },
+  "appTokenLabel": {
+    "message": "Erişim belirteci"
+  },
+  "appTokenSubmit": {
+    "message": "Devam et"
   }
 }
