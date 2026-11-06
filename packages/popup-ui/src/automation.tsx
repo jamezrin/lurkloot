@@ -1,7 +1,8 @@
 import { Eye, Gift, Play, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
-import { usePopupRuntime, useT } from "./context";
+import { useContext } from "react";
+import { SignInActionContext, usePopupRuntime, useT } from "./context";
 import { formatViewers } from "./format";
 import type { FarmingChannelView } from "./types";
 import { Pill, cn } from "./primitives";
@@ -52,6 +53,7 @@ export function AutomationStatusLine({
 }) {
   const t = useT();
   const runtime = usePopupRuntime();
+  const signIn = useContext(SignInActionContext);
   const action = presentation.action;
   const dotColor = statusColor(presentation, "var(--accent)") ?? "#a1a1aa";
   // States that carry a call to action, or a diagnosis too long to read in one
@@ -210,7 +212,7 @@ export function AutomationStatusLine({
         <button
           type="button"
           data-auth-action={platform}
-          onClick={() => runtime.adapter.openLink(action.url)}
+          onClick={() => (signIn ? signIn(platform) : runtime.adapter.openLink(action.url))}
           className="mt-1 w-fit rounded-md bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--accent-text)] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           {t(action.labelKey)}

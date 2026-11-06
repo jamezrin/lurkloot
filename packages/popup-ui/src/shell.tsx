@@ -90,6 +90,16 @@ const FOOTER_ITEMS: NavItem[] = [
   { view: "settings", labelKey: "navSettings", icon: SettingsIcon },
 ];
 
+/** A destination a host adds to the rail, after Activity and Settings: the
+ * CLI app's Accounts, for one. The host renders it inside the frame, so it can
+ * read the frame's translator and capabilities. */
+export interface PopupHostView {
+  id: string;
+  labelKey: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  render(): React.ReactNode;
+}
+
 /** The view a host can show: one of a capability it lacks falls back to the
  * Queue, so no stored or requested view lands on a hidden destination. */
 export function viewForHost(
@@ -125,6 +135,9 @@ export function WorkspaceRail({
   onPlatformChange,
   onOpenInventory,
   onOpenChangelog,
+  hostViews = [],
+  hostView,
+  onHostViewChange,
 }: {
   view: PopupView;
   platform: Platform;
@@ -140,9 +153,15 @@ export function WorkspaceRail({
   onOpenInventory(): void;
   // The release notes for this version, where the host can link to them.
   onOpenChangelog?(): void;
+  // The host's own destinations, and the one open, if any. While one is open
+  // no built-in entry reads as current.
+  hostViews?: readonly PopupHostView[];
+  hostView?: string;
+  onHostViewChange?(id: string): void;
 }): React.ReactElement {
   const t = useT();
   const hostCapabilities = useHostCapabilities();
+  const currentView = hostView ? undefined : view;
   const liveView = liveSource ? WATCH_SOURCE_VIEWS[liveSource] : undefined;
   const inWatchOrder = (items: NavItem[]): NavItem[] =>
     sourceOrder
@@ -168,7 +187,7 @@ export function WorkspaceRail({
       <NavGroup
         labelKey="navGroupDrops"
         items={DROPS_ITEMS}
-        view={view}
+        view={currentView}
         platform={platform}
         counts={counts}
         liveView={liveView}
@@ -178,7 +197,7 @@ export function WorkspaceRail({
         labelKey="navExtensions"
         tourId="rail-extensions"
         items={hostCapabilities.twitchExtensions ? inWatchOrder(EXTENSION_ITEMS) : []}
-        view={view}
+        view={currentView}
         platform={platform}
         counts={counts}
         liveView={liveView}
@@ -187,7 +206,7 @@ export function WorkspaceRail({
       <NavGroup
         labelKey="navGroupOthers"
         items={inWatchOrder(OTHER_ITEMS)}
-        view={view}
+        view={currentView}
         platform={platform}
         counts={counts}
         liveView={liveView}
@@ -204,11 +223,25 @@ export function WorkspaceRail({
       </div>
       <NavGroup
         items={FOOTER_ITEMS}
-        view={view}
+        view={currentView}
         platform={platform}
         counts={counts}
         onViewChange={onViewChange}
       />
+      {hostViews.length > 0 ? (
+        <div data-rail-group="host" className="flex flex-col gap-0.5">
+          {hostViews.map((entry) => (
+            <NavButton
+              key={entry.id}
+              label={t(entry.labelKey)}
+              icon={entry.icon}
+              selected={hostView === entry.id}
+              attributes={{ "data-host-view": entry.id }}
+              onClick={() => onHostViewChange?.(entry.id)}
+            />
+          ))}
+        </div>
+      ) : null}
       {onOpenChangelog ? (
         <button
           type="button"
@@ -270,7 +303,7 @@ function NavGroup({
   tourId?: string;
   liveView?: PopupView;
   items: NavItem[];
-  view: PopupView;
+  view: PopupView | undefined;
   platform: Platform;
   counts: Partial<Record<PopupView, number>>;
   onViewChange(view: PopupView): void;
@@ -287,54 +320,79 @@ function NavGroup({
           {t(labelKey)}
         </div>
       ) : null}
-      {visible.map((item) => {
-        const Icon = item.icon;
-        const label = t(item.labelKey);
-        const selected = view === item.view;
-        const count = counts[item.view];
-        return (
-          <button
-            key={item.view}
-            type="button"
-            aria-label={label}
-            aria-current={selected ? "page" : undefined}
-            data-view={item.view}
-            onClick={() => onViewChange(item.view)}
-            className={cn(
-              "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-start text-[12px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40",
-              selected
-                ? "rail-selected border-transparent text-white"
-                : "border-transparent text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100",
-            )}
-          >
-            <span className="relative shrink-0">
-              <Icon size={14} />
-              {liveView === item.view ? (
-                <Tip label={t("navWatchingNow")}>
-                  <span
-                    data-rail-live
-                    role="img"
-                    aria-label={t("navWatchingNow")}
-                    className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-white ring-2 ring-[var(--rail-bg)]"
-                  />
-                </Tip>
-              ) : null}
-            </span>
-            <span className="@[560px]:inline hidden truncate">{label}</span>
-            {count === undefined ? null : (
-              <span
-                className={cn(
-                  "@[560px]:inline ms-auto hidden font-mono text-[10.5px] tabular",
-                  selected ? "text-zinc-300" : "text-zinc-600",
-                )}
-              >
-                {count}
-              </span>
-            )}
-          </button>
-        );
-      })}
+      {visible.map((item) => (
+        <NavButton
+          key={item.view}
+          label={t(item.labelKey)}
+          icon={item.icon}
+          selected={view === item.view}
+          live={liveView === item.view}
+          count={counts[item.view]}
+          attributes={{ "data-view": item.view }}
+          onClick={() => onViewChange(item.view)}
+        />
+      ))}
     </div>
+  );
+}
+
+function NavButton({
+  label,
+  icon: Icon,
+  selected,
+  live = false,
+  count,
+  attributes,
+  onClick,
+}: {
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  selected: boolean;
+  live?: boolean;
+  count?: number;
+  attributes: Record<`data-${string}`, string>;
+  onClick(): void;
+}): React.ReactElement {
+  const t = useT();
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={selected ? "page" : undefined}
+      {...attributes}
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-start text-[12px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40",
+        selected
+          ? "rail-selected border-transparent text-white"
+          : "border-transparent text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100",
+      )}
+    >
+      <span className="relative shrink-0">
+        <Icon size={14} />
+        {live ? (
+          <Tip label={t("navWatchingNow")}>
+            <span
+              data-rail-live
+              role="img"
+              aria-label={t("navWatchingNow")}
+              className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-white ring-2 ring-[var(--rail-bg)]"
+            />
+          </Tip>
+        ) : null}
+      </span>
+      <span className="@[560px]:inline hidden truncate">{label}</span>
+      {count === undefined ? null : (
+        <span
+          className={cn(
+            "@[560px]:inline ms-auto hidden font-mono text-[10.5px] tabular",
+            selected ? "text-zinc-300" : "text-zinc-600",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
 
