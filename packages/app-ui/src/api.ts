@@ -37,10 +37,33 @@ export interface TokenStore {
 export const TOKEN_STORAGE_KEY = "lurkloot.app.serveToken";
 
 export function sessionTokenStore(storage: Storage = sessionStorage): TokenStore {
+  // The token in memory as well: if storage refuses it (quota, a locked-down
+  // browser), the tab still works with it until it closes.
+  let memory: string | undefined;
   return {
-    get: () => storage.getItem(TOKEN_STORAGE_KEY) ?? undefined,
-    set: (token) => storage.setItem(TOKEN_STORAGE_KEY, token),
-    clear: () => storage.removeItem(TOKEN_STORAGE_KEY),
+    get: () => {
+      try {
+        return storage.getItem(TOKEN_STORAGE_KEY) ?? memory;
+      } catch {
+        return memory;
+      }
+    },
+    set: (token) => {
+      memory = token;
+      try {
+        storage.setItem(TOKEN_STORAGE_KEY, token);
+      } catch {
+        // Kept in memory only.
+      }
+    },
+    clear: () => {
+      memory = undefined;
+      try {
+        storage.removeItem(TOKEN_STORAGE_KEY);
+      } catch {
+        // Nothing stored to clear.
+      }
+    },
   };
 }
 

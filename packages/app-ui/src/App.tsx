@@ -74,12 +74,23 @@ export function App({
     return () => clearTimeout(timer);
   }, [notice]);
 
+  // The latest language wins, however the catalog loads finish.
+  const languageSeq = useRef(0);
   const onLanguageChange = useCallback(
     (language: LanguageOverride) => {
-      void loadAppCatalogs(language, uiLanguage).then(setCatalogs);
+      const seq = ++languageSeq.current;
+      void loadAppCatalogs(language, uiLanguage).then((next) => {
+        if (seq === languageSeq.current) setCatalogs(next);
+      });
     },
     [uiLanguage],
   );
+
+  // The document speaks the app's language, for screen readers and RTL.
+  useEffect(() => {
+    document.documentElement.lang = catalogs.locale.replace(/_/g, "-");
+    document.documentElement.dir = catalogs.dir;
+  }, [catalogs.locale, catalogs.dir]);
 
   const version = phase.kind === "ready" ? phase.version : undefined;
   const adapter = useMemo<PopupAdapter | undefined>(

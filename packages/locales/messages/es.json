@@ -2496,7 +2496,7 @@
     "message": "Inicia sesión con un código"
   },
   "appTwitchDeviceLoginDescription": {
-    "message": "No necesita inicio de sesión en el navegador aquí, pero Twitch solo muestra este inicio de sesión para las campañas que ya has empezado."
+    "message": "No necesita iniciar sesión en el navegador, pero con este inicio de sesión Twitch solo muestra las campañas que ya has empezado."
   },
   "appKickDeviceLoginTitle": {
     "message": "Vincula con un código de TV"
