@@ -12,6 +12,7 @@ export { CriticalFailurePanel } from "./criticalFailure";
 export { createDemoPopupAdapter } from "./demo";
 export { openHttpsLink } from "./links";
 export { COMBINED_DROPS_MEDIA_QUERY } from "./combinedDrops";
+export { accountStatusDisplay, SIDEBAR_STORAGE_KEY } from "./windowShell";
 export {
   advanceActivityRequestScope,
   applyActivityMutationForRequest,

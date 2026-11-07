@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Contraer barra lateral"
+  },
+  "navSidebarExpand": {
+    "message": "Expandir barra lateral"
+  },
   "navQueue": {
     "message": "Cola"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Cuentas"
+  },
+  "windowAccountTitle": {
+    "message": "Cuenta de $1"
+  },
+  "windowAccountManage": {
+    "message": "Gestionar cuentas"
   },
   "appAccountsIntro": {
     "message": "Inicia sesión en Lurkloot con Twitch y Kick. Tu sesión se guarda en el almacén privado de Lurkloot, en la máquina donde se ejecuta. Esta página nunca muestra ni guarda un token."

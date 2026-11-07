@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drop'lar"
   },
+  "navSidebarCollapse": {
+    "message": "Kenar çubuğunu daralt"
+  },
+  "navSidebarExpand": {
+    "message": "Kenar çubuğunu genişlet"
+  },
   "navQueue": {
     "message": "Sıra"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Hesaplar"
+  },
+  "windowAccountTitle": {
+    "message": "$1 hesabı"
+  },
+  "windowAccountManage": {
+    "message": "Hesapları yönet"
   },
   "appAccountsIntro": {
     "message": "Lurkloot'u Twitch ve Kick'e giriş yaptırın. Oturum açma bilginiz, Lurkloot'un çalıştığı makinedeki kendi özel deposunda saklanır. Bu sayfa hiçbir zaman belirteç göstermez veya saklamaz."

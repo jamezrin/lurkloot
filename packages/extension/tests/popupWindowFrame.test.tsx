@@ -265,9 +265,25 @@ describe("combined drops page", () => {
     expect(
       page.querySelector('[data-drops-section="completed"] [data-tour="completed-list"]'),
     ).not.toBeNull();
-    // The sidebar's controls stay in their sections, not in the queue's title row.
-    const toolbar = container.querySelector("[data-view-toolbar]")!;
-    expect(toolbar.querySelector('[data-tour="games-mode"]')).toBeNull();
+    // Each card's controls sit in its own header, not the page's title row.
+    expect(
+      page.querySelector(
+        '[data-drops-section="games"] > header [data-view-toolbar] [data-tour="games-mode"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      page.querySelector(
+        '[data-drops-section="completed"] > header [data-view-toolbar] [data-completed-tab]',
+      ),
+    ).not.toBeNull();
+    const titleRow = container.querySelector("[data-view-toolbar]")!;
+    expect(titleRow.closest("[data-drops-page]")).toBeNull();
+    expect(titleRow.querySelector('[data-tour="games-mode"]')).toBeNull();
+    // The page is titled for all three, and its one rail entry with it.
+    expect(container.querySelector("h1")?.textContent).toBe("[navGroupDrops]");
+    expect(container.querySelector('button[data-view="queue"]')?.getAttribute("aria-label")).toBe(
+      "[navGroupDrops]",
+    );
   });
 
   it("follows the window as it is resized", async () => {
@@ -324,10 +340,10 @@ describe("combined drops page", () => {
     const panel = container.querySelector("#popup-platform-panel")!;
     expect(panel.hasAttribute("data-scroll-panel")).toBe(false);
     expect(panel.className).toContain("overflow-hidden");
-    const queue = page.querySelector('[data-drops-column="queue"] > [data-scroll-panel]');
-    expect(queue?.className).toContain("overflow-y-auto");
-    for (const section of ["games", "completed"]) {
-      const scroller = page.querySelector(`[data-drops-section="${section}"] [data-scroll-panel]`);
+    for (const section of ["queue", "games", "completed"]) {
+      const scroller = page.querySelector(
+        `[data-drops-section="${section}"] > [data-scroll-panel]:not([data-queue-tail])`,
+      );
       expect(scroller?.className).toContain("overflow-y-auto");
     }
   });
@@ -339,7 +355,7 @@ describe("combined drops page", () => {
       windowFrame: COMBINED,
       excludeFirstTwitchCampaign: true,
     });
-    const column = container.querySelector('[data-drops-column="queue"]')!;
+    const column = container.querySelector('[data-drops-section="queue"]')!;
     const list = column.querySelector(":scope > [data-scroll-panel]:not([data-queue-tail])")!;
     const tail = column.querySelector("[data-queue-tail]")!;
     expect(tail.hasAttribute("data-scroll-panel")).toBe(true);
@@ -354,5 +370,109 @@ describe("combined drops page", () => {
     expect(container.querySelector("[data-queue-tail]")).toBeNull();
     const panel = container.querySelector("#popup-platform-panel")!;
     expect(panel.querySelector('[data-queue-group="skipped"]')).not.toBeNull();
+  });
+});
+
+describe("window shell", () => {
+  const SHELL: PopupWindowFrame = { ...ACCOUNTS, accountsView: "accounts" };
+
+  function memoryStorage(initial: Record<string, string> = {}) {
+    const values = new Map(Object.entries(initial));
+    return {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: vi.fn((key: string, value: string) => void values.set(key, value)),
+    };
+  }
+
+  function stubWide(wide: boolean) {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === COMBINED_DROPS_MEDIA_QUERY && wide,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+  }
+
+  it("keeps the platform switch and status strip where the popup has them", async () => {
+    const { container } = await mount({});
+    expect(container.querySelector('nav [data-tour="platform-switch"]')).not.toBeNull();
+    expect(container.querySelector("[data-window-header]")).toBeNull();
+    expect(container.querySelector("[data-sidebar-toggle]")).toBeNull();
+    expect(container.querySelector("[data-account-chip]")).toBeNull();
+    expect(container.querySelector('nav [data-tour="status-strip"]')).toBeNull();
+  });
+
+  it("puts the platform switch, account and status in one header in a window", async () => {
+    stubWide(true);
+    const { container } = await mount({ hostCapabilities: CLI_CAPABILITIES, windowFrame: SHELL });
+    const header = container.querySelector("[data-window-header]")!;
+    expect(header.querySelector('[data-tour="platform-switch"]')).not.toBeNull();
+    expect(header.querySelector('[data-tour="status-strip"]')).not.toBeNull();
+    expect(header.querySelector('[aria-label="[refreshSchedule]"]')).not.toBeNull();
+    expect(container.querySelector('nav [data-tour="platform-switch"]')).toBeNull();
+    // The refresh is the header's alone.
+    expect(container.querySelectorAll('[aria-label="[refreshSchedule]"]')).toHaveLength(1);
+
+    const chip = header.querySelector('[data-account-chip="twitch"]')!;
+    expect(chip.getAttribute("data-account-status")).toBe("healthy");
+    expect(chip.textContent).toContain("[appAccountSignedIn]");
+  });
+
+  it("opens the host's accounts view from the account chip's menu", async () => {
+    stubWide(true);
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: SHELL,
+      signedOutTwitch: true,
+    });
+    const chip = container.querySelector('[data-account-chip="twitch"]')!;
+    expect(chip.getAttribute("data-account-status")).toBe("missing_credentials");
+    await click(chip);
+    await click(document.querySelector("[data-account-manage]"));
+    expect(container.querySelector("[data-accounts-body]")).not.toBeNull();
+  });
+
+  it("leaves the account chip out without a host accounts view", async () => {
+    stubWide(true);
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: ACCOUNTS,
+    });
+    expect(container.querySelector("[data-window-header]")).not.toBeNull();
+    expect(container.querySelector("[data-account-chip]")).toBeNull();
+  });
+
+  it("expands the sidebar in a wide window and collapses it in a narrow one", async () => {
+    stubWide(true);
+    const wide = await mount({ hostCapabilities: CLI_CAPABILITIES, windowFrame: SHELL });
+    expect(wide.container.querySelector("nav")?.getAttribute("data-sidebar")).toBe("expanded");
+    act(() => root?.unmount());
+
+    stubWide(false);
+    const narrow = await mount({ hostCapabilities: CLI_CAPABILITIES, windowFrame: SHELL });
+    const nav = narrow.container.querySelector("nav")!;
+    expect(nav.getAttribute("data-sidebar")).toBe("collapsed");
+    const toggle = narrow.container.querySelector("[data-sidebar-toggle]")!;
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("aria-controls")).toBe(nav.id);
+  });
+
+  it("remembers the sidebar the user chose", async () => {
+    stubWide(true);
+    const storage = memoryStorage();
+    const first = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: { ...SHELL, storage },
+    });
+    await click(first.container.querySelector("[data-sidebar-toggle]"));
+    expect(first.container.querySelector("nav")?.getAttribute("data-sidebar")).toBe("collapsed");
+    expect(storage.setItem).toHaveBeenCalledWith("lurkloot.window.sidebar", "collapsed");
+    act(() => root?.unmount());
+
+    // Wide as before, the stored choice wins over the window's default.
+    const second = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: { ...SHELL, storage },
+    });
+    expect(second.container.querySelector("nav")?.getAttribute("data-sidebar")).toBe("collapsed");
   });
 });

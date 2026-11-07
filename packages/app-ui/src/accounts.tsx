@@ -2,7 +2,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { encode } from "uqr";
 import { ExternalLink, KeyRound, LogOut, MonitorSmartphone, X } from "lucide-react";
-import { cn, openHttpsLink, usePopupRuntime, useT } from "@lurkloot/popup-ui";
+import { accountStatusDisplay, cn, openHttpsLink, usePopupRuntime, useT } from "@lurkloot/popup-ui";
 import type { Platform } from "@lurkloot/shared/models";
 import { isControlPlaneError } from "./api";
 import {
@@ -109,17 +109,7 @@ function AccountHeader({
 }): React.ReactElement {
   const t = useT();
   const auth = view?.auth;
-  const [labelKey, tone] = !auth
-    ? (["appAccountChecking", "muted"] as const)
-    : auth.status === "healthy"
-      ? (["appAccountSignedIn", "ok"] as const)
-      : auth.status === "checking"
-        ? (["appAccountChecking", "muted"] as const)
-        : auth.status === "missing_credentials"
-          ? (["appAccountSignedOut", "muted"] as const)
-          : auth.status === "invalid_credentials"
-            ? (["appAccountRejected", "warning"] as const)
-            : (["appAccountUnavailable", "warning"] as const);
+  const [labelKey, tone] = accountStatusDisplay(auth?.status);
   const source = auth?.credential.source;
   return (
     <header className="space-y-2">

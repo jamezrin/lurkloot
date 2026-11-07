@@ -3,9 +3,12 @@
 The full-window app UI for `lurkloot serve`: the extension popup's own views
 (Queue, Completed, Games, Watchlist, Activity, Settings) in a window-sized
 frame, plus an Accounts view for signing in, all over the CLI's HTTP control
-plane. In a window at least 1280px wide, Completed and Games sit in a sidebar
-beside the Queue on one drops page instead of having rail entries of their
-own; a narrower window keeps the popup's layout. It is a static bundle; nothing in it farms.
+plane. A header across the window holds the Twitch/Kick switch, an account chip
+for the platform shown (its menu opens Accounts), what is being farmed and the
+farming switch. The sidebar collapses to icons and remembers the choice. In a
+window at least 1280px wide, Queue, Games and Completed are cards on one Drops
+page, side by side when there is room; a narrower window keeps the popup's
+separate views. It is a static bundle; nothing in it farms.
 
 ## What it talks to
 

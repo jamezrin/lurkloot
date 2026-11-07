@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Ciutkan bilah sisi"
+  },
+  "navSidebarExpand": {
+    "message": "Perluas bilah sisi"
+  },
   "navQueue": {
     "message": "Antrean"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Akun"
+  },
+  "windowAccountTitle": {
+    "message": "Akun $1"
+  },
+  "windowAccountManage": {
+    "message": "Kelola akun"
   },
   "appAccountsIntro": {
     "message": "Masukkan Lurkloot ke Twitch dan Kick. Sesi masuk Anda disimpan di penyimpanan pribadi Lurkloot di mesin tempat ia berjalan. Halaman ini tidak pernah menampilkan atau menyimpan token."

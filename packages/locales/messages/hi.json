@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "ड्रॉप्स"
   },
+  "navSidebarCollapse": {
+    "message": "साइडबार छोटा करें"
+  },
+  "navSidebarExpand": {
+    "message": "साइडबार बड़ा करें"
+  },
   "navQueue": {
     "message": "क़तार"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "खाते"
+  },
+  "windowAccountTitle": {
+    "message": "$1 खाता"
+  },
+  "windowAccountManage": {
+    "message": "खाते प्रबंधित करें"
   },
   "appAccountsIntro": {
     "message": "Lurkloot को Twitch और Kick में साइन इन कराएँ। आपका साइन इन उस मशीन पर, जहाँ Lurkloot चलता है, Lurkloot के अपने निजी स्टोर में सेव रहता है। यह पेज कभी कोई टोकन न दिखाता है, न रखता है।"
