@@ -1,0 +1,21 @@
+# Lurkloot in Docker with the app UI: `lurkloot serve` farms like `run` and
+# serves the app at http://127.0.0.1:8420.
+#
+#   echo "LURKLOOT_SERVE_TOKEN=$(openssl rand -hex 32)" > .env
+#   docker compose up -d
+#
+# Inside the container serve binds 0.0.0.0, so it needs the access token; the
+# app asks for it once per tab. The port is published on this machine's
+# loopback only. Publishing it further is remote access: put HTTPS in front
+# (see the CLI README, "Docker").
+services:
+  lurkloot:
+    image: ghcr.io/jamezrin/lurkloot-cli:latest
+    command: ["serve", "--host", "0.0.0.0", "--config", "/data/config.json"]
+    environment:
+      LURKLOOT_SERVE_TOKEN: ${LURKLOOT_SERVE_TOKEN:?set LURKLOOT_SERVE_TOKEN in .env (openssl rand -hex 32)}
+    ports:
+      - "127.0.0.1:8420:8420"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

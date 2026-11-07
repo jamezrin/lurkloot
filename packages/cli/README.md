@@ -213,7 +213,8 @@ private auth store, so a stale environment value cannot override a refresh.
   it discovers campaigns, refreshes authoritative progress, claims eligible
   rewards, persists state, and exits.
 - `serve [--host 127.0.0.1] [--port 8420]` — the same farming loop as `run`,
-  plus a local HTTP control plane (see [Control plane](#control-plane-serve)).
+  plus [the app](#the-app) and a local HTTP control plane (see
+  [Control plane](#control-plane-serve)).
   It takes `--transport` and `--state` like `run`, but has no `--once`.
 - `auth import <file>` — import an extension credential export ("-" = stdin).
 - `auth twitch browser-login` — Twitch sign-in in a browser; paste back the address it ends on.
@@ -230,6 +231,40 @@ are accepted everywhere. For shell autocomplete, source the generated script:
 ```bash
 pnpm cli completion >> ~/.bashrc   # or ~/.zshrc, then restart your shell
 ```
+
+## The app
+
+`lurkloot serve` also serves the Lurkloot app: the extension popup's views in a
+full window, plus an Accounts page that signs in to Twitch and Kick through the
+same flows as `auth`. Start it and open the address it prints:
+
+```bash
+pnpm build:cli                # bundles the CLI and the app (dist/app)
+pnpm cli serve                # App and control plane at http://127.0.0.1:8420/
+```
+
+The app talks to the [control plane](#control-plane-serve) on the same origin.
+If `LURKLOOT_SERVE_TOKEN` is set, it asks for the token once and keeps it for
+that browser tab only. Settings changed in the app are saved to `config.json`.
+
+With Docker, [`compose.yaml`](compose.yaml) runs `serve` from the published image:
+
+```bash
+mkdir lurkloot && cd lurkloot
+curl -fsSLO https://raw.githubusercontent.com/jamezrin/lurkloot/main/packages/cli/compose.yaml
+echo "LURKLOOT_SERVE_TOKEN=$(openssl rand -hex 32)" > .env
+docker compose up -d          # http://127.0.0.1:8420
+```
+
+Sign in from the app's Accounts page, or with `docker compose run --rm lurkloot auth …`.
+Config, state and credentials live in `./data`.
+
+Inside the container `serve` binds `0.0.0.0`, which requires the token, and the
+compose file publishes the port on this machine's loopback only
+(`127.0.0.1:8420:8420`). Opening the app from another machine is remote access:
+publish the port further only behind a reverse proxy that terminates HTTPS, so
+the token never crosses the network in clear. `run` stays the image's default
+command, for farming with no app.
 
 ## Control plane (`serve`)
 
@@ -341,6 +376,13 @@ also carries `paths`, the dotted settings paths it is about (for example
   logged, because anyone holding both can collect the session once it is approved.
   `packages/cli/tests/serveAuth.test.ts` checks every sign-in response and log line
   for planted tokens.
+- **The app's files are public, the API is not.** With the app bundled, every
+  path outside `/v1` is a static file of the app, served with no token so the
+  page can load and ask for it, but with the same Host check. The files are
+  read from the bundle's directory only: dot segments, encoded separators and
+  NUL are refused, and directories are never listed. The page is sent with a
+  content-security policy that keeps it to its own origin, and it cannot be
+  framed.
 - **Sign-in needs the same access as everything else.** On a non-loopback bind
   only a holder of `LURKLOOT_SERVE_TOKEN` can start a sign-in or log out, and the
   token must travel over HTTPS.
@@ -397,6 +439,8 @@ docker run --rm -it -v "$PWD/data:/data" \
 # Leave the farming loop running in the background.
 docker run -d --name lurkloot --restart unless-stopped \
   -v "$PWD/data:/data" ghcr.io/jamezrin/lurkloot-cli:latest
+
+# Or run serve with the app from compose.yaml: see "The app" above.
 
 # The same flow with an image built locally:
 docker run --rm -v "$PWD/data:/data" lurkloot-cli

@@ -91,6 +91,19 @@ That login sees every drop campaign. `auth twitch device-login` needs no browser
 
 Fortnite and NoPixel run in the extension. The CLI farms Twitch and Kick.
 
+### The app
+
+`lurkloot serve` farms like the CLI's `run` and also opens the Lurkloot app in your browser. It has the same views as the extension popup, in a full window, with a page to sign in to Twitch and Kick. With Docker, use the [compose file](packages/cli/compose.yaml):
+
+```bash
+mkdir lurkloot && cd lurkloot
+curl -fsSLO https://raw.githubusercontent.com/jamezrin/lurkloot/main/packages/cli/compose.yaml
+echo "LURKLOOT_SERVE_TOKEN=$(openssl rand -hex 32)" > .env
+docker compose up -d
+```
+
+Open http://127.0.0.1:8420 and enter the token from `.env` once per tab. The port is reachable from this machine only. Running it locally, opening it from another machine, and the security model are in the [CLI guide](packages/cli/README.md#the-app).
+
 ## Your account stays yours
 
 The extension uses the Twitch and Kick sessions already in your browser. It does not ask for your password, and it does not send your activity to a Lurkloot server. There is no Lurkloot account and no telemetry. The only way session data leaves the extension is Settings → Export credentials, which you run yourself to set up the CLI. That writes a file on your machine. Details are in the [privacy policy](https://lurkloot.jamezrin.com/privacy).

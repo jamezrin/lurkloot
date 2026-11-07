@@ -79,8 +79,9 @@ make the fixture require a bearer token too.
 pnpm build:app                # packages/app-ui/dist
 ```
 
-The bundle uses relative asset paths. Serving it from `lurkloot serve` and the
-Docker image is #980.
+The bundle uses relative asset paths. `pnpm build:cli` builds it and copies it
+to `packages/cli/dist/app`, where `lurkloot serve` serves it at `/` (see the
+[CLI README](../cli/README.md#the-app)). The Docker image ships it the same way.
 
 ## Tests
 

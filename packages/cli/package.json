@@ -7,7 +7,9 @@
     "lurkloot": "./dist/index.mjs"
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --main-fields=module,main --outfile=dist/index.mjs --external:cycletls --external:ws",
+    "build": "pnpm run build:bundle && pnpm run build:app",
+    "build:bundle": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --main-fields=module,main --outfile=dist/index.mjs --external:cycletls --external:ws",
+    "build:app": "pnpm --filter @lurkloot/app-ui build && node scripts/copyAppUi.mjs",
     "cli": "pnpm build && node dist/index.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -21,6 +23,7 @@
     "yargs": "^18.0.0"
   },
   "devDependencies": {
+    "@lurkloot/app-ui": "workspace:*",
     "@types/node": "^24.0.0",
     "@types/ws": "8.18.2",
     "@types/yargs": "^17.0.33",

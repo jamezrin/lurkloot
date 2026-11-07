@@ -10,6 +10,7 @@ import {
   type ControlPlane,
   type ServeBinding,
 } from "./controlPlane";
+import { defaultAppRoot } from "./appAssets";
 import { createAuthFlows, createAuthRoutes, type AuthFlowsOptions } from "./controlPlaneAuth";
 import { runLoop, type FarmingController, type FarmingHost, type RunOptions } from "./run";
 
@@ -26,6 +27,9 @@ export interface ServeOptions extends Omit<RunOptions, "once" | "startHost"> {
   onListening?: (address: { host: string; port: number }) => void;
   // Enables the sign-in routes (controlPlaneAuth.ts) against this auth store.
   auth?: Omit<AuthFlowsOptions, "logger" | "onCredentialsChanged">;
+  // The app UI bundle to serve at `/` (appAssets.ts). Defaults to the one the
+  // CLI build put beside it; null serves the control plane alone.
+  appRoot?: string | null;
 }
 
 // The control plane for one controller: messages go to handleMessage, and the
@@ -34,7 +38,7 @@ export async function startControllerControlPlane(
   controller: Pick<FarmingController, "handleMessage">,
   options: Pick<
     ServeOptions,
-    "binding" | "describeCredentials" | "logger" | "onListening" | "auth"
+    "binding" | "describeCredentials" | "logger" | "onListening" | "auth" | "appRoot"
   > & {
     settingsWritable?: boolean;
   },
@@ -60,6 +64,7 @@ export async function startControllerControlPlane(
         },
       })
     : undefined;
+  const appRoot = options.appRoot === undefined ? defaultAppRoot() : options.appRoot;
   let plane: Awaited<ReturnType<typeof startControlPlane>>;
   try {
     plane = await startControlPlane({
@@ -69,6 +74,7 @@ export async function startControllerControlPlane(
       handleMessage: (message) => controller.handleMessage(message),
       describeSession,
       ...(flows ? { routes: createAuthRoutes(flows, describeSession) } : {}),
+      ...(appRoot ? { appRoot } : {}),
     });
   } catch (error) {
     await flows?.close();
@@ -91,7 +97,7 @@ export async function startControllerControlPlane(
 // beside it and closed first on shutdown. Unlike `run`, it saves the settings
 // the control plane changes to the config file.
 export function serveLoop(options: ServeOptions): Promise<void> {
-  const { binding, configPath, describeCredentials, onListening, auth, ...rest } = options;
+  const { binding, configPath, describeCredentials, onListening, auth, appRoot, ...rest } = options;
   const settingsStore =
     rest.settingsStore
     ?? (configPath
@@ -114,6 +120,7 @@ export function serveLoop(options: ServeOptions): Promise<void> {
         settingsWritable: Boolean(runOptions.settingsStore?.applyPatch),
         ...(auth ? { auth } : {}),
         ...(onListening ? { onListening } : {}),
+        ...(appRoot !== undefined ? { appRoot } : {}),
       }),
   });
 }
