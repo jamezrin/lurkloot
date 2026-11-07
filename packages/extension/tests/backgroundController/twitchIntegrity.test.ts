@@ -811,6 +811,19 @@ describe("background controller", () => {
       expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
     });
 
+    it("still prepares integrity when the credential lookup never answers", async () => {
+      const env = harness(undefined, {
+        ensureTwitchIntegrity: async () => true,
+        checkCredentialAvailability: () => new Promise(() => undefined),
+        credentialLookupTimeoutMs: 10,
+        authProbeTimeoutMs: 20,
+      });
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+    });
+
     it("correlates integrity readiness diagnostics with their scheduler tick", async () => {
       const env = harness(undefined, {
         ensureTwitchIntegrity: async (emit) => {

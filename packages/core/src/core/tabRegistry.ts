@@ -101,6 +101,11 @@ export interface TabRegistry {
   // Freshly minted tokens Twitch rejected, by when it rejected them.
   twitchFreshMintRejections: Map<string, number>;
   twitchMintHeld: boolean;
+  // Every tab the extension has created this session (watch tabs and page
+  // contexts). A token from one of them never lifts the mint hold: it comes
+  // from the same environment Twitch is rejecting. Tab ids are not reused
+  // within a browser session, so entries are never removed.
+  extensionCreatedTabs: Set<number>;
   // Replays the valid captured integrity token on background Twitch GQL.
   twitchRequestIdentity: TwitchRequestIdentity;
 }
@@ -127,6 +132,7 @@ export function createTabRegistry(): TabRegistry {
     twitchManagedMint: undefined,
     twitchFreshMintRejections: new Map(),
     twitchMintHeld: false,
+    extensionCreatedTabs: new Set(),
     twitchRequestIdentity: createTwitchRequestIdentity(() => currentValidTwitchIntegrity(registry)),
   };
   return registry;
@@ -266,10 +272,11 @@ export function setTwitchIntegrity(
 ): void {
   registry.twitchIntegrity = value;
   // A token this browser minted without the extension's help (the user's own
-  // twitch.tv tab) shows Twitch trusts it again, so the hold lifts.
+  // twitch.tv tab) shows Twitch trusts it again, so the hold lifts. One from
+  // any tab the extension opened, watch tab or page context, does not.
   if (
     value
-    && options?.sourceTabId !== registry.twitchContextBoot?.tabId
+    && !(options?.sourceTabId != null && registry.extensionCreatedTabs.has(options.sourceTabId))
     && value.integrity !== registry.twitchManagedMint?.token
   )
     releaseTwitchMintHold(registry);
@@ -630,6 +637,11 @@ export function tabClosureOrigin(registry: TabRegistry, tabId: number): TabClosu
 
 // Records a watch tab the engine just created. Call it as soon as the tab has
 // an id: the tab can report playback while it is still being prepared.
+// Records a tab the extension just created, before anything else can run.
+export function noteExtensionCreatedTab(registry: TabRegistry, tabId: number): void {
+  registry.extensionCreatedTabs.add(tabId);
+}
+
 export function noteOpeningWatchTab(
   registry: TabRegistry,
   tabId: number,

@@ -112,6 +112,7 @@ export interface HostMocks<S extends EngineSettings> {
   wait?(ms: number, signal: AbortSignal): Promise<void>;
   selectWatchTarget?: NonNullable<BackgroundHostPorts["testing"]>["selectWatchTarget"];
   authProbeTimeoutMs?: number;
+  credentialLookupTimeoutMs?: number;
 }
 
 // The capabilities the mocks provide: tabs when the tab mocks are there,
@@ -276,6 +277,9 @@ export function hostPortsFromMocks<S extends EngineSettings>(
       ...(m.wait ? { wait: (ms: number, signal: AbortSignal) => m.wait!(ms, signal) } : {}),
       ...(m.selectWatchTarget ? { selectWatchTarget: m.selectWatchTarget } : {}),
       ...(m.authProbeTimeoutMs === undefined ? {} : { authProbeTimeoutMs: m.authProbeTimeoutMs }),
+      ...(m.credentialLookupTimeoutMs === undefined
+        ? {}
+        : { credentialLookupTimeoutMs: m.credentialLookupTimeoutMs }),
     },
   };
 }

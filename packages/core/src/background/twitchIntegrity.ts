@@ -21,7 +21,11 @@ import type { BackgroundHostPorts } from "./hostPorts";
 import type { BackgroundJob } from "./jobs";
 import type { ControllerCalls, TickDiagnosticContext } from "./types";
 import { errorMessage } from "@lurkloot/shared/errors";
-import { withAbortSignal } from "../core/abort";
+import { withAbortSignal, withTimeout } from "../core/abort";
+
+// How long tick readiness waits for the sign-in cookie lookup before treating
+// it as failed and preparing integrity anyway.
+const CREDENTIAL_LOOKUP_TIMEOUT_MS = 5_000;
 
 // The proactive refresh job. A host that cannot capture integrity leaves it inert.
 export const TWITCH_INTEGRITY_JOBS: Readonly<Record<string, BackgroundJob>> = {
@@ -678,10 +682,13 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     // after opening a twitch.tv tab. Hold nothing back: the auth probe, which
     // owns auth health, reports missing_credentials on this same tick and
     // discovery skips Twitch. Only a definite "missing" skips; a lookup that
-    // failed says nothing about the session.
+    // failed, or never answered, says nothing about the session.
     const credentials = ports.credentials
       ? await withAbortSignal(
-          ports.credentials.checkAvailability("twitch").catch(() => undefined),
+          withTimeout(
+            ports.credentials.checkAvailability("twitch").catch(() => undefined),
+            ports.testing?.credentialLookupTimeoutMs ?? CREDENTIAL_LOOKUP_TIMEOUT_MS,
+          ),
           signal,
         )
       : undefined;

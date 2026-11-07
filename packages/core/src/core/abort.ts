@@ -18,3 +18,17 @@ export async function withAbortSignal<T>(
     signal.removeEventListener("abort", onAbort);
   }
 }
+
+// Resolves to `undefined` if `operation` has not settled within `ms`. Like
+// withAbortSignal, the operation keeps running; only the wait ends.
+export async function withTimeout<T>(operation: Promise<T>, ms: number): Promise<T | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), ms);
+  });
+  try {
+    return await Promise.race([operation, timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+}

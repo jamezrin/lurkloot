@@ -373,6 +373,7 @@ export function harness(
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
     authProbeTimeoutMs?: number;
+    credentialLookupTimeoutMs?: number;
     loadTwitchIntegrity?: () => Promise<TwitchIntegrity | undefined>;
     saveTwitchIntegrity?: (value: TwitchIntegrity) => Promise<void>;
     saveSettings?: (value: ExtensionSettings) => Promise<void>;
@@ -536,6 +537,9 @@ export function harness(
     ...(overrides.authProbeTimeoutMs === undefined
       ? {}
       : { authProbeTimeoutMs: overrides.authProbeTimeoutMs }),
+    ...(overrides.credentialLookupTimeoutMs === undefined
+      ? {}
+      : { credentialLookupTimeoutMs: overrides.credentialLookupTimeoutMs }),
     ...(overrides.loadTwitchIntegrity
       ? { loadTwitchIntegrity: vi.fn(overrides.loadTwitchIntegrity) }
       : {}),
