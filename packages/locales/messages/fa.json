@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "به Twitch یا Kick نرسیدیم. لحظه‌ای دیگر دوباره امتحان کنید."
   },
+  "appErrorPlatformUnavailable": {
+    "message": "به $1 نرسیدیم. لحظه‌ای دیگر دوباره امتحان کنید."
+  },
   "appErrorNetwork": {
     "message": "به Lurkloot نمی‌رسیم. آیا lurkloot serve هنوز در حال اجراست؟"
   },

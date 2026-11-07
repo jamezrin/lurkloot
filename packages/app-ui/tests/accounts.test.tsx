@@ -1,8 +1,14 @@
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AccountsView } from "../src/accounts";
-import { createAuthApi } from "../src/auth";
+import {
+  AccountsView,
+  DEVICE_LOGIN_POLL_MS,
+  DeviceLoginFlow,
+  describeAuthError,
+} from "../src/accounts";
+import { ControlPlaneError } from "../src/api";
+import { type AuthApi, createAuthApi, type DeviceLogin } from "../src/auth";
 import { resetFixture } from "../fixture/controlPlane";
 import { fixtureClient } from "./helpers";
 import { createDemoPopupAdapter } from "@lurkloot/popup-ui";
@@ -147,12 +153,66 @@ describe("Accounts", () => {
     });
   });
 
+  it("keeps a cancelled device login cancelled when a poll sent before the cancel answers after it", async () => {
+    vi.useFakeTimers();
+    const pendingLogin: DeviceLogin = {
+      platform: "twitch",
+      status: "pending",
+      startedAt: "2026-11-07T10:00:00.000Z",
+      verificationUrl: "https://www.twitch.tv/activate",
+      userCode: "ABCD-EFGH",
+    };
+    let answerPoll!: (value: { deviceLogin: DeviceLogin | null }) => void;
+    let answerCancel!: (value: { deviceLogin: DeviceLogin | null }) => void;
+    const api = {
+      deviceLogin: vi.fn(
+        () => new Promise<{ deviceLogin: DeviceLogin | null }>((resolve) => (answerPoll = resolve)),
+      ),
+      cancelDeviceLogin: vi.fn(
+        () =>
+          new Promise<{ deviceLogin: DeviceLogin | null }>((resolve) => (answerCancel = resolve)),
+      ),
+    } as unknown as AuthApi;
+    document.body.innerHTML = '<div id="root"></div>';
+    const container = document.getElementById("root")!;
+    const adapter = { ...createDemoPopupAdapter(), openLink: vi.fn() };
+    await act(async () => {
+      root = createRoot(container);
+      root.render(
+        <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+          <I18nContext.Provider value={i18n}>
+            <DeviceLoginFlow
+              api={api}
+              platform="twitch"
+              initial={pendingLogin}
+              onChanged={() => undefined}
+            />
+          </I18nContext.Provider>
+        </PopupRuntimeContext.Provider>,
+      );
+    });
+    const flow = container.querySelector('[data-device-login="twitch"]')!;
+    await act(async () => {
+      vi.advanceTimersByTime(DEVICE_LOGIN_POLL_MS);
+    });
+    expect(api.deviceLogin).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      flow.querySelector<HTMLButtonElement>("[data-device-login-cancel]")!.click(),
+    );
+    // Both answers land before React commits: the cancel's, then the older poll's.
+    await act(async () => {
+      answerCancel({ deviceLogin: { ...pendingLogin, status: "cancelled" } });
+      answerPoll({ deviceLogin: pendingLogin });
+    });
+    expect(flow.getAttribute("data-device-login-status")).toBe("cancelled");
+  });
+
   // Kick's TV link only opens in Kick's phone app (kick.com has no desktop
   // page for it), so it is a QR code to scan, and a link only on a touch screen.
   it("shows the Kick link as a QR code and offers it as a link only on a touch screen", async () => {
     const start = async (touch: boolean) => {
       vi.stubGlobal("matchMedia", (query: string) => ({
-        matches: touch && query === "(pointer: coarse)",
+        matches: touch && query === "(any-pointer: coarse)",
       }));
       resetFixture();
       const { container } = await mountAccounts();
@@ -184,5 +244,17 @@ describe("Accounts", () => {
     );
     await vi.waitFor(() => expect(twitch.querySelector("[data-device-login-open]")).not.toBeNull());
     expect(twitch.querySelector("[data-device-login-qr]")).toBeNull();
+  });
+});
+
+describe("describeAuthError", () => {
+  const unavailable = new ControlPlaneError(503, "upstream_unavailable", "upstream down");
+
+  it("names the platform a sign-in request was for when it is unreachable", () => {
+    expect(describeAuthError(unavailable, i18n.t, "kick")).toBe("appErrorPlatformUnavailable:Kick");
+  });
+
+  it("names both platforms only when the request was not for one", () => {
+    expect(describeAuthError(unavailable, i18n.t)).toBe("appErrorUpstreamUnavailable");
   });
 });

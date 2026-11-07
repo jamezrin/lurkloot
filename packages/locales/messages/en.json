@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "Couldn't reach Twitch or Kick. Try again in a moment."
   },
+  "appErrorPlatformUnavailable": {
+    "message": "Couldn't reach $1. Try again in a moment."
+  },
   "appErrorNetwork": {
     "message": "Can't reach Lurkloot. Is lurkloot serve still running?"
   },

@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "Не удалось связаться с Twitch или Kick. Попробуйте через минуту."
   },
+  "appErrorPlatformUnavailable": {
+    "message": "Не удалось связаться с сервисом $1. Попробуйте через минуту."
+  },
   "appErrorNetwork": {
     "message": "Не удаётся связаться с Lurkloot. Работает ли ещё lurkloot serve?"
   },

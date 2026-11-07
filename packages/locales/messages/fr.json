@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "Impossible de joindre Twitch ou Kick. Réessayez dans un instant."
   },
+  "appErrorPlatformUnavailable": {
+    "message": "Impossible de joindre $1. Réessayez dans un instant."
+  },
   "appErrorNetwork": {
     "message": "Impossible de joindre Lurkloot. lurkloot serve tourne-t-il toujours ?"
   },

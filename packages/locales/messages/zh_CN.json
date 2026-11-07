@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "无法连接到 Twitch 或 Kick。请稍后再试。"
   },
+  "appErrorPlatformUnavailable": {
+    "message": "无法连接到 $1。请稍后再试。"
+  },
   "appErrorNetwork": {
     "message": "无法连接到 Lurkloot。lurkloot serve 是否仍在运行？"
   },

@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "Twitch veya Kick'e ulaşılamadı. Biraz sonra tekrar deneyin."
   },
+  "appErrorPlatformUnavailable": {
+    "message": "$1 hizmetine ulaşılamadı. Biraz sonra tekrar deneyin."
+  },
   "appErrorNetwork": {
     "message": "Lurkloot'a ulaşılamıyor. lurkloot serve hâlâ çalışıyor mu?"
   },

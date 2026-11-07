@@ -175,6 +175,45 @@ describe("control plane client", () => {
     expect(seen.at(-1)).toBe("Bearer correct-token-0123456789");
   });
 
+  it("never falls back to an older stored token once storage refuses a write or a clear", () => {
+    const stale = {
+      getItem: () => "stale-token-0123456789",
+      setItem: () => {
+        throw new DOMException("quota", "QuotaExceededError");
+      },
+      removeItem: () => {
+        throw new DOMException("denied", "SecurityError");
+      },
+    } as unknown as Storage;
+    const store = sessionTokenStore(stale);
+    expect(store.get()).toBe("stale-token-0123456789");
+    store.set("fresh-token-0123456789");
+    expect(store.get()).toBe("fresh-token-0123456789");
+    store.clear();
+    expect(store.get()).toBeUndefined();
+  });
+
+  it("reads storage again once a write goes through", () => {
+    const backing = new Map<string, string>();
+    let refuse = true;
+    const flaky = {
+      getItem: (key: string) => backing.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (refuse) throw new DOMException("quota", "QuotaExceededError");
+        backing.set(key, value);
+      },
+      removeItem: (key: string) => backing.delete(key),
+    } as unknown as Storage;
+    backing.set(TOKEN_STORAGE_KEY, "stale-token-0123456789");
+    const store = sessionTokenStore(flaky);
+    store.set("fresh-token-0123456789");
+    expect(store.get()).toBe("fresh-token-0123456789");
+    refuse = false;
+    store.set("newest-token-0123456789");
+    expect(backing.get(TOKEN_STORAGE_KEY)).toBe("newest-token-0123456789");
+    expect(store.get()).toBe("newest-token-0123456789");
+  });
+
   it("gives up with the 401 when the prompt is dismissed", async () => {
     sessionStorage.clear();
     const { fetchImpl } = guardedServe("correct-token-0123456789");

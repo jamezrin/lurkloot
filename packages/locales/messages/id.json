@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "Tidak dapat menjangkau Twitch atau Kick. Coba lagi sebentar lagi."
   },
+  "appErrorPlatformUnavailable": {
+    "message": "Tidak dapat menjangkau $1. Coba lagi sebentar lagi."
+  },
   "appErrorNetwork": {
     "message": "Tidak dapat menjangkau Lurkloot. Apakah lurkloot serve masih berjalan?"
   },

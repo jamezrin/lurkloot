@@ -29,8 +29,9 @@ const INPUT =
   "min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 font-mono text-xs text-zinc-900 outline-none placeholder:font-sans placeholder:text-zinc-400 focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100";
 
 /** Describes a failed sign-in request by its typed code, never by echoing
- * anything the user pasted. */
-export function describeAuthError(error: unknown, t: Translate): string {
+ * anything the user pasted. `platform` is the one the request was for, so an
+ * unreachable service is named rather than blaming both. */
+export function describeAuthError(error: unknown, t: Translate, platform?: Platform): string {
   if (!isControlPlaneError(error)) return t("appErrorGeneric", "unknown");
   switch (error.code) {
     case "invalid_redirect":
@@ -41,7 +42,9 @@ export function describeAuthError(error: unknown, t: Translate): string {
     case "login_cancelled":
       return t("appDeviceLoginCancelled");
     case "upstream_unavailable":
-      return t("appErrorUpstreamUnavailable");
+      return platform
+        ? t("appErrorPlatformUnavailable", PLATFORM_LABEL[platform])
+        : t("appErrorUpstreamUnavailable");
     case "network_error":
       return t("appErrorNetwork");
     case "unauthorized":
@@ -206,7 +209,7 @@ function SignOut({
               });
               onChanged();
             } catch (error) {
-              setNotice({ tone: "error", text: describeAuthError(error, t) });
+              setNotice({ tone: "error", text: describeAuthError(error, t, platform) });
             } finally {
               setBusy(false);
             }
@@ -343,7 +346,7 @@ export function BrowserLogin({
       const link = await api.browserLoginLink();
       openHttpsLink(link.authorizeUrl, adapter.openLink);
     } catch (error) {
-      setNotice({ tone: "error", text: describeAuthError(error, t) });
+      setNotice({ tone: "error", text: describeAuthError(error, t, "twitch") });
     }
   };
 
@@ -370,7 +373,7 @@ export function BrowserLogin({
       });
       onChanged();
     } catch (error) {
-      setNotice({ tone: "error", text: describeAuthError(error, t) });
+      setNotice({ tone: "error", text: describeAuthError(error, t, "twitch") });
     } finally {
       setBusy(false);
     }
@@ -439,10 +442,12 @@ export function BrowserLogin({
   );
 }
 
-/** Whether this screen is a phone or tablet, where a link meant for a phone
- * app opens in that app. */
+/** Whether this screen has a touch input, where a link meant for a phone app
+ * opens in that app. Any pointer, not the primary one: some Android phones
+ * report a fine primary pointer. A touch laptop also gets the link, which
+ * costs nothing beside the QR code. */
 function isTouchScreen(): boolean {
-  return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+  return typeof matchMedia === "function" && matchMedia("(any-pointer: coarse)").matches;
 }
 
 /** A QR code for a link, drawn dark on white whatever the theme so a phone
@@ -496,6 +501,9 @@ export function DeviceLoginFlow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const adopted = useRef(false);
+  // Bumped when a cancel goes through, so a poll sent before it cannot bring
+  // the cancelled login back.
+  const pollGeneration = useRef(0);
 
   // Pick up a login already running when the view opens (another tab, a
   // reload), but only once: later status polls must not undo a cancel.
@@ -510,9 +518,10 @@ export function DeviceLoginFlow({
     if (!pending) return;
     let cancelled = false;
     const interval = setInterval(() => {
+      const generation = pollGeneration.current;
       void api.deviceLogin(platform).then(
         (answer) => {
-          if (cancelled) return;
+          if (cancelled || generation !== pollGeneration.current) return;
           setLogin(answer.deviceLogin);
           if (answer.deviceLogin?.status === "approved") onChanged();
         },
@@ -531,7 +540,7 @@ export function DeviceLoginFlow({
     try {
       setLogin((await api.startDeviceLogin(platform)).deviceLogin);
     } catch (failure) {
-      setError(describeAuthError(failure, t));
+      setError(describeAuthError(failure, t, platform));
     } finally {
       setBusy(false);
     }
@@ -541,9 +550,10 @@ export function DeviceLoginFlow({
     setBusy(true);
     try {
       const answer = await api.cancelDeviceLogin(platform);
+      pollGeneration.current += 1;
       setLogin(answer.deviceLogin);
     } catch (failure) {
-      setError(describeAuthError(failure, t));
+      setError(describeAuthError(failure, t, platform));
     } finally {
       setBusy(false);
     }

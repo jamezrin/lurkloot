@@ -2558,6 +2558,9 @@
   "appErrorUpstreamUnavailable": {
     "message": "Twitch oder Kick sind nicht erreichbar. Versuche es gleich noch einmal."
   },
+  "appErrorPlatformUnavailable": {
+    "message": "$1 ist nicht erreichbar. Versuche es gleich noch einmal."
+  },
   "appErrorNetwork": {
     "message": "Lurkloot ist nicht erreichbar. Läuft lurkloot serve noch?"
   },
