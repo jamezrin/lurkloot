@@ -138,6 +138,7 @@ export function WorkspaceRail({
   hostViews = [],
   hostView,
   onHostViewChange,
+  combineDropViews = false,
 }: {
   view: PopupView;
   platform: Platform;
@@ -158,6 +159,9 @@ export function WorkspaceRail({
   hostViews?: readonly PopupHostView[];
   hostView?: string;
   onHostViewChange?(id: string): void;
+  // Completed and Games are part of the Queue view (a window frame's combined
+  // drops page), so the rail lists Queue alone in its drops group.
+  combineDropViews?: boolean;
 }): React.ReactElement {
   const t = useT();
   const hostCapabilities = useHostCapabilities();
@@ -186,7 +190,7 @@ export function WorkspaceRail({
 
       <NavGroup
         labelKey="navGroupDrops"
-        items={DROPS_ITEMS}
+        items={combineDropViews ? DROPS_ITEMS.filter((item) => item.view === "queue") : DROPS_ITEMS}
         view={currentView}
         platform={platform}
         counts={counts}

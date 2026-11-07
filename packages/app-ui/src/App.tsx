@@ -140,6 +140,7 @@ export function App({
         },
       ],
       signInView: "accounts",
+      combineDropViews: true,
     }),
     [api],
   );
