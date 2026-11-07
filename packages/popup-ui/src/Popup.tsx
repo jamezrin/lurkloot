@@ -122,6 +122,7 @@ import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AccountProgressSlot } from "./accountProgress";
 import { StatusStrip } from "./statusStrip";
 import { ViewToolbarSlotContext } from "./viewToolbar";
+import { CombinedDropsPage } from "./combinedDrops";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
@@ -176,6 +177,10 @@ export interface PopupWindowFrame {
   // The host view the status line's Sign in action opens. Without it the
   // action opens the platform's sign-in page, as in the extension.
   signInView?: string;
+  // Completed and Games join the Queue on one drops page, beside the queue
+  // instead of behind their own rail entries: a window has the room the
+  // popup does not. Asking for either view opens the Queue at that section.
+  combineDropViews?: boolean;
 }
 
 // The popup's own frame. Kept as one constant so a test can hold the
@@ -190,8 +195,13 @@ export const POPUP_FRAME_CLASS =
 const WINDOW_FRAME_CLASS =
   "@container relative flex h-dvh w-full overflow-clip [contain:strict] bg-zinc-50 dark:bg-zinc-950";
 // In the window frame, a view's title row and body share one centred column,
-// so a wide screen gets margins instead of rows stretched edge to edge.
+// so a wide screen gets margins instead of rows stretched edge to edge. The
+// combined drops page is wider by its sidebar.
 const WINDOW_CONTENT_CLASS = "mx-auto w-full max-w-[60rem]";
+const WINDOW_DROPS_CONTENT_CLASS = "mx-auto w-full max-w-[86rem]";
+type CombinedDropSection = "games" | "completed";
+const isCombinedDropSection = (view: PopupView): view is CombinedDropSection =>
+  view === "games" || view === "completed";
 
 /** The popup. A host that can say whether onboarding is pending (only the
  * extension's toolbar popup) gets the onboarding tour on top of it; previews
@@ -387,7 +397,20 @@ export function PopupFrame({
   });
   // A view the host cannot show (a Twitch Extension's, without that
   // capability) resolves to the Queue wherever it came from.
-  const view = viewForHost(requestedView, hostCapabilities);
+  const combineDropViews = Boolean(windowFrame?.combineDropViews);
+  const viewTheHostShows = viewForHost(requestedView, hostCapabilities);
+  const view: PopupView =
+    combineDropViews && isCombinedDropSection(viewTheHostShows) ? "queue" : viewTheHostShows;
+  // The section of the combined drops page last asked for, and a count, so
+  // asking again scrolls to it again.
+  const [dropSectionFocus, setDropSectionFocus] = useState<{
+    section: CombinedDropSection;
+    generation: number;
+  }>();
+  useEffect(() => {
+    if (!dropSectionFocus) return;
+    scrollIntoPanel(document.querySelector(`[data-drops-section="${dropSectionFocus.section}"]`));
+  }, [dropSectionFocus]);
   // One of the host's own destinations, open over the current view. Choosing
   // any built-in view closes it.
   const hostViews = windowFrame?.hostViews ?? [];
@@ -879,7 +902,16 @@ export function PopupFrame({
   // Every rail destination goes through here so leaving Activity always settles
   // its in-flight requests, and entering Settings always rearms the one-shot
   // export confirmation.
-  function changeView(nextView: PopupView, focusGroupId?: string): void {
+  function changeView(requested: PopupView, focusGroupId?: string): void {
+    let nextView = requested;
+    if (combineDropViews && isCombinedDropSection(requested)) {
+      nextView = "queue";
+      const section = requested;
+      setDropSectionFocus((current) => ({
+        section,
+        generation: (current?.generation ?? 0) + 1,
+      }));
+    }
     setSettingsFocus(nextView === "settings" ? focusGroupId : undefined);
     const leavingHostView = hostView !== undefined;
     setHostViewId(undefined);
@@ -1427,6 +1459,150 @@ export function PopupFrame({
         : settings.platform[platform].categories.length,
     watchlist: settings.platform[platform].watchlistChannels.length,
   };
+  const combinedDropsPage = combineDropViews && view === "queue" && !hostView;
+  const windowContentClass = combinedDropsPage ? WINDOW_DROPS_CONTENT_CLASS : WINDOW_CONTENT_CLASS;
+  // Games and Completed are views of their own in the popup, and the
+  // combined drops page's sidebar in a window frame.
+  const gamesPanel = (
+    // Keyed by platform so a search typed on one platform, and
+    // the results it found, cannot be added to the other's lists.
+    <GamesPanel
+      key={platform}
+      platform={platform}
+      settings={settings}
+      suggestions={dropCategorySuggestions[platform]}
+      campaignCounts={gameCampaignCounts}
+      onCategoryModeChange={(categoryMode) =>
+        void updateSettings(
+          { platform: { [platform]: { categoryMode } } },
+          { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+        )
+      }
+      onCategoriesChange={(categories) =>
+        void updateSettings(
+          { platform: { [platform]: { categories } } },
+          { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+        )
+      }
+      onFavouritesChange={(favouriteCategories) =>
+        void updateSettings(
+          { platform: { [platform]: { favouriteCategories } } },
+          { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+        )
+      }
+      onBlockedChange={(blockedCategories) =>
+        void updateSettings(
+          { platform: { [platform]: { blockedCategories } } },
+          { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+        )
+      }
+      onSearchCategories={(query) => searchCategories(platform, query)}
+    />
+  );
+  const completedPanel = (
+    <CompletedPanel
+      campaigns={campaigns}
+      gameMap={gameMap}
+      focus={campaignFocus}
+      refreshing={refreshing}
+      onRefreshCampaign={() => refreshNow()}
+    />
+  );
+  const queueContent = (
+    <>
+      {/* Tips are an extension preference: a host without
+      it has no setting to turn them off. */}
+      {hostCapabilities.extensionPreferences && settings.showTips ? (
+        <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} />
+      ) : null}
+      <QueuePanel
+        campaigns={campaigns}
+        gameMap={gameMap}
+        focus={campaignFocus}
+        refreshing={refreshing}
+        strategy={settings.priorityMode}
+        pinnedCount={pins.length}
+        unlinkedCampaigns={settings.platform[platform].unlinkedCampaigns}
+        platform={platform}
+        rewardFilter={settings.platform[platform].rewardFilter}
+        showSubscriptionChoice={subscriptionChoice[platform]}
+        onRewardFilterChange={(rewardFilter) =>
+          void updateSettings(
+            { platform: { [platform]: { rewardFilter } } },
+            {
+              tickAfterSave: true,
+              tickAfterSavePlatforms: [platform],
+            },
+          )
+        }
+        onStrategyChange={(priorityMode) =>
+          void updateSettings({ priorityMode }, { tickAfterSave: true })
+        }
+        onUnpinAll={() => void savePlatformPins([])}
+        onUnlinkedCampaignsChange={(unlinkedCampaigns) =>
+          void updateSettings(
+            { platform: { [platform]: { unlinkedCampaigns } } },
+            {
+              tickAfterSave: true,
+              tickAfterSavePlatforms: [platform],
+            },
+          )
+        }
+        onRefreshCampaign={() => refreshNow()}
+        onPinChange={(campaignId, position) =>
+          savePlatformPins(
+            position == null
+              ? unpinCampaign(pins, campaignId)
+              : pinCampaignAt(pins, campaignId, position),
+          )
+        }
+        onToggleExclude={(id) => {
+          const next = new Set(settings.platform[platform].excludedCampaignIds);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return updateSettings(
+            {
+              platform: {
+                [platform]: { excludedCampaignIds: [...next] },
+              },
+            },
+            {
+              tickAfterSave: true,
+              tickAfterSavePlatforms: [platform],
+            },
+          );
+        }}
+        onToggleFavouriteCategory={(category) =>
+          updateSettings(
+            {
+              platform: {
+                [platform]: favouriteTogglePatch(settings.platform[platform], category),
+              },
+            },
+            {
+              tickAfterSave: true,
+              tickAfterSavePlatforms: [platform],
+            },
+          )
+        }
+        onToggleBlockedCategory={(category) =>
+          updateSettings(
+            {
+              platform: {
+                [platform]: blockTogglePatch(settings.platform[platform], category),
+              },
+            },
+            {
+              tickAfterSave: true,
+              tickAfterSavePlatforms: [platform],
+            },
+          )
+        }
+        onOpenGames={() => changeView("games")}
+        onOpenSettings={(groupId) => changeView("settings", groupId)}
+      />
+    </>
+  );
   const VIEW_TITLE_KEYS: Record<PopupView, string> = {
     queue: "navQueue",
     completed: "navCompleted",
@@ -1508,6 +1684,7 @@ export function PopupFrame({
                         hostViews={hostViews}
                         hostView={hostView?.id}
                         onHostViewChange={openHostView}
+                        combineDropViews={combineDropViews}
                       />
 
                       <div className="flex min-w-0 flex-1 flex-col">
@@ -1549,7 +1726,7 @@ export function PopupFrame({
                         <div
                           className={cn(
                             "flex shrink-0 items-center gap-2 px-3 pt-2.5",
-                            windowFrame && WINDOW_CONTENT_CLASS,
+                            windowFrame && windowContentClass,
                           )}
                         >
                           <h1 className="font-display shrink-0 truncate text-[15px] font-bold tracking-[-0.01em] text-zinc-900 dark:text-zinc-50">
@@ -1580,7 +1757,7 @@ export function PopupFrame({
                             <div
                               className={cn(
                                 "space-y-2 p-3 pt-2",
-                                windowFrame && WINDOW_CONTENT_CLASS,
+                                windowFrame && windowContentClass,
                               )}
                             >
                               {/* The view itself is swapped outright rather than cross-faded: the
@@ -1693,42 +1870,7 @@ export function PopupFrame({
                                     }
                                   />
                                 ) : view === "games" ? (
-                                  // Keyed by platform so a search typed on one platform, and
-                                  // the results it found, cannot be added to the other's lists.
-                                  <GamesPanel
-                                    key={platform}
-                                    platform={platform}
-                                    settings={settings}
-                                    suggestions={dropCategorySuggestions[platform]}
-                                    campaignCounts={gameCampaignCounts}
-                                    onCategoryModeChange={(categoryMode) =>
-                                      void updateSettings(
-                                        { platform: { [platform]: { categoryMode } } },
-                                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-                                      )
-                                    }
-                                    onCategoriesChange={(categories) =>
-                                      void updateSettings(
-                                        { platform: { [platform]: { categories } } },
-                                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-                                      )
-                                    }
-                                    onFavouritesChange={(favouriteCategories) =>
-                                      void updateSettings(
-                                        { platform: { [platform]: { favouriteCategories } } },
-                                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-                                      )
-                                    }
-                                    onBlockedChange={(blockedCategories) =>
-                                      void updateSettings(
-                                        { platform: { [platform]: { blockedCategories } } },
-                                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-                                      )
-                                    }
-                                    onSearchCategories={(query) =>
-                                      searchCategories(platform, query)
-                                    }
-                                  />
+                                  gamesPanel
                                 ) : view === "watchlist" ? (
                                   // Keyed by platform so a half-typed channel cannot survive a
                                   // platform switch and land in the other platform's list.
@@ -1864,123 +2006,17 @@ export function PopupFrame({
                                     writeClipboard={adapter.writeClipboard ?? (async () => false)}
                                   />
                                 ) : view === "completed" ? (
-                                  <CompletedPanel
-                                    campaigns={campaigns}
-                                    gameMap={gameMap}
-                                    focus={campaignFocus}
-                                    refreshing={refreshing}
-                                    onRefreshCampaign={() => refreshNow()}
+                                  completedPanel
+                                ) : combinedDropsPage ? (
+                                  <CombinedDropsPage
+                                    queue={queueContent}
+                                    games={gamesPanel}
+                                    completed={completedPanel}
+                                    gamesCount={railCounts.games}
+                                    completedCount={railCounts.completed}
                                   />
                                 ) : (
-                                  <>
-                                    {/* Tips are an extension preference: a host without
-                                      it has no setting to turn them off. */}
-                                    {hostCapabilities.extensionPreferences && settings.showTips ? (
-                                      <TipsBanner
-                                        initialIndex={preview ? 0 : undefined}
-                                        preview={preview}
-                                      />
-                                    ) : null}
-                                    <QueuePanel
-                                      campaigns={campaigns}
-                                      gameMap={gameMap}
-                                      focus={campaignFocus}
-                                      refreshing={refreshing}
-                                      strategy={settings.priorityMode}
-                                      pinnedCount={pins.length}
-                                      unlinkedCampaigns={
-                                        settings.platform[platform].unlinkedCampaigns
-                                      }
-                                      platform={platform}
-                                      rewardFilter={settings.platform[platform].rewardFilter}
-                                      showSubscriptionChoice={subscriptionChoice[platform]}
-                                      onRewardFilterChange={(rewardFilter) =>
-                                        void updateSettings(
-                                          { platform: { [platform]: { rewardFilter } } },
-                                          {
-                                            tickAfterSave: true,
-                                            tickAfterSavePlatforms: [platform],
-                                          },
-                                        )
-                                      }
-                                      onStrategyChange={(priorityMode) =>
-                                        void updateSettings(
-                                          { priorityMode },
-                                          { tickAfterSave: true },
-                                        )
-                                      }
-                                      onUnpinAll={() => void savePlatformPins([])}
-                                      onUnlinkedCampaignsChange={(unlinkedCampaigns) =>
-                                        void updateSettings(
-                                          { platform: { [platform]: { unlinkedCampaigns } } },
-                                          {
-                                            tickAfterSave: true,
-                                            tickAfterSavePlatforms: [platform],
-                                          },
-                                        )
-                                      }
-                                      onRefreshCampaign={() => refreshNow()}
-                                      onPinChange={(campaignId, position) =>
-                                        savePlatformPins(
-                                          position == null
-                                            ? unpinCampaign(pins, campaignId)
-                                            : pinCampaignAt(pins, campaignId, position),
-                                        )
-                                      }
-                                      onToggleExclude={(id) => {
-                                        const next = new Set(
-                                          settings.platform[platform].excludedCampaignIds,
-                                        );
-                                        if (next.has(id)) next.delete(id);
-                                        else next.add(id);
-                                        return updateSettings(
-                                          {
-                                            platform: {
-                                              [platform]: { excludedCampaignIds: [...next] },
-                                            },
-                                          },
-                                          {
-                                            tickAfterSave: true,
-                                            tickAfterSavePlatforms: [platform],
-                                          },
-                                        );
-                                      }}
-                                      onToggleFavouriteCategory={(category) =>
-                                        updateSettings(
-                                          {
-                                            platform: {
-                                              [platform]: favouriteTogglePatch(
-                                                settings.platform[platform],
-                                                category,
-                                              ),
-                                            },
-                                          },
-                                          {
-                                            tickAfterSave: true,
-                                            tickAfterSavePlatforms: [platform],
-                                          },
-                                        )
-                                      }
-                                      onToggleBlockedCategory={(category) =>
-                                        updateSettings(
-                                          {
-                                            platform: {
-                                              [platform]: blockTogglePatch(
-                                                settings.platform[platform],
-                                                category,
-                                              ),
-                                            },
-                                          },
-                                          {
-                                            tickAfterSave: true,
-                                            tickAfterSavePlatforms: [platform],
-                                          },
-                                        )
-                                      }
-                                      onOpenGames={() => changeView("games")}
-                                      onOpenSettings={(groupId) => changeView("settings", groupId)}
-                                    />
-                                  </>
+                                  queueContent
                                 )}
                               </div>
                             </div>

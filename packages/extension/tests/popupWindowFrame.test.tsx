@@ -180,3 +180,69 @@ describe("activity without a history", () => {
     expect(sent.map((message) => message.type)).toContain("getActivity");
   });
 });
+
+describe("combined drops page", () => {
+  const COMBINED: PopupWindowFrame = { ...ACCOUNTS, combineDropViews: true };
+
+  function buttonByText(container: HTMLElement, text: string): HTMLButtonElement | null {
+    return (
+      [...container.querySelectorAll("button")].find((button) => button.textContent === text)
+      ?? null
+    );
+  }
+
+  it("keeps Completed and Games as rail entries of their own without the flag", async () => {
+    const { container } = await mount({});
+    expect(container.querySelector('button[data-view="completed"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="games"]')).not.toBeNull();
+    expect(container.querySelector("[data-drops-page]")).toBeNull();
+  });
+
+  it("shows Games and Completed beside the queue, not in the rail", async () => {
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: COMBINED,
+    });
+    expect(container.querySelector('button[data-view="queue"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="completed"]')).toBeNull();
+    expect(container.querySelector('button[data-view="games"]')).toBeNull();
+
+    const page = container.querySelector("[data-drops-page]")!;
+    expect(
+      page.querySelector('[data-drops-section="games"] [data-tour="games-mode"]'),
+    ).not.toBeNull();
+    expect(
+      page.querySelector('[data-drops-section="completed"] [data-tour="completed-list"]'),
+    ).not.toBeNull();
+    // The sidebar's controls stay in their sections, not in the queue's title row.
+    const toolbar = container.querySelector("[data-view-toolbar]")!;
+    expect(toolbar.querySelector('[data-tour="games-mode"]')).toBeNull();
+  });
+
+  it("opens the queue at the Games section when asked for the games view", async () => {
+    const scrollTo = vi.fn();
+    const original = Element.prototype.scrollTo;
+    Element.prototype.scrollTo = scrollTo as typeof Element.prototype.scrollTo;
+    try {
+      const { container } = await mount({
+        hostCapabilities: CLI_CAPABILITIES,
+        windowFrame: COMBINED,
+      });
+      const edit = buttonByText(container, "[queueEditFavourites]");
+      expect(edit).not.toBeNull();
+      let before = scrollTo.mock.calls.length;
+      await click(edit);
+      expect(container.querySelector("[data-drops-page]")).not.toBeNull();
+      expect(scrollTo.mock.calls.length).toBeGreaterThan(before);
+      // Asking again, already on the page, scrolls again.
+      before = scrollTo.mock.calls.length;
+      await click(edit);
+      expect(scrollTo.mock.calls.length).toBeGreaterThan(before);
+
+      await click(container.querySelector('button[data-view="settings"]'));
+      expect(container.querySelector("[data-drops-page]")).toBeNull();
+    } finally {
+      Element.prototype.scrollTo = original;
+    }
+  });
+});
