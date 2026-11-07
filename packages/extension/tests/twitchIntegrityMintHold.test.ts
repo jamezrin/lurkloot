@@ -3,6 +3,7 @@ import type { EngineEvent } from "@lurkloot/shared/events";
 import {
   cancelTwitchIntegrityAcquisition,
   createTabRegistry,
+  noteExtensionCreatedTab,
   setTwitchIntegrity,
   TWITCH_FRESH_MINT_EPISODE_MS,
   twitchMintHeld,
@@ -178,5 +179,23 @@ describe("Twitch integrity mint hold", () => {
     setTwitchIntegrity(registry, current, { sourceTabId: 7 });
 
     expect(twitchMintHeld(registry)).toBe(true);
+  });
+
+  it("does not lift the hold for a token from the extension's own watch tab", async () => {
+    const browser = mintingBrowser(registry);
+    setTwitchIntegrity(registry, token("stale"), { isNew: true, sourceTabId: 1 });
+    await recover(browser);
+    await recover(browser);
+    await recover(browser);
+    expect(twitchMintHeld(registry)).toBe(true);
+
+    // A pinned watch tab the extension opened mints in the same environment.
+    noteExtensionCreatedTab(registry, 50);
+    setTwitchIntegrity(registry, token("from-watch-tab"), { isNew: true, sourceTabId: 50 });
+
+    expect(twitchMintHeld(registry)).toBe(true);
+    const opened = browser.tabs.create.mock.calls.length;
+    await expect(recover(browser)).resolves.toBe(false);
+    expect(browser.tabs.create).toHaveBeenCalledTimes(opened);
   });
 });

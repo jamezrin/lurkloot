@@ -232,6 +232,7 @@ export interface TestingPorts {
   wait?(ms: number, signal: AbortSignal): Promise<void>;
   selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
   authProbeTimeoutMs?: number;
+  credentialLookupTimeoutMs?: number;
 }
 
 export interface BackgroundHostPorts<S extends EngineSettings = EngineSettings> {

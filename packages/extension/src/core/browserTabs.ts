@@ -36,6 +36,7 @@ import {
   isValidTwitchIntegrity,
   managedTabBreakerOpen,
   noteManagedTwitchMint,
+  noteExtensionCreatedTab,
   noteOpeningWatchTab,
   noteTabClosure,
   noteTwitchIntegrityRejected,
@@ -348,6 +349,7 @@ export async function openPinnedMutedTabWithBrowser(
   }
   // Before any other await: priming brings the tab to the front, so it can
   // report playback before the tick that opened it commits.
+  noteExtensionCreatedTab(registry, tab.id);
   noteOpeningWatchTab(registry, tab.id, channel.platform);
   try {
     tabOptions.signal?.throwIfAborted();
@@ -1503,6 +1505,7 @@ async function findOrCreatePageContextTab(
     signal?.throwIfAborted();
     throw new Error(`Could not open page context for ${originUrl}`);
   }
+  noteExtensionCreatedTab(registry, tab.id);
   if (contextPlatform === "twitch") registry.twitchContextBoot = { tabId: tab.id, createdAt };
   try {
     signal?.throwIfAborted();
