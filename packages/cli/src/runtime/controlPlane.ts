@@ -12,6 +12,7 @@ import { errorMessage } from "@lurkloot/shared/errors";
 import type { CredentialSource, LocalCredentialHealth } from "../authStore";
 import type { Logger } from "../logger";
 import { CliSettingsStoreError } from "../settingsStore";
+import { serveAppAsset } from "./appAssets";
 
 // `lurkloot serve`'s local HTTP control plane (#975). It carries the popup's
 // own RuntimeMessage contract to the farming controller, behind a loopback
@@ -218,6 +219,9 @@ export interface ControlPlaneOptions extends ServeBinding {
   logger: Logger;
   maxBodyBytes?: number;
   routes?: readonly ControlPlaneRoute[];
+  // The app UI's built bundle (appAssets.ts), served at every path outside
+  // /v1. Without one, those paths are 404s, as before.
+  appRoot?: string;
 }
 
 export interface ControlPlane {
@@ -450,12 +454,19 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   const maxBodyBytes = options.maxBodyBytes ?? MAX_REQUEST_BODY_BYTES;
   let closing = false;
 
-  const guard = (request: IncomingMessage): void => {
+  // The app's files are what a browser loads before it can ask for the
+  // token, so they need no token; the Host check still applies.
+  const guardHost = (request: IncomingMessage): void => {
     const hostHeader = request.headers.host;
     // DNS rebinding: a page on a hostile name that resolves to 127.0.0.1
     // still sends its own name as Host.
     if (loopbackBind && (!hostHeader || !isLoopbackHost(hostHeaderName(hostHeader))))
       throw new RequestError(403, "forbidden_host", "Host header is not a loopback name");
+  };
+
+  const guard = (request: IncomingMessage): void => {
+    const hostHeader = request.headers.host;
+    guardHost(request);
     // Cross-site requests from a browser: only a same-origin page may call.
     const origin = request.headers.origin;
     if (origin !== undefined) {
@@ -477,8 +488,13 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
 
   const route = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (closing) throw new RequestError(503, "shutting_down", "The server is shutting down");
-    guard(request);
     const path = requestPath(request);
+    if (options.appRoot && path !== "/v1" && !path.startsWith("/v1/")) {
+      guardHost(request);
+      await serveAppAsset(options.appRoot, request, response, path);
+      return;
+    }
+    guard(request);
     const extra = options.routes?.filter((candidate) => candidate.path === path) ?? [];
     if (extra.length > 0) {
       const match = extra.find((candidate) => candidate.method === request.method);
@@ -517,6 +533,12 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   const server = createServer((request, response) => {
     route(request, response)
       .catch((error: unknown) => {
+        // A file that failed mid-stream: its status is already out.
+        if (response.headersSent) {
+          logger.error(errorMessage(error), "serve");
+          response.destroy();
+          return;
+        }
         if (error instanceof RequestError) {
           sendError(response, error);
           return;
@@ -552,8 +574,15 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   server.on("error", (error) => logger.error(errorMessage(error), "serve"));
   const address = server.address() as AddressInfo;
   const shownHost = address.family === "IPv6" ? `[${address.address}]` : address.address;
+  const url = `http://${shownHost}:${address.port}/`;
+  // A wildcard bind is no address to open: name the one that works here.
+  const wildcard = address.address === "0.0.0.0" || address.address === "::";
+  const localNote = wildcard ? `, on this machine http://127.0.0.1:${address.port}/` : "";
+  const tokenNote = expectedToken ? " (bearer token required)" : "";
   logger.info(
-    `Control plane listening on http://${shownHost}:${address.port}${expectedToken ? " (bearer token required)" : ""}`,
+    options.appRoot
+      ? `App and control plane at ${url}${tokenNote}${localNote}`
+      : `Control plane listening on ${url.slice(0, -1)}${tokenNote}`,
     "serve",
   );
 

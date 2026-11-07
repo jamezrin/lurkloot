@@ -97,6 +97,9 @@ importers:
         specifier: ^18.0.0
         version: 18.2.0
     devDependencies:
+      '@lurkloot/app-ui':
+        specifier: workspace:*
+        version: link:../app-ui
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2

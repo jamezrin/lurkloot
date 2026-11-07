@@ -1444,7 +1444,21 @@ snapshot. The pasted Twitch address lives only in an uncontrolled input that is 
 request is sent. The app never stores or shows a token. In development Vite proxies `/v1` to a
 running serve unchanged (its `Host` stays the loopback dev origin and matches `Origin`, so serve's
 checks pass), or answers it from `fixture/controlPlane.ts`, which the app-ui tests also run
-against. Serving the built bundle from `serve` is #980.
+against.
+
+`serve` hosts the built bundle itself (#980). The CLI build (`pnpm build:cli`) builds the app UI
+and copies it to `packages/cli/dist/app`, beside `dist/index.mjs`, and the Docker image does the
+same. `defaultAppRoot` in `packages/cli/src/runtime/appAssets.ts` finds it there, and the control
+plane answers every path outside `/v1` from it: GET and HEAD only, with content types, a
+content-security policy that keeps the page to its own origin (images aside), no framing, and the
+page revalidated while hashed `assets/` are cached for good. A path is decoded once, any dot segment,
+backslash or NUL is refused, and the resolved file must sit under the root. A directory is never
+listed: an extensionless path that names no file gets `index.html` (the SPA fallback), and a missing
+file is a 404. The app's files need no bearer token, because the page has to load before it can
+ask for one, but they keep the loopback Host check against DNS rebinding. `/v1` stays the API's,
+so an unknown endpoint is still a JSON 404. A CLI built without the bundle serves the control plane
+alone. `packages/cli/tests/serveApp.test.ts` covers the fallback, the traversal refusals and the
+token split.
 
 ### Onboarding tour
 
