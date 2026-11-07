@@ -21,7 +21,7 @@ jobs:
           version: 12.16.1
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # The store screenshot dashboard tests drive a real Chromium against local

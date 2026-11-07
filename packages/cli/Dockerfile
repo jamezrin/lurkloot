@@ -4,7 +4,7 @@
 # Node + cycletls; Kick's viewer connection uses ws. No browser is needed.
 
 # --- Build stage: install the cli + core + shared subtree and bundle the CLI ---
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /repo
 # Node 25 and later no longer bundle corepack, so install pnpm directly. Keep the
 # version in step with the pnpm/action-setup version in the workflows.
@@ -34,7 +34,7 @@ RUN pnpm --filter @lurkloot/cli build
 RUN pnpm --filter @lurkloot/cli deploy --legacy --prod /app
 
 # --- Runtime stage ---
-FROM node:24-slim
+FROM node:26-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
