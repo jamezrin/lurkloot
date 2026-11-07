@@ -47,10 +47,26 @@ function signedOut(snapshot: RuntimeSnapshot): RuntimeSnapshot {
   };
 }
 
+function excludeFirstTwitch(snapshot: RuntimeSnapshot): RuntimeSnapshot {
+  const first = snapshot.state.campaigns.twitch[0];
+  if (!first) throw new Error("demo has no twitch campaign");
+  return {
+    ...snapshot,
+    settings: {
+      ...snapshot.settings,
+      platform: {
+        ...snapshot.settings.platform,
+        twitch: { ...snapshot.settings.platform.twitch, excludedCampaignIds: [first.id] },
+      },
+    },
+  };
+}
+
 async function mount(options: {
   hostCapabilities?: PopupHostCapabilities;
   windowFrame?: PopupWindowFrame;
   signedOutTwitch?: boolean;
+  excludeFirstTwitchCampaign?: boolean;
 }): Promise<{
   container: HTMLElement;
   sent: RuntimeMessage[];
@@ -67,12 +83,11 @@ async function mount(options: {
     openLink,
     send: async <T,>(message: RuntimeMessage) => {
       sent.push(message);
-      const result = await demo.send<RuntimeSnapshot>(message);
-      return (
-        options.signedOutTwitch && result && typeof result === "object" && "state" in result
-          ? signedOut(result)
-          : result
-      ) as T;
+      let result = await demo.send<RuntimeSnapshot>(message);
+      const isSnapshot = result && typeof result === "object" && "state" in result;
+      if (isSnapshot && options.signedOutTwitch) result = signedOut(result);
+      if (isSnapshot && options.excludeFirstTwitchCampaign) result = excludeFirstTwitch(result);
+      return result as T;
     },
     ...(options.hostCapabilities ? { hostCapabilities: options.hostCapabilities } : {}),
   };
@@ -280,29 +295,64 @@ describe("combined drops page", () => {
 
   it("opens the queue at the Games section when asked for the games view", async () => {
     stubViewport(true);
-    const scrollTo = vi.fn();
-    const original = Element.prototype.scrollTo;
-    Element.prototype.scrollTo = scrollTo as typeof Element.prototype.scrollTo;
-    try {
-      const { container } = await mount({
-        hostCapabilities: CLI_CAPABILITIES,
-        windowFrame: COMBINED,
-      });
-      const edit = buttonByText(container, "[queueEditFavourites]");
-      expect(edit).not.toBeNull();
-      let before = scrollTo.mock.calls.length;
-      await click(edit);
-      expect(container.querySelector("[data-drops-page]")).not.toBeNull();
-      expect(scrollTo.mock.calls.length).toBeGreaterThan(before);
-      // Asking again, already on the page, scrolls again.
-      before = scrollTo.mock.calls.length;
-      await click(edit);
-      expect(scrollTo.mock.calls.length).toBeGreaterThan(before);
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: COMBINED,
+    });
+    const edit = buttonByText(container, "[queueEditFavourites]");
+    expect(edit).not.toBeNull();
+    await click(edit);
+    const games = container.querySelector('[data-drops-section="games"]');
+    expect(container.querySelector("[data-drops-page]")).not.toBeNull();
+    expect(document.activeElement).toBe(games);
+    // Asking again, already on the page, focuses it again.
+    (document.activeElement as HTMLElement).blur();
+    await click(edit);
+    expect(document.activeElement).toBe(games);
 
-      await click(container.querySelector('button[data-view="settings"]'));
-      expect(container.querySelector("[data-drops-page]")).toBeNull();
-    } finally {
-      Element.prototype.scrollTo = original;
+    await click(container.querySelector('button[data-view="settings"]'));
+    expect(container.querySelector("[data-drops-page]")).toBeNull();
+  });
+
+  it("scrolls the queue and each sidebar section on its own, not the window", async () => {
+    stubViewport(true);
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: COMBINED,
+    });
+    const page = container.querySelector("[data-drops-page]")!;
+    const panel = container.querySelector("#popup-platform-panel")!;
+    expect(panel.hasAttribute("data-scroll-panel")).toBe(false);
+    expect(panel.className).toContain("overflow-hidden");
+    const queue = page.querySelector('[data-drops-column="queue"] > [data-scroll-panel]');
+    expect(queue?.className).toContain("overflow-y-auto");
+    for (const section of ["games", "completed"]) {
+      const scroller = page.querySelector(`[data-drops-section="${section}"] [data-scroll-panel]`);
+      expect(scroller?.className).toContain("overflow-y-auto");
     }
+  });
+
+  it("keeps the campaigns outside the queue below its scrolling list", async () => {
+    stubViewport(true);
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: COMBINED,
+      excludeFirstTwitchCampaign: true,
+    });
+    const column = container.querySelector('[data-drops-column="queue"]')!;
+    const list = column.querySelector(":scope > [data-scroll-panel]:not([data-queue-tail])")!;
+    const tail = column.querySelector("[data-queue-tail]")!;
+    expect(tail.hasAttribute("data-scroll-panel")).toBe(true);
+    // Skipped sits in the tail, outside the queue's own scroller.
+    expect(tail.querySelector('[data-queue-group="skipped"]')).not.toBeNull();
+    expect(list.querySelector('[data-queue-group="skipped"]')).toBeNull();
+    expect(list.querySelector('[data-tour="queue-list"]')).not.toBeNull();
+  });
+
+  it("keeps the campaigns outside the queue after it in the popup", async () => {
+    const { container } = await mount({ excludeFirstTwitchCampaign: true });
+    expect(container.querySelector("[data-queue-tail]")).toBeNull();
+    const panel = container.querySelector("#popup-platform-panel")!;
+    expect(panel.querySelector('[data-queue-group="skipped"]')).not.toBeNull();
   });
 });

@@ -1399,9 +1399,16 @@ stretched rows; campaign lists stay a single column, as in the popup. With
 Queue (`CombinedDropsPage` in `combinedDrops.tsx`, a wider 86rem column). A narrower window keeps
 the popup's three views, and resizing switches between the two: a window widened on Completed or
 Games lands on the combined page at that section, and narrowed again lands on the Queue.
-`changeView` maps a request for either view to the Queue and scrolls to its section, counting
-requests so asking again while on the page scrolls again. Each column is
-its own `@container`, so sidebar cards lay out for the sidebar's width, and the sidebar's views
+The combined page fills the window, which does not scroll: the platform panel drops its
+`data-scroll-panel` and the Queue column and each sidebar section scroll on their own, each a
+`data-scroll-panel`, so `scrollIntoPanel` moves the one holding its target. The campaigns outside the
+queue (action required, skipped, upcoming) stay in view below the Queue's list: `QueuePanel` portals
+them into the `NotInQueueSlotContext` element the page provides, which takes no room when empty and
+scrolls on its own past 45% of the column; without a slot they follow the queue, as in the popup. A sidebar section is only
+as tall as its content, and the two share the height when both overflow. `changeView` maps a
+request for either view to the Queue and focuses its section, counting requests so asking again
+while on the page focuses it again. Each scrolling region is its own `@container`, so sidebar
+cards lay out for the sidebar's width, and the sidebar's views
 get no `ViewToolbarSlotContext`, so their controls stay in their section rather than the
 Queue's title row. `tests/popupWindowFrame.test.tsx` covers both frames.
 

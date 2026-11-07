@@ -404,7 +404,7 @@ export function PopupFrame({
   const view: PopupView =
     combineDropViews && isCombinedDropSection(viewTheHostShows) ? "queue" : viewTheHostShows;
   // The section of the combined drops page last asked for, and a count, so
-  // asking again scrolls to it again.
+  // asking again focuses it again.
   const [dropSectionFocus, setDropSectionFocus] = useState<{
     section: CombinedDropSection;
     generation: number;
@@ -419,7 +419,11 @@ export function PopupFrame({
   }, [combineDropViews, requestedView]);
   useEffect(() => {
     if (!dropSectionFocus) return;
-    scrollIntoPanel(document.querySelector(`[data-drops-section="${dropSectionFocus.section}"]`));
+    // Both sections are already on screen, each scrolling on its own, so
+    // the one asked for takes focus instead of being scrolled to.
+    document
+      .querySelector<HTMLElement>(`[data-drops-section="${dropSectionFocus.section}"]`)
+      ?.focus({ preventScroll: true });
   }, [dropSectionFocus]);
   // One of the host's own destinations, open over the current view. Choosing
   // any built-in view closes it.
@@ -1761,20 +1765,34 @@ export function PopupFrame({
                         <ViewToolbarSlotContext.Provider value={toolbarSlot}>
                           <div
                             id="popup-platform-panel"
-                            data-scroll-panel
-                            className="nice-scroll @container min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300"
+                            data-scroll-panel={combinedDropsPage ? undefined : ""}
+                            className={cn(
+                              "nice-scroll @container min-h-0 flex-1 text-zinc-700 dark:text-zinc-300",
+                              // The combined drops page fills the window and
+                              // scrolls each of its columns on its own.
+                              combinedDropsPage
+                                ? "flex flex-col overflow-hidden"
+                                : "overflow-y-auto",
+                            )}
                           >
                             <div
                               className={cn(
                                 "space-y-2 p-3 pt-2",
                                 windowFrame && windowContentClass,
+                                combinedDropsPage && "flex min-h-0 flex-1 flex-col",
                               )}
                             >
                               {/* The view itself is swapped outright rather than cross-faded: the
                 rail makes navigation frequent, and an exit animation would hold
                 the outgoing panel on screen every time. Notices below keep their
                 own enter/exit, which is where motion earns its place. */}
-                              <div className="space-y-3">
+                              <div
+                                className={cn(
+                                  combinedDropsPage
+                                    ? "flex min-h-0 flex-1 flex-col gap-3"
+                                    : "space-y-3",
+                                )}
+                              >
                                 <AnimatePresence initial={false}>
                                   {noticeSlot === "update" && updateNotice ? (
                                     <UpdateNotice
