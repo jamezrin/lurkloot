@@ -35,7 +35,7 @@ const softwareLd = {
   "@type": "SoftwareApplication",
   name: SITE.name,
   applicationCategory: "BrowserApplication",
-  operatingSystem: "Chrome, Edge, Brave, Opera, Vivaldi, and other Chromium browsers",
+  operatingSystem: "Chrome, Edge, Brave, Opera, Vivaldi, other Chromium browsers, and Firefox",
   description: SITE.description,
   url: SITE.url,
   downloadUrl: EXTERNAL_URLS.chrome,
@@ -113,6 +113,7 @@ const breadcrumbLd = breadcrumbs?.length
   <body>
     <slot />
     <script>
+      import "../scripts/install-link.ts";
       import "../scripts/smooth-scroll.ts";
       import "../scripts/tilt.ts";
     </script>

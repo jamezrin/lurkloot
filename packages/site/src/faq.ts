@@ -34,7 +34,7 @@ export const twitchFaqItems: FaqItem[] = [
   },
   {
     q: "Which browsers does the Twitch Drops extension work in?",
-    a: "Any Chromium browser: Chrome, Edge, Brave, Opera and Vivaldi all install it from the Chrome Web Store. Firefox builds are published on GitHub Releases. It runs on the Twitch session you are already signed into, so there is nothing to connect and no password to hand over.",
+    a: "Chrome, Edge, Brave, Opera and Vivaldi install it from the Chrome Web Store, and Firefox installs it from Firefox Add-ons. It runs on the Twitch session you are already signed into, so there is nothing to connect and no password to hand over.",
   },
   {
     q: "Can I choose which Twitch campaigns it farms first?",
@@ -81,7 +81,7 @@ export const homeFaqItems: FaqItem[] = [
   },
   {
     q: "What do I need to get started?",
-    a: "Install the extension from the Chrome Web Store in a compatible Chromium browser, then sign in to Twitch or Kick as usual. Choose your games and enable farming. Some campaigns also require linking your game account; Lurkloot cannot complete that step for you.",
+    a: "Install the extension from the Chrome Web Store in a Chromium browser, or from Firefox Add-ons in Firefox, then sign in to Twitch or Kick as usual. Choose your games and enable farming. Some campaigns also require linking your game account; Lurkloot cannot complete that step for you.",
   },
   {
     q: "Does my browser need to stay open?",
