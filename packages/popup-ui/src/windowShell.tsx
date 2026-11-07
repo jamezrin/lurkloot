@@ -194,9 +194,11 @@ export function WindowHeader({
   actions?: React.ReactNode;
 }): React.ReactElement {
   return (
+    // Narrow (below 36rem), the status drops to a row of its own under the
+    // platform and account, rather than squeezing its call to action.
     <header
       data-window-header
-      className="@container/header flex h-[58px] shrink-0 items-center gap-3 border-b border-[var(--surface-edge)] bg-[var(--surface)] px-3"
+      className="@container/header flex min-h-[58px] shrink-0 flex-wrap items-center gap-x-3 border-b border-[var(--surface-edge)] bg-[var(--surface)] px-3 py-1"
     >
       <PlatformSwitch active={platform} presentation={presentation} onChange={onPlatformChange} />
       {account ? (
@@ -204,8 +206,11 @@ export function WindowHeader({
           {account}
         </div>
       ) : null}
-      <div aria-hidden className="h-6 w-px shrink-0 bg-[var(--surface-edge)]" />
-      {status}
+      <div
+        aria-hidden
+        className="h-6 w-px shrink-0 bg-[var(--surface-edge)] @max-xl/header:hidden"
+      />
+      <div className="flex min-w-0 flex-1 @max-xl/header:basis-full">{status}</div>
       {actions ? <div className="flex shrink-0 items-center gap-0.5">{actions}</div> : null}
     </header>
   );
