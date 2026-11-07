@@ -5,8 +5,7 @@ import { ViewToolbar } from "./viewToolbar";
 import { CampaignCard } from "./drops";
 import { fallbackGame } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
-import { EmptyPanel, cn } from "./primitives";
-import { CAMPAIGN_GRID_CLASS } from "./constants";
+import { EmptyPanel } from "./primitives";
 import { Segmented } from "./controls";
 
 type CompletedTab = "finished" | "expired";
@@ -79,7 +78,7 @@ export function CompletedPanel({
           {t(tab === "finished" ? "completedEmptyFinished" : "completedEmptyExpired")}
         </EmptyPanel>
       ) : (
-        <div data-queue-group={tab} className={cn("space-y-1", CAMPAIGN_GRID_CLASS)}>
+        <div data-queue-group={tab} className="space-y-1">
           {rows.map((campaign, index) => (
             <div key={campaign.id} data-campaign-id={campaign.id}>
               <CampaignCard

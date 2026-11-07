@@ -11,3 +11,32 @@ body,
   height: 100%;
   margin: 0;
 }
+
+/* popup-ui sizes everything in px for a 720px popup, which reads small on a
+   large monitor, so the page is zoomed up on wide viewports. The zoom sits on
+   body so menus portalled out of the frame scale with it; it multiplies the
+   frame's dvh height too, so that is divided back out. */
+:root {
+  --app-zoom: 1;
+}
+@media (min-width: 1600px) {
+  :root {
+    --app-zoom: 1.125;
+  }
+}
+@media (min-width: 2200px) {
+  :root {
+    --app-zoom: 1.25;
+  }
+}
+@media (min-width: 3000px) {
+  :root {
+    --app-zoom: 1.5;
+  }
+}
+body {
+  zoom: var(--app-zoom);
+}
+[data-frame="window"] {
+  height: calc(100dvh / var(--app-zoom));
+}

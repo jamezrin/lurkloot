@@ -189,6 +189,9 @@ export const POPUP_FRAME_CLASS =
   "@container relative flex h-[600px] w-[720px] max-w-full overflow-clip [contain:strict] border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950";
 const WINDOW_FRAME_CLASS =
   "@container relative flex h-dvh w-full overflow-clip [contain:strict] bg-zinc-50 dark:bg-zinc-950";
+// In the window frame, a view's title row and body share one centred column,
+// so a wide screen gets margins instead of rows stretched edge to edge.
+const WINDOW_CONTENT_CLASS = "mx-auto w-full max-w-[60rem]";
 
 /** The popup. A host that can say whether onboarding is pending (only the
  * extension's toolbar popup) gets the onboarding tour on top of it; previews
@@ -1543,7 +1546,12 @@ export function PopupFrame({
 
                         {/* The view's title and its own controls share one row: a view hands
             them to ViewToolbar, which moves them into the slot here. */}
-                        <div className="flex shrink-0 items-center gap-2 px-3 pt-2.5">
+                        <div
+                          className={cn(
+                            "flex shrink-0 items-center gap-2 px-3 pt-2.5",
+                            windowFrame && WINDOW_CONTENT_CLASS,
+                          )}
+                        >
                           <h1 className="font-display shrink-0 truncate text-[15px] font-bold tracking-[-0.01em] text-zinc-900 dark:text-zinc-50">
                             {viewTitle}
                           </h1>
@@ -1569,7 +1577,12 @@ export function PopupFrame({
                             data-scroll-panel
                             className="nice-scroll @container min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300"
                           >
-                            <div className="space-y-2 p-3 pt-2">
+                            <div
+                              className={cn(
+                                "space-y-2 p-3 pt-2",
+                                windowFrame && WINDOW_CONTENT_CLASS,
+                              )}
+                            >
                               {/* The view itself is swapped outright rather than cross-faded: the
                 rail makes navigation frequent, and an exit animation would hold
                 the outgoing panel on screen every time. Notices below keep their
