@@ -160,7 +160,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
         entries: [
           {
             id: "general.appearance.language",
-            requires: "extensionPreferences",
+            requires: "language",
             titleKey: "settingsLanguageTitle",
             descriptionKey: "settingsLanguageDescription",
             render: () => (

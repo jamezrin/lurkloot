@@ -185,8 +185,9 @@ pnpm cli auth status
   offline channels.
 - **`auth kick device-login`** runs Kick's smart-TV link flow (the same one the
   Kick TV app uses): it prints a `kick.com/tv/login` URL + a 6-digit code; open
-  it on any device where you're signed in to Kick and confirm the code, and the
-  session token is saved — no cookie export needed.
+  it on your phone, where it opens in the Kick app you're signed in to, and
+  confirm the code, and the session token is saved — no cookie export needed.
+  The link does not open in a desktop browser (kick.com has no page for it).
 - **`auth import`** ingests a credential blob exported by the updated extension
   (Settings → **Export credentials**) for Twitch and/or Kick. A Twitch web
   import needs the exported device ID and Kasada session cookie as well as the

@@ -33,6 +33,8 @@ export function StatusStrip({
   enabled,
   pending,
   onToggle,
+  inHeader = false,
+  beforeToggle,
 }: {
   platform: Platform;
   presentation: AutomationPresentation;
@@ -49,6 +51,11 @@ export function StatusStrip({
   enabled: boolean;
   pending: boolean;
   onToggle(value: boolean): void | Promise<void>;
+  // In a window frame's header: the strip takes the room the header leaves
+  // it, without a bar of its own.
+  inHeader?: boolean;
+  // In the header, controls between the status and the switch.
+  beforeToggle?: React.ReactNode;
 }): React.ReactElement {
   const t = useT();
   const label = PLATFORMS[platform].label;
@@ -57,7 +64,11 @@ export function StatusStrip({
   return (
     <div
       data-tour="status-strip"
-      className="relative flex min-h-[58px] shrink-0 items-center gap-2.5 border-b border-[var(--surface-edge)] bg-[var(--surface)] px-3.5 py-2"
+      className={
+        inHeader
+          ? "relative flex min-w-0 flex-1 items-center gap-2.5 py-2"
+          : "relative flex min-h-[58px] shrink-0 items-center gap-2.5 border-b border-[var(--surface-edge)] bg-[var(--surface)] px-3.5 py-2"
+      }
     >
       <StripLead
         campaign={watching ? campaign : undefined}
@@ -86,6 +97,16 @@ export function StatusStrip({
         )}
       </div>
       {accountProgress}
+      {beforeToggle}
+      {inHeader ? (
+        // The switch names itself to assistive tech; the words are for the eye.
+        <span
+          aria-hidden
+          className="@max-4xl/header:hidden shrink-0 text-[12px] font-semibold text-zinc-700 dark:text-zinc-200"
+        >
+          {t("automationTitle", label)}
+        </span>
+      ) : null}
       <Toggle
         size="sm"
         checked={enabled}

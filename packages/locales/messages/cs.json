@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Sbalit boční panel"
+  },
+  "navSidebarExpand": {
+    "message": "Rozbalit boční panel"
+  },
   "navQueue": {
     "message": "Fronta"
   },
@@ -2401,5 +2407,209 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Linie vyvíjí pouze odznak, který už vlastníš. Bez něj sledování nic nepřináší."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Tady není žádná historie aktivity"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot sem zapisuje, co dělá, do logu, ne do historie k prohlížení. Níže je vidět, co právě dělá."
+  },
+  "activityLastCheck": {
+    "message": "Poslední kontrola"
+  },
+  "activityNoCheckYet": {
+    "message": "Zatím ne"
+  },
+  "appNavAccounts": {
+    "message": "Účty"
+  },
+  "windowAccountTitle": {
+    "message": "Účet $1"
+  },
+  "windowAccountManage": {
+    "message": "Spravovat účty"
+  },
+  "appAccountsIntro": {
+    "message": "Přihlaste Lurkloot k Twitchi a Kicku. Vaše přihlášení se ukládá do soukromého úložiště Lurkloot na počítači, kde běží. Tato stránka nikdy token nezobrazuje ani neukládá."
+  },
+  "appAccountSignedIn": {
+    "message": "Přihlášeno"
+  },
+  "appAccountChecking": {
+    "message": "Kontrola…"
+  },
+  "appAccountSignedOut": {
+    "message": "Nepřihlášeno"
+  },
+  "appAccountRejected": {
+    "message": "Přihlášení již není platné"
+  },
+  "appAccountUnavailable": {
+    "message": "Teď nelze zkontrolovat"
+  },
+  "appAccountSourceStored": {
+    "message": "Uloženo Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "Z proměnné prostředí"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Proměnná prostředí SA_* stále poskytuje toto přihlášení, takže ho Lurkloot bude používat bez ohledu na to, co zde přihlásíte nebo odhlásíte. Chcete-li použít přihlášení z této stránky, odstraňte proměnnou a restartujte Lurkloot."
+  },
+  "appAccountSignOut": {
+    "message": "Odhlásit"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Odhlášeno."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Odhlášeno, ale proměnná prostředí SA_* stále přihlašuje Lurkloot."
+  },
+  "appAccountNothingToForget": {
+    "message": "Nebylo co zapomenout, žádné uložené přihlášení neexistovalo."
+  },
+  "appRecommended": {
+    "message": "Doporučeno"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Přihlaste se v prohlížeči"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Vidí všechny kampaně dropů."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Otevřete přihlašovací stránku Twitche a přihlaste se."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Otevřít přihlášení k Twitchi"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Twitch vás poté přesměruje na $1. Zkopírujte celou tuto adresu z adresního řádku."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Vložte adresu, na kterou vás Twitch přesměroval"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Dokončit přihlášení"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Přihlášeno k Twitchi."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Přihlášeno k Twitchi jako $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "Adresa nemá část #access_token?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv ji může z adresního řádku odstranit téměř okamžitě. Před přihlášením otevřete vývojářské nástroje prohlížeče na kartě Network a zapněte Preserve log. Pak se přihlaste, vyfiltrujte podle access_token a zkopírujte hlavičku location přesměrování id.twitch.tv. Vložte ji sem."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Přihlaste se kódem"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Tady nevyžaduje přihlášení v prohlížeči, ale Twitch toto přihlášení zobrazí jen u kampaní, které jste už spustili."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Propojte kódem z TV"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Naskenujte kód telefonem v aplikaci Kick, kde jste přihlášeni, a potvrďte ho tam."
+  },
+  "appDeviceLoginStart": {
+    "message": "Získat kód"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Otevřít odkaz"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "QR kód pro přihlašovací odkaz"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Naskenujte to fotoaparátem telefonu. Odkaz se otevře v aplikaci Kick, ne v prohlížeči počítače."
+  },
+  "appDeviceLoginCode": {
+    "message": "Kód"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Čeká se na potvrzení kódu…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Zrušit"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Přihlášeno."
+  },
+  "appDeviceLoginExpired": {
+    "message": "Platnost kódu vypršela. Získejte nový kód a zkuste to znovu."
+  },
+  "appDeviceLoginFailed": {
+    "message": "Přihlášení selhalo. Získejte nový kód a zkuste to znovu."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "Přihlášení bylo zrušeno."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "Tato adresa neobsahuje přihlašovací token. Zkopírujte celou adresu, na kterou vás Twitch přesměroval."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch toto přihlášení odmítl. Začněte znovu na přihlašovací stránce."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Nepodařilo se spojit s Twitchem nebo Kickem. Zkuste to za chvíli."
+  },
+  "appErrorNetwork": {
+    "message": "Nelze se spojit s Lurkloot. Běží ještě lurkloot serve?"
+  },
+  "appErrorUnauthorized": {
+    "message": "Přístupový token byl odmítnut."
+  },
+  "appErrorGeneric": {
+    "message": "Požadavek selhal ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot nemůže toto nastavení uložit do konfiguračního souboru: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot odmítl tuto hodnotu: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot nemohl aktualizovat konfigurační soubor. Nic se nezměnilo."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot to tady nemůže udělat."
+  },
+  "appConnecting": {
+    "message": "Připojování k Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "Nelze se spojit s Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "Spusťte jej příkazem lurkloot serve a zkuste to znovu."
+  },
+  "appRetry": {
+    "message": "Zkusit znovu"
+  },
+  "appConnectionLost": {
+    "message": "Spojení s Lurkloot bylo ztraceno. Opakuji…"
+  },
+  "appDismiss": {
+    "message": "Zavřít"
+  },
+  "appTokenTitle": {
+    "message": "Přístupový token"
+  },
+  "appTokenBody": {
+    "message": "Tento Lurkloot potřebuje svůj přístupový token, tedy hodnotu LURKLOOT_SERVE_TOKEN. Uchovává se pouze v této záložce prohlížeče."
+  },
+  "appTokenRejected": {
+    "message": "Tento token byl odmítnut. Zkontrolujte ho a zkuste to znovu."
+  },
+  "appTokenLabel": {
+    "message": "Přístupový token"
+  },
+  "appTokenSubmit": {
+    "message": "Pokračovat"
   }
 }

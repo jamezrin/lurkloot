@@ -5,6 +5,8 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./compatibility/registry": "./src/compatibility/registry.ts",
+    "./compatibility/resolve": "./src/compatibility/resolve.ts",
     "./scheduler": "./src/core/scheduler.ts",
     "./manualWatch": "./src/core/manualWatch.ts",
     "./effectExecutor": "./src/core/effectExecutor.ts",

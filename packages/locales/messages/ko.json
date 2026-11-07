@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "사이드바 접기"
+  },
+  "navSidebarExpand": {
+    "message": "사이드바 펼치기"
+  },
   "navQueue": {
     "message": "대기열"
   },
@@ -2401,5 +2407,209 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "진화 라인은 이미 보유한 배지만 진화시킬 수 있습니다. 해당 배지가 없으면 시청해도 아무것도 얻을 수 없습니다."
+  },
+  "activityNoHistoryTitle": {
+    "message": "여기에는 활동 기록이 없습니다"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot은 수행한 작업을 탐색할 수 있는 기록이 아니라 이 로그에 남깁니다. 아래에서는 지금 진행 중인 작업을 보여 줍니다."
+  },
+  "activityLastCheck": {
+    "message": "마지막 확인"
+  },
+  "activityNoCheckYet": {
+    "message": "아직 없음"
+  },
+  "appNavAccounts": {
+    "message": "계정"
+  },
+  "windowAccountTitle": {
+    "message": "$1 계정"
+  },
+  "windowAccountManage": {
+    "message": "계정 관리"
+  },
+  "appAccountsIntro": {
+    "message": "Lurkloot이 Twitch와 Kick에 로그인하도록 하세요. 로그인 정보는 Lurkloot이 실행되는 컴퓨터의 Lurkloot 전용 저장소에 저장됩니다. 이 페이지는 토큰을 표시하거나 보관하지 않습니다."
+  },
+  "appAccountSignedIn": {
+    "message": "로그인됨"
+  },
+  "appAccountChecking": {
+    "message": "확인 중…"
+  },
+  "appAccountSignedOut": {
+    "message": "로그인되지 않음"
+  },
+  "appAccountRejected": {
+    "message": "로그인이 더 이상 유효하지 않음"
+  },
+  "appAccountUnavailable": {
+    "message": "지금은 확인할 수 없음"
+  },
+  "appAccountSourceStored": {
+    "message": "Lurkloot에 저장됨"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "환경 변수에서 제공됨"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "SA_* 환경 변수가 아직 이 로그인을 제공하고 있으므로, 여기서 로그인하거나 로그아웃하더라도 Lurkloot은 계속 그 값을 사용합니다. 변수를 제거하고 Lurkloot을 다시 시작하면 이 페이지의 로그인을 사용합니다."
+  },
+  "appAccountSignOut": {
+    "message": "로그아웃"
+  },
+  "appAccountSignedOutDone": {
+    "message": "로그아웃했습니다."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "로그아웃했지만 SA_* 환경 변수가 여전히 Lurkloot을 로그인 상태로 유지하고 있습니다."
+  },
+  "appAccountNothingToForget": {
+    "message": "삭제할 저장된 로그인이 없었습니다."
+  },
+  "appRecommended": {
+    "message": "추천"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "브라우저로 로그인"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "모든 드롭 캠페인을 볼 수 있습니다."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Twitch 로그인 페이지를 열고 로그인하세요."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Twitch 로그인 열기"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "그다음 Twitch가 $1 주소로 보냅니다. 주소 표시줄에서 주소 전체를 복사하세요."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Twitch가 보낸 주소를 붙여넣으세요"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "로그인 완료"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Twitch에 로그인했습니다."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "$1 계정으로 Twitch에 로그인했습니다."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "주소에 #access_token 부분이 없나요?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv는 거의 즉시 주소 표시줄에서 그 부분을 제거할 수 있습니다. 로그인하기 전에 브라우저 개발자 도구를 열고 Network 탭으로 이동한 뒤 Preserve log를 켜세요. 그다음 로그인하고 access_token으로 필터링한 뒤 id.twitch.tv 리디렉션의 location 헤더를 복사하세요. 대신 그것을 여기에 붙여넣으세요."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "코드로 로그인"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "여기서 브라우저 로그인은 필요하지 않지만, Twitch는 이 로그인에 대해 이미 시작한 캠페인만 보여 줍니다."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "TV 코드로 연결"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "휴대폰으로 코드를 스캔한 다음, 로그인되어 있는 Kick 앱에서 확인하세요."
+  },
+  "appDeviceLoginStart": {
+    "message": "코드 받기"
+  },
+  "appDeviceLoginOpen": {
+    "message": "링크 열기"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "로그인 링크용 QR 코드"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "휴대폰 카메라로 스캔하세요. 링크는 Kick 앱에서 열리며, 컴퓨터 브라우저에서는 열리지 않습니다."
+  },
+  "appDeviceLoginCode": {
+    "message": "코드"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "코드 확인을 기다리는 중…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "취소"
+  },
+  "appDeviceLoginApproved": {
+    "message": "로그인했습니다."
+  },
+  "appDeviceLoginExpired": {
+    "message": "코드가 만료되었습니다. 새 코드를 받아 다시 시도하세요."
+  },
+  "appDeviceLoginFailed": {
+    "message": "로그인에 실패했습니다. 새 코드를 받아 다시 시도하세요."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "로그인이 취소되었습니다."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "그 주소에는 로그인 토큰이 없습니다. Twitch가 보낸 주소 전체를 복사하세요."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch가 이 로그인을 거부했습니다. 로그인 페이지에서 다시 시작하세요."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Twitch 또는 Kick에 연결할 수 없습니다. 잠시 후 다시 시도하세요."
+  },
+  "appErrorNetwork": {
+    "message": "Lurkloot에 연결할 수 없습니다. lurkloot serve가 아직 실행 중인가요?"
+  },
+  "appErrorUnauthorized": {
+    "message": "액세스 토큰이 거부되었습니다."
+  },
+  "appErrorGeneric": {
+    "message": "요청이 실패했습니다($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot은 이 설정을 구성 파일에 저장할 수 없습니다: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot이 이 값을 거부했습니다: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot이 구성 파일을 업데이트하지 못했습니다. 아무것도 변경되지 않았습니다."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot은 여기서 그 작업을 할 수 없습니다."
+  },
+  "appConnecting": {
+    "message": "Lurkloot에 연결하는 중…"
+  },
+  "appUnreachableTitle": {
+    "message": "Lurkloot에 연결할 수 없음"
+  },
+  "appUnreachableBody": {
+    "message": "lurkloot serve로 시작한 뒤 다시 시도하세요."
+  },
+  "appRetry": {
+    "message": "다시 시도"
+  },
+  "appConnectionLost": {
+    "message": "Lurkloot과의 연결이 끊어졌습니다. 다시 시도하는 중…"
+  },
+  "appDismiss": {
+    "message": "닫기"
+  },
+  "appTokenTitle": {
+    "message": "액세스 토큰"
+  },
+  "appTokenBody": {
+    "message": "이 Lurkloot에는 액세스 토큰이 필요합니다. 값은 LURKLOOT_SERVE_TOKEN입니다. 이 브라우저 탭에만 보관됩니다."
+  },
+  "appTokenRejected": {
+    "message": "그 토큰은 거부되었습니다. 확인한 뒤 다시 시도하세요."
+  },
+  "appTokenLabel": {
+    "message": "액세스 토큰"
+  },
+  "appTokenSubmit": {
+    "message": "계속"
   }
 }
