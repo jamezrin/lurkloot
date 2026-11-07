@@ -1387,26 +1387,45 @@ an id, a label key, an icon and a render function) after Activity and Settings i
 view renders inside the frame's providers, so it reads the frame's translator and runtime; choosing
 any built-in view closes it. `signInView` names the host view the status line's Sign in action
 opens (`SignInActionContext`), instead of the platform's sign-in page, which only signs in a
-browser session. In the window frame a view's title row and body share one centred
-column capped at 60rem (`WINDOW_CONTENT_CLASS`), so a wide screen gets margins rather than
-stretched rows; campaign lists stay a single column, as in the popup. With
-`combineDropViews` (the app UI sets it) and a viewport of at least 1280px
-(`COMBINED_DROPS_MEDIA_QUERY`), Completed and Games leave the rail and become a sidebar beside the
-Queue (`CombinedDropsPage` in `combinedDrops.tsx`, a wider 86rem column). A narrower window keeps
-the popup's three views, and resizing switches between the two: a window widened on Completed or
-Games lands on the combined page at that section, and narrowed again lands on the Queue.
+browser session.
+
+The window frame has a shell of its own around the same views (`windowShell.tsx`). A header
+(`WindowHeader`) runs across the content: the platform switch, then the host's account chip, then
+the status strip (`StatusStrip` with `inHeader`), the refresh and the platform's switch. Platform
+comes before account because together they scope everything below. The rail becomes a sidebar
+(`WorkspaceRail`'s `sidebar`) without the platform switch, which the user collapses to icons or
+expands to labels. It defaults to expanded from `COMBINED_DROPS_MEDIA_QUERY` and collapsed below it.
+The user's choice is kept under `SIDEBAR_STORAGE_KEY` in the host's `storage`. The popup's rail
+still collapses by container query (`RailMode` "auto"), and every rail and strip prop is optional,
+so the popup's DOM is unchanged. `accountsView` names the host view that manages accounts; with it
+the header shows `AccountChip`, which reads the sign-in from `authHealth` through
+`accountStatusDisplay`, the same mapping the app UI's Accounts page uses, and whose menu opens that
+view. A platform has one account today. The chip is where a second will be picked: its menu lists
+the platform's accounts above "Manage accounts", and the page below follows the chosen one.
+
+In the window frame a view's title row and body share one centred column capped at 60rem
+(`WINDOW_CONTENT_CLASS`), so a wide screen gets margins rather than stretched rows; campaign lists
+stay a single column, as in the popup. With `combineDropViews` (the app UI sets it) and a viewport
+of at least 1280px (`COMBINED_DROPS_MEDIA_QUERY`), Completed and Games leave the rail. The Queue,
+Games and Completed become cards on one Drops page (`CombinedDropsPage` in `combinedDrops.tsx`,
+up to 120rem wide), and the rail's one drops entry is named Drops. With room for them (the page's
+container from 72rem) the three cards stand side by side; narrower, Games and Completed stack beside
+the Queue. A narrower window keeps the popup's three views, and resizing switches between the two:
+a window widened on Completed or Games lands on the combined page at that section, and narrowed
+again lands on the Queue.
+
 The combined page fills the window, which does not scroll: the platform panel drops its
-`data-scroll-panel` and the Queue column and each sidebar section scroll on their own, each a
-`data-scroll-panel`, so `scrollIntoPanel` moves the one holding its target. The campaigns outside the
-queue (action required, skipped, upcoming) stay in view below the Queue's list: `QueuePanel` portals
-them into the `NotInQueueSlotContext` element the page provides, which takes no room when empty and
-scrolls on its own past 45% of the column; without a slot they follow the queue, as in the popup. A sidebar section is only
-as tall as its content, and the two share the height when both overflow. `changeView` maps a
-request for either view to the Queue and focuses its section, counting requests so asking again
-while on the page focuses it again. Each scrolling region is its own `@container`, so sidebar
-cards lay out for the sidebar's width, and the sidebar's views
-get no `ViewToolbarSlotContext`, so their controls stay in their section rather than the
-Queue's title row. `tests/popupWindowFrame.test.tsx` covers both frames.
+`data-scroll-panel` and each card's body scrolls on its own, each a `data-scroll-panel`, so
+`scrollIntoPanel` moves the one holding its target. The campaigns outside the queue (action
+required, skipped, upcoming) stay in view at the foot of the Queue card: `QueuePanel` portals them
+into the `NotInQueueSlotContext` element the page provides, which takes no room when empty and
+scrolls on its own past 45% of the card; without a slot they follow the queue, as in the popup.
+Stacked, a Games or Completed card is only as tall as its content, and the two share the height
+when both overflow. `changeView` maps a request for either view to the Queue and focuses its card,
+counting requests so asking again while on the page focuses it again. Each card body is its own
+`@container`, so rows lay out for the card's width. Games and Completed each get their card
+header's toolbar slot (`ViewToolbarSlotContext`), so their controls sit in their card rather than
+the page's title row. `tests/popupWindowFrame.test.tsx` covers both frames.
 
 `packages/app-ui` is that host for `lurkloot serve`. One client (`src/api.ts`) makes every request,
 same-origin and relative (`/v1/...`): the popup adapter (`src/adapter.ts`) posts each

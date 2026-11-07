@@ -140,9 +140,11 @@ export function App({
         },
       ],
       signInView: "accounts",
+      accountsView: "accounts",
       combineDropViews: true,
+      storage,
     }),
-    [api],
+    [api, storage],
   );
 
   return (

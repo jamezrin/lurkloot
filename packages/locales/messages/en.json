@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Collapse sidebar"
+  },
+  "navSidebarExpand": {
+    "message": "Expand sidebar"
+  },
   "navQueue": {
     "message": "Queue"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Accounts"
+  },
+  "windowAccountTitle": {
+    "message": "$1 account"
+  },
+  "windowAccountManage": {
+    "message": "Manage accounts"
   },
   "appAccountsIntro": {
     "message": "Sign Lurkloot in to Twitch and Kick. Your sign-in is saved in Lurkloot's own private store on the machine it runs on. This page never shows or keeps a token."

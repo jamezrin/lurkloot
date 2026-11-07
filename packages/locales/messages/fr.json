@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Réduire la barre latérale"
+  },
+  "navSidebarExpand": {
+    "message": "Développer la barre latérale"
+  },
   "navQueue": {
     "message": "File"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Comptes"
+  },
+  "windowAccountTitle": {
+    "message": "Compte $1"
+  },
+  "windowAccountManage": {
+    "message": "Gérer les comptes"
   },
   "appAccountsIntro": {
     "message": "Connectez Lurkloot à Twitch et Kick. Votre connexion est enregistrée dans le stockage privé de Lurkloot, sur la machine où il tourne. Cette page n’affiche ni ne conserve jamais de jeton."

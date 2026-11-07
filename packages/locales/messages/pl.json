@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Zwiń panel boczny"
+  },
+  "navSidebarExpand": {
+    "message": "Rozwiń panel boczny"
+  },
   "navQueue": {
     "message": "Kolejka"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Konta"
+  },
+  "windowAccountTitle": {
+    "message": "Konto $1"
+  },
+  "windowAccountManage": {
+    "message": "Zarządzaj kontami"
   },
   "appAccountsIntro": {
     "message": "Zaloguj Lurkloot do Twitcha i Kicka. Logowanie jest zapisywane w prywatnym magazynie Lurkloot na komputerze, na którym działa. Ta strona nigdy nie pokazuje ani nie zapisuje tokenów."

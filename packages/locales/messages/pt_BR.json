@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Recolher barra lateral"
+  },
+  "navSidebarExpand": {
+    "message": "Expandir barra lateral"
+  },
   "navQueue": {
     "message": "Fila"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Contas"
+  },
+  "windowAccountTitle": {
+    "message": "Conta $1"
+  },
+  "windowAccountManage": {
+    "message": "Gerenciar contas"
   },
   "appAccountsIntro": {
     "message": "Entre no Lurkloot na Twitch e na Kick. Seu login fica salvo no armazenamento privado do Lurkloot, na máquina em que ele roda. Esta página nunca mostra nem guarda um token."

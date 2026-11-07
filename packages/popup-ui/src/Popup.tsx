@@ -123,6 +123,7 @@ import { AccountProgressSlot } from "./accountProgress";
 import { StatusStrip } from "./statusStrip";
 import { ViewToolbarSlotContext } from "./viewToolbar";
 import { CombinedDropsPage, useCombinedDropsViewport } from "./combinedDrops";
+import { AccountChip, WindowHeader, useSidebarCollapsed } from "./windowShell";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
@@ -182,6 +183,13 @@ export interface PopupWindowFrame {
   // their own rail entries. Asking for either view then opens the Queue at
   // that section. A narrower window keeps the popup's three views.
   combineDropViews?: boolean;
+  // Where the window remembers whether its sidebar is collapsed.
+  storage?: Pick<Storage, "getItem" | "setItem">;
+  // The host view that manages accounts. With it the header carries an
+  // account chip for the platform shown, beside the platform switch, whose
+  // menu opens that view: where an account will be picked once a platform can
+  // have more than one.
+  accountsView?: string;
 }
 
 // The popup's own frame. Kept as one constant so a test can hold the
@@ -199,7 +207,7 @@ const WINDOW_FRAME_CLASS =
 // so a wide screen gets margins instead of rows stretched edge to edge. The
 // combined drops page is wider by its sidebar.
 const WINDOW_CONTENT_CLASS = "mx-auto w-full max-w-[60rem]";
-const WINDOW_DROPS_CONTENT_CLASS = "mx-auto w-full max-w-[86rem]";
+const WINDOW_DROPS_CONTENT_CLASS = "mx-auto w-full max-w-[120rem]";
 type CombinedDropSection = "games" | "completed";
 const isCombinedDropSection = (view: PopupView): view is CombinedDropSection =>
   view === "games" || view === "completed";
@@ -400,6 +408,7 @@ export function PopupFrame({
   // capability) resolves to the Queue wherever it came from.
   const wideViewport = useCombinedDropsViewport();
   const combineDropViews = Boolean(windowFrame?.combineDropViews) && wideViewport;
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed(windowFrame?.storage, wideViewport);
   const viewTheHostShows = viewForHost(requestedView, hostCapabilities);
   const view: PopupView =
     combineDropViews && isCombinedDropSection(viewTheHostShows) ? "queue" : viewTheHostShows;
@@ -1627,7 +1636,9 @@ export function PopupFrame({
     activity: "activityTitle",
     settings: "settingsTitle",
   };
-  const viewTitle = t(hostView ? hostView.labelKey : VIEW_TITLE_KEYS[view]);
+  const viewTitle = t(
+    hostView ? hostView.labelKey : combinedDropsPage ? "navGroupDrops" : VIEW_TITLE_KEYS[view],
+  );
   const updateNotice =
     pendingChangelogVersion && adapter.changelogUrl
       ? { version: pendingChangelogVersion, href: adapter.changelogUrl(pendingChangelogVersion) }
@@ -1657,6 +1668,42 @@ export function PopupFrame({
       ),
   });
 
+  const refreshButton = (
+    <IconButton
+      label={t("refreshSchedule")}
+      onClick={() => void refreshNow()}
+      disabled={refreshing}
+    >
+      <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
+    </IconButton>
+  );
+  const renderStatusStrip = (inHeader: boolean): React.ReactElement => (
+    <StatusStrip
+      inHeader={inHeader}
+      platform={platform}
+      presentation={presentation}
+      campaign={activeCampaign}
+      farmingChannel={farmingChannel}
+      supplementalName={
+        session.supplementalWatch
+          ? t(session.supplementalWatch.id === "nopixel" ? "navNoPixel" : "navFortnite")
+          : undefined
+      }
+      chatPresence={snapshot.state.chatPresence?.[platform]}
+      accountProgress={
+        <AccountProgressSlot
+          poll={snapshot.state.accountProgress?.[platform]}
+          signedIn={snapshot.state.authHealth[platform].status === "healthy"}
+        />
+      }
+      onCampaignClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
+      onResume={resumeAfterManualClose}
+      enabled={automation[platform]}
+      pending={automationPending[platform]}
+      onToggle={(value) => setAutomation(platform, value)}
+      beforeToggle={inHeader ? refreshButton : undefined}
+    />
+  );
   return (
     <PopupRuntimeContext.Provider value={runtimeValue}>
       <HostCapabilitiesContext.Provider value={hostCapabilities}>
@@ -1699,41 +1746,36 @@ export function PopupFrame({
                         hostView={hostView?.id}
                         onHostViewChange={openHostView}
                         combineDropViews={combineDropViews}
+                        sidebar={
+                          windowFrame
+                            ? { collapsed: sidebarCollapsed, onToggleCollapsed: toggleSidebar }
+                            : undefined
+                        }
                       />
 
                       <div className="flex min-w-0 flex-1 flex-col">
                         {/* The status strip sits above every view, so what is being farmed is
             never more than a glance away — including from Settings, where the
             old header hid it entirely. */}
-                        <StatusStrip
-                          platform={platform}
-                          presentation={presentation}
-                          campaign={activeCampaign}
-                          farmingChannel={farmingChannel}
-                          supplementalName={
-                            session.supplementalWatch
-                              ? t(
-                                  session.supplementalWatch.id === "nopixel"
-                                    ? "navNoPixel"
-                                    : "navFortnite",
-                                )
-                              : undefined
-                          }
-                          chatPresence={snapshot.state.chatPresence?.[platform]}
-                          accountProgress={
-                            <AccountProgressSlot
-                              poll={snapshot.state.accountProgress?.[platform]}
-                              signedIn={snapshot.state.authHealth[platform].status === "healthy"}
-                            />
-                          }
-                          onCampaignClick={
-                            session.supplementalWatch ? undefined : onFarmingTitleClick
-                          }
-                          onResume={resumeAfterManualClose}
-                          enabled={automation[platform]}
-                          pending={automationPending[platform]}
-                          onToggle={(value) => setAutomation(platform, value)}
-                        />
+                        {windowFrame ? (
+                          <WindowHeader
+                            platform={platform}
+                            presentation={automationPresentationByPlatform}
+                            onPlatformChange={selectPlatform}
+                            account={
+                              windowFrame.accountsView ? (
+                                <AccountChip
+                                  platform={platform}
+                                  status={snapshot.state.authHealth[platform]?.status}
+                                  onManage={() => openHostView(windowFrame.accountsView!)}
+                                />
+                              ) : undefined
+                            }
+                            status={renderStatusStrip(true)}
+                          />
+                        ) : (
+                          renderStatusStrip(false)
+                        )}
 
                         {/* The view's title and its own controls share one row: a view hands
             them to ViewToolbar, which moves them into the slot here. */}
@@ -1751,15 +1793,12 @@ export function PopupFrame({
                             data-view-toolbar
                             className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5"
                           />
-                          <div className="flex shrink-0 items-center gap-0.5">
-                            <IconButton
-                              label={t("refreshSchedule")}
-                              onClick={() => void refreshNow()}
-                              disabled={refreshing}
-                            >
-                              <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
-                            </IconButton>
-                          </div>
+                          {/* A window frame's refresh sits in its header. */}
+                          {windowFrame ? null : (
+                            <div className="flex shrink-0 items-center gap-0.5">
+                              {refreshButton}
+                            </div>
+                          )}
                         </div>
 
                         <ViewToolbarSlotContext.Provider value={toolbarSlot}>
@@ -2040,6 +2079,7 @@ export function PopupFrame({
                                     queue={queueContent}
                                     games={gamesPanel}
                                     completed={completedPanel}
+                                    queueCount={railCounts.queue}
                                     gamesCount={railCounts.games}
                                     completedCount={railCounts.completed}
                                   />

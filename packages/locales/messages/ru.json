@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Дропы"
   },
+  "navSidebarCollapse": {
+    "message": "Свернуть боковую панель"
+  },
+  "navSidebarExpand": {
+    "message": "Развернуть боковую панель"
+  },
   "navQueue": {
     "message": "Очередь"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "Аккаунты"
+  },
+  "windowAccountTitle": {
+    "message": "Аккаунт $1"
+  },
+  "windowAccountManage": {
+    "message": "Управление аккаунтами"
   },
   "appAccountsIntro": {
     "message": "Войдите в Lurkloot в Twitch и Kick. Вход сохраняется в собственном закрытом хранилище Lurkloot на машине, где он работает. Эта страница никогда не показывает и не хранит токены."

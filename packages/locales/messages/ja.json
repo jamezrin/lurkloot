@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "サイドバーを折りたたむ"
+  },
+  "navSidebarExpand": {
+    "message": "サイドバーを展開"
+  },
   "navQueue": {
     "message": "キュー"
   },
@@ -2416,6 +2422,12 @@
   },
   "appNavAccounts": {
     "message": "アカウント"
+  },
+  "windowAccountTitle": {
+    "message": "$1 アカウント"
+  },
+  "windowAccountManage": {
+    "message": "アカウントを管理"
   },
   "appAccountsIntro": {
     "message": "Lurkloot を Twitch と Kick にサインインさせます。サインイン情報は、Lurkloot を実行しているマシン上の Lurkloot 専用ストアに保存されます。このページがトークンを表示したり保存したりすることはありません。"
