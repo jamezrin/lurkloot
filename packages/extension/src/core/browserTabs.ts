@@ -19,6 +19,7 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
 import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "@lurkloot/core/timestamps";
+import { withAbortSignal } from "@lurkloot/core/abort";
 import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import {
   fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity,
@@ -34,10 +35,13 @@ import {
   INTEGRITY_REFRESH_TIMEOUT_MS,
   isValidTwitchIntegrity,
   managedTabBreakerOpen,
+  noteManagedTwitchMint,
   noteOpeningWatchTab,
   noteTabClosure,
+  noteTwitchIntegrityRejected,
   observePageContextRecovery,
   resetPlaybackPriming,
+  twitchMintHeld,
   waitForIntegrityCapture,
   type PageContextSource,
   type PageContextTab,
@@ -794,6 +798,14 @@ export async function ensureTwitchIntegrityWithBrowser(
   }
 
   const rejectedToken = request?.rejectedToken ?? registry.twitchIntegrity?.integrity;
+  if (noteTwitchIntegrityRejected(registry, rejectedToken)) {
+    diagnostic(
+      acquisitionEmit,
+      "warn",
+      "Twitch keeps rejecting integrity tokens this browser has just minted, so Lurkloot stopped opening twitch.tv tabs to mint more; claims and the drops dashboard may fail until a twitch.tv tab you open yourself provides a token, or Twitch is turned off and on",
+      "twitch",
+    );
+  }
   const captured = await startTwitchIntegrityAcquisition(
     registry,
     browserApi,
@@ -831,6 +843,15 @@ function startTwitchIntegrityAcquisition(
   onManagedPageContextOpen?: () => void | Promise<void>,
   callerSignal?: AbortSignal,
 ): Promise<TwitchIntegrityAcquisitionResult | undefined> {
+  if (twitchMintHeld(registry)) {
+    diagnostic(
+      emit,
+      "debug",
+      "Not opening a twitch.tv page context: minting is held after Twitch rejected freshly minted tokens",
+      "twitch",
+    );
+    return Promise.resolve(undefined);
+  }
   if (registry.inFlightIntegrityAcquisition) {
     diagnostic(
       emit,
@@ -996,6 +1017,8 @@ async function mintTwitchIntegrity(
         "twitch",
       );
     }
+    if (captured && pageContext.createdByExtension)
+      noteManagedTwitchMint(registry, captured.value.integrity);
     return captured
       ? {
           value: captured.value,
@@ -1106,21 +1129,6 @@ function pageFetchInitJson(init?: RequestInit): string | null {
   if (!init) return null;
   const { signal: _signal, ...serializableInit } = init;
   return JSON.stringify(serializableInit);
-}
-
-async function withAbortSignal<T>(operation: Promise<T>, signal?: AbortSignal | null): Promise<T> {
-  if (!signal) return operation;
-  signal.throwIfAborted();
-  let onAbort!: () => void;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    onAbort = () => reject(signal.reason);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-  try {
-    return await Promise.race([operation, aborted]);
-  } finally {
-    signal.removeEventListener("abort", onAbort);
-  }
 }
 
 function unwrapPageFetchResult<T>(candidate: unknown): T {

@@ -33,6 +33,24 @@ describe("integrityFromHeaders", () => {
     expect(integrityFromHeaders([{ name: "Authorization", value: "OAuth tok" }])).toBeUndefined();
     expect(integrityFromHeaders(undefined)).toBeUndefined();
   });
+
+  // A signed-out twitch.tv page still sends Client-Integrity, minted for an
+  // anonymous session. Kept, it read as a valid token: readiness passed on it,
+  // it was persisted, and a proactive refresh was scheduled 12 hours out.
+  it("ignores a token sent on a request with no Authorization header", () => {
+    expect(
+      integrityFromHeaders([
+        { name: "Client-Integrity", value: "v4.local.anonymous" },
+        { name: "X-Device-Id", value: "dev" },
+      ]),
+    ).toBeUndefined();
+    expect(
+      integrityFromHeaders([
+        { name: "Client-Integrity", value: "v4.local.anonymous" },
+        { name: "Authorization", value: "" },
+      ]),
+    ).toBeUndefined();
+  });
 });
 
 describe("integrityExpiry", () => {
@@ -45,7 +63,10 @@ describe("integrityExpiry", () => {
     const now = 1_000_000;
     expect(integrityExpiry("v4.local.opaque", now)).toBe(now + OPAQUE_INTEGRITY_CEILING_MS);
     expect(
-      integrityFromHeaders([{ name: "Client-Integrity", value: "v4.local.opaque" }]),
+      integrityFromHeaders([
+        { name: "Client-Integrity", value: "v4.local.opaque" },
+        { name: "Authorization", value: "OAuth tok" },
+      ]),
     ).toMatchObject({
       expiryUnknown: true,
     });
