@@ -254,6 +254,8 @@ export function integrityHeaders(integrity: TwitchIntegrity): IntegrityHeader[] 
     { name: "Client-Integrity", value: integrity.integrity },
     { name: "Client-Session-Id", value: integrity.clientSessionId },
     { name: "X-Device-Id", value: integrity.deviceId },
+    // A signed-in page's request; without it the capture is ignored.
+    { name: "Authorization", value: "OAuth test-session" },
   ];
 }
 

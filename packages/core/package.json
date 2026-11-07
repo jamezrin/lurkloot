@@ -25,6 +25,7 @@
     "./watchTabError": "./src/core/watchTabError.ts",
     "./staleCache": "./src/core/staleCache.ts",
     "./timestamps": "./src/core/timestamps.ts",
+    "./abort": "./src/core/abort.ts",
     "./heartbeatCadence": "./src/core/heartbeatCadence.ts",
     "./discoverySnapshot": "./src/core/discoverySnapshot.ts",
     "./watchStreaks": "./src/core/watchStreaks.ts",

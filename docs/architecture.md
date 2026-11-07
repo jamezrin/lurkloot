@@ -340,7 +340,9 @@ and never take the commit lock or call `saveState` themselves.
   lane tables) is allowed. A platform's own service registers its policy in the controller's
   `PlatformPolicySlice`, and only Twitch integrity registers any:
   - **Tick readiness:** before a tick farms Twitch, integrity prepares its token; a platform that
-    is not ready is kept out of the tick.
+    is not ready is kept out of the tick. Readiness first asks the credentials port: with no
+    Twitch session it mints nothing and holds nothing back, so the auth probe reports
+    `missing_credentials` on that same tick instead of after a page context times out.
   - **Switch transition:** integrity owns the Twitch switch's transition generation. A later switch,
     shutdown or reset supersedes it, and the switch stops before marking the platform starting or
     ticking once it is not current. A platform with no transition is always current.
@@ -1048,7 +1050,7 @@ For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligibl
 
 In the extension, most platform calls go through the page-context fetch helpers in `packages/extension/src/core/browserTabs.ts`, bound to the browser by `packages/extension/src/core/tabs.ts`. They find or open a temporary tab on the platform origin, then execute `fetch` in the page `MAIN` world. This keeps requests inside the browser's normal logged-in session and any page clearance context.
 
-For Kick, `pageFetchJson` reads `session_token` from the Kick page context and adds it as a bearer token for `web.kick.com` API calls. For Twitch, GraphQL requests use Twitch's public web client id and normal browser credentials unless a public channel check explicitly passes `credentials: "omit"`. Twitch claim mutations also replay a short-lived Client-Integrity bundle captured from page-origin Twitch GraphQL traffic.
+For Kick, `pageFetchJson` reads `session_token` from the Kick page context and adds it as a bearer token for `web.kick.com` API calls. For Twitch, GraphQL requests use Twitch's public web client id and normal browser credentials unless a public channel check explicitly passes `credentials: "omit"`. Twitch claim mutations also replay a short-lived Client-Integrity bundle captured from page-origin Twitch GraphQL traffic. When Twitch rejects a token the extension's own page context minted within the last five minutes, a second such rejection holds every mint (readiness, proactive refresh and rejection recovery) instead of opening another twitch.tv tab for another rejected token (#1003). The hold is a stop, not a backoff: it lifts only when a tab the extension did not open supplies a new token, or when the integrity lifecycle restarts (Twitch turned off, a host reset, shutdown). While it holds, tick readiness lets Twitch through without a fresh token rather than holding it out, so the tick keeps farming on its fallbacks instead of stopping once the held token ages out. The hold is in memory, so a service-worker restart allows one more short episode. The rule lives in `tabRegistry.ts` (`noteTwitchIntegrityRejected`), and `twitchIntegrityMintHold.test.ts` drives three hours of rejected ticks and asserts the opens end. Only a request that also carries `Authorization` is captured: a signed-out page sends Client-Integrity for an anonymous session, which no authenticated request can use (`integrityFromHeaders`).
 
 Temporary page-context tabs are reference-counted per origin and removed after the fetches complete when the extension created them. Existing user tabs reused for page-context fetches are not closed.
 

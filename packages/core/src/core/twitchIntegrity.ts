@@ -37,7 +37,8 @@ export interface IntegrityHeader {
 
 // Build an integrity bundle from a webRequest `requestHeaders` array, or return
 // undefined when the request carries no Client-Integrity header, as anonymous
-// public queries never do. The background's own requests replay the captured
+// public queries never do, or no Authorization header, as a signed-out page's
+// requests never do. The background's own requests replay the captured
 // token, so the caller filters those out by their source.
 export function integrityFromHeaders(
   headers: IntegrityHeader[] | undefined,
@@ -47,6 +48,10 @@ export function integrityFromHeaders(
     headers.find((header) => header.name.toLowerCase() === name)?.value;
   const integrity = get("client-integrity");
   if (!integrity) return undefined;
+  // A signed-out page sends Client-Integrity too, minted for an anonymous
+  // session that no authenticated request can use. Only a token sent beside
+  // the session's OAuth header is one the background can replay.
+  if (!get("authorization")) return undefined;
   return {
     integrity,
     clientSessionId: get("client-session-id"),
