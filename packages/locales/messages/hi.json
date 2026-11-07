@@ -2502,13 +2502,19 @@
     "message": "TV कोड से लिंक करें"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Kick में साइन इन किसी भी डिवाइस पर लिंक खोलें और कोड की पुष्टि करें।"
+    "message": "अपने फ़ोन से कोड स्कैन करें, उस Kick ऐप में जहाँ आप साइन इन हैं, और वहीं उसकी पुष्टि करें।"
   },
   "appDeviceLoginStart": {
     "message": "कोड लें"
   },
   "appDeviceLoginOpen": {
     "message": "लिंक खोलें"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "साइन-इन लिंक के लिए QR कोड"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "इसे अपने फ़ोन के कैमरे से स्कैन करें। लिंक Kick ऐप में खुलता है, कंप्यूटर के ब्राउज़र में नहीं।"
   },
   "appDeviceLoginCode": {
     "message": "कोड"

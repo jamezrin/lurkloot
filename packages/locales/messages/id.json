@@ -2502,13 +2502,19 @@
     "message": "Tautkan dengan kode TV"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Buka tautan di perangkat mana pun tempat Anda sudah masuk ke Kick dan konfirmasi kodenya."
+    "message": "Pindai kode dengan ponsel Anda, di aplikasi Kick tempat Anda sudah masuk, lalu konfirmasi di sana."
   },
   "appDeviceLoginStart": {
     "message": "Dapatkan kode"
   },
   "appDeviceLoginOpen": {
     "message": "Buka tautan"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "Kode QR untuk tautan masuk"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Pindai ini dengan kamera ponsel Anda. Tautan akan terbuka di aplikasi Kick, bukan di peramban komputer."
   },
   "appDeviceLoginCode": {
     "message": "Kode"

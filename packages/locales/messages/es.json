@@ -2502,13 +2502,19 @@
     "message": "Vincula con un código de TV"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Abre el enlace en cualquier dispositivo donde hayas iniciado sesión en Kick y confirma el código."
+    "message": "Escanea el código con tu teléfono, en la app de Kick donde has iniciado sesión, y confírmalo allí."
   },
   "appDeviceLoginStart": {
     "message": "Obtener un código"
   },
   "appDeviceLoginOpen": {
     "message": "Abrir enlace"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "Código QR del enlace de inicio de sesión"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Escanéalo con la cámara de tu teléfono. El enlace se abre en la app de Kick, no en el navegador de una computadora."
   },
   "appDeviceLoginCode": {
     "message": "Código"

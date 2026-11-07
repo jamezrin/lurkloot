@@ -2502,13 +2502,19 @@
     "message": "Прив’язати за кодом із телевізора"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Відкрийте посилання на будь-якому пристрої, де ви ввійшли в Kick, і підтвердьте код."
+    "message": "Відскануйте код телефоном у застосунку Kick, де ви ввійшли в обліковий запис, і підтвердьте його там."
   },
   "appDeviceLoginStart": {
     "message": "Отримати код"
   },
   "appDeviceLoginOpen": {
     "message": "Відкрити посилання"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "QR-код посилання для входу"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Відскануйте камерою телефона. Посилання відкриється в застосунку Kick, а не в браузері комп’ютера."
   },
   "appDeviceLoginCode": {
     "message": "Код"

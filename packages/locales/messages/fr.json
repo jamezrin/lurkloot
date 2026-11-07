@@ -2502,13 +2502,19 @@
     "message": "Lier avec un code TV"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Ouvrez le lien sur n’importe quel appareil où vous êtes connecté à Kick et confirmez le code."
+    "message": "Scannez le code avec votre téléphone, dans l’application Kick où vous êtes connecté, et confirmez-le dans l’application."
   },
   "appDeviceLoginStart": {
     "message": "Obtenir un code"
   },
   "appDeviceLoginOpen": {
     "message": "Ouvrir le lien"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "Code QR du lien de connexion"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Scannez-le avec l’appareil photo de votre téléphone. Le lien s’ouvre dans l’application Kick, pas dans le navigateur d’un ordinateur."
   },
   "appDeviceLoginCode": {
     "message": "Code"

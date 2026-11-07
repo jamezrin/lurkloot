@@ -2502,13 +2502,19 @@
     "message": "Propojte kódem z TV"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Otevřete odkaz na libovolném zařízení, kde jste přihlášeni ke Kicku, a potvrďte kód."
+    "message": "Naskenujte kód telefonem v aplikaci Kick, kde jste přihlášeni, a potvrďte ho tam."
   },
   "appDeviceLoginStart": {
     "message": "Získat kód"
   },
   "appDeviceLoginOpen": {
     "message": "Otevřít odkaz"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "QR kód pro přihlašovací odkaz"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Naskenujte to fotoaparátem telefonu. Odkaz se otevře v aplikaci Kick, ne v prohlížeči počítače."
   },
   "appDeviceLoginCode": {
     "message": "Kód"

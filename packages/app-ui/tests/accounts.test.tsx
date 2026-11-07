@@ -146,4 +146,43 @@ describe("Accounts", () => {
       path: "/v1/session/auth/twitch/device-login",
     });
   });
+
+  // Kick's TV link only opens in Kick's phone app (kick.com has no desktop
+  // page for it), so it is a QR code to scan, and a link only on a touch screen.
+  it("shows the Kick link as a QR code and offers it as a link only on a touch screen", async () => {
+    const start = async (touch: boolean) => {
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches: touch && query === "(pointer: coarse)",
+      }));
+      resetFixture();
+      const { container } = await mountAccounts();
+      const kick = container.querySelector('[data-device-login="kick"]')!;
+      await act(async () =>
+        kick.querySelector<HTMLButtonElement>("[data-device-login-start]")!.click(),
+      );
+      await vi.waitFor(() => expect(kick.querySelector("[data-device-login-code]")).not.toBeNull());
+      return kick;
+    };
+
+    const desktop = await start(false);
+    expect(desktop.querySelector("[data-device-login-qr] path")?.getAttribute("d")).toMatch(/^M/);
+    expect(desktop.querySelector("[data-device-login-open]")).toBeNull();
+    expect(desktop.querySelector("a[href*='fixture-kick-tv']")).toBeNull();
+    act(() => root?.unmount());
+    root = undefined;
+
+    const phone = await start(true);
+    expect(phone.querySelector("[data-device-login-qr]")).not.toBeNull();
+    expect(phone.querySelector("[data-device-login-open]")).not.toBeNull();
+  });
+
+  it("offers the Twitch device link as a link, with no QR code", async () => {
+    const { container } = await mountAccounts();
+    const twitch = container.querySelector('[data-device-login="twitch"]')!;
+    await act(async () =>
+      twitch.querySelector<HTMLButtonElement>("[data-device-login-start]")!.click(),
+    );
+    await vi.waitFor(() => expect(twitch.querySelector("[data-device-login-open]")).not.toBeNull());
+    expect(twitch.querySelector("[data-device-login-qr]")).toBeNull();
+  });
 });

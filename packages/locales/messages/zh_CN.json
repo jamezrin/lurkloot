@@ -2502,13 +2502,19 @@
     "message": "用电视代码关联"
   },
   "appKickDeviceLoginDescription": {
-    "message": "在任意已登录 Kick 的设备上打开链接，并确认代码。"
+    "message": "用手机在已登录的 Kick 应用中扫描代码，并在应用中确认。"
   },
   "appDeviceLoginStart": {
     "message": "获取代码"
   },
   "appDeviceLoginOpen": {
     "message": "打开链接"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "登录链接的二维码"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "用手机相机扫描此码。链接会在 Kick 应用中打开，而不会在电脑浏览器中打开。"
   },
   "appDeviceLoginCode": {
     "message": "代码"

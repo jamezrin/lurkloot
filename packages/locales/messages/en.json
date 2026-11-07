@@ -2502,13 +2502,19 @@
     "message": "Link with a TV code"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Open the link on any device where you are signed in to Kick and confirm the code."
+    "message": "Scan the code with your phone, in the Kick app where you are signed in, and confirm it there."
   },
   "appDeviceLoginStart": {
     "message": "Get a code"
   },
   "appDeviceLoginOpen": {
     "message": "Open link"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "QR code for the sign-in link"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Scan this with your phone's camera. The link opens in the Kick app; it does not open in a computer's browser."
   },
   "appDeviceLoginCode": {
     "message": "Code"

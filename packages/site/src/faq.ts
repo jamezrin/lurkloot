@@ -65,7 +65,7 @@ export const kickFaqItems: FaqItem[] = [
   },
   {
     q: "Can I farm Kick Drops headless, in Docker?",
-    a: "Yes, with one caveat worth knowing. Kick's Cloudflare protection inspects the TLS and HTTP/2 fingerprint of every request, so a plain Node request is rejected outright — the CLI's default transport sends a real Chrome fingerprint instead and reaches Kick's API and viewer socket with no browser. Authorization uses Kick's smart-TV link flow: the CLI prints a kick.com/tv/login URL and a six-digit code that you confirm on a device where you are already signed in.",
+    a: "Yes, with one caveat worth knowing. Kick's Cloudflare protection inspects the TLS and HTTP/2 fingerprint of every request, so a plain Node request is rejected outright — the CLI's default transport sends a real Chrome fingerprint instead and reaches Kick's API and viewer socket with no browser. Authorization uses Kick's smart-TV link flow: the CLI prints a kick.com/tv/login URL and a six-digit code that you confirm in the Kick app on your phone, where you are already signed in.",
   },
   {
     q: "Do I need a Kick password or a cookie export?",
