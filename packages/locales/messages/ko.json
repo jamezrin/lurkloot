@@ -2502,13 +2502,19 @@
     "message": "TV 코드로 연결"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Kick에 로그인된 아무 기기에서나 링크를 열고 코드를 확인하세요."
+    "message": "휴대폰으로 코드를 스캔한 다음, 로그인되어 있는 Kick 앱에서 확인하세요."
   },
   "appDeviceLoginStart": {
     "message": "코드 받기"
   },
   "appDeviceLoginOpen": {
     "message": "링크 열기"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "로그인 링크용 QR 코드"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "휴대폰 카메라로 스캔하세요. 링크는 Kick 앱에서 열리며, 컴퓨터 브라우저에서는 열리지 않습니다."
   },
   "appDeviceLoginCode": {
     "message": "코드"

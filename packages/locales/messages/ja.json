@@ -2502,13 +2502,19 @@
     "message": "TV コードでリンク"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Kick にサインインしている任意のデバイスでリンクを開き、コードを確認してください。"
+    "message": "電話でコードをスキャンし、サインインしている Kick アプリで確認してください。"
   },
   "appDeviceLoginStart": {
     "message": "コードを取得"
   },
   "appDeviceLoginOpen": {
     "message": "リンクを開く"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "サインイン用リンクの QR コード"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "スマートフォンのカメラでスキャンしてください。リンクは Kick アプリで開きます。コンピューターのブラウザーでは開きません。"
   },
   "appDeviceLoginCode": {
     "message": "コード"

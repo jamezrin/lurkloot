@@ -15,7 +15,7 @@ Every request goes to the same origin, under `/v1`
   status strip's switch (`setAutomation`). Settings changes are saved to the
   CLI's `config.json`.
 - `/v1/session/auth/...`: Twitch browser sign-in (recommended), Twitch device
-  code, Kick TV link, sign-out.
+  code, Kick TV link (a QR code to scan in the Kick phone app), sign-out.
 
 Only what the CLI supports is shown: no tab settings, no Twitch Extension
 providers, no credential export, none of the extension's own preferences. The

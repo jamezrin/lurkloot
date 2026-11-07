@@ -2502,13 +2502,19 @@
     "message": "با کد تلویزیون پیوند دهید"
   },
   "appKickDeviceLoginDescription": {
-    "message": "لینک را روی هر دستگاهی که در Kick وارد شده‌اید باز کنید و کد را تأیید کنید."
+    "message": "کد را با گوشی‌تان اسکن کنید، در برنامه Kick که وارد آن شده‌اید، و آن را همان‌جا تأیید کنید."
   },
   "appDeviceLoginStart": {
     "message": "دریافت کد"
   },
   "appDeviceLoginOpen": {
     "message": "باز کردن لینک"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "کد QR برای پیوند ورود"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "این را با دوربین گوشی‌تان اسکن کنید. پیوند در برنامه Kick باز می‌شود، نه در مرورگر رایانه."
   },
   "appDeviceLoginCode": {
     "message": "کد"

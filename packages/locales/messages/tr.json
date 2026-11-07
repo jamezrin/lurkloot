@@ -2502,13 +2502,19 @@
     "message": "TV kodu ile bağlayın"
   },
   "appKickDeviceLoginDescription": {
-    "message": "Kick'te oturum açtığınız herhangi bir cihazda bağlantıyı açın ve kodu onaylayın."
+    "message": "Kodu telefonunuzla, oturum açtığınız Kick uygulamasında tarayın ve orada onaylayın."
   },
   "appDeviceLoginStart": {
     "message": "Kod al"
   },
   "appDeviceLoginOpen": {
     "message": "Bağlantıyı aç"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "Oturum açma bağlantısının QR kodu"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Telefonunuzun kamerasıyla tarayın. Bağlantı Kick uygulamasında açılır, bilgisayarın tarayıcısında değil."
   },
   "appDeviceLoginCode": {
     "message": "Kod"

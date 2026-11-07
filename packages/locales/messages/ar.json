@@ -2502,13 +2502,19 @@
     "message": "اربط الحساب برمز التلفاز"
   },
   "appKickDeviceLoginDescription": {
-    "message": "افتح الرابط على أي جهاز سجّلت فيه الدخول إلى Kick، وأكّد الرمز."
+    "message": "امسح الرمز بهاتفك، في تطبيق Kick حيث أنت مسجّل الدخول، ثم أكّد الرمز هناك."
   },
   "appDeviceLoginStart": {
     "message": "احصل على رمز"
   },
   "appDeviceLoginOpen": {
     "message": "فتح الرابط"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "رمز QR لرابط تسجيل الدخول"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "امسح هذا الرمز بكاميرا هاتفك. يفتح الرابط في تطبيق Kick، ولا يفتح في متصفح الكمبيوتر."
   },
   "appDeviceLoginCode": {
     "message": "الرمز"

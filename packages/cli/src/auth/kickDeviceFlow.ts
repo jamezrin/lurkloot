@@ -92,7 +92,9 @@ export async function kickDeviceLogin(authDir: string, logger: Logger): Promise<
   const flow = await startKickDeviceLogin();
   try {
     logger.info(
-      `Open ${flow.verificationUrl} (signed in to Kick) and confirm code: ${flow.userCode}`,
+      // The link is a deep link into Kick's phone app; kick.com has no page
+      // for it on a desktop browser.
+      `Open ${flow.verificationUrl} on your phone, in the Kick app where you are signed in, and confirm code: ${flow.userCode}`,
       "login",
     );
     logger.info(

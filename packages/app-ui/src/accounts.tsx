@@ -1,5 +1,6 @@
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { encode } from "uqr";
 import { ExternalLink, KeyRound, LogOut, MonitorSmartphone, X } from "lucide-react";
 import { cn, openHttpsLink, usePopupRuntime, useT } from "@lurkloot/popup-ui";
 import type { Platform } from "@lurkloot/shared/models";
@@ -320,6 +321,7 @@ function KickAccount({
           platform="kick"
           initial={view?.deviceLogin}
           onChanged={onChanged}
+          phoneOnly
         />
       </Method>
       <SignOut api={api} platform="kick" view={view} onChanged={onChanged} />
@@ -447,18 +449,56 @@ export function BrowserLogin({
   );
 }
 
+/** Whether this screen is a phone or tablet, where a link meant for a phone
+ * app opens in that app. */
+function isTouchScreen(): boolean {
+  return typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+}
+
+/** A QR code for a link, drawn dark on white whatever the theme so a phone
+ * camera reads it. */
+function QrCode({ value, label }: { value: string; label: string }): React.ReactElement {
+  const path = useMemo(() => {
+    const { data } = encode(value, { border: 2 });
+    let d = "";
+    data.forEach((row, y) => {
+      row.forEach((on, x) => {
+        if (on) d += `M${x} ${y}h1v1h-1z`;
+      });
+    });
+    return { d, size: data.length };
+  }, [value]);
+  return (
+    <svg
+      data-device-login-qr
+      role="img"
+      aria-label={label}
+      viewBox={`0 0 ${path.size} ${path.size}`}
+      shapeRendering="crispEdges"
+      className="size-36 shrink-0 rounded-lg bg-white"
+    >
+      <path d={path.d} fill="#000" />
+    </svg>
+  );
+}
+
 /** A device-code sign-in (Twitch) or TV link (Kick): show the link and code,
- * poll until the server says how it ended, and let the user cancel. */
+ * poll until the server says how it ended, and let the user cancel.
+ * `phoneOnly` is for a link only a phone app opens (Kick's TV link has no
+ * page on the desktop site): it is shown as a QR code, and offered as a link
+ * only on a touch screen. */
 export function DeviceLoginFlow({
   api,
   platform,
   initial,
   onChanged,
+  phoneOnly = false,
 }: {
   api: AuthApi;
   platform: Platform;
   initial?: DeviceLogin | null;
   onChanged(): void;
+  phoneOnly?: boolean;
 }): React.ReactElement {
   const t = useT();
   const { adapter } = usePopupRuntime();
@@ -520,6 +560,7 @@ export function DeviceLoginFlow({
   };
 
   const outcome = login ? deviceOutcome(login, t) : undefined;
+  const offerLink = !phoneOnly || isTouchScreen();
 
   return (
     <div
@@ -542,14 +583,17 @@ export function DeviceLoginFlow({
               </div>
             </div>
             <div className="ms-auto flex gap-2">
-              <button
-                type="button"
-                className={PRIMARY_BUTTON}
-                onClick={() => openHttpsLink(login.verificationUrl!, adapter.openLink)}
-              >
-                <ExternalLink size={12} aria-hidden />
-                {t("appDeviceLoginOpen")}
-              </button>
+              {offerLink ? (
+                <button
+                  type="button"
+                  data-device-login-open
+                  className={PRIMARY_BUTTON}
+                  onClick={() => openHttpsLink(login.verificationUrl!, adapter.openLink)}
+                >
+                  <ExternalLink size={12} aria-hidden />
+                  {t("appDeviceLoginOpen")}
+                </button>
+              ) : null}
               <button
                 type="button"
                 data-device-login-cancel
@@ -562,14 +606,24 @@ export function DeviceLoginFlow({
               </button>
             </div>
           </div>
-          <a
-            href={login.verificationUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="block truncate font-mono text-[11px] text-zinc-500 underline decoration-dotted underline-offset-2 dark:text-zinc-400"
-          >
-            {login.verificationUrl}
-          </a>
+          {phoneOnly ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <QrCode value={login.verificationUrl} label={t("appDeviceLoginQrLabel")} />
+              <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-zinc-600 dark:text-zinc-300">
+                {t("appKickDeviceLoginScan")}
+              </p>
+            </div>
+          ) : null}
+          {offerLink ? (
+            <a
+              href={login.verificationUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="block truncate font-mono text-[11px] text-zinc-500 underline decoration-dotted underline-offset-2 dark:text-zinc-400"
+            >
+              {login.verificationUrl}
+            </a>
+          ) : null}
           <p role="status" className="text-[12px] text-zinc-500 dark:text-zinc-400">
             {t("appDeviceLoginWaiting")}
           </p>
