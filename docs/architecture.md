@@ -1390,10 +1390,13 @@ opens (`SignInActionContext`), instead of the platform's sign-in page, which onl
 browser session. In the window frame a view's title row and body share one centred
 column capped at 60rem (`WINDOW_CONTENT_CLASS`), so a wide screen gets margins rather than
 stretched rows; campaign lists stay a single column, as in the popup. With
-`combineDropViews` (the app UI sets it) Completed and Games leave the rail and become a sidebar
-beside the Queue (`CombinedDropsPage` in `combinedDrops.tsx`, a wider 86rem column that stacks
-below 1000px of panel). `changeView` maps a request for either view to the Queue and scrolls to
-its section, counting requests so asking again while on the page scrolls again. Each column is
+`combineDropViews` (the app UI sets it) and a viewport of at least 1280px
+(`COMBINED_DROPS_MEDIA_QUERY`), Completed and Games leave the rail and become a sidebar beside the
+Queue (`CombinedDropsPage` in `combinedDrops.tsx`, a wider 86rem column). A narrower window keeps
+the popup's three views, and resizing switches between the two: a window widened on Completed or
+Games lands on the combined page at that section, and narrowed again lands on the Queue.
+`changeView` maps a request for either view to the Queue and scrolls to its section, counting
+requests so asking again while on the page scrolls again. Each column is
 its own `@container`, so sidebar cards lay out for the sidebar's width, and the sidebar's views
 get no `ViewToolbarSlotContext`, so their controls stay in their section rather than the
 Queue's title row. `tests/popupWindowFrame.test.tsx` covers both frames.

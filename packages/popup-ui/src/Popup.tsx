@@ -122,7 +122,7 @@ import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AccountProgressSlot } from "./accountProgress";
 import { StatusStrip } from "./statusStrip";
 import { ViewToolbarSlotContext } from "./viewToolbar";
-import { CombinedDropsPage } from "./combinedDrops";
+import { CombinedDropsPage, useCombinedDropsViewport } from "./combinedDrops";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
@@ -177,9 +177,10 @@ export interface PopupWindowFrame {
   // The host view the status line's Sign in action opens. Without it the
   // action opens the platform's sign-in page, as in the extension.
   signInView?: string;
-  // Completed and Games join the Queue on one drops page, beside the queue
-  // instead of behind their own rail entries: a window has the room the
-  // popup does not. Asking for either view opens the Queue at that section.
+  // On a wide viewport (COMBINED_DROPS_MEDIA_QUERY), Completed and Games
+  // join the Queue on one drops page, beside the queue instead of behind
+  // their own rail entries. Asking for either view then opens the Queue at
+  // that section. A narrower window keeps the popup's three views.
   combineDropViews?: boolean;
 }
 
@@ -397,7 +398,8 @@ export function PopupFrame({
   });
   // A view the host cannot show (a Twitch Extension's, without that
   // capability) resolves to the Queue wherever it came from.
-  const combineDropViews = Boolean(windowFrame?.combineDropViews);
+  const wideViewport = useCombinedDropsViewport();
+  const combineDropViews = Boolean(windowFrame?.combineDropViews) && wideViewport;
   const viewTheHostShows = viewForHost(requestedView, hostCapabilities);
   const view: PopupView =
     combineDropViews && isCombinedDropSection(viewTheHostShows) ? "queue" : viewTheHostShows;
@@ -407,6 +409,14 @@ export function PopupFrame({
     section: CombinedDropSection;
     generation: number;
   }>();
+  // A window widened while Completed or Games is open moves to the combined
+  // page at that section, so narrowing it again lands on the Queue.
+  useEffect(() => {
+    if (!combineDropViews || !isCombinedDropSection(requestedView)) return;
+    const section = requestedView;
+    setDropSectionFocus((current) => ({ section, generation: (current?.generation ?? 0) + 1 }));
+    setView("queue");
+  }, [combineDropViews, requestedView]);
   useEffect(() => {
     if (!dropSectionFocus) return;
     scrollIntoPanel(document.querySelector(`[data-drops-section="${dropSectionFocus.section}"]`));

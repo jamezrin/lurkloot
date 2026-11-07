@@ -11,6 +11,7 @@ export { PromoTile, StoreScreenshot } from "./marketing";
 export { CriticalFailurePanel } from "./criticalFailure";
 export { createDemoPopupAdapter } from "./demo";
 export { openHttpsLink } from "./links";
+export { COMBINED_DROPS_MEDIA_QUERY } from "./combinedDrops";
 export {
   advanceActivityRequestScope,
   applyActivityMutationForRequest,
