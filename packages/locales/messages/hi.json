@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "ड्रॉप्स"
   },
+  "navSidebarCollapse": {
+    "message": "साइडबार छोटा करें"
+  },
+  "navSidebarExpand": {
+    "message": "साइडबार बड़ा करें"
+  },
   "navQueue": {
     "message": "क़तार"
   },
@@ -2401,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "कोई लाइन केवल वही बैज विकसित करती है जो आपके पास पहले से है। उस बैज के बिना, देखने से कुछ नहीं मिलता।"
+  },
+  "activityNoHistoryTitle": {
+    "message": "यहाँ गतिविधि का इतिहास नहीं है"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot अपने काम का लॉग यहाँ लिखता है, किसी ब्राउज़ किए जा सकने वाले इतिहास में नहीं। नीचे दिखता है कि वह अभी क्या कर रहा है।"
+  },
+  "activityLastCheck": {
+    "message": "पिछली जाँच"
+  },
+  "activityNoCheckYet": {
+    "message": "अभी नहीं"
+  },
+  "appNavAccounts": {
+    "message": "खाते"
+  },
+  "windowAccountTitle": {
+    "message": "$1 खाता"
+  },
+  "windowAccountManage": {
+    "message": "खाते प्रबंधित करें"
+  },
+  "appAccountsIntro": {
+    "message": "Lurkloot को Twitch और Kick में साइन इन कराएँ। आपका साइन इन उस मशीन पर, जहाँ Lurkloot चलता है, Lurkloot के अपने निजी स्टोर में सेव रहता है। यह पेज कभी कोई टोकन न दिखाता है, न रखता है।"
+  },
+  "appAccountSignedIn": {
+    "message": "साइन इन है"
+  },
+  "appAccountChecking": {
+    "message": "जाँच हो रही है…"
+  },
+  "appAccountSignedOut": {
+    "message": "साइन इन नहीं है"
+  },
+  "appAccountRejected": {
+    "message": "साइन इन अब मान्य नहीं है"
+  },
+  "appAccountUnavailable": {
+    "message": "अभी जाँच नहीं हो सकती"
+  },
+  "appAccountSourceStored": {
+    "message": "Lurkloot द्वारा सेव किया गया"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "एनवायरनमेंट वेरिएबल से"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "एक SA_* एनवायरनमेंट वेरिएबल अब भी यह साइन इन दे रहा है, इसलिए आप यहाँ साइन इन या साइन आउट कुछ भी करें, Lurkloot उसी का उपयोग करता रहेगा। वेरिएबल हटाकर Lurkloot को रीस्टार्ट करें, तब इस पेज का साइन इन उपयोग होगा।"
+  },
+  "appAccountSignOut": {
+    "message": "साइन आउट"
+  },
+  "appAccountSignedOutDone": {
+    "message": "साइन आउट हो गया।"
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "साइन आउट हो गया, लेकिन एक SA_* एनवायरनमेंट वेरिएबल अब भी Lurkloot को साइन इन रखता है।"
+  },
+  "appAccountNothingToForget": {
+    "message": "हटाने के लिए कोई सेव किया हुआ साइन इन नहीं था।"
+  },
+  "appRecommended": {
+    "message": "अनुशंसित"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "अपने ब्राउज़र से साइन इन करें"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "हर drop कैंपेन दिखता है।"
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Twitch का साइन इन पेज खोलें और साइन इन करें।"
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Twitch साइन इन खोलें"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "इसके बाद Twitch आपको $1 पर भेजता है। एड्रेस बार से पूरा पता कॉपी करें।"
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Twitch ने जिस पते पर भेजा, उसे यहाँ पेस्ट करें"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "साइन इन पूरा करें"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Twitch में साइन इन हो गया।"
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "$1 के रूप में Twitch में साइन इन हो गया।"
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "पते में #access_token वाला हिस्सा नहीं है?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv उस हिस्से को लगभग तुरंत एड्रेस बार से हटा सकता है। साइन इन करने से पहले, ब्राउज़र के डेवलपर टूल्स में Network टैब खोलें और Preserve log चालू करें। फिर साइन इन करें, access_token से फ़िल्टर करें, और id.twitch.tv रीडायरेक्ट का location हेडर कॉपी करें। इसके बजाय उसे यहाँ पेस्ट करें।"
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "कोड से साइन इन करें"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "यहाँ ब्राउज़र साइन इन की ज़रूरत नहीं है, लेकिन Twitch इस साइन इन पर केवल वही कैंपेन दिखाता है जिन्हें आप पहले ही शुरू कर चुके हैं।"
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "TV कोड से लिंक करें"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "अपने फ़ोन से कोड स्कैन करें, उस Kick ऐप में जहाँ आप साइन इन हैं, और वहीं उसकी पुष्टि करें।"
+  },
+  "appDeviceLoginStart": {
+    "message": "कोड लें"
+  },
+  "appDeviceLoginOpen": {
+    "message": "लिंक खोलें"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "साइन-इन लिंक के लिए QR कोड"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "इसे अपने फ़ोन के कैमरे से स्कैन करें। लिंक Kick ऐप में खुलता है, कंप्यूटर के ब्राउज़र में नहीं।"
+  },
+  "appDeviceLoginCode": {
+    "message": "कोड"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "आपके कोड की पुष्टि का इंतज़ार हो रहा है…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "रद्द करें"
+  },
+  "appDeviceLoginApproved": {
+    "message": "साइन इन हो गया।"
+  },
+  "appDeviceLoginExpired": {
+    "message": "कोड की समय-सीमा समाप्त हो गई। फिर से कोशिश करने के लिए नया कोड लें।"
+  },
+  "appDeviceLoginFailed": {
+    "message": "साइन इन विफल रहा। फिर से कोशिश करने के लिए नया कोड लें।"
+  },
+  "appDeviceLoginCancelled": {
+    "message": "साइन इन रद्द कर दिया गया।"
+  },
+  "appErrorInvalidRedirect": {
+    "message": "उस पते में साइन इन टोकन नहीं है। Twitch ने जिस पूरे पते पर भेजा, उसे कॉपी करें।"
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch ने इस साइन इन को अस्वीकार कर दिया। साइन इन पेज से फिर शुरू करें।"
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Twitch या Kick तक पहुँच नहीं हो सकी। थोड़ी देर बाद फिर कोशिश करें।"
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "$1 तक पहुँच नहीं हो सकी। थोड़ी देर बाद फिर कोशिश करें।"
+  },
+  "appErrorNetwork": {
+    "message": "Lurkloot तक पहुँच नहीं हो पा रही। क्या lurkloot serve अब भी चल रहा है?"
+  },
+  "appErrorUnauthorized": {
+    "message": "एक्सेस टोकन अस्वीकार कर दिया गया।"
+  },
+  "appErrorGeneric": {
+    "message": "अनुरोध विफल रहा ($1)।"
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot इस सेटिंग को अपनी कॉन्फ़िग फ़ाइल में सेव नहीं कर सकता: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot ने यह मान अस्वीकार कर दिया: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot अपनी कॉन्फ़िग फ़ाइल अपडेट नहीं कर सका। कुछ भी नहीं बदला गया।"
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot यहाँ यह काम नहीं कर सकता।"
+  },
+  "appConnecting": {
+    "message": "Lurkloot से जुड़ा जा रहा है…"
+  },
+  "appUnreachableTitle": {
+    "message": "Lurkloot तक पहुँच नहीं हो पा रही"
+  },
+  "appUnreachableBody": {
+    "message": "इसे lurkloot serve से शुरू करें, फिर से कोशिश करें।"
+  },
+  "appRetry": {
+    "message": "फिर से कोशिश करें"
+  },
+  "appConnectionLost": {
+    "message": "Lurkloot से कनेक्शन टूट गया। फिर से कोशिश हो रही है…"
+  },
+  "appDismiss": {
+    "message": "बंद करें"
+  },
+  "appTokenTitle": {
+    "message": "एक्सेस टोकन"
+  },
+  "appTokenBody": {
+    "message": "इस Lurkloot को अपना एक्सेस टोकन चाहिए, जो LURKLOOT_SERVE_TOKEN का मान है। यह केवल इस ब्राउज़र टैब में रखा जाता है।"
+  },
+  "appTokenRejected": {
+    "message": "वह टोकन अस्वीकार कर दिया गया। जाँचें और फिर से कोशिश करें।"
+  },
+  "appTokenLabel": {
+    "message": "एक्सेस टोकन"
+  },
+  "appTokenSubmit": {
+    "message": "जारी रखें"
   }
 }

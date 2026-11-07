@@ -16,13 +16,16 @@ import { HostCapabilitiesContext } from "../../popup-ui/src/hostCapabilities";
 import { WatchSourcePriority } from "../../popup-ui/src/watchSourcePriority";
 
 // What a UI over the headless CLI supports: no tabs, no Twitch Extension
-// providers, no credential export and none of the extension's own preferences.
-// Declared here, not in popup-ui, because the CLI host owns that answer.
+// providers, no credential export, none of the extension's own preferences and
+// no activity history, but its own language. Declared here, not in popup-ui,
+// because the CLI host owns that answer (packages/app-ui declares the same).
 const CLI_CAPABILITIES: PopupHostCapabilities = {
   tabs: false,
   twitchExtensions: false,
   credentialExport: false,
   extensionPreferences: false,
+  language: true,
+  activityHistory: false,
 };
 
 // Settings that depend on a capability, by message key. Labels render as
@@ -38,7 +41,6 @@ const TAB_KEYS = [
   "kickPageContextRecoverySuccessesTitle",
 ];
 const PREFERENCE_KEYS = [
-  "settingsLanguageTitle",
   "autoStartTitle",
   "hideTipsTitle",
   "inPagePanelTitle",
@@ -96,6 +98,8 @@ describe("popup host capabilities", () => {
       twitchExtensions: true,
       credentialExport: true,
       extensionPreferences: true,
+      language: true,
+      activityHistory: true,
     });
   });
 
@@ -103,7 +107,12 @@ describe("popup host capabilities", () => {
     const container = await mountPopup(undefined);
     const text = container.textContent ?? "";
 
-    for (const key of [...TAB_KEYS, ...PREFERENCE_KEYS, "cliExportButton"]) {
+    for (const key of [
+      ...TAB_KEYS,
+      ...PREFERENCE_KEYS,
+      "settingsLanguageTitle",
+      "cliExportButton",
+    ]) {
       expect(text, key).toContain(`[${key}]`);
     }
     expect(container.querySelector('[id="settings-section-general.farmingTabs"]')).not.toBeNull();
@@ -134,10 +143,17 @@ describe("popup host capabilities", () => {
     expect(container.querySelector('button[data-view="fortnite"]')).toBeNull();
     expect(shownSources(container)).toEqual(["watch_streaks", "drops", "watchlist"]);
 
-    // What the CLI does support is still there.
+    // What the CLI does support is still there, the language among it.
+    expect(text).toContain("[settingsLanguageTitle]");
     expect(text).toContain("[autoClaimTitle]");
     expect(text).toContain("[schedulerIntervalTitle]");
     expect(text).toContain("[alwaysEnterChatTitle]");
+  });
+
+  it("guards the language picker with its own capability", async () => {
+    const container = await mountPopup({ ...CLI_CAPABILITIES, language: false });
+    expect(container.textContent).not.toContain("[settingsLanguageTitle]");
+    expect(container.textContent).toContain("[autoClaimTitle]");
   });
 
   it("sends a Twitch Extension view the host cannot show to the Queue", async () => {

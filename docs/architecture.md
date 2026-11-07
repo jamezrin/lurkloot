@@ -10,7 +10,8 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 - `packages/core` — the browser-free farming engine (`@lurkloot/core`): scheduler, background controller, platform adapters/parsers, tab/watch abstractions, tabless watch logic, and Twitch integrity helpers. It is consumed by both the extension and CLI.
 - `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`.
 - `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
-- `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by both the extension and the site.
+- `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
+- `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
 - `packages/shared` — framework-agnostic models, messages, settings, i18n, and logging (`@lurkloot/shared`).
 - `packages/site` — the Astro marketing/landing page, which imports the real popup UI for its demo.
 
@@ -1348,8 +1349,9 @@ A host of `@lurkloot/popup-ui` says what it supports through the optional
 `DEFAULT_HOST_CAPABILITIES`, every flag true, which is the extension; the
 toolbar popup and the site demo declare nothing. A host that declares the
 object has to set every flag, so a new flag is a type error there rather
-than a control it silently shows. A UI over the headless CLI (#979) has none
-of the four.
+than a control it silently shows. The app UI over the headless CLI (#979)
+declares `language` and nothing else (`CLI_HOST_CAPABILITIES` in
+`packages/app-ui/src/adapter.ts`).
 
 - `tabs`: the Farming tabs group (tabless, auto-close, mute, keep videos
   unmuted, ad focus), pause on manual watch, the tabless fallback limit and
@@ -1357,8 +1359,16 @@ of the four.
 - `twitchExtensions`: the NoPixel and Fortnite rail entries and views, their
   settings section, and their rows in the watch order and its "place" text.
 - `credentialExport`: Settings → Export credentials.
-- `extensionPreferences`: language, start on browser launch, the Queue's tips
-  banner and its setting, the in-page panel, diagnostic logging, and the rate and GitHub star nudges.
+- `extensionPreferences`: start on browser launch, the Queue's tips banner and
+  its setting, the in-page panel, diagnostic logging, and the rate and GitHub star nudges.
+- `language`: the language setting. Split from `extensionPreferences` because
+  the app UI keeps a language of its own (in `localStorage`, since the CLI
+  config cannot hold `languageOverride`) without the extension's preferences.
+- `activityHistory`: the Activity log's fetches, sessions, clear and export,
+  and the critical-failure report's activity prefetch. The CLI writes its
+  events to its log and keeps no history, so without it the Activity view is
+  `ActivityHostSummary` (`activitySummary.tsx`): a note saying so, the last
+  check and each platform's status from the snapshot.
 
 A control that depends on a missing capability is left out, not disabled.
 Settings entries name their capability as `requires` in
@@ -1370,6 +1380,71 @@ source keeps its place in the saved `watchSourcePriority`; only the list leaves
 it out, and moving a row swaps it with its listed neighbour.
 `tests/popupHostCapabilities.test.tsx` guards both the default and a CLI-like
 host.
+
+### Window frame and the app UI (#979)
+
+`Popup` takes an optional `windowFrame` (`PopupWindowFrame` in `Popup.tsx`). Without it the frame
+is the popup's fixed 720x600 one, its class kept in `POPUP_FRAME_CLASS`, which
+`tests/popupWindowFrame.test.tsx` holds the extension popup to. With it the same frame fills the
+window (`data-frame="window"`), and the host can add destinations of its own (`PopupHostView`:
+an id, a label key, an icon and a render function) after Activity and Settings in the rail. A host
+view renders inside the frame's providers, so it reads the frame's translator and runtime; choosing
+any built-in view closes it. `signInView` names the host view the status line's Sign in action
+opens (`SignInActionContext`), instead of the platform's sign-in page, which only signs in a
+browser session.
+
+The window frame has a shell of its own around the same views (`windowShell.tsx`). A header
+(`WindowHeader`) runs across the content: the platform switch, then the host's account chip, then
+the status strip (`StatusStrip` with `inHeader`), the refresh and the platform's switch. Platform
+comes before account because together they scope everything below. The rail becomes a sidebar
+(`WorkspaceRail`'s `sidebar`) without the platform switch, which the user collapses to icons or
+expands to labels. It defaults to expanded from `COMBINED_DROPS_MEDIA_QUERY` and collapsed below it.
+The user's choice is kept under `SIDEBAR_STORAGE_KEY` in the host's `storage`. The popup's rail
+still collapses by container query (`RailMode` "auto"), and every rail and strip prop is optional,
+so the popup's DOM is unchanged. `accountsView` names the host view that manages accounts; with it
+the header shows `AccountChip`, which reads the sign-in from `authHealth` through
+`accountStatusDisplay`, the same mapping the app UI's Accounts page uses, and whose menu opens that
+view. A platform has one account today. The chip is where a second will be picked: its menu lists
+the platform's accounts above "Manage accounts", and the page below follows the chosen one.
+
+In the window frame a view's title row and body share one centred column capped at 60rem
+(`WINDOW_CONTENT_CLASS`), so a wide screen gets margins rather than stretched rows; campaign lists
+stay a single column, as in the popup. With `combineDropViews` (the app UI sets it) and a viewport
+of at least 1280px (`COMBINED_DROPS_MEDIA_QUERY`), Completed and Games leave the rail. The Queue,
+Games and Completed become cards on one Drops page (`CombinedDropsPage` in `combinedDrops.tsx`,
+up to 120rem wide), and the rail's one drops entry is named Drops. With room for them (the page's
+container from 72rem) the three cards stand side by side; narrower, Games and Completed stack beside
+the Queue. A narrower window keeps the popup's three views, and resizing switches between the two:
+a window widened on Completed or Games lands on the combined page at that section, and narrowed
+again lands on the Queue.
+
+The combined page fills the window, which does not scroll: the platform panel drops its
+`data-scroll-panel` and each card's body scrolls on its own, each a `data-scroll-panel`, so
+`scrollIntoPanel` moves the one holding its target. The campaigns outside the queue (action
+required, skipped, upcoming) stay in view at the foot of the Queue card: `QueuePanel` portals them
+into the `NotInQueueSlotContext` element the page provides, which takes no room when empty and
+scrolls on its own past 45% of the card; without a slot they follow the queue, as in the popup.
+Stacked, a Games or Completed card is only as tall as its content, and the two share the height
+when both overflow. `changeView` maps a request for either view to the Queue and focuses its card,
+counting requests so asking again while on the page focuses it again. Each card body is its own
+`@container`, so rows lay out for the card's width. Games and Completed each get their card
+header's toolbar slot (`ViewToolbarSlotContext`), so their controls sit in their card rather than
+the page's title row. `tests/popupWindowFrame.test.tsx` covers both frames.
+
+`packages/app-ui` is that host for `lurkloot serve`. One client (`src/api.ts`) makes every request,
+same-origin and relative (`/v1/...`): the popup adapter (`src/adapter.ts`) posts each
+`RuntimeMessage` to `/v1/session/messages` and returns its `result`, and the Accounts view
+(`src/accounts.tsx`) drives the sign-in routes. On a 401 the client asks for the access token once,
+through one shared prompt however many requests are waiting, keeps it in `sessionStorage` and sends
+it as `Authorization: Bearer`; a refused token is cleared and asked for again. Typed errors become
+`ControlPlaneError`s; the app shows a refused settings change with its `paths`, and a lost
+connection as one warning rather than per request. The adapter keeps UI-only preferences in
+`localStorage` and takes `languageOverride` out of every settings save, putting it back on every
+snapshot. The pasted Twitch address lives only in an uncontrolled input that is cleared before the
+request is sent. The app never stores or shows a token. In development Vite proxies `/v1` to a
+running serve unchanged (its `Host` stays the loopback dev origin and matches `Origin`, so serve's
+checks pass), or answers it from `fixture/controlPlane.ts`, which the app-ui tests also run
+against. Serving the built bundle from `serve` is #980.
 
 ### Onboarding tour
 

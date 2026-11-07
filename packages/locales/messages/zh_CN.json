@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "掉宝"
   },
+  "navSidebarCollapse": {
+    "message": "收起侧边栏"
+  },
+  "navSidebarExpand": {
+    "message": "展开侧边栏"
+  },
   "navQueue": {
     "message": "队列"
   },
@@ -2401,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "进化线只会进化你已拥有的徽章。没有该徽章时，观看不会获得任何奖励。"
+  },
+  "activityNoHistoryTitle": {
+    "message": "这里没有活动历史"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot 会把它所做的事记录到这里的日志中，而不是一份可以浏览的历史。下面是它现在正在做的事。"
+  },
+  "activityLastCheck": {
+    "message": "上次检查"
+  },
+  "activityNoCheckYet": {
+    "message": "尚未"
+  },
+  "appNavAccounts": {
+    "message": "账号"
+  },
+  "windowAccountTitle": {
+    "message": "$1 账号"
+  },
+  "windowAccountManage": {
+    "message": "管理账号"
+  },
+  "appAccountsIntro": {
+    "message": "让 Lurkloot 登录 Twitch 和 Kick。你的登录信息保存在运行 Lurkloot 的机器上 Lurkloot 自己的私有存储中。此页面从不显示或保存令牌。"
+  },
+  "appAccountSignedIn": {
+    "message": "已登录"
+  },
+  "appAccountChecking": {
+    "message": "正在检查…"
+  },
+  "appAccountSignedOut": {
+    "message": "未登录"
+  },
+  "appAccountRejected": {
+    "message": "登录已失效"
+  },
+  "appAccountUnavailable": {
+    "message": "暂时无法检查"
+  },
+  "appAccountSourceStored": {
+    "message": "由 Lurkloot 保存"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "来自环境变量"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "一个 SA_* 环境变量仍在提供此登录，因此无论你在此处登录还是退出，Lurkloot 都会继续使用它。请移除该变量并重启 Lurkloot，才能使用此页面的登录。"
+  },
+  "appAccountSignOut": {
+    "message": "退出登录"
+  },
+  "appAccountSignedOutDone": {
+    "message": "已退出登录。"
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "已退出登录，但仍有一个 SA_* 环境变量让 Lurkloot 保持登录。"
+  },
+  "appAccountNothingToForget": {
+    "message": "没有需要清除的已保存登录。"
+  },
+  "appRecommended": {
+    "message": "推荐"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "使用浏览器登录"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "可以看到所有掉宝活动。"
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "打开 Twitch 登录页面并登录。"
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "打开 Twitch 登录页面"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Twitch 随后会把你带到 $1。请从地址栏复制完整地址。"
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "粘贴 Twitch 发送你到的地址"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "完成登录"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "已登录 Twitch。"
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "已以 $1 的身份登录 Twitch。"
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "地址中没有 #access_token 部分？"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv 可能几乎立刻就把它从地址栏中移除。登录前，请打开浏览器的开发者工具，切换到 Network 标签页并开启 Preserve log。然后登录，按 access_token 过滤，并复制 id.twitch.tv 重定向的 location 响应头，改为将其粘贴到这里。"
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "使用代码登录"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "无需在此浏览器登录，但 Twitch 只会在这种登录下显示你已经开始的掉宝活动。"
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "用电视代码关联"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "用手机在已登录的 Kick 应用中扫描代码，并在应用中确认。"
+  },
+  "appDeviceLoginStart": {
+    "message": "获取代码"
+  },
+  "appDeviceLoginOpen": {
+    "message": "打开链接"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "登录链接的二维码"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "用手机相机扫描此码。链接会在 Kick 应用中打开，而不会在电脑浏览器中打开。"
+  },
+  "appDeviceLoginCode": {
+    "message": "代码"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "等待你确认代码…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "取消"
+  },
+  "appDeviceLoginApproved": {
+    "message": "已登录。"
+  },
+  "appDeviceLoginExpired": {
+    "message": "代码已过期。请获取新代码后重试。"
+  },
+  "appDeviceLoginFailed": {
+    "message": "登录失败。请获取新代码后重试。"
+  },
+  "appDeviceLoginCancelled": {
+    "message": "登录已取消。"
+  },
+  "appErrorInvalidRedirect": {
+    "message": "该地址中没有登录令牌。请复制 Twitch 发送你到的完整地址。"
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch 拒绝了此次登录。请从登录页面重新开始。"
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "无法连接到 Twitch 或 Kick。请稍后再试。"
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "无法连接到 $1。请稍后再试。"
+  },
+  "appErrorNetwork": {
+    "message": "无法连接到 Lurkloot。lurkloot serve 是否仍在运行？"
+  },
+  "appErrorUnauthorized": {
+    "message": "访问令牌被拒绝。"
+  },
+  "appErrorGeneric": {
+    "message": "请求失败（$1）。"
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot 无法将此设置保存到其配置文件：$1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot 拒绝了此值：$1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot 无法更新其配置文件。未做任何更改。"
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot 无法在此处完成该操作。"
+  },
+  "appConnecting": {
+    "message": "正在连接 Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "无法连接 Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "请使用 lurkloot serve 启动它，然后重试。"
+  },
+  "appRetry": {
+    "message": "重试"
+  },
+  "appConnectionLost": {
+    "message": "与 Lurkloot 的连接已断开。正在重试…"
+  },
+  "appDismiss": {
+    "message": "关闭"
+  },
+  "appTokenTitle": {
+    "message": "访问令牌"
+  },
+  "appTokenBody": {
+    "message": "此 Lurkloot 需要它的访问令牌，即 LURKLOOT_SERVE_TOKEN 的值。该令牌仅保存在此浏览器标签页中。"
+  },
+  "appTokenRejected": {
+    "message": "该令牌被拒绝。请检查后重试。"
+  },
+  "appTokenLabel": {
+    "message": "访问令牌"
+  },
+  "appTokenSubmit": {
+    "message": "继续"
   }
 }
