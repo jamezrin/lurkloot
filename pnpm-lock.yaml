@@ -34,7 +34,7 @@ importers:
         version: link:../shared
       lucide-react:
         specifier: ^1.0.0
-        version: 1.66.0(@types/react@19.3.0)(react@19.3.1)
+        version: 1.70.0(@types/react@19.3.0)(react@19.3.1)
       react:
         specifier: ^19.2.7
         version: 19.3.1
@@ -47,7 +47,7 @@ importers:
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.0
-        version: 4.3.3(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+        version: 4.3.4(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
       '@types/node':
         specifier: ^24.0.0
         version: 24.19.2
@@ -59,22 +59,22 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: ^6.0.0
-        version: 6.2.1(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+        version: 6.2.1(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
       happy-dom:
         specifier: ^21.0.0
         version: 21.0.4
       tailwindcss:
         specifier: ^4.3.0
-        version: 4.3.3
+        version: 4.3.4
       typescript:
         specifier: ^7.0.0
         version: 7.0.2
       vite:
         specifier: ^8.0.0
-        version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
+        version: 8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)
       vitest:
         specifier: ^5.0.0
-        version: 5.0.5(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
+        version: 5.0.5(@types/node@24.19.2)(happy-dom@21.0.4)(vite@8.3.6(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1))
 
   packages/cli:
     dependencies:
