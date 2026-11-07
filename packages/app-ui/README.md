@@ -38,11 +38,17 @@ address is cleared from the input as soon as it is sent.
 
 ## Running it in development
 
-Start a serve, then the app with a dev proxy in front of it:
+Start a serve, then the app with a dev proxy in front of it. Serve keeps
+running, so start the app in a second terminal:
 
 ```bash
+# terminal 1
 pnpm build:cli
 pnpm cli serve                # http://127.0.0.1:8420
+```
+
+```bash
+# terminal 2
 pnpm dev:app                  # http://127.0.0.1:5173
 ```
 
