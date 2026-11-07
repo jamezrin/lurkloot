@@ -78,9 +78,19 @@ interface Anchor {
 
 const ANCHORS: Record<Platform, Anchor[]> = {
   twitch: [
-    // Immediately left of the Prime crown, inside the icon cluster.
+    // Immediately left of the Prime crown, inside the icon cluster. The crown
+    // may itself be hidden — 7TV's "Hide Prime offers" sets it display:none —
+    // which is fine: a "before" anchor is judged by the cluster it sits in.
     { find: () => [...document.querySelectorAll(".top-nav__prime")], place: "before" },
-    { find: () => [...document.querySelectorAll(".top-nav__menu")], place: "append" },
+    // Without the crown, the start of the right-hand icon cluster. Never append
+    // to `.top-nav__menu` itself: 7TV inserts its settings button before the
+    // last child of `.top-nav__menu.lastChild`, expecting that to be Twitch's
+    // cluster, and ended up inside the Lurkloot button when it was (#1008).
+    {
+      find: () =>
+        [...document.querySelectorAll(".top-nav__menu")].map((menu) => menu.lastElementChild),
+      place: "prepend",
+    },
   ],
   kick: [
     // Kick's nav carries no semantic hooks, so this keys off the layout
@@ -387,7 +397,10 @@ export function resolveAnchorFor(
     for (const element of candidate.find()) {
       if (!element) continue;
       matched = true;
-      if (rendered(element)) return { element, place: candidate.place };
+      // Judge the container the button will land in, not the anchor: a
+      // "before" anchor can be hidden while its siblings are laid out.
+      const container = candidate.place === "before" ? element.parentElement : element;
+      if (rendered(container)) return { element, place: candidate.place };
     }
   }
   return matched ? "noneRendered" : "noMatch";
