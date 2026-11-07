@@ -10,6 +10,7 @@ import {
   type PopupAdapter,
   type PopupHostCapabilities,
   type PopupWindowFrame,
+  COMBINED_DROPS_MEDIA_QUERY,
 } from "@lurkloot/popup-ui";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 
@@ -184,6 +185,25 @@ describe("activity without a history", () => {
 describe("combined drops page", () => {
   const COMBINED: PopupWindowFrame = { ...ACCOUNTS, combineDropViews: true };
 
+  // A viewport the test can resize: only the combined-page query is asked.
+  function stubViewport(initiallyWide: boolean) {
+    let wide = initiallyWide;
+    const listeners = new Set<() => void>();
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      get matches() {
+        return query === COMBINED_DROPS_MEDIA_QUERY && wide;
+      },
+      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+    }));
+    return (next: boolean) =>
+      act(async () => {
+        wide = next;
+        for (const listener of listeners) listener();
+        await Promise.resolve();
+      });
+  }
+
   function buttonByText(container: HTMLElement, text: string): HTMLButtonElement | null {
     return (
       [...container.querySelectorAll("button")].find((button) => button.textContent === text)
@@ -191,21 +211,37 @@ describe("combined drops page", () => {
     );
   }
 
+  const railHas = (container: HTMLElement, view: string) =>
+    container.querySelector(`button[data-view="${view}"]`) !== null;
+
   it("keeps Completed and Games as rail entries of their own without the flag", async () => {
+    stubViewport(true);
     const { container } = await mount({});
-    expect(container.querySelector('button[data-view="completed"]')).not.toBeNull();
-    expect(container.querySelector('button[data-view="games"]')).not.toBeNull();
+    expect(railHas(container, "completed")).toBe(true);
+    expect(railHas(container, "games")).toBe(true);
     expect(container.querySelector("[data-drops-page]")).toBeNull();
   });
 
-  it("shows Games and Completed beside the queue, not in the rail", async () => {
+  it("keeps the popup's three views in a narrow window", async () => {
+    stubViewport(false);
     const { container } = await mount({
       hostCapabilities: CLI_CAPABILITIES,
       windowFrame: COMBINED,
     });
-    expect(container.querySelector('button[data-view="queue"]')).not.toBeNull();
-    expect(container.querySelector('button[data-view="completed"]')).toBeNull();
-    expect(container.querySelector('button[data-view="games"]')).toBeNull();
+    expect(railHas(container, "completed")).toBe(true);
+    expect(railHas(container, "games")).toBe(true);
+    expect(container.querySelector("[data-drops-page]")).toBeNull();
+  });
+
+  it("shows Games and Completed beside the queue, not in the rail, in a wide window", async () => {
+    stubViewport(true);
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: COMBINED,
+    });
+    expect(railHas(container, "queue")).toBe(true);
+    expect(railHas(container, "completed")).toBe(false);
+    expect(railHas(container, "games")).toBe(false);
 
     const page = container.querySelector("[data-drops-page]")!;
     expect(
@@ -219,7 +255,31 @@ describe("combined drops page", () => {
     expect(toolbar.querySelector('[data-tour="games-mode"]')).toBeNull();
   });
 
+  it("follows the window as it is resized", async () => {
+    const resize = stubViewport(false);
+    const { container } = await mount({
+      hostCapabilities: CLI_CAPABILITIES,
+      windowFrame: COMBINED,
+    });
+    await click(container.querySelector('button[data-view="games"]'));
+    expect(container.querySelector('[data-tour="games-mode"]')).not.toBeNull();
+
+    // Widened on Games: the combined page, at the Games section.
+    await resize(true);
+    expect(container.querySelector("[data-drops-page]")).not.toBeNull();
+    expect(railHas(container, "games")).toBe(false);
+
+    // Narrowed again: the Queue, with the three views back in the rail.
+    await resize(false);
+    expect(container.querySelector("[data-drops-page]")).toBeNull();
+    expect(railHas(container, "games")).toBe(true);
+    expect(container.querySelector('button[data-view="queue"]')?.getAttribute("aria-current")).toBe(
+      "page",
+    );
+  });
+
   it("opens the queue at the Games section when asked for the games view", async () => {
+    stubViewport(true);
     const scrollTo = vi.fn();
     const original = Element.prototype.scrollTo;
     Element.prototype.scrollTo = scrollTo as typeof Element.prototype.scrollTo;

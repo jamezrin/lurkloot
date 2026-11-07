@@ -3,8 +3,9 @@
 The full-window app UI for `lurkloot serve`: the extension popup's own views
 (Queue, Completed, Games, Watchlist, Activity, Settings) in a window-sized
 frame, plus an Accounts view for signing in, all over the CLI's HTTP control
-plane. With the room a window has, Completed and Games sit in a sidebar beside
-the Queue on one drops page instead of having rail entries of their own. It is a static bundle; nothing in it farms.
+plane. In a window at least 1280px wide, Completed and Games sit in a sidebar
+beside the Queue on one drops page instead of having rail entries of their
+own; a narrower window keeps the popup's layout. It is a static bundle; nothing in it farms.
 
 ## What it talks to
 
