@@ -82,12 +82,72 @@ describe("in-page panel anchor", () => {
     expect((resolved as { place: string }).place).toBe("before");
   });
 
-  it("falls back to Twitch's nav menu when the Prime crown is absent", () => {
-    setDocument(`<nav class="top-nav"><div class="top-nav__menu" id="menu"></div></nav>`);
+  it("keeps the Prime anchor when another extension hides the crown", () => {
+    // 7TV's "Hide Prime offers" sets .top-nav__prime to display:none (#1008).
+    setDocument(`
+      <nav class="top-nav">
+        <div class="top-nav__menu">
+          <div id="left"></div>
+          <div id="search"></div>
+          <div id="cluster">
+            <div class="top-nav__prime" id="prime"></div>
+            <div id="avatar"></div>
+          </div>
+        </div>
+      </nav>
+    `);
+
+    const resolved = resolveAnchorFor(
+      "twitch",
+      (element) => element != null && element.id !== "prime",
+    );
+
+    expect((resolved as { element: Element }).element.id).toBe("prime");
+    expect((resolved as { place: string }).place).toBe("before");
+  });
+
+  it("falls back to the start of Twitch's icon cluster when the Prime crown is absent", () => {
+    setDocument(`
+      <nav class="top-nav">
+        <div class="top-nav__menu" id="menu">
+          <div id="left"></div>
+          <div id="search"></div>
+          <div id="cluster"><div id="avatar"></div></div>
+        </div>
+      </nav>
+    `);
 
     const resolved = resolveAnchorFor("twitch", renderedAtDesktopWidth);
 
-    expect((resolved as { element: Element }).element.id).toBe("menu");
-    expect((resolved as { place: string }).place).toBe("append");
+    expect((resolved as { element: Element }).element.id).toBe("cluster");
+    expect((resolved as { place: string }).place).toBe("prepend");
+  });
+
+  it("never leaves the button as the last child of Twitch's nav menu", () => {
+    // 7TV inserts its settings button before the last child of
+    // `.top-nav__menu.lastChild`; that node must stay Twitch's cluster.
+    for (const prime of [`<div class="top-nav__prime"></div>`, ""]) {
+      setDocument(`
+        <nav class="top-nav">
+          <div class="top-nav__menu" id="menu">
+            <div id="left"></div>
+            <div id="cluster">${prime}<div id="avatar"></div></div>
+          </div>
+        </nav>
+      `);
+      const resolved = resolveAnchorFor("twitch", renderedAtDesktopWidth) as {
+        element: Element;
+        place: string;
+      };
+      const button = document.createElement("button");
+      if (resolved.place === "before")
+        resolved.element.parentElement?.insertBefore(button, resolved.element);
+      else if (resolved.place === "prepend") resolved.element.prepend(button);
+      else resolved.element.append(button);
+
+      const menu = document.getElementById("menu");
+      expect(menu?.lastElementChild?.id).toBe("cluster");
+      expect(menu?.lastElementChild?.lastElementChild?.id).toBe("avatar");
+    }
   });
 });
