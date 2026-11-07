@@ -145,7 +145,7 @@ export function App({
   );
 
   return (
-    <div dir={catalogs.dir} className="h-dvh w-full bg-zinc-50 font-sans dark:bg-zinc-950">
+    <div dir={catalogs.dir} className="h-full w-full bg-zinc-50 font-sans dark:bg-zinc-950">
       {adapter ? (
         <Popup adapter={adapter} windowFrame={windowFrame} />
       ) : (

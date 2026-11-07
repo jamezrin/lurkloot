@@ -1391,8 +1391,9 @@ an id, a label key, an icon and a render function) after Activity and Settings i
 view renders inside the frame's providers, so it reads the frame's translator and runtime; choosing
 any built-in view closes it. `signInView` names the host view the status line's Sign in action
 opens (`SignInActionContext`), instead of the platform's sign-in page, which only signs in a
-browser session. Campaign lists switch to two columns past a 1000px panel
-(`CAMPAIGN_GRID_CLASS`), a width only the window frame reaches.
+browser session. In the window frame a view's title row and body share one centred
+column capped at 60rem (`WINDOW_CONTENT_CLASS`), so a wide screen gets margins rather than
+stretched rows; campaign lists stay a single column, as in the popup.
 
 `packages/app-ui` is that host for `lurkloot serve`. One client (`src/api.ts`) makes every request,
 same-origin and relative (`/v1/...`): the popup adapter (`src/adapter.ts`) posts each
