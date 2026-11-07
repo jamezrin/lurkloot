@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
+import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
 
 // The app UI's static bundle (@lurkloot/app-ui, #980), served by `lurkloot
@@ -163,11 +164,13 @@ export async function serveAppAsset(
     response.end();
     return;
   }
-  await new Promise<void>((resolveSent, rejectSent) => {
-    const stream = createReadStream(asset.path);
-    stream.on("error", rejectSent);
-    response.on("finish", () => resolveSent());
-    response.on("close", () => resolveSent());
-    stream.pipe(response);
-  });
+  // pipeline destroys the file stream however the response ends, so a client
+  // that goes away mid-download does not leave its descriptor open.
+  try {
+    await pipeline(createReadStream(asset.path), response);
+  } catch (error) {
+    // The client went away: nothing to answer, nothing to report.
+    if ((error as NodeJS.ErrnoException).code === "ERR_STREAM_PREMATURE_CLOSE") return;
+    throw error;
+  }
 }

@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { request as httpRequest } from "node:http";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readlinkSync, writeFileSync } from "node:fs";
+import { connect } from "node:net";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -71,6 +72,7 @@ beforeAll(async () => {
   writeFileSync(join(root, "assets", "index-abc123.js"), "export {};");
   writeFileSync(join(root, "assets", "index-abc123.css"), "body{}");
   writeFileSync(join(root, "favicon.svg"), "<svg/>");
+  writeFileSync(join(root, "assets", "big-abc123.js"), "x".repeat(32 * 1024 * 1024));
   writeFileSync(join(root, ".env"), SECRET);
   writeFileSync(join(base, "secret.txt"), SECRET);
   writeFileSync(join(base, "app.txt"), SECRET);
@@ -192,6 +194,33 @@ describe("serve's app UI", () => {
     expect((await resolveAppAsset(root, "/..%5csecret.txt")).kind).toBe("bad_request");
     expect((await resolveAppAsset(root, "/%E0%A4%A")).kind).toBe("bad_request");
   });
+
+  // Counts open descriptors through /proc, so Linux only.
+  it.skipIf(process.platform !== "linux")(
+    "closes the file when a client goes away mid-download",
+    async () => {
+      const port = await start();
+      const openFiles = () =>
+        readdirSync("/proc/self/fd").filter((fd) => {
+          try {
+            return readlinkSync(`/proc/self/fd/${fd}`).endsWith("big-abc123.js");
+          } catch {
+            return false;
+          }
+        }).length;
+      await new Promise<void>((resolveRead) => {
+        const socket = connect(port, "127.0.0.1", () =>
+          socket.write("GET /assets/big-abc123.js HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"),
+        );
+        // Read the first bytes, then stop reading and hang up.
+        socket.once("data", () => {
+          socket.destroy();
+          resolveRead();
+        });
+      });
+      await expect.poll(openFiles, { timeout: 2000 }).toBe(0);
+    },
+  );
 
   it("answers HEAD without a body, and refuses writes to the app's paths", async () => {
     const port = await start();
