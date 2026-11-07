@@ -93,7 +93,7 @@ Fortnite and NoPixel run in the extension. The CLI farms Twitch and Kick.
 
 ### The app
 
-`lurkloot serve` farms like the CLI's `run` and also opens the Lurkloot app in your browser. It has the same views as the extension popup, in a full window, with a page to sign in to Twitch and Kick. With Docker, use the [compose file](packages/cli/compose.yaml):
+`lurkloot serve` farms like the CLI's `run` and also serves the Lurkloot app, at an address you open in your browser. It has the same views as the extension popup, in a full window, with a page to sign in to Twitch and Kick. With Docker, use the [compose file](packages/cli/compose.yaml):
 
 ```bash
 mkdir lurkloot && cd lurkloot

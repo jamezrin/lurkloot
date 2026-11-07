@@ -6,8 +6,9 @@
 #
 # Inside the container serve binds 0.0.0.0, so it needs the access token; the
 # app asks for it once per tab. The port is published on this machine's
-# loopback only. Publishing it further is remote access: put HTTPS in front
-# (see the CLI README, "Docker").
+# loopback only. Publishing it further is remote access: put a reverse proxy
+# that terminates HTTPS in front, passing the original Host header through
+# (see the CLI README, "The app").
 services:
   lurkloot:
     image: ghcr.io/jamezrin/lurkloot-cli:latest

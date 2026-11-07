@@ -221,6 +221,49 @@ describe("serve's app UI", () => {
     expect(reply.text).not.toContain("<!doctype");
   });
 
+  // A reverse proxy in front of a non-loopback bind (compose's 0.0.0.0): the
+  // app's writes carry the proxy's Origin, which must match the Host it sends.
+  it("accepts the app's writes through a proxy that passes the original Host, not one that rewrites it", async () => {
+    plane = await startControlPlane({
+      host: "0.0.0.0",
+      port: 0,
+      token: TOKEN,
+      appRoot: root,
+      logger: quiet,
+      handleMessage: async () => null,
+      describeSession: async () => ({ id: "default", version: "test", platforms: {} as never }),
+    });
+    const post = (host: string) =>
+      new Promise<number>((resolveStatus, rejectStatus) => {
+        const req = httpRequest(
+          {
+            host: "127.0.0.1",
+            port: plane!.port,
+            method: "POST",
+            path: "/v1/session/messages",
+            headers: {
+              host,
+              origin: "https://lurkloot.example",
+              authorization: `Bearer ${TOKEN}`,
+              "content-type": "application/json",
+            },
+            agent: false,
+          },
+          (res) => {
+            res.resume();
+            res.on("end", () => resolveStatus(res.statusCode ?? 0));
+          },
+        );
+        req.on("error", rejectStatus);
+        req.end(JSON.stringify({ type: "getSnapshot" }));
+      });
+    expect(await post("lurkloot.example")).toBe(200);
+    expect(await post(`127.0.0.1:${plane.port}`)).toBe(403);
+    expect((await send(plane.port, "/", { headers: { host: "lurkloot.example" } })).status).toBe(
+      200,
+    );
+  });
+
   it("keeps /v1 the API's: an unknown endpoint is a JSON 404, never the page", async () => {
     const port = await start();
     for (const path of ["/v1", "/v1/", "/v1/nope"]) {

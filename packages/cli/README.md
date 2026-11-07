@@ -263,8 +263,12 @@ Inside the container `serve` binds `0.0.0.0`, which requires the token, and the
 compose file publishes the port on this machine's loopback only
 (`127.0.0.1:8420:8420`). Opening the app from another machine is remote access:
 publish the port further only behind a reverse proxy that terminates HTTPS, so
-the token never crosses the network in clear. `run` stays the image's default
-command, for farming with no app.
+the token never crosses the network in clear. The proxy must pass the original
+`Host` header through: serve refuses a request whose `Origin` names another
+host than its `Host`, so a proxy that rewrites `Host` to the upstream address
+breaks every change the app makes. Caddy and Traefik pass it by default; nginx
+needs `proxy_set_header Host $host;`. `run` stays the image's default command,
+for farming with no app.
 
 ## Control plane (`serve`)
 
