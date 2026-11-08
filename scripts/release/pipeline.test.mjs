@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   assertReleaseAssets,
+  cliArchiveBase,
+  cliArchiveName,
+  cliExecutableTarget,
+  cliExecutableTargets,
   candidateMarker,
   candidateTag,
   expectedReleaseAssets,
@@ -88,23 +92,47 @@ test("validates a concurrent minor candidate after a patch release", () => {
   );
 });
 
-test("expected release assets are the four builds plus checksums", () => {
+test("expected release assets are the extension builds, the CLI archives and checksums", () => {
   assert.deepEqual(expectedReleaseAssets("1.6.0"), [
     "SHA256SUMS",
     "lurkloot-1.6.0-chrome.crx",
     "lurkloot-1.6.0-chrome.zip",
     "lurkloot-1.6.0-firefox-sources.zip",
     "lurkloot-1.6.0-firefox.zip",
+    "lurkloot-cli-1.6.0-linux-x64.tar.gz",
+    "lurkloot-cli-1.6.0-linux-arm64.tar.gz",
+    "lurkloot-cli-1.6.0-macos-arm64.tar.gz",
+    "lurkloot-cli-1.6.0-macos-x64.tar.gz",
+    "lurkloot-cli-1.6.0-windows-x64.zip",
   ]);
+});
+
+test("each CLI executable target is found by its platform and architecture", () => {
+  assert.equal(cliExecutableTarget("darwin", "arm64").id, "macos-arm64");
+  assert.equal(cliExecutableTarget("win32", "x64").archive, "zip");
+  assert.equal(
+    cliArchiveBase("1.6.0", cliExecutableTarget("linux", "x64")),
+    "lurkloot-cli-1.6.0-linux-x64",
+  );
+  assert.throws(
+    () => cliExecutableTarget("linux", "ia32"),
+    /no lurkloot executable target for linux-ia32/,
+  );
+  assert.throws(() => cliArchiveName("v1.6.0", cliExecutableTargets[0]));
 });
 
 test("asset assertion accepts the exact expected set in any order", () => {
   const names = [
+    "lurkloot-cli-1.6.0-windows-x64.zip",
     "lurkloot-1.6.0-firefox.zip",
     "SHA256SUMS",
     "lurkloot-1.6.0-chrome.crx",
+    "lurkloot-cli-1.6.0-macos-x64.tar.gz",
     "lurkloot-1.6.0-firefox-sources.zip",
+    "lurkloot-cli-1.6.0-linux-arm64.tar.gz",
     "lurkloot-1.6.0-chrome.zip",
+    "lurkloot-cli-1.6.0-macos-arm64.tar.gz",
+    "lurkloot-cli-1.6.0-linux-x64.tar.gz",
   ];
   assert.deepEqual(
     assertReleaseAssets({ names, version: "1.6.0" }),
