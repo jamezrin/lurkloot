@@ -26,8 +26,8 @@ empty entry. That intentionally permits build-only releases, but produces an emp
    `main` promotion pull request.
 2. Apply exactly one of `release/patch`, `release/minor`, or `release/major`. The label validates the
    version and builds a candidate. It does not modify the pull request it is applied to.
-3. Candidate automation verifies the labelled head, publishes the signed extension artifacts as the
-   mutable `vX.Y.Z` GitHub **prerelease**, pushes GHCR `candidate-X.Y.Z`, and deploys the site to
+3. Candidate automation verifies the labelled head, publishes the signed extension artifacts and the
+   standalone CLI archives as the mutable `vX.Y.Z` GitHub **prerelease**, pushes GHCR `candidate-X.Y.Z`, and deploys the site to
    `next.lurkloot.pages.dev`.
 4. Review and merge that pull request normally, with a **merge commit**.
 5. Prepare release then cuts `release/X.Y.Z` from the resulting merge commit on `main`, commits the
@@ -120,8 +120,9 @@ force-pushing over the first release branch.
 Stable publication operates on the exact merged commit and is idempotent:
 
 - `vX.Y.Z` is created once and is never moved.
-- The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, and checksums are uploaded to the
-  stable GitHub release.
+- The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, the five standalone CLI archives
+  (`lurkloot-cli-X.Y.Z-<target>`, see below), and checksums are uploaded to the stable GitHub
+  release.
 - The GHCR `candidate-X.Y.Z` manifest built during candidacy is promoted by digest: the approved
   production job retags that exact manifest as `X.Y.Z`, `X.Y`, `X`, and `latest`, so the published
   image is the one the required checks passed against. Nothing is rebuilt on the normal path, and an
@@ -129,8 +130,8 @@ Stable publication operates on the exact merged commit and is idempotent:
 - If that candidate image no longer exists, the approved job falls back to rebuilding checksummed
   OCI archives from the merged commit. A rebuild is not bit-identical, so when `X.Y.Z` is already
   published the published digest stays authoritative and only the moving aliases are re-pointed.
-- Build provenance is attested during candidacy, for the signed extension assets and for the CLI
-  image digest, and stable publication ships those same bytes. Verify a downloaded asset with
+- Build provenance is attested during candidacy, for the signed extension assets, the CLI archives
+  and the CLI image digest, and stable publication ships those same bytes. Verify a downloaded asset with
   `gh attestation verify <file> --repo jamezrin/lurkloot`, and the image with
   `gh attestation verify oci://ghcr.io/jamezrin/lurkloot-cli:X.Y.Z --repo jamezrin/lurkloot`.
 - Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
@@ -154,6 +155,31 @@ submission" in [docs/store-readiness.md](docs/store-readiness.md). Then generate
 gh secret set AMO_JWT_ISSUER --env production --body "user:12345:67"
 gh secret set AMO_JWT_SECRET --env production
 ```
+
+### Standalone CLI executables
+
+The candidate's `cli` job calls `.github/workflows/build-cli-executables.yml`, which builds the
+standalone `lurkloot` executable (#1022) on a runner per target: `linux-x64` (`ubuntu-latest`),
+`linux-arm64` (`ubuntu-24.04-arm`), `macos-arm64` (`macos-latest`), `macos-x64`
+(`macos-15-intel`) and `windows-x64` (`windows-latest`). Each runner overlays the candidate
+version, runs `pnpm --filter @lurkloot/cli build:executable`, smoke-tests the archive with
+`packages/cli/scripts/smokeExecutable.mjs` (no Node on `PATH`: `serve` must answer `/v1/session`
+and `/`, and a Kick request through the shipped cycletls is a warning when Kick challenges the
+runner), and uploads it. The executable is a copy of the runner's Node 24 binary, ad-hoc signed on
+macOS and unsigned on Windows.
+
+`attest` attests the archives, and `publish` adds them to the extension's assets and rebuilds
+`SHA256SUMS` over all of them, so the stable release promotes them like any other asset and
+`assert-assets` requires all five. Their names come from `cliExecutableTargets` in
+`scripts/release/pipeline.mjs`, which the build script also reads.
+
+`publish` adds only the archives that the trusted ref's `expectedReleaseAssets` lists. A label-time
+candidate built against a `main` from before the archives existed therefore publishes without them,
+with a warning, instead of failing as an unexpected asset. The release branch's candidate is built
+against the merged `main`, which knows them, so the release itself carries all five.
+
+The same workflow runs on pull requests that touch `packages/cli`, the lockfile, the asset list or
+the workflow itself, so a change that breaks one target shows up before release.
 
 ## Branch model
 
