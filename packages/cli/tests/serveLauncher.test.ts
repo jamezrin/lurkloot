@@ -5,7 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PassThrough, type Readable, type Writable } from "node:stream";
+import { PassThrough, type Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import type { SchedulerState } from "@lurkloot/shared/models";
@@ -119,6 +119,50 @@ describe("serve launcher options", () => {
     expect(input.listenerCount("close")).toBe(0);
     expect(input.listenerCount("data")).toBe(0);
     expect(input.isPaused()).toBe(true);
+  });
+
+  it("prints no ready line and leaves no server when the input ends during startup", async () => {
+    const output = new PassThrough();
+    const written = collect(output);
+    const input = new PassThrough();
+    let port = 0;
+    const { running, transport } = startServe({
+      readyOutput: output,
+      exitWithInput: input,
+      onListening: (address) => {
+        port = address.port;
+      },
+    });
+    input.end();
+    await running;
+    expect(transport.dispose).toHaveBeenCalledTimes(1);
+    expect(written.text()).toBe("");
+    // The input ends before the bind completes: the server came up while the
+    // loop stopped, and was closed before the loop ended.
+    expect(port).not.toBe(0);
+    await expect(getStatus(`http://127.0.0.1:${port}/`)).rejects.toThrow();
+  });
+
+  it("keeps farming when the ready line cannot be written", async () => {
+    const output = new Writable({
+      write: (_chunk, _encoding, callback) => callback(new Error("EPIPE")),
+    });
+    const warn = vi.fn();
+    let port = 0;
+    const { running, transport } = startServe({
+      readyOutput: output,
+      logger: { ...quiet, warn },
+      onListening: (address) => {
+        port = address.port;
+      },
+    });
+    await vi.waitFor(() =>
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("EPIPE"), "serve"),
+    );
+    expect(await getStatus(`http://127.0.0.1:${port}/`)).toBe(200);
+    process.emit("SIGTERM");
+    await running;
+    expect(transport.dispose).toHaveBeenCalledTimes(1);
   });
 
   it("stops when the input fails", async () => {
