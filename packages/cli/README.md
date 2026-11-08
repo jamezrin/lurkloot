@@ -15,6 +15,71 @@ node packages/cli/dist/index.mjs validate-config --config ./config.json
 pnpm cli validate-config --config ./config.json
 ```
 
+## Standalone executables
+
+Each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest)
+has the CLI as one archive per system, with no Node to install:
+
+| System | Archive |
+|---|---|
+| Linux x64 | `lurkloot-cli-<version>-linux-x64.tar.gz` |
+| Linux arm64 | `lurkloot-cli-<version>-linux-arm64.tar.gz` |
+| macOS Apple Silicon | `lurkloot-cli-<version>-macos-arm64.tar.gz` |
+| macOS Intel | `lurkloot-cli-<version>-macos-x64.tar.gz` |
+| Windows x64 | `lurkloot-cli-<version>-windows-x64.zip` |
+
+`SHA256SUMS` on the same release covers every archive, and each one has build
+provenance (`gh attestation verify <archive> --repo jamezrin/lurkloot`).
+
+An archive unpacks to one folder:
+
+- `lurkloot` (`lurkloot.exe` on Windows): the CLI, built as a Node.js
+  [single executable application](https://nodejs.org/api/single-executable-applications.html).
+- `cycletls` (`cycletls.exe`): the helper that carries Kick requests past
+  Cloudflare. The CLI starts the copy in its own folder, so keep the two together.
+- `app/`: the app `lurkloot serve` serves at `/`.
+- `LICENSE` and `NOTICE`. The NOTICE lists the third-party software inside,
+  with its licenses; cycletls is GPL-3.0.
+
+First run, on Linux or macOS:
+
+```bash
+tar -xzf lurkloot-cli-<version>-linux-x64.tar.gz
+cd lurkloot-cli-<version>-linux-x64
+./lurkloot auth twitch browser-login   # creates config.json here on first use
+./lurkloot serve                       # App and control plane at http://127.0.0.1:8420/
+```
+
+On Windows, unzip the archive and run `.\lurkloot.exe serve` from PowerShell
+in that folder. Every command below works the same with `lurkloot` in place of
+`node dist/index.mjs` or `pnpm cli`. Config, state and credentials go where
+`--config` points (`config.json` in the current directory by default), not
+beside the executable, so an upgrade is unpacking the new archive.
+
+- **Path:** on Linux and macOS, keep the folder at a path without spaces or
+  shell characters. cycletls is started through the shell there, and the CLI
+  refuses such a path with an error rather than hang.
+- **macOS:** the binaries are signed ad hoc, not notarized. A browser download
+  is quarantined, so Gatekeeper blocks the first start; clear the flag with
+  `xattr -dr com.apple.quarantine lurkloot-cli-<version>-macos-arm64`, or allow
+  `lurkloot` and `cycletls` under System Settings → Privacy & Security.
+- **Windows:** the executables are not code-signed, so SmartScreen may warn on
+  the first start (More info → Run anyway).
+- **Linux:** built on the GitHub-hosted Ubuntu runners against the official
+  Node.js binary, so they need glibc 2.28 or newer; there is no musl (Alpine)
+  build. Use the Docker image there.
+
+To build one for the machine you are on (the Node version running the build is
+the one inside the executable; releases use Node 24):
+
+```bash
+pnpm install
+pnpm --filter @lurkloot/cli build:executable   # dist/executable/lurkloot-cli-<version>-<target>/
+node packages/cli/scripts/smokeExecutable.mjs packages/cli/dist/executable/lurkloot-cli-*
+```
+
+`--archive <dir>` after `build:executable` also writes the release archive.
+
 ## Config
 
 The CLI creates the requested config file automatically when it does not exist.

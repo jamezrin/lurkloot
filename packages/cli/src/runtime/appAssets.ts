@@ -4,19 +4,26 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import { standaloneAppRoot } from "./standalone";
 
 // The app UI's static bundle (@lurkloot/app-ui, #980), served by `lurkloot
 // serve` at `/` beside the control plane's `/v1/*`. The CLI build copies the
 // bundle next to dist/index.mjs, so the default root sits beside the bundle
-// that runs.
+// that runs. The standalone executable has no bundle file of its own; its
+// archive puts app/ beside the executable (runtime/standalone.ts).
 
 export const APP_INDEX = "index.html";
 
 // The bundle beside the running CLI, when the build put one there. A CLI built
 // without it (a bare esbuild run) serves the control plane alone.
-export function defaultAppRoot(moduleUrl: string = import.meta.url): string | undefined {
-  const root = fileURLToPath(new URL("./app/", moduleUrl));
+export function defaultAppRoot(
+  moduleUrl?: string,
+  standaloneRoot: string | undefined = standaloneAppRoot(),
+): string | undefined {
   try {
+    // import.meta.url is read only off the standalone path: the executable's
+    // CommonJS bundle has no module URL of its own.
+    const root = standaloneRoot ?? fileURLToPath(new URL("./app/", moduleUrl ?? import.meta.url));
     return statSync(resolve(root, APP_INDEX)).isFile() ? root : undefined;
   } catch {
     return undefined;

@@ -1,0 +1,87 @@
+name: Build CLI executables
+
+# The standalone `lurkloot` executables (#1022): Node's single-executable application, one per
+# target, each built and smoke-tested on a runner of its own OS and architecture. The candidate
+# build calls this to publish the archives; pull requests that touch the CLI run it to prove every
+# target still builds and starts.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
+      version:
+        description: Optional release version to overlay before building
+        type: string
+        default: ""
+      artifact_prefix:
+        type: string
+        default: cli-executable
+  pull_request:
+    paths:
+      - packages/cli/**
+      - pnpm-lock.yaml
+      - scripts/release/pipeline.mjs
+      - .github/workflows/build-cli-executables.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-latest
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: macos-arm64
+            runner: macos-latest
+          - target: macos-x64
+            runner: macos-15-intel
+          - target: windows-x64
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          version: 12.18.0
+      # The executable is a copy of this Node binary, so this is the Node version that ships.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Set the release version
+        if: inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node scripts/release/cli.mjs prepare-workspace --version "$VERSION" --date "$(date -u +%F)"
+      # Only the CLI's workspace subtree, as the Docker build installs it. app-ui is a dev
+      # dependency of the CLI, so its build inputs come along.
+      - run: pnpm install --frozen-lockfile --filter @lurkloot/cli...
+      - run: pnpm --filter @lurkloot/cli build:executable --archive "$GITHUB_WORKSPACE/cli-assets"
+      # Unpacks the archive into a fresh directory and runs it with no node on PATH: serve must
+      # answer /v1/session and /, and a Kick request through the shipped cycletls is reported
+      # (a warning when Kick's WAF challenges the runner).
+      - name: Smoke-test the archive
+        run: |
+          archive=$(find cli-assets -maxdepth 1 -name 'lurkloot-cli-*' -print -quit)
+          test -n "$archive"
+          node packages/cli/scripts/smokeExecutable.mjs "$archive"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix || 'cli-executable' }}-${{ matrix.target }}
+          path: cli-assets/lurkloot-cli-*
+          if-no-files-found: error
+          retention-days: 7

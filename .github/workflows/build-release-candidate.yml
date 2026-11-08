@@ -107,6 +107,16 @@ jobs:
       artifact_prefix: candidate-docker-${{ inputs.version }}
       push: true
 
+  cli:
+    needs: verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-cli-executables.yml
+    with:
+      ref: ${{ inputs.ref }}
+      version: ${{ inputs.version }}
+      artifact_prefix: candidate-cli-${{ inputs.version }}
+
   # Provenance is emitted where the bits are produced, not where they are promoted: the stable
   # release retags this exact image digest and republishes these exact asset bytes, so one
   # attestation covers both the candidate and the release. Keeping it out of build-extension.yml
@@ -114,7 +124,7 @@ jobs:
   # workflow's permission ceiling is validated in the caller even when the job is skipped, which
   # would force `id-token: write` onto pull-request validation.
   attest:
-    needs: [extension, docker]
+    needs: [extension, docker, cli]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -130,6 +140,15 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: release-assets/lurkloot-*
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: candidate-cli-${{ inputs.version }}-*
+          path: cli-assets
+          merge-multiple: true
+      - name: Attest the CLI executable archives
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: cli-assets/lurkloot-cli-*
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ghcr.io
@@ -143,7 +162,7 @@ jobs:
           push-to-registry: true
 
   publish:
-    needs: [verify, extension, docker]
+    needs: [verify, extension, docker, cli]
     runs-on: ubuntu-latest
     environment: preview
     permissions:
@@ -167,6 +186,33 @@ jobs:
         with:
           name: candidate-extension-${{ inputs.version }}
           path: release-assets
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: candidate-cli-${{ inputs.version }}-*
+          path: cli-assets
+          merge-multiple: true
+      # The CLI archives join the extension's assets, and SHA256SUMS is rebuilt to cover them all,
+      # since Release checks every shipped file against it. Only archives the trusted tooling
+      # expects are added: a trusted ref from before the archives existed would otherwise refuse
+      # the whole asset set as unexpected (see RELEASING.md).
+      - name: Add the CLI executable archives
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          (cd release-assets && sha256sum -c SHA256SUMS)
+          expected=$(node --input-type=module -e "
+            const { expectedReleaseAssets } = await import('./trusted/scripts/release/pipeline.mjs');
+            console.log(expectedReleaseAssets(process.env.VERSION).join('\n'));
+          ")
+          for archive in cli-assets/lurkloot-cli-*; do
+            name=$(basename "$archive")
+            if grep -qxF "$name" <<< "$expected"; then
+              cp "$archive" release-assets/
+            else
+              echo "::warning::$name is not in the trusted release asset set; leaving it out"
+            fi
+          done
+          (cd release-assets && sha256sum lurkloot-* > SHA256SUMS)
       - name: Render candidate release notes
         working-directory: candidate
         env:
@@ -178,6 +224,10 @@ jobs:
             echo "## Install the Chrome zip"
             echo
             echo "To load this pre-release in Chrome from the zip, see [Installing a pre-release build]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/docs/install-prerelease.md)."
+            echo
+            echo "## Run the CLI without Node"
+            echo
+            echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Standalone executables]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/cli/README.md#standalone-executables)."
           } >> ../notes.md
       - name: Create or refresh the owned GitHub prerelease
         env:
@@ -229,7 +279,7 @@ jobs:
 
   gate:
     if: always()
-    needs: [verify, extension, docker, attest, publish, site, status]
+    needs: [verify, extension, docker, cli, attest, publish, site, status]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -250,13 +300,14 @@ jobs:
           VERIFY: ${{ needs.verify.result }}
           EXTENSION: ${{ needs.extension.result }}
           DOCKER: ${{ needs.docker.result }}
+          CLI: ${{ needs.cli.result }}
           ATTEST: ${{ needs.attest.result }}
           PUBLISH: ${{ needs.publish.result }}
           SITE: ${{ needs.site.result }}
           STATUS: ${{ needs.status.result }}
         run: |
           state=success
-          for result in "$VERIFY" "$EXTENSION" "$DOCKER" "$ATTEST" "$PUBLISH" "$SITE" "$STATUS"; do
+          for result in "$VERIFY" "$EXTENSION" "$DOCKER" "$CLI" "$ATTEST" "$PUBLISH" "$SITE" "$STATUS"; do
             test "$result" = success || state=failure
           done
           node scripts/release/cli.mjs candidate-checks \
