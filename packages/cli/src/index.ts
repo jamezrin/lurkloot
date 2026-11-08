@@ -264,6 +264,18 @@ const serveCommand: CommandModule = {
       .option("state", {
         type: "string",
         describe: "State file (default: <configDir>/state.json)",
+      })
+      // For launchers such as the desktop app (#1023); see the README.
+      .option("ready-json", {
+        type: "boolean",
+        default: false,
+        describe:
+          'Print {"event":"ready","url":…} as one JSON line on stdout once the server listens',
+      })
+      .option("exit-with-stdin", {
+        type: "boolean",
+        default: false,
+        describe: "Shut down cleanly, as on SIGTERM, when stdin closes",
       }),
   handler: async (argv) => {
     // Refuse an unsafe bind before anything else starts.
@@ -301,6 +313,8 @@ const serveCommand: CommandModule = {
         runCredentialAvailability(config.authDir, platform),
       describeCredentials: () => describeCredentialHealth(config.authDir),
       auth: { authDir: config.authDir },
+      ...(argv.readyJson ? { readyOutput: process.stdout } : {}),
+      ...(argv.exitWithStdin ? { exitWithInput: process.stdin } : {}),
     });
   },
 };

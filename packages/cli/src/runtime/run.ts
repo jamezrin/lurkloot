@@ -59,6 +59,9 @@ export interface RunOptions {
   // Started once the controller exists, before startup reconciliation and the
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
   startHost?: (controller: FarmingController) => Promise<FarmingHost>;
+  // Aborting it stops the loop through the same shutdown as SIGINT/SIGTERM.
+  // `serve --exit-with-stdin` aborts it when stdin ends. Ignored with `once`.
+  stopSignal?: AbortSignal;
 }
 
 // Logs each campaign reward newly waiting on a subscription once, and forgets
@@ -180,17 +183,21 @@ export async function runLoop(options: RunOptions): Promise<void> {
   await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
     let host: FarmingHost | undefined;
-    const handleSigint = () => void shutdown("SIGINT");
-    const handleSigterm = () => void shutdown("SIGTERM");
+    const handleSigint = () => void shutdown("Received SIGINT");
+    const handleSigterm = () => void shutdown("Received SIGTERM");
+    const stopSignal = options.stopSignal;
+    const handleStop = () =>
+      void shutdown(typeof stopSignal?.reason === "string" ? stopSignal.reason : "Stop requested");
     const stopJobs = () => {
       jobs.dispose();
       process.removeListener("SIGINT", handleSigint);
       process.removeListener("SIGTERM", handleSigterm);
+      stopSignal?.removeEventListener("abort", handleStop);
     };
-    const shutdown = async (signal: string) => {
+    const shutdown = async (reason: string) => {
       if (stopped) return;
       stopped = true;
-      logger.info(`Received ${signal}; shutting down`, "run");
+      logger.info(`${reason}; shutting down`, "run");
       stopJobs();
       // The host goes first, so nothing reaches the controller while it stops.
       if (host) {
@@ -213,6 +220,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
     };
     process.once("SIGINT", handleSigint);
     process.once("SIGTERM", handleSigterm);
+    if (stopSignal?.aborted) {
+      handleStop();
+      return;
+    }
+    stopSignal?.addEventListener("abort", handleStop, { once: true });
     void (async () => {
       if (options.startHost) {
         let started: FarmingHost;
