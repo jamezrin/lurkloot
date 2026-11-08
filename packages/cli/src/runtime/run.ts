@@ -25,6 +25,9 @@ export type FarmingController = ReturnType<typeof createBackgroundController<Eng
 // on shutdown, before the controller and transport go.
 export interface FarmingHost {
   close(): Promise<void>;
+  // Called once the loop has taken the host, never when the loop stopped while
+  // the host was starting. `serve --ready-json` prints its ready line here.
+  ready?(): void;
 }
 
 // Where the controller reads and writes the engine settings. The default reads
@@ -183,6 +186,9 @@ export async function runLoop(options: RunOptions): Promise<void> {
   await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
     let host: FarmingHost | undefined;
+    // The host while it starts. Shutdown waits for it and closes it, so the loop
+    // never ends with a server still coming up behind it.
+    let startingHost: Promise<FarmingHost> | undefined;
     const handleSigint = () => void shutdown("Received SIGINT");
     const handleSigterm = () => void shutdown("Received SIGTERM");
     const stopSignal = options.stopSignal;
@@ -200,9 +206,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
       logger.info(`${reason}; shutting down`, "run");
       stopJobs();
       // The host goes first, so nothing reaches the controller while it stops.
-      if (host) {
+      const current =
+        host ?? (startingHost ? await startingHost.catch(() => undefined) : undefined);
+      if (current) {
         try {
-          await host.close();
+          await current.close();
         } catch (error) {
           logger.error(errorMessage(error), "run");
         }
@@ -229,7 +237,8 @@ export async function runLoop(options: RunOptions): Promise<void> {
       if (options.startHost) {
         let started: FarmingHost;
         try {
-          started = await options.startHost(controller);
+          startingHost = options.startHost(controller);
+          started = await startingHost;
         } catch (error) {
           // A host that cannot start (a port in use) stops the loop the way a
           // signal does, or the Node timers would keep the process alive.
@@ -245,12 +254,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
           rejectLoop(error);
           return;
         }
-        // A signal during startup already tore the rest down.
-        if (stopped) {
-          await started.close().catch((error) => logger.error(errorMessage(error), "run"));
-          return;
-        }
+        // A stop during startup closes the host itself, after waiting for it.
+        if (stopped) return;
         host = started;
+        started.ready?.();
       }
       // The restart reconciliation the extension runs on browser startup
       // (#593): register the jobs again (Node timers end with the process),

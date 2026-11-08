@@ -119,11 +119,26 @@ export async function startControllerControlPlane(
     throw error;
   }
   options.onListening?.({ host: plane.host, port: plane.port });
-  options.readyOutput?.write(readyLine(plane.localUrl));
+  const readyOutput = options.readyOutput;
   return {
     host: plane.host,
     port: plane.port,
     localUrl: plane.localUrl,
+    ...(readyOutput
+      ? {
+          // A launcher that stopped reading must not crash serve: a failed
+          // write (EPIPE) is logged, and farming goes on.
+          ready: () => {
+            readyOutput.on("error", (error: unknown) =>
+              options.logger.warn(
+                `Could not write the ready line: ${errorMessage(error)}`,
+                "serve",
+              ),
+            );
+            readyOutput.write(readyLine(plane.localUrl));
+          },
+        }
+      : {}),
     // The server first, so no request starts a flow; then the flows, which
     // stops their polling and releases what they hold.
     close: async () => {
