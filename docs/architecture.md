@@ -625,6 +625,17 @@ reconciliation, and the loop closes it first on shutdown; `run` passes none and 
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
 messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
 
+The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
+all run it: the host closes first, then the controller and the transport. `serve
+--exit-with-stdin` (#1023) aborts that signal when stdin ends, closes or fails, so a launcher such
+as the desktop app stops `serve` by closing the pipe. That works on Windows, which has no SIGTERM,
+and also when the launcher crashes. Once the loop stops, `serve` stops reading stdin, so an open
+pipe does not hold the process. `serve --ready-json` writes one JSON line,
+`{"event":"ready","url":…}`, to stdout once the control plane listens. The URL is the control
+plane's `localUrl`, which is also what its log line names. Logs go to stderr. Both options are off
+by default and `run` has neither. `packages/cli/tests/serveLauncher.test.ts` drives them with
+injected streams and through the built CLI.
+
 Settings reach the controller through the loop's `SettingsStore` seam: `load`, `save` and an
 optional `applyPatch`. The default, which `run` uses, keeps the CLI's long-standing behavior (the
 config file's settings, saves dropped, no patch). `serve` builds the config-file store from the

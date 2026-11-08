@@ -30,6 +30,38 @@ export interface ServeOptions extends Omit<RunOptions, "once" | "startHost"> {
   // The app UI bundle to serve at `/` (appAssets.ts). Defaults to the one the
   // CLI build put beside it; null serves the control plane alone.
   appRoot?: string | null;
+  // Launcher options (`--ready-json`, `--exit-with-stdin`), for a parent
+  // process such as the desktop app. With readyOutput, one JSON line
+  // `{"event":"ready","url":…}` is written to it once the control plane
+  // listens. With exitWithInput, the loop shuts down as on SIGTERM once that
+  // stream ends, closes or fails; what it carries is read and discarded.
+  readyOutput?: NodeJS.WritableStream;
+  exitWithInput?: NodeJS.ReadableStream;
+}
+
+// The line `--ready-json` prints. One line, so a launcher reading stdout line
+// by line can match it; the URL never carries the token.
+export function readyLine(url: string): string {
+  return `${JSON.stringify({ event: "ready", url })}\n`;
+}
+
+// Calls onEnd once the stream ends, closes or fails, and keeps it flowing so
+// the end is seen. The returned release stops reading, so a stream still open
+// after the loop stops does not hold the process. An error listener stays, so
+// a late pipe error cannot crash the exit.
+function watchStreamEnd(stream: NodeJS.ReadableStream, onEnd: () => void): () => void {
+  const discard = () => {};
+  stream.on("data", discard);
+  stream.once("end", onEnd);
+  stream.once("close", onEnd);
+  stream.on("error", onEnd);
+  stream.resume();
+  return () => {
+    stream.removeListener("data", discard);
+    stream.removeListener("end", onEnd);
+    stream.removeListener("close", onEnd);
+    stream.pause();
+  };
 }
 
 // The control plane for one controller: messages go to handleMessage, and the
@@ -38,7 +70,13 @@ export async function startControllerControlPlane(
   controller: Pick<FarmingController, "handleMessage">,
   options: Pick<
     ServeOptions,
-    "binding" | "describeCredentials" | "logger" | "onListening" | "auth" | "appRoot"
+    | "binding"
+    | "describeCredentials"
+    | "logger"
+    | "onListening"
+    | "auth"
+    | "appRoot"
+    | "readyOutput"
   > & {
     settingsWritable?: boolean;
   },
@@ -81,9 +119,11 @@ export async function startControllerControlPlane(
     throw error;
   }
   options.onListening?.({ host: plane.host, port: plane.port });
+  options.readyOutput?.write(readyLine(plane.localUrl));
   return {
     host: plane.host,
     port: plane.port,
+    localUrl: plane.localUrl,
     // The server first, so no request starts a flow; then the flows, which
     // stops their polling and releases what they hold.
     close: async () => {
@@ -96,8 +136,18 @@ export async function startControllerControlPlane(
 // `lurkloot serve`: the `run` farming loop, plus the control plane started
 // beside it and closed first on shutdown. Unlike `run`, it saves the settings
 // the control plane changes to the config file.
-export function serveLoop(options: ServeOptions): Promise<void> {
-  const { binding, configPath, describeCredentials, onListening, auth, appRoot, ...rest } = options;
+export async function serveLoop(options: ServeOptions): Promise<void> {
+  const {
+    binding,
+    configPath,
+    describeCredentials,
+    onListening,
+    auth,
+    appRoot,
+    readyOutput,
+    exitWithInput,
+    ...rest
+  } = options;
   const settingsStore =
     rest.settingsStore
     ?? (configPath
@@ -110,17 +160,27 @@ export function serveLoop(options: ServeOptions): Promise<void> {
         })
       : undefined);
   const runOptions = { ...rest, ...(settingsStore ? { settingsStore } : {}) };
-  return runLoop({
-    ...runOptions,
-    startHost: (controller) =>
-      startControllerControlPlane(controller, {
-        binding,
-        describeCredentials,
-        logger: runOptions.logger,
-        settingsWritable: Boolean(runOptions.settingsStore?.applyPatch),
-        ...(auth ? { auth } : {}),
-        ...(onListening ? { onListening } : {}),
-        ...(appRoot !== undefined ? { appRoot } : {}),
-      }),
-  });
+  const stop = exitWithInput ? new AbortController() : undefined;
+  const release = exitWithInput
+    ? watchStreamEnd(exitWithInput, () => stop?.abort("Input closed (--exit-with-stdin)"))
+    : undefined;
+  try {
+    await runLoop({
+      ...runOptions,
+      ...(stop ? { stopSignal: stop.signal } : {}),
+      startHost: (controller) =>
+        startControllerControlPlane(controller, {
+          binding,
+          describeCredentials,
+          logger: runOptions.logger,
+          settingsWritable: Boolean(runOptions.settingsStore?.applyPatch),
+          ...(auth ? { auth } : {}),
+          ...(onListening ? { onListening } : {}),
+          ...(appRoot !== undefined ? { appRoot } : {}),
+          ...(readyOutput ? { readyOutput } : {}),
+        }),
+    });
+  } finally {
+    release?.();
+  }
 }

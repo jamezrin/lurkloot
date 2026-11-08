@@ -227,6 +227,9 @@ export interface ControlPlaneOptions extends ServeBinding {
 export interface ControlPlane {
   host: string;
   port: number;
+  // An address that reaches the server from this machine: the bound one, or
+  // 127.0.0.1 for a wildcard bind. What `serve --ready-json` prints.
+  localUrl: string;
   close(): Promise<void>;
 }
 
@@ -577,7 +580,8 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   const url = `http://${shownHost}:${address.port}/`;
   // A wildcard bind is no address to open: name the one that works here.
   const wildcard = address.address === "0.0.0.0" || address.address === "::";
-  const localNote = wildcard ? `, on this machine http://127.0.0.1:${address.port}/` : "";
+  const localUrl = wildcard ? `http://127.0.0.1:${address.port}/` : url;
+  const localNote = wildcard ? `, on this machine ${localUrl}` : "";
   const tokenNote = expectedToken ? " (bearer token required)" : "";
   logger.info(
     options.appRoot
@@ -589,6 +593,7 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   return {
     host: address.address,
     port: address.port,
+    localUrl,
     close: () =>
       new Promise<void>((resolveClose) => {
         if (closing) {
