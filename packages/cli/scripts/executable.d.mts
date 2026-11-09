@@ -20,11 +20,21 @@ export declare function bundledPackages(
   options: { root: string; read?: (path: string) => string },
 ): BundledPackage[];
 
+export declare function dependencyClosure(
+  dir: string,
+  options: { resolve: (fromDir: string, name: string) => string; read?: (path: string) => string },
+): (BundledPackage & { dir: string })[];
+
 export declare function renderNotice(options: {
   version: string;
   nodeVersion: string;
   nodeLicense: string;
-  cycleTls: { file: string; version: string; license: string };
+  cycleTls: {
+    file: string;
+    version: string;
+    license: string;
+    dependencies?: BundledPackage[];
+  };
   packages: BundledPackage[];
 }): string;
 

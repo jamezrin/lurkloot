@@ -35,11 +35,17 @@ An archive unpacks to one folder:
 
 - `lurkloot` (`lurkloot.exe` on Windows): the CLI, built as a Node.js
   [single executable application](https://nodejs.org/api/single-executable-applications.html).
-- `cycletls` (`cycletls.exe`): the helper that carries Kick requests past
-  Cloudflare. The CLI starts the copy in its own folder, so keep the two together.
+- `cycletls/`: the [cycletls](https://github.com/Danny-Dasilva/CycleTLS)
+  package that carries Kick requests past Cloudflare. It holds the unmodified
+  package (its JavaScript, `package.json` and GPL-3.0 `LICENSE`), its runtime
+  dependencies in `node_modules/`, and its Go helper as `cycletls`
+  (`cycletls.exe`). It is not compiled into `lurkloot`: the CLI loads it from
+  this folder, as the Docker image loads it from `node_modules`. Keep the
+  folder next to `lurkloot`; without it, commands that reach Kick stop with an
+  error naming the folder.
 - `app/`: the app `lurkloot serve` serves at `/`.
-- `LICENSE` and `NOTICE`. The NOTICE lists the third-party software inside,
-  with its licenses; cycletls is GPL-3.0.
+- `LICENSE` and `NOTICE`. The NOTICE lists the third-party software in the
+  archive, with its licenses.
 
 First run, on Linux or macOS:
 
@@ -62,7 +68,7 @@ beside the executable, so an upgrade is unpacking the new archive.
 - **macOS:** the binaries are signed ad hoc, not notarized. A browser download
   is quarantined, so Gatekeeper blocks the first start; clear the flag with
   `xattr -dr com.apple.quarantine lurkloot-cli-<version>-macos-arm64`, or allow
-  `lurkloot` and `cycletls` under System Settings → Privacy & Security.
+  `lurkloot` and `cycletls/cycletls` under System Settings → Privacy & Security.
 - **Windows:** the executables are not code-signed, so SmartScreen may warn on
   the first start (More info → Run anyway).
 - **Linux:** built on the GitHub-hosted Ubuntu runners against the official

@@ -5,13 +5,23 @@
 //   node scripts/smokeExecutable.mjs <archive or directory> [--require-kick]
 //
 // - `serve` on a free loopback port must answer 200 on /v1/session and serve
-//   the app at /. Its default transport starts cycletls, from the binary beside
-//   the executable.
+//   the app at /. Its default transport starts cycletls, loaded from the
+//   cycletls/ folder beside the executable.
 // - `discover` with only Kick enabled and no credentials then makes a Kick
 //   request through cycletls. Kick's WAF may challenge a datacenter address,
 //   so a failure is a warning unless --require-kick is given.
+// - With cycletls/ moved away, `serve` must stop with the error naming it,
+//   not hang or fall back to a copy elsewhere.
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
@@ -119,7 +129,11 @@ try {
   const executable = join(dir, executableName(process.platform));
   for (const file of [
     executable,
-    join(dir, windows ? "cycletls.exe" : "cycletls"),
+    join(dir, "cycletls", "package.json"),
+    join(dir, "cycletls", "dist", "index.js"),
+    join(dir, "cycletls", "LICENSE"),
+    join(dir, "cycletls", "node_modules", "ws", "package.json"),
+    join(dir, "cycletls", windows ? "cycletls.exe" : "cycletls"),
     join(dir, "app", "index.html"),
     join(dir, "LICENSE"),
     join(dir, "NOTICE"),
@@ -180,6 +194,26 @@ try {
     process.stdout.write(
       `::warning::No Kick request through cycletls succeeded from this runner (discover ${code})\n`,
     );
+  }
+
+  renameSync(join(dir, "cycletls"), join(dir, "cycletls-moved"));
+  const missing = start(
+    executable,
+    ["serve", "--port", String(await freePort()), "--config", "config.json"],
+    work,
+    env,
+  );
+  const missingCode = await Promise.race([
+    missing.exited,
+    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout("timeout"), 30_000)),
+  ]);
+  if (missingCode === "timeout") missing.child.kill("SIGKILL");
+  if (missingCode === 0 || missingCode === "timeout") {
+    fail(`serve without cycletls/ did not fail (${missingCode})`);
+  } else if (!/The cycletls folder is missing beside the executable/.test(missing.output())) {
+    fail("serve without cycletls/ failed without naming the missing folder");
+  } else {
+    process.stdout.write("smoke: without cycletls/, serve stops and names the missing folder\n");
   }
 } catch (error) {
   fail(error.message);
