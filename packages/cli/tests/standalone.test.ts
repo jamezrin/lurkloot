@@ -100,6 +100,60 @@ describe("loadStandaloneCycleTls", () => {
     await expect((init as unknown as () => Promise<string>)()).resolves.toBe("dep");
   });
 
+  it("never loads a module from a node_modules above the shipped folder", async () => {
+    // A planted package beside the install, where Node's lookup would reach it
+    // for any dependency the folder does not ship.
+    const outside = await mkdtemp(join(tmpdir(), "lurkloot-planted-"));
+    try {
+      for (const name of ["planted", "bufferutil"]) {
+        mkdirSync(join(outside, "node_modules", name), { recursive: true });
+        writeFileSync(
+          join(outside, "node_modules", name, "index.js"),
+          `globalThis.__lurklootPlanted = (globalThis.__lurklootPlanted ?? []).concat(${JSON.stringify(name)}); module.exports = "planted";`,
+        );
+      }
+      const pkg = join(outside, "cycletls");
+      mkdirSync(join(pkg, "dist"), { recursive: true });
+      writeFileSync(join(pkg, "package.json"), '{"name":"cycletls","main":"dist/index.js"}');
+      writeFileSync(
+        join(pkg, "dist", "index.js"),
+        [
+          "const outcomes = {};",
+          'for (const name of ["planted", "bufferutil"]) {',
+          "  try { require(name); outcomes[name] = 'loaded'; }",
+          "  catch (error) { outcomes[name] = error.code; }",
+          "}",
+          'outcomes.later = () => { try { require("planted"); return "loaded"; } catch (error) { return error.code; } };',
+          'outcomes.builtin = typeof require("node:path").join;',
+          "const init = async () => outcomes;",
+          "module.exports = init;",
+        ].join("\n"),
+      );
+      const init = loadStandaloneCycleTls(pkg) as unknown as () => Promise<{
+        planted: string;
+        bufferutil: string;
+        later: () => string;
+        builtin: string;
+      }>;
+      const outcomes = await init();
+      expect(outcomes.planted).toBe("MODULE_NOT_FOUND");
+      expect(outcomes.bufferutil).toBe("MODULE_NOT_FOUND");
+      expect(outcomes.later()).toBe("MODULE_NOT_FOUND");
+      expect(outcomes.builtin).toBe("function");
+      expect((globalThis as { __lurklootPlanted?: string[] }).__lurklootPlanted).toBeUndefined();
+      expect(process.env.WS_NO_BUFFER_UTIL).toBe("1");
+      expect(process.env.WS_NO_UTF_8_VALIDATE).toBe("1");
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves requires from outside the folder alone", async () => {
+    const { createRequire } = await import("node:module");
+    expect(typeof createRequire(import.meta.url)("node:path").join).toBe("function");
+    expect(createRequire(import.meta.url).resolve("vitest/package.json")).toContain("vitest");
+  });
+
   it("names the missing folder instead of loading a copy from elsewhere", () => {
     expect(() => loadStandaloneCycleTls(join(base, "gone"))).toThrow(MissingCycleTlsError);
     expect(() => loadStandaloneCycleTls(join(base, "gone"))).toThrow(

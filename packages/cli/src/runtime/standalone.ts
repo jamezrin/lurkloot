@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { createRequire, isBuiltin, Module } from "node:module";
+import { dirname, join, relative, isAbsolute } from "node:path";
 import { isSea } from "node:sea";
 import type initCycleTLSType from "cycletls";
 
@@ -55,6 +55,53 @@ export function standaloneCycleTlsPath(
 
 export class MissingCycleTlsError extends Error {}
 
+function isInside(root: string, path: string): boolean {
+  const rel = relative(root, path);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+interface ModuleResolver {
+  _resolveFilename: (
+    request: string,
+    parent: { filename?: string | null } | undefined,
+    ...rest: unknown[]
+  ) => string;
+}
+
+const confinedRoots = new Set<string>();
+
+// Keeps every require made from code inside `root` inside `root`. Node looks
+// for a package in each node_modules up the directory tree, so a dependency
+// missing from the shipped folder (ws's optional bufferutil, say) would
+// otherwise be loaded from whatever node_modules sits above the install, such
+// as ~/Downloads/node_modules. A resolution from inside the folder to a file
+// outside it fails as MODULE_NOT_FOUND, as if the package were absent, which
+// an optional require already handles. Built-in modules are unaffected.
+export function confineRequires(
+  root: string,
+  resolver: ModuleResolver = Module as unknown as ModuleResolver,
+): void {
+  if (confinedRoots.size === 0) {
+    const original = resolver._resolveFilename;
+    resolver._resolveFilename = function confined(request, parent, ...rest) {
+      const resolved = original.call(this, request, parent, ...rest);
+      const from = parent?.filename;
+      if (!from || isBuiltin(resolved)) return resolved;
+      for (const confinedRoot of confinedRoots) {
+        if (isInside(confinedRoot, from) && !isInside(confinedRoot, resolved)) {
+          const error = new Error(
+            `Cannot find module '${request}' inside ${confinedRoot}`,
+          ) as NodeJS.ErrnoException;
+          error.code = "MODULE_NOT_FOUND";
+          throw error;
+        }
+      }
+      return resolved;
+    };
+  }
+  confinedRoots.add(root);
+}
+
 // Loads the cycletls package from its folder beside the executable. A
 // single-executable application's own require reaches built-in modules only;
 // a require made with createRequire reads files from disk, and resolves the
@@ -72,7 +119,12 @@ export function loadStandaloneCycleTls(
       `The cycletls folder is missing beside the executable (${dir}); unpack the whole archive and keep cycletls/ next to lurkloot`,
     );
   }
-  const loaded = requireFrom(manifest)(dir) as typeof initCycleTLSType & {
+  // ws's optional native add-ons are not shipped: never look for them.
+  process.env.WS_NO_BUFFER_UTIL = "1";
+  process.env.WS_NO_UTF_8_VALIDATE = "1";
+  const root = realpathSync(dir);
+  confineRequires(root);
+  const loaded = requireFrom(join(root, "package.json"))(root) as typeof initCycleTLSType & {
     default?: typeof initCycleTLSType;
   };
   return loaded.default ?? loaded;
