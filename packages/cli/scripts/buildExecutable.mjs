@@ -1,8 +1,10 @@
 // Builds the standalone `lurkloot` executable for the machine it runs on
 // (#1022): Node's single-executable application, with the CLI bundled inside,
-// so it runs where no Node is installed. Beside it go cycletls's Go binary for
-// this platform, the app UI in app/, LICENSE and a NOTICE, and with --archive
-// all of it is packed into the release archive for this target.
+// so it runs where no Node is installed. Beside it go the cycletls package in
+// cycletls/ (its unmodified JavaScript, runtime dependencies and this
+// platform's Go binary, loaded at run time and never compiled in, as cycletls
+// is GPL-3.0), the app UI in app/, LICENSE and a NOTICE, and with --archive all
+// of it is packed into the release archive for this target.
 //
 //   node scripts/buildExecutable.mjs [--archive <dir>]
 //
@@ -17,11 +19,12 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { inject } from "postject";
@@ -36,6 +39,8 @@ import {
   SEA_RESOURCE,
   bundledPackages,
   cycleTlsUpstreamName,
+  dependencyClosure,
+  packageDirOf,
   executableName,
   nodeLicenseCandidates,
   renderNotice,
@@ -73,8 +78,10 @@ rmSync(dirname(out), { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
 mkdirSync(out, { recursive: true });
 
-// 1. One CommonJS file with every dependency inside: a single-executable
-// application's main script can require only Node's built-in modules. ws's
+// 1. One CommonJS file with every dependency inside but cycletls: a
+// single-executable application's main script can require only Node's built-in
+// modules. "cycletls" is aliased to a shim that loads the package from the
+// cycletls/ folder at run time (src/runtime/cycleTlsStandalone.ts). ws's
 // optional native add-ons stay out; ws falls back without them. The banner
 // gives import.meta.url a value (the executable's own path) for code that
 // reads it in this CommonJS output.
@@ -89,6 +96,7 @@ const result = await build({
   mainFields: ["module", "main"],
   outfile: bundle,
   external: ["bufferutil", "utf-8-validate"],
+  alias: { cycletls: "./src/runtime/cycleTlsStandalone.ts" },
   banner: {
     js: 'const __lurklootModuleUrl = require("node:url").pathToFileURL(__filename).href;',
   },
@@ -96,6 +104,14 @@ const result = await build({
   metafile: true,
   logLevel: "warning",
 });
+
+const compiledCycleTls = Object.keys(result.metafile.inputs).filter((input) =>
+  packageDirOf(input)?.endsWith(`node_modules${sep}cycletls`),
+);
+if (compiledCycleTls.length > 0) {
+  process.stderr.write(`cycletls must not be compiled in: ${compiledCycleTls.join(", ")}\n`);
+  process.exit(1);
+}
 
 // 2. The blob Node starts from, made by the same node binary it goes into.
 // Paths relative to the work directory, so the script name stack traces show
@@ -127,11 +143,32 @@ await inject(executable, SEA_RESOURCE, readFileSync(blob), {
 });
 if (platform === "darwin") run("codesign", ["--sign", "-", executable]);
 
-// 4. cycletls's binary for this platform, under the name the CLI looks for
-// beside the executable (src/runtime/standalone.ts).
-const cycleTlsDir = dirname(require.resolve("cycletls/package.json"));
+// 4. The cycletls package, as the CLI loads it (src/runtime/standalone.ts):
+// cycletls/ holds its package.json, LICENSE and unmodified dist/index.js, its
+// runtime dependencies flat in node_modules, and this platform's Go binary
+// under the name the CLI passes as executablePath.
+const cycleTlsDir = realpathSync(dirname(require.resolve("cycletls/package.json")));
 const cycleTlsManifest = JSON.parse(readFileSync(join(cycleTlsDir, "package.json"), "utf8"));
-const cycleTls = join(out, cycleTlsFile);
+const cycleTlsOut = join(out, "cycletls");
+mkdirSync(join(cycleTlsOut, "dist"), { recursive: true });
+for (const file of ["package.json", "LICENSE"]) {
+  copyFileSync(join(cycleTlsDir, file), join(cycleTlsOut, file));
+}
+copyFileSync(join(cycleTlsDir, "dist", "index.js"), join(cycleTlsOut, "dist", "index.js"));
+const cycleTlsDependencies = dependencyClosure(cycleTlsDir, {
+  resolve: (from, name) =>
+    realpathSync(
+      dirname(createRequire(join(from, "package.json")).resolve(`${name}/package.json`)),
+    ),
+});
+for (const dependency of cycleTlsDependencies) {
+  cpSync(dependency.dir, join(cycleTlsOut, "node_modules", ...dependency.name.split("/")), {
+    recursive: true,
+    dereference: true,
+    filter: (source) => !relative(dependency.dir, source).split(sep).includes("node_modules"),
+  });
+}
+const cycleTls = join(cycleTlsOut, cycleTlsFile);
 copyFileSync(join(cycleTlsDir, "dist", cycleTlsUpstreamName(platform, arch)), cycleTls);
 chmodSync(cycleTls, 0o755);
 if (platform === "darwin") {
@@ -160,6 +197,7 @@ writeFileSync(
       file: cycleTlsFile,
       version: cycleTlsManifest.version,
       license: readFileSync(join(cycleTlsDir, "LICENSE"), "utf8"),
+      dependencies: cycleTlsDependencies,
     },
     packages: bundledPackages(Object.keys(result.metafile.inputs), { root: packageRoot }),
   }),

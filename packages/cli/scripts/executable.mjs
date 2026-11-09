@@ -54,6 +54,18 @@ function readLicense(dir, read) {
   return undefined;
 }
 
+function describePackage(absolute, read) {
+  const manifest = JSON.parse(read(join(absolute, "package.json")));
+  return {
+    name: manifest.name,
+    version: manifest.version,
+    license: typeof manifest.license === "string" ? manifest.license : "see below",
+    text: readLicense(absolute, read),
+  };
+}
+
+const byName = (a, b) => a.name.localeCompare(b.name);
+
 // The npm packages esbuild put into the bundle, from its metafile's inputs,
 // with each one's license text.
 export function bundledPackages(inputs, { root, read = (path) => readFileSync(path, "utf8") }) {
@@ -62,23 +74,39 @@ export function bundledPackages(inputs, { root, read = (path) => readFileSync(pa
     const dir = packageDirOf(input);
     if (dir) dirs.add(dir);
   }
-  const packages = [];
-  for (const dir of dirs) {
-    const absolute = join(root, dir);
-    const manifest = JSON.parse(read(join(absolute, "package.json")));
-    packages.push({
-      name: manifest.name,
-      version: manifest.version,
-      license: typeof manifest.license === "string" ? manifest.license : "see below",
-      text: readLicense(absolute, read),
-    });
-  }
-  return packages.sort((a, b) => a.name.localeCompare(b.name));
+  return [...dirs].map((dir) => describePackage(join(root, dir), read)).sort(byName);
+}
+
+// The runtime dependency closure of the package in `dir`: what has to sit in
+// its node_modules for it to load. Type-only @types packages are left out.
+// `resolve(fromDir, name)` answers the dependency's package directory. The
+// closure ships flat, so two versions of one package are refused.
+export function dependencyClosure(dir, { resolve, read = (path) => readFileSync(path, "utf8") }) {
+  const found = new Map();
+  const visit = (from) => {
+    const manifest = JSON.parse(read(join(from, "package.json")));
+    for (const name of Object.keys(manifest.dependencies ?? {})) {
+      if (name.startsWith("@types/")) continue;
+      const depDir = resolve(from, name);
+      const pkg = { ...describePackage(depDir, read), dir: depDir };
+      const seen = found.get(name);
+      if (seen) {
+        if (seen.version !== pkg.version)
+          throw new Error(`${name} is needed at ${seen.version} and ${pkg.version}`);
+        continue;
+      }
+      found.set(name, pkg);
+      visit(depDir);
+    }
+  };
+  visit(dir);
+  return [...found.values()].sort(byName);
 }
 
 // The archive's NOTICE: what the executable contains besides Lurkloot itself,
 // and the license each part comes under, in full.
 export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, packages }) {
+  const cycleTlsDependencies = cycleTls.dependencies ?? [];
   const lines = [
     `Lurkloot CLI ${version}`,
     "Licensed under the Apache License, Version 2.0; see LICENSE.",
@@ -89,20 +117,29 @@ export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, pack
     `- The lurkloot executable is the Node.js ${nodeVersion} runtime with the Lurkloot CLI`,
     "  embedded as a single-executable application. Node.js is under the MIT license and",
     "  bundles further components under their own licenses, reproduced below.",
-    `- ${cycleTls.file} is the unmodified Go binary from the cycletls ${cycleTls.version} npm`,
-    "  package, under the GNU General Public License v3.0, reproduced below. It runs as a",
-    "  separate process. Its source code is at https://github.com/Danny-Dasilva/CycleTLS",
-    `  (version ${cycleTls.version}).`,
-    "- The npm packages below are bundled into the Lurkloot CLI inside the executable.",
+    `- cycletls/ is the unmodified cycletls ${cycleTls.version} npm package, under the GNU`,
+    "  General Public License v3.0 (cycletls/LICENSE, reproduced below): its JavaScript, and",
+    `  its Go binary as cycletls/${cycleTls.file}, which runs as a separate process. The`,
+    "  executable loads the JavaScript from that folder at run time; it is not compiled in.",
+    "  Its source code is at https://github.com/Danny-Dasilva/CycleTLS",
+    `  (version ${cycleTls.version}). cycletls/node_modules holds its runtime dependencies,`,
+    "  each with its own license file:",
     "",
   ];
+  for (const pkg of cycleTlsDependencies)
+    lines.push(`  - ${pkg.name} ${pkg.version} (${pkg.license})`);
+  lines.push(
+    "",
+    "- The npm packages below are bundled into the Lurkloot CLI inside the executable.",
+    "",
+  );
   for (const pkg of packages) lines.push(`  - ${pkg.name} ${pkg.version} (${pkg.license})`);
   const section = (title, text) => {
     lines.push("", "=".repeat(78), title, "=".repeat(78), "", text.trimEnd());
   };
   section(`Node.js ${nodeVersion}`, nodeLicense);
   section(`cycletls ${cycleTls.version}`, cycleTls.license);
-  for (const pkg of packages) {
+  for (const pkg of [...cycleTlsDependencies, ...packages]) {
     section(
       `${pkg.name} ${pkg.version}`,
       pkg.text ?? `Licensed under ${pkg.license}; the package ships no license file.`,

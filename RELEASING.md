@@ -164,8 +164,8 @@ standalone `lurkloot` executable (#1022) on a runner per target: `linux-x64` (`u
 (`macos-15-intel`) and `windows-x64` (`windows-latest`). Each runner overlays the candidate
 version, runs `pnpm --filter @lurkloot/cli build:executable`, smoke-tests the archive with
 `packages/cli/scripts/smokeExecutable.mjs` (no Node on `PATH`: `serve` must answer `/v1/session`
-and `/`, and a Kick request through the shipped cycletls is a warning when Kick challenges the
-runner), and uploads it. The executable is a copy of the runner's Node 24 binary, ad-hoc signed on
+and `/`, a Kick request through the shipped `cycletls/` is a warning when Kick challenges the
+runner, and with `cycletls/` moved away `serve` must stop naming it), and uploads it. The executable is a copy of the runner's Node 24 binary, ad-hoc signed on
 macOS and unsigned on Windows.
 
 `attest` attests the archives, and `publish` adds them to the extension's assets and rebuilds

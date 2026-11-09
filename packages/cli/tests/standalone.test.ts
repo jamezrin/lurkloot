@@ -11,7 +11,10 @@ vi.mock("cycletls", () => ({ default: initCycleTLS }));
 const {
   assertCycleTlsPathStartable,
   cycleTlsBinaryName,
+  loadStandaloneCycleTls,
+  MissingCycleTlsError,
   standaloneAppRoot,
+  standaloneCycleTlsDir,
   standaloneCycleTlsPath,
   standaloneDir,
 } = await import("../src/runtime/standalone");
@@ -33,13 +36,19 @@ const plainNode = { isSea: () => false, execPath: "/usr/bin/node", platform: "li
 describe("standalone executable paths", () => {
   it("resolve beside the executable", () => {
     expect(standaloneDir(posixExecutable)).toBe("/opt/lurkloot");
-    expect(standaloneCycleTlsPath(posixExecutable)).toBe(join("/opt/lurkloot", "cycletls"));
+    expect(standaloneCycleTlsDir(posixExecutable)).toBe(join("/opt/lurkloot", "cycletls"));
+    expect(standaloneCycleTlsPath(posixExecutable)).toBe(
+      join("/opt/lurkloot", "cycletls", "cycletls"),
+    );
     expect(standaloneAppRoot(posixExecutable)).toBe(join("/opt/lurkloot", "app"));
-    expect(standaloneCycleTlsPath(windowsExecutable)).toBe(join("C:", "Lurkloot", "cycletls.exe"));
+    expect(standaloneCycleTlsPath(windowsExecutable)).toBe(
+      join("C:", "Lurkloot", "cycletls", "cycletls.exe"),
+    );
   });
 
   it("are absent under plain node, never the node binary's directory", () => {
     expect(standaloneDir(plainNode)).toBeUndefined();
+    expect(standaloneCycleTlsDir(plainNode)).toBeUndefined();
     expect(standaloneCycleTlsPath(plainNode)).toBeUndefined();
     expect(standaloneAppRoot(plainNode)).toBeUndefined();
   });
@@ -62,6 +71,44 @@ describe("standalone executable paths", () => {
     expect(() =>
       assertCycleTlsPathStartable("C:\\Program Files\\Lurkloot\\cycletls.exe", "win32"),
     ).not.toThrow();
+  });
+});
+
+describe("loadStandaloneCycleTls", () => {
+  let base: string;
+
+  beforeAll(async () => {
+    base = await mkdtemp(join(tmpdir(), "lurkloot-cycletls-"));
+    // A stand-in package laid out as the archive ships cycletls: package.json,
+    // dist/index.js, and a dependency of its own in its node_modules.
+    const pkg = join(base, "cycletls");
+    mkdirSync(join(pkg, "dist"), { recursive: true });
+    mkdirSync(join(pkg, "node_modules", "dep"), { recursive: true });
+    writeFileSync(join(pkg, "package.json"), '{"name":"cycletls","main":"dist/index.js"}');
+    writeFileSync(join(pkg, "node_modules", "dep", "index.js"), 'module.exports = "dep";');
+    writeFileSync(
+      join(pkg, "dist", "index.js"),
+      'const dep = require("dep"); const init = async () => dep; module.exports = init; module.exports.default = init;',
+    );
+  });
+  afterAll(async () => {
+    await rm(base, { recursive: true, force: true });
+  });
+
+  it("loads the package from its folder, with that folder's own dependencies", async () => {
+    const init = loadStandaloneCycleTls(join(base, "cycletls"));
+    await expect((init as unknown as () => Promise<string>)()).resolves.toBe("dep");
+  });
+
+  it("names the missing folder instead of loading a copy from elsewhere", () => {
+    expect(() => loadStandaloneCycleTls(join(base, "gone"))).toThrow(MissingCycleTlsError);
+    expect(() => loadStandaloneCycleTls(join(base, "gone"))).toThrow(
+      /The cycletls folder is missing beside the executable/,
+    );
+  });
+
+  it("refuses to run outside an executable", () => {
+    expect(() => loadStandaloneCycleTls(undefined)).toThrow(MissingCycleTlsError);
   });
 });
 

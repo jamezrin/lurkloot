@@ -3,6 +3,7 @@ import { join, sep } from "node:path";
 import {
   bundledPackages,
   cycleTlsUpstreamName,
+  dependencyClosure,
   envWithoutNode,
   executableName,
   nodeLicenseCandidates,
@@ -63,19 +64,68 @@ describe("executable build helpers", () => {
     ]);
   });
 
+  it("collect a package's runtime dependency closure once, without type packages", () => {
+    const manifests: Record<string, string> = {
+      "/c": '{"name":"cycletls","dependencies":{"ws":"^8","form-data":"^4","@types/node":"^20"}}',
+      "/n/ws": '{"name":"ws","version":"8.22.1","license":"MIT"}',
+      "/n/form-data":
+        '{"name":"form-data","version":"4.0.6","license":"MIT","dependencies":{"mime-types":"^2"}}',
+      "/n/mime-types":
+        '{"name":"mime-types","version":"2.1.35","license":"MIT","dependencies":{"ws":"^8"}}',
+    };
+    const read = (path: string) => {
+      const dir = path.replace(/[\\/]package\.json$/, "").replaceAll("\\", "/");
+      const text = manifests[dir];
+      if (text === undefined) throw new Error(`ENOENT ${path}`);
+      return text;
+    };
+    const closure = dependencyClosure("/c", { resolve: (_from, name) => `/n/${name}`, read });
+    expect(closure.map((pkg) => `${pkg.name}@${pkg.version}`)).toEqual([
+      "form-data@4.0.6",
+      "mime-types@2.1.35",
+      "ws@8.22.1",
+    ]);
+    expect(closure[0]?.dir).toBe("/n/form-data");
+  });
+
+  it("refuse a dependency closure that needs two versions of one package", () => {
+    const manifests: Record<string, string> = {
+      "/c": '{"dependencies":{"a":"1","b":"1"}}',
+      "/a": '{"name":"a","version":"1.0.0","dependencies":{"b":"2"}}',
+      "/b1": '{"name":"b","version":"1.0.0"}',
+      "/b2": '{"name":"b","version":"2.0.0"}',
+    };
+    const read = (path: string) => {
+      const text = manifests[path.replace(/[\\/]package\.json$/, "").replaceAll("\\", "/")];
+      if (text === undefined) throw new Error(`ENOENT ${path}`);
+      return text;
+    };
+    const resolve = (from: string, name: string) =>
+      name === "a" ? "/a" : from === "/a" ? "/b2" : "/b1";
+    expect(() => dependencyClosure("/c", { resolve, read })).toThrow(/b is needed at/);
+  });
+
   it("render a NOTICE naming Node.js, cycletls's source and each bundled package", () => {
     const notice = renderNotice({
       version: "1.25.0",
       nodeVersion: "v24.11.1",
       nodeLicense: "Node license text",
-      cycleTls: { file: "cycletls", version: "2.0.5", license: "GPL text" },
+      cycleTls: {
+        file: "cycletls",
+        version: "2.0.5",
+        license: "GPL text",
+        dependencies: [{ name: "form-data", version: "4.0.6", license: "MIT", text: "fd license" }],
+      },
       packages: [{ name: "ws", version: "8.22.1", license: "MIT", text: "ws license" }],
     });
     expect(notice).toContain("Lurkloot CLI 1.25.0");
     expect(notice).toContain("Node.js v24.11.1 runtime");
     expect(notice).toContain("https://github.com/Danny-Dasilva/CycleTLS");
     expect(notice).toContain("  - ws 8.22.1 (MIT)");
-    for (const text of ["Node license text", "GPL text", "ws license"])
+    expect(notice).toContain("cycletls/ is the unmodified cycletls 2.0.5 npm package");
+    expect(notice).toContain("it is not compiled in");
+    expect(notice).toContain("  - form-data 4.0.6 (MIT)");
+    for (const text of ["Node license text", "GPL text", "ws license", "fd license"])
       expect(notice).toContain(text);
   });
 

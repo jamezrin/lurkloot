@@ -670,22 +670,32 @@ account id either. A `getSnapshot` answer is the popup's full snapshot, account 
 
 The release also ships the CLI as a standalone `lurkloot` executable per OS, for users without
 Node and as the desktop app's sidecar (#981). `packages/cli/scripts/buildExecutable.mjs` bundles
-`src/index.ts` a second time, as CommonJS with every dependency inside (a single-executable
-application's main script can only `require` built-ins), and injects it into a copy of the
-building Node binary with postject. The archive puts cycletls's Go binary for that platform
-(`cycletls`/`cycletls.exe`), the app UI (`app/`), `LICENSE` and a generated `NOTICE` beside it.
-The `dist/index.mjs` build and the Docker image are untouched.
+`src/index.ts` a second time, as CommonJS with every dependency inside but cycletls (a
+single-executable application's main script can only `require` built-ins), and injects it into a
+copy of the building Node binary with postject. cycletls is GPL-3.0, so it is never compiled in:
+the build aliases `cycletls` to `src/runtime/cycleTlsStandalone.ts` and refuses a bundle that
+still contains cycletls code. The archive puts the cycletls package beside the executable in
+`cycletls/`, as the Docker image keeps it in `node_modules`: its unmodified `package.json`,
+`LICENSE` and `dist/index.js`, its runtime dependency closure flat in `cycletls/node_modules`, and
+the platform's Go binary as `cycletls`/`cycletls.exe`. Beside them go the app UI (`app/`),
+`LICENSE` and a generated `NOTICE`. The `dist/index.mjs` build and the Docker image are untouched:
+they import the real package.
 
 What `node dist/index.mjs` finds beside the bundle or in `node_modules`, the executable finds
 beside itself. `packages/cli/src/runtime/standalone.ts` is the one place that decides this: it
 answers `undefined` unless `node:sea`'s `isSea()` is true, and then resolves paths from
-`dirname(process.execPath)`. `initCycle` (`src/transport/cycle.ts`, the only `initCycleTLS`
-call, used by the impersonate transport and the Kick TV link) passes that path as cycletls's
-`executablePath`, and `defaultAppRoot` (`src/runtime/appAssets.ts`) serves that `app/`. The build
+`dirname(process.execPath)`. In the executable, the shim's `initCycleTLS` loads the package
+from `cycletls/` with `createRequire` on first use (`loadStandaloneCycleTls`), so commands that
+never start cycletls run without the folder, and a missing folder is a `MissingCycleTlsError`
+naming it rather than a fallback to some other copy. `initCycle` (`src/transport/cycle.ts`, the
+only `initCycleTLS` call, used by the impersonate transport and the Kick TV link) passes the Go
+binary in that folder as cycletls's `executablePath`, and `defaultAppRoot`
+(`src/runtime/appAssets.ts`) serves that `app/`. The build
 machine's paths never reach the binary. cycletls starts its binary through `sh -c` outside
 Windows, so a standalone path with spaces or shell characters is refused up front rather than
 left to hang. `packages/cli/tests/standalone.test.ts` guards the resolution in both modes, and
-`scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI.
+`scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI, including once
+with `cycletls/` moved away. #1031 replaces the cycletls wrapper with a client of our own.
 
 ### Characterization coverage
 
