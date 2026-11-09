@@ -59,6 +59,7 @@ async function unpack(path, into) {
     : "tar";
   await runCommand(tar, ["-xf", path, "-C", into]);
   const [top] = readdirSync(into);
+  if (!top) throw new Error(`${basename(path)} unpacked to nothing`);
   return join(into, top);
 }
 

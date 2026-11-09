@@ -204,14 +204,20 @@ jobs:
             const { expectedReleaseAssets } = await import('./trusted/scripts/release/pipeline.mjs');
             console.log(expectedReleaseAssets(process.env.VERSION).join('\n'));
           ")
+          shopt -s nullglob
+          copied=0
           for archive in cli-assets/lurkloot-cli-*; do
             name=$(basename "$archive")
             if grep -qxF "$name" <<< "$expected"; then
               cp "$archive" release-assets/
+              copied=$((copied + 1))
             else
               echo "::warning::$name is not in the trusted release asset set; leaving it out"
             fi
           done
+          # Every archive the trusted ref expects must have been built and copied.
+          wanted=$(grep -c '^lurkloot-cli-' <<< "$expected" || true)
+          test "$copied" -eq "$wanted"
           (cd release-assets && sha256sum lurkloot-* > SHA256SUMS)
       - name: Render candidate release notes
         working-directory: candidate
