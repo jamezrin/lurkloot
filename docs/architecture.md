@@ -687,7 +687,11 @@ answers `undefined` unless `node:sea`'s `isSea()` is true, and then resolves pat
 `dirname(process.execPath)`. In the executable, the shim's `initCycleTLS` loads the package
 from `cycletls/` with `createRequire` on first use (`loadStandaloneCycleTls`), so commands that
 never start cycletls run without the folder, and a missing folder is a `MissingCycleTlsError`
-naming it rather than a fallback to some other copy. `initCycle` (`src/transport/cycle.ts`, the
+naming it rather than a fallback to some other copy. Nothing the package requires may come from
+outside that folder: Node would otherwise look for a missing dependency in every `node_modules`
+above the install (`~/Downloads/node_modules`, say). `confineRequires` makes any resolution from
+inside `cycletls/` to a file outside it fail as `MODULE_NOT_FOUND`, and `WS_NO_BUFFER_UTIL` and
+`WS_NO_UTF_8_VALIDATE` stop ws from looking for its unshipped native add-ons at all. `initCycle` (`src/transport/cycle.ts`, the
 only `initCycleTLS` call, used by the impersonate transport and the Kick TV link) passes the Go
 binary in that folder as cycletls's `executablePath`, and `defaultAppRoot`
 (`src/runtime/appAssets.ts`) serves that `app/`. The build
