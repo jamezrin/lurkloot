@@ -66,12 +66,13 @@ export const CLI_CAPABILITIES: HostCapabilities = {
 // bare EngineSettings. The engine itself only ever reads EngineSettings fields.
 export interface StoragePort<S extends EngineSettings> {
   loadSettings(): Promise<S>;
-  // The CLI's settings come from its config file, so its save does nothing.
+  // The CLI's settings come from its config file; by default its save does
+  // nothing (the CLI's SettingsStore seam).
   saveSettings(settings: S): Promise<void>;
   loadState(): Promise<SchedulerState>;
   saveState(state: SchedulerState): Promise<void>;
-  // Applies a popup settings patch to the host's full settings. Only popup
-  // messages patch settings, and the CLI sends none, so it can leave this out.
+  // Applies a settings patch (from the popup, or the CLI control plane) to the
+  // host's full settings. A host that leaves it out cannot change settings.
   applySettingsPatch?(current: S, patch: SettingsPatch): S;
 }
 
@@ -231,6 +232,7 @@ export interface TestingPorts {
   wait?(ms: number, signal: AbortSignal): Promise<void>;
   selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
   authProbeTimeoutMs?: number;
+  credentialLookupTimeoutMs?: number;
 }
 
 export interface BackgroundHostPorts<S extends EngineSettings = EngineSettings> {

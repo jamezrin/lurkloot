@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Ciutkan bilah sisi"
+  },
+  "navSidebarExpand": {
+    "message": "Perluas bilah sisi"
+  },
   "navQueue": {
     "message": "Antrean"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "Ulasan singkat di Chrome Web Store sangat membantu."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Ulasan singkat di Firefox Add-ons sangat membantu."
+  },
   "rateNudgeAction": {
     "message": "Beri rating"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Satu jalur hanya mengevolusi lencana yang sudah kamu miliki. Tanpa lencana itu, menonton tidak menghasilkan apa-apa."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Belum ada riwayat aktivitas di sini"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot mencatat apa yang dilakukannya di sini, bukan di riwayat yang bisa Anda telusuri. Di bawah ini apa yang sedang dilakukannya sekarang."
+  },
+  "activityLastCheck": {
+    "message": "Pemeriksaan terakhir"
+  },
+  "activityNoCheckYet": {
+    "message": "Belum"
+  },
+  "appNavAccounts": {
+    "message": "Akun"
+  },
+  "windowAccountTitle": {
+    "message": "Akun $1"
+  },
+  "windowAccountManage": {
+    "message": "Kelola akun"
+  },
+  "appAccountsIntro": {
+    "message": "Masukkan Lurkloot ke Twitch dan Kick. Sesi masuk Anda disimpan di penyimpanan pribadi Lurkloot di mesin tempat ia berjalan. Halaman ini tidak pernah menampilkan atau menyimpan token."
+  },
+  "appAccountSignedIn": {
+    "message": "Sudah masuk"
+  },
+  "appAccountChecking": {
+    "message": "Memeriksa…"
+  },
+  "appAccountSignedOut": {
+    "message": "Belum masuk"
+  },
+  "appAccountRejected": {
+    "message": "Masuk tidak lagi valid"
+  },
+  "appAccountUnavailable": {
+    "message": "Tidak bisa diperiksa sekarang"
+  },
+  "appAccountSourceStored": {
+    "message": "Disimpan oleh Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "Dari variabel lingkungan"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Variabel lingkungan SA_* masih menyediakan masuk ini, jadi Lurkloot terus memakainya apa pun yang Anda masuk atau keluarkan di sini. Hapus variabel itu dan mulai ulang Lurkloot untuk memakai masuk dari halaman ini."
+  },
+  "appAccountSignOut": {
+    "message": "Keluar"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Sudah keluar."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Sudah keluar, tetapi variabel lingkungan SA_* masih memasukkan Lurkloot."
+  },
+  "appAccountNothingToForget": {
+    "message": "Tidak ada masuk tersimpan untuk dihapus."
+  },
+  "appRecommended": {
+    "message": "Disarankan"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Masuk dengan browser Anda"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Melihat setiap kampanye drop."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Buka halaman masuk Twitch dan masuk."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Buka masuk Twitch"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Twitch kemudian mengarahkan Anda ke $1. Salin seluruh alamat itu dari bilah alamat."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Tempel alamat tempat Twitch mengarahkan Anda"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Selesaikan masuk"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Sudah masuk ke Twitch."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Sudah masuk ke Twitch sebagai $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "Alamatnya tidak punya bagian #access_token?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv bisa menghapus bagian itu dari bilah alamat hampir seketika. Sebelum masuk, buka DevTools browser pada tab Network dan aktifkan Preserve log. Lalu masuk, filter dengan access_token, dan salin nilai location dari redirect id.twitch.tv. Tempel nilai itu di sini sebagai gantinya."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Masuk dengan kode"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Tidak perlu masuk lewat browser di sini, tetapi Twitch hanya menampilkan masuk ini untuk kampanye yang sudah Anda mulai."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Tautkan dengan kode TV"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Pindai kode dengan ponsel Anda, di aplikasi Kick tempat Anda sudah masuk, lalu konfirmasi di sana."
+  },
+  "appDeviceLoginStart": {
+    "message": "Dapatkan kode"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Buka tautan"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "Kode QR untuk tautan masuk"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Pindai ini dengan kamera ponsel Anda. Tautan akan terbuka di aplikasi Kick, bukan di peramban komputer."
+  },
+  "appDeviceLoginCode": {
+    "message": "Kode"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Menunggu Anda mengonfirmasi kode…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Batal"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Sudah masuk."
+  },
+  "appDeviceLoginExpired": {
+    "message": "Kode sudah kedaluwarsa. Dapatkan kode baru untuk mencoba lagi."
+  },
+  "appDeviceLoginFailed": {
+    "message": "Masuk gagal. Dapatkan kode baru untuk mencoba lagi."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "Masuk dibatalkan."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "Alamat itu tidak memiliki token masuk. Salin seluruh alamat yang dikirim Twitch kepada Anda."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch menolak masuk ini. Mulai lagi dari halaman masuk."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Tidak dapat menjangkau Twitch atau Kick. Coba lagi sebentar lagi."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "Tidak dapat menjangkau $1. Coba lagi sebentar lagi."
+  },
+  "appErrorNetwork": {
+    "message": "Tidak dapat menjangkau Lurkloot. Apakah lurkloot serve masih berjalan?"
+  },
+  "appErrorUnauthorized": {
+    "message": "Token akses ditolak."
+  },
+  "appErrorGeneric": {
+    "message": "Permintaan gagal ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot tidak bisa menyimpan pengaturan ini ke file konfigurasinya: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot menolak nilai ini: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot tidak dapat memperbarui file konfigurasinya. Tidak ada yang diubah."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot tidak bisa melakukan itu di sini."
+  },
+  "appConnecting": {
+    "message": "Menghubungkan ke Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "Tidak dapat menjangkau Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "Jalankan dengan lurkloot serve, lalu coba lagi."
+  },
+  "appRetry": {
+    "message": "Coba lagi"
+  },
+  "appConnectionLost": {
+    "message": "Koneksi ke Lurkloot terputus. Mencoba lagi…"
+  },
+  "appDismiss": {
+    "message": "Tutup"
+  },
+  "appTokenTitle": {
+    "message": "Token akses"
+  },
+  "appTokenBody": {
+    "message": "Lurkloot ini memerlukan token aksesnya, yaitu nilai LURKLOOT_SERVE_TOKEN. Token hanya disimpan di tab browser ini."
+  },
+  "appTokenRejected": {
+    "message": "Token itu ditolak. Periksa dan coba lagi."
+  },
+  "appTokenLabel": {
+    "message": "Token akses"
+  },
+  "appTokenSubmit": {
+    "message": "Lanjutkan"
   }
 }

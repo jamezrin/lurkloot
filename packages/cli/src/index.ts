@@ -23,8 +23,19 @@ import {
   hasTwitchAuth,
   loadCredentials,
 } from "./authStore";
-import { createTransport, type EnabledPlatforms } from "./transport";
+import {
+  createCredentialRefreshingTransport,
+  createTransport,
+  type EnabledPlatforms,
+} from "./transport";
 import { runLoop } from "./runtime/run";
+import { serveLoop } from "./runtime/serve";
+import {
+  DEFAULT_SERVE_HOST,
+  DEFAULT_SERVE_PORT,
+  resolveServeBinding,
+  ServeConfigError,
+} from "./runtime/controlPlane";
 import { formatDiscoveredCampaign } from "./runtime/status";
 import { importCredentials } from "./auth/importCredentials";
 import { twitchBrowserLogin } from "./auth/twitchBrowserLogin";
@@ -65,8 +76,10 @@ function statePath(stateArg: string | undefined, config: CliConfig): string {
   return join(dirname(config.configPath), "state.json");
 }
 
-// Re-reads the file/env credential store each tick (so a login mid-run is
-// noticed) and reports availability to the engine's pre-probe gate. Never
+// Re-reads the file/env credential store on each probe and reports
+// availability to the engine's pre-probe gate. The transport reads the same
+// store again before each adapter is built (createCredentialRefreshingTransport),
+// so a login mid-run is used, not only noticed. Never
 // inspects browser cookies and never returns a credential value.
 function runCredentialAvailability(authDir: string, platform: Platform) {
   return credentialAvailabilityOf(describeCredentialHealth(authDir)[platform]);
@@ -213,11 +226,12 @@ const runCommand: CommandModule = {
     const config = configOf(argv, logger);
     const transport = resolveTransport(config, argv.transport as string | undefined);
     const creds = loadCredentials(config.authDir);
-    const handle = await createTransport(
-      transport,
+    // The store is reloaded before each adapter is built, so a login or logout
+    // made while this runs reaches the engine without a restart.
+    const handle = createCredentialRefreshingTransport(
+      await createTransport(transport, creds, config.authDir, enabledPlatforms(config)),
       creds,
       config.authDir,
-      enabledPlatforms(config),
     );
     await runLoop({
       settings: config.settings,
@@ -227,6 +241,66 @@ const runCommand: CommandModule = {
       once: Boolean(argv.once),
       checkCredentialAvailability: async (platform) =>
         runCredentialAvailability(config.authDir, platform),
+    });
+  },
+};
+
+const serveCommand: CommandModule = {
+  command: "serve",
+  describe: "Farming loop plus a local HTTP control plane, until SIGINT/SIGTERM",
+  builder: (y) =>
+    y
+      .option("host", {
+        type: "string",
+        default: DEFAULT_SERVE_HOST,
+        describe: "Address to bind; a non-loopback one requires LURKLOOT_SERVE_TOKEN",
+      })
+      .option("port", { type: "number", default: DEFAULT_SERVE_PORT, describe: "Port to bind" })
+      .option("transport", {
+        type: "string",
+        choices: TRANSPORTS,
+        describe: "Override the config transport",
+      })
+      .option("state", {
+        type: "string",
+        describe: "State file (default: <configDir>/state.json)",
+      }),
+  handler: async (argv) => {
+    // Refuse an unsafe bind before anything else starts.
+    let binding: ReturnType<typeof resolveServeBinding>;
+    try {
+      binding = resolveServeBinding({
+        host: argv.host as string | undefined,
+        port: argv.port as number | undefined,
+      });
+    } catch (error) {
+      if (!(error instanceof ServeConfigError)) throw error;
+      process.stderr.write(`${error.message}\n`);
+      process.exitCode = 1;
+      return;
+    }
+    const logger = loggerOf(argv);
+    const config = configOf(argv, logger);
+    const transport = resolveTransport(config, argv.transport as string | undefined);
+    const creds = loadCredentials(config.authDir);
+    // The store is reloaded before each adapter is built, so a login or logout
+    // made while this runs reaches the engine without a restart.
+    const handle = createCredentialRefreshingTransport(
+      await createTransport(transport, creds, config.authDir, enabledPlatforms(config)),
+      creds,
+      config.authDir,
+    );
+    await serveLoop({
+      binding,
+      configPath: config.configPath,
+      settings: config.settings,
+      statePath: statePath(argv.state as string | undefined, config),
+      transport: handle,
+      logger,
+      checkCredentialAvailability: async (platform) =>
+        runCredentialAvailability(config.authDir, platform),
+      describeCredentials: () => describeCredentialHealth(config.authDir),
+      auth: { authDir: config.authDir },
     });
   },
 };
@@ -425,6 +499,7 @@ function buildCli(argv: string[]): Argv {
     .command(configCommand)
     .command(discoverCommand)
     .command(runCommand)
+    .command(serveCommand)
     .command(authCommand)
     .demandCommand(1, "Specify a command (run with --help to list them)")
     .strict()

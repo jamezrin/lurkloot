@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "الجوائز"
   },
+  "navSidebarCollapse": {
+    "message": "طي الشريط الجانبي"
+  },
+  "navSidebarExpand": {
+    "message": "توسيع الشريط الجانبي"
+  },
   "navQueue": {
     "message": "قائمة الانتظار"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "تقييم سريع على متجر Chrome يساعد كثيرًا."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "تقييم سريع على متجر Firefox Add-ons يساعد كثيرًا."
+  },
   "rateNudgeAction": {
     "message": "قيّمه"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "يطوّر الخط شارةً تملكها مسبقًا فقط. دونها، لا تكسب المشاهدة شيئًا."
+  },
+  "activityNoHistoryTitle": {
+    "message": "لا يوجد سجل نشاط هنا"
+  },
+  "activityNoHistoryBody": {
+    "message": "يكتب Lurkloot ما يفعله في سجله هنا، وليس في سجل يمكنك تصفحه. أدناه ما يفعله الآن."
+  },
+  "activityLastCheck": {
+    "message": "آخر فحص"
+  },
+  "activityNoCheckYet": {
+    "message": "ليس بعد"
+  },
+  "appNavAccounts": {
+    "message": "الحسابات"
+  },
+  "windowAccountTitle": {
+    "message": "حساب $1"
+  },
+  "windowAccountManage": {
+    "message": "إدارة الحسابات"
+  },
+  "appAccountsIntro": {
+    "message": "سجّل دخول Lurkloot إلى Twitch وKick. يُحفظ تسجيل دخولك في المخزن الخاص بـ Lurkloot على الجهاز الذي يعمل عليه. هذه الصفحة لا تعرض أي رمز ولا تحتفظ به."
+  },
+  "appAccountSignedIn": {
+    "message": "مسجّل الدخول"
+  },
+  "appAccountChecking": {
+    "message": "جارٍ التحقق…"
+  },
+  "appAccountSignedOut": {
+    "message": "غير مسجّل الدخول"
+  },
+  "appAccountRejected": {
+    "message": "تسجيل الدخول لم يعد صالحًا"
+  },
+  "appAccountUnavailable": {
+    "message": "تعذّر التحقق الآن"
+  },
+  "appAccountSourceStored": {
+    "message": "محفوظ بواسطة Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "من متغير بيئة"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "ما زال متغير البيئة SA_* يوفّر تسجيل الدخول هذا، لذا يواصل Lurkloot استخدامه مهما سجّلت الدخول أو خرجت هنا. احذف المتغير وأعد تشغيل Lurkloot لاستخدام تسجيل الدخول من هذه الصفحة."
+  },
+  "appAccountSignOut": {
+    "message": "تسجيل الخروج"
+  },
+  "appAccountSignedOutDone": {
+    "message": "تم تسجيل الخروج."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "تم تسجيل الخروج، لكن متغير البيئة SA_* ما زال يسجّل دخول Lurkloot."
+  },
+  "appAccountNothingToForget": {
+    "message": "لم يكن هناك تسجيل دخول محفوظ ليُنسى."
+  },
+  "appRecommended": {
+    "message": "موصى به"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "سجّل الدخول عبر متصفحك"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "يرى كل حملات Drops."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "افتح صفحة تسجيل الدخول إلى Twitch وسجّل الدخول."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "فتح تسجيل الدخول إلى Twitch"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "ثم يرسلك Twitch إلى $1. انسخ هذا العنوان كاملًا من شريط العناوين."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "الصق العنوان الذي أرسلك إليه Twitch"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "إنهاء تسجيل الدخول"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "تم تسجيل الدخول إلى Twitch."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "تم تسجيل الدخول إلى Twitch باسم $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "هل العنوان بلا جزء #access_token؟"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "قد يزيل twitch.tv هذا الجزء من شريط العناوين تقريبًا فورًا. قبل تسجيل الدخول، افتح DevTools في المتصفح على تبويب Network وفعّل Preserve log. ثم سجّل الدخول، وفلتر بكلمة access_token، وانسخ قيمة location من إعادة توجيه id.twitch.tv. الصقها هنا بدلًا من ذلك."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "سجّل الدخول برمز"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "لا يحتاج إلى تسجيل دخول عبر المتصفح هنا، لكن Twitch لا يعرض هذا التسجيل إلا للحملات التي بدأتها بالفعل."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "اربط الحساب برمز التلفاز"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "امسح الرمز بهاتفك، في تطبيق Kick حيث أنت مسجّل الدخول، ثم أكّد الرمز هناك."
+  },
+  "appDeviceLoginStart": {
+    "message": "احصل على رمز"
+  },
+  "appDeviceLoginOpen": {
+    "message": "فتح الرابط"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "رمز QR لرابط تسجيل الدخول"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "امسح هذا الرمز بكاميرا هاتفك. يفتح الرابط في تطبيق Kick، ولا يفتح في متصفح الكمبيوتر."
+  },
+  "appDeviceLoginCode": {
+    "message": "الرمز"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "في انتظار تأكيدك للرمز…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "إلغاء"
+  },
+  "appDeviceLoginApproved": {
+    "message": "تم تسجيل الدخول."
+  },
+  "appDeviceLoginExpired": {
+    "message": "انتهت صلاحية الرمز. احصل على رمز جديد لتجربة أخرى."
+  },
+  "appDeviceLoginFailed": {
+    "message": "فشل تسجيل الدخول. احصل على رمز جديد لتجربة أخرى."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "أُلغي تسجيل الدخول."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "هذا العنوان لا يحتوي على رمز تسجيل دخول. انسخ العنوان كاملًا الذي أرسلك إليه Twitch."
+  },
+  "appErrorLoginRejected": {
+    "message": "رفض Twitch تسجيل الدخول هذا. ابدأ من جديد من صفحة تسجيل الدخول."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "تعذّر الوصول إلى Twitch أو Kick. حاول مرة أخرى بعد قليل."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "تعذّر الوصول إلى $1. حاول مرة أخرى بعد قليل."
+  },
+  "appErrorNetwork": {
+    "message": "تعذّر الوصول إلى Lurkloot. هل ما زال lurkloot serve يعمل؟"
+  },
+  "appErrorUnauthorized": {
+    "message": "رُفض رمز الوصول."
+  },
+  "appErrorGeneric": {
+    "message": "فشل الطلب ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "لا يستطيع Lurkloot حفظ هذا الإعداد في ملف الإعدادات الخاص به: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "رفض Lurkloot هذه القيمة: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "تعذّر على Lurkloot تحديث ملف الإعدادات. لم يتغير شيء."
+  },
+  "appErrorUnsupported": {
+    "message": "لا يستطيع Lurkloot تنفيذ ذلك هنا."
+  },
+  "appConnecting": {
+    "message": "جارٍ الاتصال بـ Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "تعذّر الوصول إلى Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "شغّله بالأمر lurkloot serve، ثم حاول مرة أخرى."
+  },
+  "appRetry": {
+    "message": "حاول مرة أخرى"
+  },
+  "appConnectionLost": {
+    "message": "انقطع الاتصال بـ Lurkloot. جارٍ إعادة المحاولة…"
+  },
+  "appDismiss": {
+    "message": "إغلاق"
+  },
+  "appTokenTitle": {
+    "message": "رمز الوصول"
+  },
+  "appTokenBody": {
+    "message": "يحتاج هذا Lurkloot إلى رمز الوصول الخاص به، أي قيمة LURKLOOT_SERVE_TOKEN. يُحفظ في تبويب المتصفح هذا فقط."
+  },
+  "appTokenRejected": {
+    "message": "رُفض هذا الرمز. تحقق منه وحاول مرة أخرى."
+  },
+  "appTokenLabel": {
+    "message": "رمز الوصول"
+  },
+  "appTokenSubmit": {
+    "message": "متابعة"
   }
 }

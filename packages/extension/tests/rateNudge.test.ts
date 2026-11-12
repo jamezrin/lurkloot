@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { shouldShowGithubStarNudge, shouldShowRateNudge } from "@lurkloot/popup-ui/rateNudge";
+import {
+  reviewStoreLink,
+  shouldShowGithubStarNudge,
+  shouldShowRateNudge,
+} from "@lurkloot/popup-ui/rateNudge";
 
 describe("shouldShowRateNudge", () => {
   const now = new Date("2026-06-14T12:00:00.000Z");
@@ -40,5 +44,27 @@ describe("shouldShowGithubStarNudge", () => {
   it("stays hidden when the install date is missing or unparseable", () => {
     expect(shouldShowGithubStarNudge(undefined, "pending", now, 7)).toBe(false);
     expect(shouldShowGithubStarNudge("not-a-date", "pending", now, 7)).toBe(false);
+  });
+});
+
+describe("reviewStoreLink", () => {
+  it("sends a host that names no store to the Chrome Web Store", () => {
+    const chrome = {
+      href: "https://chromewebstore.google.com/detail/aobaackpofkghaejdnnmpmeaiaoibhdn/reviews",
+      bodyKey: "rateNudgeBody",
+    };
+    expect(reviewStoreLink(undefined)).toEqual(chrome);
+    expect(reviewStoreLink("chrome-web-store")).toEqual(chrome);
+  });
+
+  it("sends the Firefox build to its Firefox Add-ons reviews, named as such", () => {
+    expect(reviewStoreLink("firefox-add-ons")).toEqual({
+      href: "https://addons.mozilla.org/firefox/addon/lurkloot/reviews/",
+      bodyKey: "rateNudgeBodyFirefox",
+    });
+  });
+
+  it("has nowhere to send a host no store distributes", () => {
+    expect(reviewStoreLink(null)).toBeNull();
   });
 });

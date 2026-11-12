@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "サイドバーを折りたたむ"
+  },
+  "navSidebarExpand": {
+    "message": "サイドバーを展開"
+  },
   "navQueue": {
     "message": "キュー"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "Chrome Web Store での短いレビューが大きな助けになります。"
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Firefox アドオンでの短いレビューが大きな助けになります。"
+  },
   "rateNudgeAction": {
     "message": "評価する"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "進化ラインは、すでに持っているバッジだけを進化させます。そのバッジがなければ、視聴しても何も獲得できません。"
+  },
+  "activityNoHistoryTitle": {
+    "message": "ここにアクティビティの履歴はありません"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot は行ったことをここのログに記録します。閲覧できる履歴ではありません。下には、今実行中の内容が表示されます。"
+  },
+  "activityLastCheck": {
+    "message": "最後のチェック"
+  },
+  "activityNoCheckYet": {
+    "message": "まだです"
+  },
+  "appNavAccounts": {
+    "message": "アカウント"
+  },
+  "windowAccountTitle": {
+    "message": "$1 アカウント"
+  },
+  "windowAccountManage": {
+    "message": "アカウントを管理"
+  },
+  "appAccountsIntro": {
+    "message": "Lurkloot を Twitch と Kick にサインインさせます。サインイン情報は、Lurkloot を実行しているマシン上の Lurkloot 専用ストアに保存されます。このページがトークンを表示したり保存したりすることはありません。"
+  },
+  "appAccountSignedIn": {
+    "message": "サインイン済み"
+  },
+  "appAccountChecking": {
+    "message": "確認中…"
+  },
+  "appAccountSignedOut": {
+    "message": "サインインしていません"
+  },
+  "appAccountRejected": {
+    "message": "サインインが無効になりました"
+  },
+  "appAccountUnavailable": {
+    "message": "今は確認できません"
+  },
+  "appAccountSourceStored": {
+    "message": "Lurkloot が保存"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "環境変数から"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "SA_* 環境変数がこのサインインを提供し続けているため、ここでサインインやサインアウトをしても Lurkloot は引き続きそれを使用します。変数を削除して Lurkloot を再起動すると、このページのサインインが使われます。"
+  },
+  "appAccountSignOut": {
+    "message": "サインアウト"
+  },
+  "appAccountSignedOutDone": {
+    "message": "サインアウトしました。"
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "サインアウトしましたが、SA_* 環境変数が引き続き Lurkloot をサインインさせています。"
+  },
+  "appAccountNothingToForget": {
+    "message": "削除する保存済みのサインインはありませんでした。"
+  },
+  "appRecommended": {
+    "message": "おすすめ"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "ブラウザでサインイン"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "すべてのドロップキャンペーンが表示されます。"
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Twitch のサインインページを開き、サインインします。"
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Twitch のサインインを開く"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "その後 Twitch はあなたを $1 に移動させます。アドレスバーからアドレス全体をコピーしてください。"
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Twitch が送信したアドレスを貼り付け"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "サインインを完了"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Twitch にサインインしました。"
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "$1 として Twitch にサインインしました。"
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "アドレスに #access_token の部分がありませんか？"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv は、ほぼすぐにアドレスバーからその部分を削除することがあります。サインインする前に、ブラウザの開発者ツールを開いて Network タブを表示し、Preserve log をオンにしてください。その後サインインし、access_token で絞り込んで、id.twitch.tv へのリダイレクトの location ヘッダーをコピーします。代わりにそれをここに貼り付けてください。"
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "コードでサインイン"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "ここではブラウザでのサインインは不要ですが、Twitch はこのサインインでは、すでに開始したキャンペーンしか表示しません。"
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "TV コードでリンク"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "電話でコードをスキャンし、サインインしている Kick アプリで確認してください。"
+  },
+  "appDeviceLoginStart": {
+    "message": "コードを取得"
+  },
+  "appDeviceLoginOpen": {
+    "message": "リンクを開く"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "サインイン用リンクの QR コード"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "スマートフォンのカメラでスキャンしてください。リンクは Kick アプリで開きます。コンピューターのブラウザーでは開きません。"
+  },
+  "appDeviceLoginCode": {
+    "message": "コード"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "コードの確認を待っています…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "キャンセル"
+  },
+  "appDeviceLoginApproved": {
+    "message": "サインインしました。"
+  },
+  "appDeviceLoginExpired": {
+    "message": "コードの有効期限が切れました。新しいコードを取得して、もう一度お試しください。"
+  },
+  "appDeviceLoginFailed": {
+    "message": "サインインに失敗しました。新しいコードを取得して、もう一度お試しください。"
+  },
+  "appDeviceLoginCancelled": {
+    "message": "サインインはキャンセルされました。"
+  },
+  "appErrorInvalidRedirect": {
+    "message": "そのアドレスにはサインイントークンがありません。Twitch が送信したアドレス全体をコピーしてください。"
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch がこのサインインを拒否しました。サインインページからやり直してください。"
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Twitch または Kick に接続できませんでした。しばらくしてから、もう一度お試しください。"
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "$1 に接続できませんでした。しばらくしてから、もう一度お試しください。"
+  },
+  "appErrorNetwork": {
+    "message": "Lurkloot に接続できません。lurkloot serve はまだ実行中ですか？"
+  },
+  "appErrorUnauthorized": {
+    "message": "アクセストークンが拒否されました。"
+  },
+  "appErrorGeneric": {
+    "message": "リクエストが失敗しました（$1）。"
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot はこの設定を設定ファイルに保存できません: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot はこの値を受け付けませんでした: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot は設定ファイルを更新できませんでした。何も変更されていません。"
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot はここではその操作を行えません。"
+  },
+  "appConnecting": {
+    "message": "Lurkloot に接続しています…"
+  },
+  "appUnreachableTitle": {
+    "message": "Lurkloot に接続できません"
+  },
+  "appUnreachableBody": {
+    "message": "lurkloot serve で起動してから、もう一度お試しください。"
+  },
+  "appRetry": {
+    "message": "再試行"
+  },
+  "appConnectionLost": {
+    "message": "Lurkloot との接続が切れました。再試行しています…"
+  },
+  "appDismiss": {
+    "message": "閉じる"
+  },
+  "appTokenTitle": {
+    "message": "アクセストークン"
+  },
+  "appTokenBody": {
+    "message": "この Lurkloot にはアクセストークンが必要です。値は LURKLOOT_SERVE_TOKEN のものです。このブラウザタブにのみ保持されます。"
+  },
+  "appTokenRejected": {
+    "message": "そのトークンは拒否されました。確認してから、もう一度お試しください。"
+  },
+  "appTokenLabel": {
+    "message": "アクセストークン"
+  },
+  "appTokenSubmit": {
+    "message": "続行"
   }
 }

@@ -82,6 +82,12 @@
       }
     },
     {
+      "includes": ["**/*.md"],
+      "formatter": {
+        "enabled": false
+      }
+    },
+    {
       "includes": ["packages/popup-ui/src/storeArtworkCopy.ts"],
       "formatter": {
         "enabled": false

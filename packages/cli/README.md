@@ -185,8 +185,9 @@ pnpm cli auth status
   offline channels.
 - **`auth kick device-login`** runs Kick's smart-TV link flow (the same one the
   Kick TV app uses): it prints a `kick.com/tv/login` URL + a 6-digit code; open
-  it on any device where you're signed in to Kick and confirm the code, and the
-  session token is saved — no cookie export needed.
+  it on your phone, where it opens in the Kick app you're signed in to, and
+  confirm the code, and the session token is saved — no cookie export needed.
+  The link does not open in a desktop browser (kick.com has no page for it).
 - **`auth import`** ingests a credential blob exported by the updated extension
   (Settings → **Export credentials**) for Twitch and/or Kick. A Twitch web
   import needs the exported device ID and Kasada session cookie as well as the
@@ -211,6 +212,10 @@ private auth store, so a stale environment value cannot override a refresh.
   persisting `state.json`. `pnpm cli run --once` is the explicit refresh command:
   it discovers campaigns, refreshes authoritative progress, claims eligible
   rewards, persists state, and exits.
+- `serve [--host 127.0.0.1] [--port 8420]` — the same farming loop as `run`,
+  plus [the app](#the-app) and a local HTTP control plane (see
+  [Control plane](#control-plane-serve)).
+  It takes `--transport` and `--state` like `run`, but has no `--once`.
 - `auth import <file>` — import an extension credential export ("-" = stdin).
 - `auth twitch browser-login` — Twitch sign-in in a browser; paste back the address it ends on.
 - `auth twitch device-login` — Twitch device-code OAuth (no browser).
@@ -225,6 +230,180 @@ are accepted everywhere. For shell autocomplete, source the generated script:
 
 ```bash
 pnpm cli completion >> ~/.bashrc   # or ~/.zshrc, then restart your shell
+```
+
+## The app
+
+`lurkloot serve` also serves the Lurkloot app: the extension popup's views in a
+full window, plus an Accounts page that signs in to Twitch and Kick through the
+same flows as `auth`. Start it and open the address it prints:
+
+```bash
+pnpm build:cli                # bundles the CLI and the app (dist/app)
+pnpm cli serve                # App and control plane at http://127.0.0.1:8420/
+```
+
+The app talks to the [control plane](#control-plane-serve) on the same origin.
+If `LURKLOOT_SERVE_TOKEN` is set, it asks for the token once and keeps it for
+that browser tab only. Settings changed in the app are saved to `config.json`.
+
+With Docker, [`compose.yaml`](compose.yaml) runs `serve` from the published image:
+
+```bash
+mkdir lurkloot && cd lurkloot
+curl -fsSLO https://raw.githubusercontent.com/jamezrin/lurkloot/main/packages/cli/compose.yaml
+echo "LURKLOOT_SERVE_TOKEN=$(openssl rand -hex 32)" > .env
+docker compose up -d          # http://127.0.0.1:8420
+```
+
+Sign in from the app's Accounts page, or with `docker compose run --rm lurkloot auth …`.
+Config, state and credentials live in `./data`.
+
+Inside the container `serve` binds `0.0.0.0`, which requires the token, and the
+compose file publishes the port on this machine's loopback only
+(`127.0.0.1:8420:8420`). Opening the app from another machine is remote access:
+publish the port further only behind a reverse proxy that terminates HTTPS, so
+the token never crosses the network in clear. The proxy must pass the original
+`Host` header through: serve refuses a request whose `Origin` names another
+host than its `Host`, so a proxy that rewrites `Host` to the upstream address
+breaks every change the app makes. Caddy and Traefik pass it by default; nginx
+needs `proxy_set_header Host $host;`. `run` stays the image's default command,
+for farming with no app.
+
+## Control plane (`serve`)
+
+`lurkloot serve` farms exactly like `lurkloot run` (one shared loop) and also
+answers a small HTTP API, so an app UI can operate the CLI. `run` never starts a
+server. On SIGINT/SIGTERM the server closes first, then the loop shuts down as
+`run` does.
+
+| Endpoint | Answer |
+| --- | --- |
+| `GET /v1/health` | `{ "status": "ok" }`, for liveness checks. |
+| `GET /v1/session` | `{ id, version, platforms }`. `id` is `"default"` (one process serves one account; the id exists so more can follow). Each platform has `enabled` and `auth`: the engine's last live `status` with its `reasonCode`/`checkedAt`, plus `credential: { present, source, status }`, the same network-free reading as `auth status`. Never a token, cookie or account id. |
+| `POST /v1/session/messages` | Body: one `RuntimeMessage` (`@lurkloot/shared/messages`), the popup's own contract, with `Content-Type: application/json`. Answers `{ "result": … }`: the controller's `handleMessage` result (a snapshot for most messages), or `null`. |
+
+### Signing in over the control plane
+
+The sign-in routes run the same flows as the `auth` commands and write the same
+private auth store (`<authDir>/credentials.json`). They add no other way to get a
+credential.
+
+| Endpoint | Answer |
+| --- | --- |
+| `GET /v1/session/auth` | `{ platforms: { twitch, kick } }`. Each has `auth` (the same masked view as `GET /v1/session`) and `deviceLogin`, the platform's current or last device login, or `null`. |
+| `GET /v1/session/auth/twitch/browser-login` | `{ platform, authorizeUrl, redirectUri }`: the link `auth twitch browser-login` prints. |
+| `POST /v1/session/auth/twitch/browser-login` | Body `{ "address": "https://www.twitch.tv/#access_token=…" }`, the address Twitch ended on. The server reads the token, checks it with Twitch, then replaces the stored Twitch login with it. Answers `{ platform, environmentOverride, login? }` (the Twitch login name, never the account id). A pending Twitch device login is cancelled. |
+| `POST /v1/session/auth/{twitch,kick}/device-login` | Starts the Twitch device-code flow or the Kick TV link, and cancels one already in flight for that platform. Answers `{ deviceLogin }` with `status: "pending"`, `verificationUrl`, `userCode` and `expiresAt`. |
+| `GET /v1/session/auth/{twitch,kick}/device-login` | `{ deviceLogin }`. Poll it: `status` goes from `pending` to `approved`, `expired`, `failed` (with `error.message`) or `cancelled`. Only `approved` writes the store. |
+| `DELETE /v1/session/auth/{twitch,kick}/device-login` | Cancels the flow; a late approval is dropped. Answers `{ deviceLogin }`. |
+| `POST /v1/session/auth/{twitch,kick}/logout` | Forgets the platform's stored credentials, as `auth <platform> logout` does, and cancels its device login. Answers `{ platform, forgotten, environmentOverride }`. |
+
+Every POST needs `Content-Type: application/json`; an empty body counts as
+`{}`. `environmentOverride: true` means an `SA_*` variable still supplies the
+platform's credential, so the engine keeps using that one. One device login
+runs per platform. Closing `serve` stops the polling.
+
+The running loop picks a change up without a restart: the transport reloads the
+store before it builds each platform adapter. After a sign-in or logout, `serve`
+also asks for a tick, so the auth probe reports the new state at once.
+
+A failed, expired or cancelled sign-in leaves the stored credentials as they
+were. Sign-in errors use these codes:
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 400 | `invalid_redirect`, `invalid_request` | The address has no token, or Twitch refused the sign-in; or the body has no `address`. |
+| 409 | `login_cancelled` | The device login was replaced or cancelled while it was starting. |
+| 422 | `login_rejected` | Twitch rejected the token, or it was not issued to the sign-in link's client. |
+| 502 | `upstream_unavailable` | Twitch or Kick could not be reached to start a flow or check a token. |
+
+Supported messages: `getSnapshot`, `tickNow`, `claimReward`,
+`selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
+settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`
+and `setAutomation`. Live updates come from polling `getSnapshot`.
+
+A settings message is applied by the running loop and saved to the config file
+(`--config`, `config.json` by default) at once. Only the values that change are
+rewritten, through a temporary file and a rename, so the file keeps its
+comments, key order, `transport` and `authDir`. A change the CLI config cannot
+hold is refused and nothing is written: an extension-only setting (such as
+`muteFarmingTabs`), a value the CLI pins (`pauseOnManualWatch`,
+`autoStartDropFarming`), or a value `validate-config` would reject or correct (a
+wrong type, an out-of-range number, an unknown choice, a watchlist over the
+limit). `run` never writes the config file. Change settings through the API
+while `serve` runs, or edit the file while it is stopped: a hand edit is read
+the next time the loop loads its settings, but nothing that follows a settings
+change (switching a platform on or off, the poll interval) runs for it until a
+restart.
+
+Errors are JSON, `{ "error": { "code", "message" } }`. A refused settings change
+also carries `paths`, the dotted settings paths it is about (for example
+`"platform.twitch.watchlistChannels"`):
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, a missing/unknown `platform`, or a settings message without its fields (`settingsPatch` object, boolean `enabled`, string `channel`). |
+| 400 | `settings_unrepresentable` | The change sets something the CLI config cannot hold, or changes a value the CLI pins. Nothing is written. |
+| 400 | `settings_invalid` | The change has a value the CLI settings rules reject. Nothing is written. |
+| 401 | `unauthorized` | A token is configured and the request lacks `Authorization: Bearer <token>`. |
+| 403 | `forbidden_host`, `forbidden_origin` | See the security model below. |
+| 404 / 405 | `not_found`, `method_not_allowed` | Unknown endpoint or method. |
+| 409 | `settings_read_only` | A settings message to a host started without a settings store that saves (not `lurkloot serve`). |
+| 413 | `payload_too_large` | Body over 64 KiB. |
+| 415 | `unsupported_media_type` | A POST that is not `application/json`. |
+| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, activity and reset messages). |
+| 500 | `internal_error` | The controller failed; the details go to the log only. |
+| 500 | `settings_not_saved` | The edited config would not load back as the new settings; nothing was written. Details in the log. |
+| 503 | `settings_unavailable` | The config file cannot be read or parsed (fix it, then retry); nothing was written. Details in the log. |
+
+### Security model
+
+- **Loopback by default.** `serve` binds `127.0.0.1`. Any other `--host`
+  (`0.0.0.0`, a LAN address) refuses to start unless an access token is set in
+  `LURKLOOT_SERVE_TOKEN` (at least 16 characters). The token is read from the
+  environment only, never from a flag (it would show in `ps`) or the config
+  file. For a remote Docker host, terminate HTTPS in front of it.
+- **Bearer token.** With a token set, every request, loopback included, needs
+  `Authorization: Bearer <token>`. It is compared in constant time.
+- **DNS rebinding.** On a loopback bind, a request whose `Host` header is not
+  `localhost`, `127.x.x.x` or `[::1]` is refused.
+- **Cross-site requests.** There are no CORS headers, so a browser lets no other
+  site read a response. A request with an `Origin` other than the server's own
+  is refused, and a POST must be `application/json`, which a cross-site page
+  cannot send without a CORS preflight.
+- **No secrets out.** No response or log line carries a token, cookie or
+  credential value; the session view is built from named safe fields only.
+  The pasted Twitch address and a Twitch device code are never returned or
+  logged, and the request log records the path without its query string. The
+  Kick link and code go back to the caller, who must open them. They are never
+  logged, because anyone holding both can collect the session once it is approved.
+  `packages/cli/tests/serveAuth.test.ts` checks every sign-in response and log line
+  for planted tokens.
+- **The app's files are public, the API is not.** With the app bundled, every
+  path outside `/v1` is a static file of the app, served with no token so the
+  page can load and ask for it, but with the same Host check. The files are
+  read from the bundle's directory only: dot segments, encoded separators and
+  NUL are refused, and directories are never listed. The page is sent with a
+  content-security policy that keeps it to its own origin, and it cannot be
+  framed.
+- **Sign-in needs the same access as everything else.** On a non-loopback bind
+  only a holder of `LURKLOOT_SERVE_TOKEN` can start a sign-in or log out, and the
+  token must travel over HTTPS.
+
+```bash
+# local
+lurkloot serve
+curl -s http://127.0.0.1:8420/v1/session
+curl -s -H 'content-type: application/json' -d '{"type":"getSnapshot"}' \
+  http://127.0.0.1:8420/v1/session/messages
+# stop farming Kick; saved to config.json
+curl -s -H 'content-type: application/json' \
+  -d '{"type":"setPlatformEnabled","platform":"kick","enabled":false}' \
+  http://127.0.0.1:8420/v1/session/messages
+
+# reachable from other machines: a token is required
+LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" lurkloot serve --host 0.0.0.0
 ```
 
 ## Event logging
@@ -264,6 +443,8 @@ docker run --rm -it -v "$PWD/data:/data" \
 # Leave the farming loop running in the background.
 docker run -d --name lurkloot --restart unless-stopped \
   -v "$PWD/data:/data" ghcr.io/jamezrin/lurkloot-cli:latest
+
+# Or run serve with the app from compose.yaml: see "The app" above.
 
 # The same flow with an image built locally:
 docker run --rm -v "$PWD/data:/data" lurkloot-cli

@@ -15,6 +15,7 @@ import {
   normalizeWatchSourcePriority,
 } from "@lurkloot/shared/watchSources";
 import { useT } from "./context";
+import { useHostCapabilities, watchSourceShown } from "./hostCapabilities";
 
 export const WATCH_SOURCE_NAME_KEYS: Record<WatchSourceId, string> = {
   drops: "watchSourceDrops",
@@ -46,7 +47,11 @@ export function WatchSourcePriority({
   onChange(order: WatchSourceId[]): void | Promise<void>;
 }) {
   const t = useT();
+  const hostCapabilities = useHostCapabilities();
   const order = normalizeWatchSourcePriority(platform, value);
+  // Sources the host does not farm are not listed, but they keep their place
+  // in the saved order: moving a row swaps it with its listed neighbour.
+  const shown = order.filter((source) => watchSourceShown(source, hostCapabilities));
   const buttons = React.useRef(new Map<string, HTMLButtonElement>());
   const pendingFocus = React.useRef<
     { source: WatchSourceId; direction: "up" | "down"; button: HTMLButtonElement } | undefined
@@ -69,11 +74,13 @@ export function WatchSourcePriority({
   }, [value]);
 
   const move = (source: WatchSourceId, offset: -1 | 1, button: HTMLButtonElement) => {
+    const shownIndex = shown.indexOf(source);
+    const destination = shownIndex + offset;
+    if (destination < 0 || destination >= shown.length) return;
     const index = order.indexOf(source);
-    const destination = index + offset;
-    if (destination < 0 || destination >= order.length) return;
+    const target = order.indexOf(shown[destination]);
     const next = [...order];
-    [next[index], next[destination]] = [next[destination], next[index]];
+    [next[index], next[target]] = [next[target], next[index]];
     if (document.activeElement === button)
       pendingFocus.current = { source, direction: offset === -1 ? "up" : "down", button };
     setAnnouncement(
@@ -90,7 +97,7 @@ export function WatchSourcePriority({
         {t("watchSourcePriorityDescription")}
       </p>
       <ol aria-label={t("watchSourcePriorityTitle")} className="list-none space-y-1">
-        {order.map((source, index) => {
+        {shown.map((source, index) => {
           const Icon = WATCH_SOURCE_ICONS[source];
           return (
             <li
@@ -123,7 +130,7 @@ export function WatchSourcePriority({
                       : "watchSourcePriorityMoveDown",
                     t(WATCH_SOURCE_NAME_KEYS[source]),
                   )}
-                  disabled={direction === "up" ? index === 0 : index === order.length - 1}
+                  disabled={direction === "up" ? index === 0 : index === shown.length - 1}
                   className={actionClass}
                   onClick={(event) =>
                     move(source, direction === "up" ? -1 : 1, event.currentTarget)
@@ -173,9 +180,12 @@ export function WatchSourcePlace({
   named?: boolean;
 }) {
   const t = useT();
-  const index = order.indexOf(source);
+  const hostCapabilities = useHostCapabilities();
+  // Places count only the sources this host lists.
+  const shown = order.filter((entry) => watchSourceShown(entry, hostCapabilities));
+  const index = shown.indexOf(source);
   if (index === -1) return null;
-  const before = order.slice(0, index).map((entry) => t(WATCH_SOURCE_NAME_KEYS[entry]));
+  const before = shown.slice(0, index).map((entry) => t(WATCH_SOURCE_NAME_KEYS[entry]));
   const Icon = WATCH_SOURCE_ICONS[source];
   return (
     <div
@@ -193,7 +203,7 @@ export function WatchSourcePlace({
           </div>
         ) : null}
         <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">
-          {t("watchSourcePlace", [String(index + 1), String(order.length)])}
+          {t("watchSourcePlace", [String(index + 1), String(shown.length)])}
         </div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           {before.length === 0

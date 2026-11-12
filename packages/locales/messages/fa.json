@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "دراپ‌ها"
   },
+  "navSidebarCollapse": {
+    "message": "جمع کردن نوار کناری"
+  },
+  "navSidebarExpand": {
+    "message": "باز کردن نوار کناری"
+  },
   "navQueue": {
     "message": "صف"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "یک نظر کوتاه در فروشگاه وب Chrome خیلی کمک می‌کند."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "یک نظر کوتاه در فروشگاه افزونه‌های Firefox خیلی کمک می‌کند."
+  },
   "rateNudgeAction": {
     "message": "امتیاز بده"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "یک خط فقط نشانی را تکامل می‌دهد که از قبل دارید. بدون آن نشان، تماشا هیچ‌چیزی نمی‌دهد."
+  },
+  "activityNoHistoryTitle": {
+    "message": "اینجا تاریخچه فعالیتی نیست"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot کارهایی را که انجام می‌دهد اینجا در گزارشش ثبت می‌کند، نه در تاریخچه‌ای که بتوانید مرورش کنید. در ادامه آنچه الان انجام می‌دهد آمده است."
+  },
+  "activityLastCheck": {
+    "message": "آخرین بررسی"
+  },
+  "activityNoCheckYet": {
+    "message": "هنوز نه"
+  },
+  "appNavAccounts": {
+    "message": "حساب‌ها"
+  },
+  "windowAccountTitle": {
+    "message": "حساب $1"
+  },
+  "windowAccountManage": {
+    "message": "مدیریت حساب‌ها"
+  },
+  "appAccountsIntro": {
+    "message": "Lurkloot را به Twitch و Kick وصل کنید. ورود شما در فضای خصوصی Lurkloot روی رایانه‌ای که آن را اجرا می‌کند ذخیره می‌شود. این صفحه هرگز توکنی را نشان نمی‌دهد یا نگه نمی‌دارد."
+  },
+  "appAccountSignedIn": {
+    "message": "واردشده"
+  },
+  "appAccountChecking": {
+    "message": "در حال بررسی…"
+  },
+  "appAccountSignedOut": {
+    "message": "واردنشده"
+  },
+  "appAccountRejected": {
+    "message": "ورود دیگر معتبر نیست"
+  },
+  "appAccountUnavailable": {
+    "message": "فعلاً نمی‌توان بررسی کرد"
+  },
+  "appAccountSourceStored": {
+    "message": "ذخیره‌شده توسط Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "از متغیر محیطی"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "متغیر محیطی SA_* هنوز این ورود را تأمین می‌کند، پس Lurkloot هر کاری که اینجا ورود یا خروج کنید، همچنان از آن استفاده می‌کند. متغیر را حذف کنید و Lurkloot را دوباره راه‌اندازی کنید تا از ورود این صفحه استفاده شود."
+  },
+  "appAccountSignOut": {
+    "message": "خروج"
+  },
+  "appAccountSignedOutDone": {
+    "message": "خارج شدید."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "خارج شدید، اما متغیر محیطی SA_* هنوز Lurkloot را وارد می‌کند."
+  },
+  "appAccountNothingToForget": {
+    "message": "ورود ذخیره‌شده‌ای برای فراموش‌کردن وجود نداشت."
+  },
+  "appRecommended": {
+    "message": "پیشنهادی"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "با مرورگرتان وارد شوید"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "همهٔ کمپین‌های دراپ را می‌بیند."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "صفحهٔ ورود Twitch را باز کنید و وارد شوید."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "باز کردن ورود به Twitch"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "سپس Twitch شما را به $1 می‌فرستد. کل آن نشانی را از نوار نشانی کپی کنید."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "نشانی‌ای را که Twitch برایتان فرستاد اینجا بچسبانید"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "تکمیل ورود"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "به Twitch وارد شدید."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "به Twitch با نام $1 وارد شدید."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "نشانی بخش #access_token را ندارد؟"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv ممکن است آن بخش را تقریباً بلافاصله از نوار نشانی حذف کند. پیش از ورود، DevTools مرورگر را روی برگهٔ Network باز کنید و Preserve log را روشن کنید. سپس وارد شوید، با access_token فیلتر کنید و مقدار location را در تغییرمسیر id.twitch.tv کپی کنید. به‌جای نشانی کامل، همان را اینجا بچسبانید."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "با کد وارد شوید"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "اینجا به ورود با مرورگر نیاز ندارد، اما Twitch این ورود را فقط برای کمپین‌هایی نشان می‌دهد که قبلاً شروع کرده‌اید."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "با کد تلویزیون پیوند دهید"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "کد را با گوشی‌تان اسکن کنید، در برنامه Kick که وارد آن شده‌اید، و آن را همان‌جا تأیید کنید."
+  },
+  "appDeviceLoginStart": {
+    "message": "دریافت کد"
+  },
+  "appDeviceLoginOpen": {
+    "message": "باز کردن لینک"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "کد QR برای پیوند ورود"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "این را با دوربین گوشی‌تان اسکن کنید. پیوند در برنامه Kick باز می‌شود، نه در مرورگر رایانه."
+  },
+  "appDeviceLoginCode": {
+    "message": "کد"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "در انتظار تأیید کد توسط شما…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "لغو"
+  },
+  "appDeviceLoginApproved": {
+    "message": "وارد شدید."
+  },
+  "appDeviceLoginExpired": {
+    "message": "کد منقضی شد. برای تلاش دوباره کد جدید بگیرید."
+  },
+  "appDeviceLoginFailed": {
+    "message": "ورود ناموفق بود. برای تلاش دوباره کد جدید بگیرید."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "ورود لغو شد."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "این نشانی توکن ورود ندارد. کل نشانی‌ای را که Twitch برایتان فرستاد کپی کنید."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch این ورود را رد کرد. از صفحهٔ ورود دوباره شروع کنید."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "به Twitch یا Kick نرسیدیم. لحظه‌ای دیگر دوباره امتحان کنید."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "به $1 نرسیدیم. لحظه‌ای دیگر دوباره امتحان کنید."
+  },
+  "appErrorNetwork": {
+    "message": "به Lurkloot نمی‌رسیم. آیا lurkloot serve هنوز در حال اجراست؟"
+  },
+  "appErrorUnauthorized": {
+    "message": "توکن دسترسی رد شد."
+  },
+  "appErrorGeneric": {
+    "message": "درخواست ناموفق بود ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot نمی‌تواند این تنظیم را در فایل پیکربندی‌اش ذخیره کند: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot این مقدار را رد کرد: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot نتوانست فایل پیکربندی‌اش را به‌روز کند. چیزی تغییر نکرد."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot نمی‌تواند این کار را اینجا انجام دهد."
+  },
+  "appConnecting": {
+    "message": "در حال اتصال به Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "به Lurkloot نمی‌رسیم"
+  },
+  "appUnreachableBody": {
+    "message": "آن را با lurkloot serve راه‌اندازی کنید، سپس دوباره امتحان کنید."
+  },
+  "appRetry": {
+    "message": "تلاش دوباره"
+  },
+  "appConnectionLost": {
+    "message": "اتصال با Lurkloot قطع شد. در حال تلاش مجدد…"
+  },
+  "appDismiss": {
+    "message": "بستن"
+  },
+  "appTokenTitle": {
+    "message": "توکن دسترسی"
+  },
+  "appTokenBody": {
+    "message": "این Lurkloot به توکن دسترسی‌اش نیاز دارد، یعنی مقدار LURKLOOT_SERVE_TOKEN. فقط در همین برگهٔ مرورگر نگه داشته می‌شود."
+  },
+  "appTokenRejected": {
+    "message": "این توکن رد شد. آن را بررسی کنید و دوباره امتحان کنید."
+  },
+  "appTokenLabel": {
+    "message": "توکن دسترسی"
+  },
+  "appTokenSubmit": {
+    "message": "ادامه"
   }
 }

@@ -294,6 +294,17 @@ jobs:
         run: >-
           node scripts/release/cli.mjs cws-release
           --version "$VERSION" --package "release-assets/lurkloot-$VERSION-chrome.zip"
+      # Skips while the AMO credentials are unset (before the listing's first manual submission).
+      # A version that already exists is left in place, so a rerun after a later failure is safe.
+      - name: Publish to Firefox Add-ons
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: >-
+          node scripts/release/cli.mjs amo-release
+          --version "$VERSION"
+          --package "release-assets/lurkloot-$VERSION-firefox.zip"
+          --sources "release-assets/lurkloot-$VERSION-firefox-sources.zip"
       - uses: ./.github/actions/deploy-site
         with:
           channel: production
@@ -332,7 +343,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
-          version: 12.16.1
+          version: 12.18.0
       - uses: actions/setup-node@v7
         with:
           node-version: 24

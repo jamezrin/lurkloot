@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Contraer barra lateral"
+  },
+  "navSidebarExpand": {
+    "message": "Expandir barra lateral"
+  },
   "navQueue": {
     "message": "Cola"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "Una reseña rápida en Chrome Web Store ayuda mucho."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Una reseña rápida en Complementos de Firefox ayuda mucho."
+  },
   "rateNudgeAction": {
     "message": "Valórala"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Una línea solo evoluciona una insignia que ya tengas. Sin esa insignia, mirar no da nada."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Aquí no hay historial de actividad"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot escribe aquí lo que hace en su registro, no en un historial que puedas explorar. Abajo está lo que hace ahora."
+  },
+  "activityLastCheck": {
+    "message": "Última comprobación"
+  },
+  "activityNoCheckYet": {
+    "message": "Todavía no"
+  },
+  "appNavAccounts": {
+    "message": "Cuentas"
+  },
+  "windowAccountTitle": {
+    "message": "Cuenta de $1"
+  },
+  "windowAccountManage": {
+    "message": "Gestionar cuentas"
+  },
+  "appAccountsIntro": {
+    "message": "Inicia sesión en Lurkloot con Twitch y Kick. Tu sesión se guarda en el almacén privado de Lurkloot, en la máquina donde se ejecuta. Esta página nunca muestra ni guarda un token."
+  },
+  "appAccountSignedIn": {
+    "message": "Sesión iniciada"
+  },
+  "appAccountChecking": {
+    "message": "Comprobando…"
+  },
+  "appAccountSignedOut": {
+    "message": "Sin sesión iniciada"
+  },
+  "appAccountRejected": {
+    "message": "La sesión ya no es válida"
+  },
+  "appAccountUnavailable": {
+    "message": "No se puede comprobar ahora"
+  },
+  "appAccountSourceStored": {
+    "message": "Guardada por Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "Desde una variable de entorno"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Una variable de entorno SA_* sigue proporcionando esta sesión, así que Lurkloot la seguirá usando aunque inicies o cierres sesión aquí. Elimina la variable y reinicia Lurkloot para usar la sesión de esta página."
+  },
+  "appAccountSignOut": {
+    "message": "Cerrar sesión"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Sesión cerrada."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Sesión cerrada, pero una variable de entorno SA_* sigue iniciando sesión en Lurkloot."
+  },
+  "appAccountNothingToForget": {
+    "message": "No había ninguna sesión guardada que olvidar."
+  },
+  "appRecommended": {
+    "message": "Recomendado"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Inicia sesión con tu navegador"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Ve todas las campañas de drops."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Abre la página de inicio de sesión de Twitch e inicia sesión."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Abrir inicio de sesión de Twitch"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Después, Twitch te envía a $1. Copia esa dirección completa desde la barra de direcciones."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Pega la dirección a la que Twitch te envió"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Terminar inicio de sesión"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Sesión iniciada en Twitch."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Sesión iniciada en Twitch como $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "¿La dirección no tiene la parte #access_token?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv puede quitarla de la barra de direcciones casi de inmediato. Antes de iniciar sesión, abre las herramientas de desarrollador del navegador en la pestaña Network y activa Preserve log. Luego inicia sesión, filtra por access_token y copia el encabezado location de la redirección de id.twitch.tv. Pégalo aquí en su lugar."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Inicia sesión con un código"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "No necesita iniciar sesión en el navegador, pero con este inicio de sesión Twitch solo muestra las campañas que ya has empezado."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Vincula con un código de TV"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Escanea el código con tu teléfono, en la app de Kick donde has iniciado sesión, y confírmalo allí."
+  },
+  "appDeviceLoginStart": {
+    "message": "Obtener un código"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Abrir enlace"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "Código QR del enlace de inicio de sesión"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Escanéalo con la cámara de tu teléfono. El enlace se abre en la app de Kick, no en el navegador de una computadora."
+  },
+  "appDeviceLoginCode": {
+    "message": "Código"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Esperando a que confirmes el código…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Cancelar"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Sesión iniciada."
+  },
+  "appDeviceLoginExpired": {
+    "message": "El código caducó. Obtén uno nuevo para volver a intentarlo."
+  },
+  "appDeviceLoginFailed": {
+    "message": "El inicio de sesión falló. Obtén un código nuevo para volver a intentarlo."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "El inicio de sesión se canceló."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "Esa dirección no tiene token de inicio de sesión. Copia la dirección completa a la que Twitch te envió."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch rechazó este inicio de sesión. Empieza de nuevo desde la página de inicio de sesión."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "No se pudo conectar con Twitch ni con Kick. Inténtalo de nuevo en un momento."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "No se pudo conectar con $1. Inténtalo de nuevo en un momento."
+  },
+  "appErrorNetwork": {
+    "message": "No se puede conectar con Lurkloot. ¿Sigue ejecutándose lurkloot serve?"
+  },
+  "appErrorUnauthorized": {
+    "message": "Se rechazó el token de acceso."
+  },
+  "appErrorGeneric": {
+    "message": "La solicitud falló ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot no puede guardar este ajuste en su archivo de configuración: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot rechazó este valor: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot no pudo actualizar su archivo de configuración. No se cambió nada."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot no puede hacer eso aquí."
+  },
+  "appConnecting": {
+    "message": "Conectando con Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "No se puede conectar con Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "Arráncalo con lurkloot serve y vuelve a intentarlo."
+  },
+  "appRetry": {
+    "message": "Reintentar"
+  },
+  "appConnectionLost": {
+    "message": "Se perdió la conexión con Lurkloot. Reintentando…"
+  },
+  "appDismiss": {
+    "message": "Descartar"
+  },
+  "appTokenTitle": {
+    "message": "Token de acceso"
+  },
+  "appTokenBody": {
+    "message": "Este Lurkloot necesita su token de acceso, el valor de LURKLOOT_SERVE_TOKEN. Solo se guarda en esta pestaña del navegador."
+  },
+  "appTokenRejected": {
+    "message": "Se rechazó ese token. Revísalo e inténtalo de nuevo."
+  },
+  "appTokenLabel": {
+    "message": "Token de acceso"
+  },
+  "appTokenSubmit": {
+    "message": "Continuar"
   }
 }

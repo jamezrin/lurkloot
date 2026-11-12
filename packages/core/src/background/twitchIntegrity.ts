@@ -5,6 +5,7 @@ import {
   noteTwitchGqlRequest,
   setTwitchIntegrity,
   syncManagedTabBreakers,
+  twitchMintHeld,
 } from "../core/tabRegistry";
 import { recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
@@ -20,6 +21,11 @@ import type { BackgroundHostPorts } from "./hostPorts";
 import type { BackgroundJob } from "./jobs";
 import type { ControllerCalls, TickDiagnosticContext } from "./types";
 import { errorMessage } from "@lurkloot/shared/errors";
+import { withAbortSignal, withTimeout } from "../core/abort";
+
+// How long tick readiness waits for the sign-in cookie lookup before treating
+// it as failed and preparing integrity anyway.
+const CREDENTIAL_LOOKUP_TIMEOUT_MS = 5_000;
 
 // The proactive refresh job. A host that cannot capture integrity leaves it inert.
 export const TWITCH_INTEGRITY_JOBS: Readonly<Record<string, BackgroundJob>> = {
@@ -672,6 +678,42 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     tickContext: TickDiagnosticContext,
   ): Promise<boolean> {
     if (!settings.platform.twitch.enabled || !integrityPort) return true;
+    // Signed out, a mint has no session to mint for and can only time out
+    // after opening a twitch.tv tab. Hold nothing back: the auth probe, which
+    // owns auth health, reports missing_credentials on this same tick and
+    // discovery skips Twitch. Only a definite "missing" skips; a lookup that
+    // failed, or never answered, says nothing about the session.
+    const credentials = ports.credentials
+      ? await withAbortSignal(
+          withTimeout(
+            ports.credentials.checkAvailability("twitch").catch(() => undefined),
+            ports.testing?.credentialLookupTimeoutMs ?? CREDENTIAL_LOOKUP_TIMEOUT_MS,
+          ),
+          signal,
+        )
+      : undefined;
+    if (credentials?.status === "missing") return true;
+    // Minting is held because Twitch rejects every token this browser mints
+    // (#1003). Readiness cannot get a token, and holding Twitch out of the
+    // tick would stop it farming altogether once the held token ages out; the
+    // tick goes on without one, and each read falls back as it would.
+    if (twitchMintHeld(tabRegistry)) {
+      await reportBestEffort(
+        correlateTickDiagnostics(
+          [
+            {
+              category: "diagnostic",
+              platform: "twitch",
+              level: "debug",
+              message:
+                "Twitch integrity minting is held after repeated rejections; ticking without a fresh token",
+            },
+          ],
+          tickContext,
+        ),
+      );
+      return true;
+    }
     const port = integrityPort;
     return withEventCollector(async (emit, events) => {
       const lifecycleGeneration = integritySlice.lifecycleGeneration;

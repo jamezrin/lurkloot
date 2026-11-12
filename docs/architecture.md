@@ -10,7 +10,8 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 - `packages/core` — the browser-free farming engine (`@lurkloot/core`): scheduler, background controller, platform adapters/parsers, tab/watch abstractions, tabless watch logic, and Twitch integrity helpers. It is consumed by both the extension and CLI.
 - `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`.
 - `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
-- `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by both the extension and the site.
+- `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
+- `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
 - `packages/shared` — framework-agnostic models, messages, settings, i18n, and logging (`@lurkloot/shared`).
 - `packages/site` — the Astro marketing/landing page, which imports the real popup UI for its demo.
 
@@ -177,7 +178,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | The discovery-signal service's `onTickConcluded` hook (after a tick commits, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
-| Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
+| Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's settings come from an injectable `SettingsStore` (`packages/cli/src/runtime/run.ts`); the default store (`run`) drops saves and applies no patch. `serve` uses the config-file store (`packages/cli/src/settingsStore.ts`, #1000), which applies and saves them |
 | Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The Kick runtime's `releasePageContexts` effect handler (#588), `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start, removal of the context's tab (forgotten whoever closed it, without pausing; #588) | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
 | Claim operations (the claim service's drop-claim operations, waiting reward ids and handoffs, the Kick runtime's challenge claim operations, the channel-points service's claim operations, push-claim queue and push observer) and claim guards (the claim service's `RewardClaimGuard`s, the Kick runtime's `KickChallengeClaimGate`, the channel-points `ChannelPointsClaimGate`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | None for the request: the tick (#599), the drop-claim job and manual claims (#597), the channel-points job and push (#590) and the Kick challenge job (#588) claim with no lock, then commit their result onto the latest state under the platform lock. The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (the token, the persisted token, the lifecycle generation) | The integrity service's own state (#589). The token has one in-memory copy, in the tab registry, with the capture waiters and in-flight acquisition; the service is its only writer; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, and Twitch's enabled flag from any settings save (#589): a save that disables Twitch cancels a mint in flight and holds off integrity work until it ends, and a serialized reconcile after it follows the stored flag, so a failed save needs no rollback | A newer lifecycle generation, and for persistence a host reset | The service's own lanes, no controller lock (#589): token bookkeeping, then the refresh alarm. A schedule re-checks it owns the lifecycle inside the alarm lane, where a disable's clear also runs | Token reloaded from storage | Extension only |
@@ -340,7 +341,11 @@ and never take the commit lock or call `saveState` themselves.
   lane tables) is allowed. A platform's own service registers its policy in the controller's
   `PlatformPolicySlice`, and only Twitch integrity registers any:
   - **Tick readiness:** before a tick farms Twitch, integrity prepares its token; a platform that
-    is not ready is kept out of the tick.
+    is not ready is kept out of the tick. Readiness first asks the credentials port: with no
+    Twitch session it mints nothing and holds nothing back, so the auth probe reports
+    `missing_credentials` on that same tick instead of after a page context times out. A lookup
+    that fails, or has not answered within five seconds, is treated as unknown and readiness
+    prepares the token as before.
   - **Switch transition:** integrity owns the Twitch switch's transition generation. A later switch,
     shutdown or reset supersedes it, and the switch stops before marking the platform starting or
     ticking once it is not current. A platform with no transition is always current.
@@ -534,7 +539,7 @@ of optional hooks:
 
 | Port | Extension | CLI |
 | --- | --- | --- |
-| `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings from the config file, never written |
+| `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings through an injectable `SettingsStore`: under `run` the config file's, never written; under `serve` the config-file store (`src/settingsStore.ts`, #1000), which saves them to `config.json` |
 | `events` | Activity store, OS notifications, locale catalogs | The logger |
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
@@ -542,6 +547,30 @@ of optional hooks:
 | `tabs` (`watch`: `WatchTabPort`, `pageContexts`: `PageContextPort`, which also carries page-context recovery), `tabRegistry` | Browser tabs. Watch tabs are the host's, not `PlatformAdapter`'s (#598) | Absent: every watch is tabless |
 | `twitch.integrity` | Page capture | Absent |
 | `twitch.supplementalSources` | Twitch Extensions host (#587 adds `prepare`) | Absent |
+
+The CLI settings store (`packages/cli/src/settingsStore.ts`, #976) is what `serve` (#975) gives
+the controller as `storage.loadSettings`/`saveSettings`. It maps engine settings back to the CLI
+schema with `engineToCliSettings`, validates them with the rules `validate-config` uses, and edits
+`config.json` through a temporary file in the same directory and a rename, keeping the file mode,
+comments, key order, `transport` and `authDir` as written. A field the CLI schema has no key for is
+saved only while it holds the value `toEngineSettings` gives it (`tablessMode`, the pinned
+`pauseOnManualWatch` and `autoStartDropFarming`); any other value, or an extension-only field such
+as `muteFarmingTabs`, is rejected with `CliSettingsStoreError` and the file is left untouched.
+The store also provides the controller's `applySettingsPatch` (#1000): it layers the patch over the
+current settings with the shared `overlaySettingsPatch` (the same overlay the extension's
+`applySettingsPatch` normalizes), then runs the result through `engineToCliSettings`, so the patch
+is checked by the rules a save uses rather than a second copy of them. Where the extension
+normalizes silently, the CLI rejects: a value the patch sets must come back from the CLI rules as
+given, so a wrong type, an out-of-range number or an unknown choice is `invalid` instead of being
+clamped or defaulted. A rejected patch throws inside the settings commit before anything is saved,
+and a save that fails leaves the file as it was; the controller has no settings of its own beyond
+what `load` returns, so in both cases its settings stay unchanged. `load` re-parses the file only
+when its inode, size or modification time changed, so a save or a hand edit is seen on the next
+call. `run` never uses the store. `config import` (`saveConfigSettings`) is the only other writer of
+the file. `packages/cli/tests/settingsStore.test.ts` guards the round trip for every CLI key, the
+patch rules, the rejections, the atomic write and the run boundary, including a `run` loop that
+receives settings messages and never writes the file; `packages/cli/tests/serve.test.ts` drives
+each settings message over HTTP.
 
 Each host passes a static `capabilities` object (`EXTENSION_CAPABILITIES`, `CLI_CAPABILITIES`),
 written by hand. `createBackgroundController` throws `HostCapabilityMismatchError` when a
@@ -585,6 +614,57 @@ releases its tabs, and normalizes the settings. It does not resume farming: the 
 CLI pins `autoStartDropFarming` to true, since it always resumes its enabled platforms and the
 reconciliation would otherwise switch them off. Before #593, a CLI restart skipped all of this and
 let heartbeat recovery resume the previous watch from its persisted cadence.
+
+### CLI control plane (#975)
+
+`lurkloot run` and `lurkloot serve` share one loop, `runLoop` (`packages/cli/src/runtime/run.ts`).
+`serve` passes a `startHost` hook that starts the HTTP control plane
+(`packages/cli/src/runtime/controlPlane.ts`) once the controller exists, before startup
+reconciliation, and the loop closes it first on shutdown; `run` passes none and starts no server
+(`packages/cli/tests/runNoServer.test.ts`). The control plane only forwards the popup's
+`RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
+messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
+
+Settings reach the controller through the loop's `SettingsStore` seam: `load`, `save` and an
+optional `applyPatch`. The default, which `run` uses, keeps the CLI's long-standing behavior (the
+config file's settings, saves dropped, no patch). `serve` builds the config-file store from the
+config path (`serveLoop`'s `configPath`), which validates patches against the CLI schema, keeps
+the headless invariants (`pauseOnManualWatch: false`, `autoStartDropFarming: true`) and writes
+`config.json` (#1000). The control plane refuses settings messages with `settings_read_only` only
+for a store without `applyPatch`. It checks the message fields the controller reads before the
+store sees a change (`settingsPatch` is an object, `enabled` a boolean, a watchlist `channel` a
+string) and maps `CliSettingsStoreError`: `unrepresentable` and `invalid` give a 400 carrying the
+offending settings `paths`, `config_unreadable` a 503 and `verification_failed` a 500, whose
+details go to the log only.
+
+Sign-in over the control plane (#978) lives in `packages/cli/src/runtime/controlPlaneAuth.ts`,
+added through the control plane's `routes` option, so `controlPlane.ts` keeps only the request
+guard, body handling and dispatch. It runs the CLI's own login modules and adds no credential path.
+The Twitch device-code flow and the Kick TV link share one start/poll shape
+(`packages/cli/src/auth/deviceLogin.ts`: a `DeviceLoginFlow` started by `startTwitchDeviceLogin` or
+`startKickDeviceLogin`, driven by `waitForDeviceApproval`), and the `auth … device-login` commands
+and `serve` both drive that shape. The browser login's parse-validate-replace path is
+`completeTwitchBrowserLogin`, used the same way. `serve` keeps one device login per platform. A new
+start, a browser login, a logout or shutdown aborts the old flow's sleep and poll, and it releases the
+flow's resources (Kick's cycletls). A start claims the platform's slot before it awaits anything, so racing starts leave one flow. A poll that ignores the abort, such as a hung cycletls request, is raced against the signal, so a cancel never waits on it. A flow aborted after approval saves nothing. The routes write only
+the auth store. Auth health stays the probe's: after a change, `serve` sends `tickNow` and the probe
+reports the result.
+
+The credential store is live for both `run` and `serve`. The transports read credentials through one
+object at request time, and `createCredentialRefreshingTransport`
+(`packages/cli/src/transport/index.ts`) reloads the store into that object before each adapter is
+built. It has to run before the adapter, not in the availability check, because the adapter fixes
+the Twitch Client-ID when it is built. An unreadable store keeps the last good credentials. The web
+integrity manager belongs to the web session the process started with. Adapters use it only while
+the current Twitch client is the web client, so switching *to* an imported web session still needs a
+restart. `packages/cli/tests/credentialRefresh.test.ts` guards the reload at the request level.
+
+The bind is loopback unless `LURKLOOT_SERVE_TOKEN` is set; a token, when set, is required on
+every request; a loopback bind refuses non-loopback `Host` headers (DNS rebinding) and foreign
+`Origin`s; there are no CORS headers. No response carries a credential value: the controller
+never reads one, the sign-in routes answer with presence, source and the Twitch login name only, and `GET /v1/session` is assembled from named fields of the snapshot's auth
+health and the credential store's presence reading, never by spreading objects, so it carries no
+account id either. A `getSnapshot` answer is the popup's full snapshot, account id included.
 
 ### Characterization coverage
 
@@ -973,7 +1053,7 @@ For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligibl
 
 In the extension, most platform calls go through the page-context fetch helpers in `packages/extension/src/core/browserTabs.ts`, bound to the browser by `packages/extension/src/core/tabs.ts`. They find or open a temporary tab on the platform origin, then execute `fetch` in the page `MAIN` world. This keeps requests inside the browser's normal logged-in session and any page clearance context.
 
-For Kick, `pageFetchJson` reads `session_token` from the Kick page context and adds it as a bearer token for `web.kick.com` API calls. For Twitch, GraphQL requests use Twitch's public web client id and normal browser credentials unless a public channel check explicitly passes `credentials: "omit"`. Twitch claim mutations also replay a short-lived Client-Integrity bundle captured from page-origin Twitch GraphQL traffic.
+For Kick, `pageFetchJson` reads `session_token` from the Kick page context and adds it as a bearer token for `web.kick.com` API calls. For Twitch, GraphQL requests use Twitch's public web client id and normal browser credentials unless a public channel check explicitly passes `credentials: "omit"`. Twitch claim mutations also replay a short-lived Client-Integrity bundle captured from page-origin Twitch GraphQL traffic. When Twitch rejects a token the extension's own page context minted within the last five minutes, a second such rejection holds every mint (readiness, proactive refresh and rejection recovery) instead of opening another twitch.tv tab for another rejected token (#1003). The hold is a stop, not a backoff: it lifts only when a tab the extension did not open supplies a new token (the registry records every tab it creates, watch tabs and page contexts alike, in `extensionCreatedTabs`), or when the integrity lifecycle restarts (Twitch turned off, a host reset, shutdown). While it holds, tick readiness lets Twitch through without a fresh token rather than holding it out, so the tick keeps farming on its fallbacks instead of stopping once the held token ages out. The hold is in memory, so a service-worker restart allows one more short episode. The rule lives in `tabRegistry.ts` (`noteTwitchIntegrityRejected`), and `twitchIntegrityMintHold.test.ts` drives three hours of rejected ticks and asserts the opens end. Only a request that also carries `Authorization` is captured: a signed-out page sends Client-Integrity for an anonymous session, which no authenticated request can use (`integrityFromHeaders`).
 
 Temporary page-context tabs are reference-counted per origin and removed after the fetches complete when the extension created them. Existing user tabs reused for page-context fetches are not closed.
 
@@ -1249,6 +1329,137 @@ rows by ranking tier, and Skipped rows carry the reason the engine gave plus the
 single action that resolves it. Changes that can affect the active scheduler
 target can request a targeted tick for the affected platform.
 
+### Rate nudge store
+
+The rate nudge links to the store the running build was installed from. The
+host names it in `PopupAdapter.reviewStore`: both extension adapters, the
+toolbar popup and the in-page panel, pass `EXTENSION_REVIEW_STORE` from
+`packages/extension/src/core/reviewStore.ts` (`"firefox-add-ons"` in the
+Firefox build, `"chrome-web-store"` otherwise), the site demo omits it and gets the Chrome Web Store, and `null` hides the
+nudge for a host no store distributes. `reviewStoreLink` in
+`rateNudge.logic.ts` maps the store to its reviews URL and the message that
+names it (`rateNudgeBody` or `rateNudgeBodyFirefox`); `rateNudge.test.ts`
+pins the mapping. popup-ui never inspects the browser itself.
+
+### Host capabilities (#977)
+
+A host of `@lurkloot/popup-ui` says what it supports through the optional
+`PopupAdapter.hostCapabilities`, a `PopupHostCapabilities` from
+`packages/popup-ui/src/hostCapabilities.ts`. Omitting it means
+`DEFAULT_HOST_CAPABILITIES`, every flag true, which is the extension; the
+toolbar popup and the site demo declare nothing. A host that declares the
+object has to set every flag, so a new flag is a type error there rather
+than a control it silently shows. The app UI over the headless CLI (#979)
+declares `language` and nothing else (`CLI_HOST_CAPABILITIES` in
+`packages/app-ui/src/adapter.ts`).
+
+- `tabs`: the Farming tabs group (tabless, auto-close, mute, keep videos
+  unmuted, ad focus), pause on manual watch, the tabless fallback limit and
+  Kick page-context recovery.
+- `twitchExtensions`: the NoPixel and Fortnite rail entries and views, their
+  settings section, and their rows in the watch order and its "place" text.
+- `credentialExport`: Settings → Export credentials.
+- `extensionPreferences`: start on browser launch, the Queue's tips banner and
+  its setting, the in-page panel, diagnostic logging, and the rate and GitHub star nudges.
+- `language`: the language setting. Split from `extensionPreferences` because
+  the app UI keeps a language of its own (in `localStorage`, since the CLI
+  config cannot hold `languageOverride`) without the extension's preferences.
+- `activityHistory`: the Activity log's fetches, sessions, clear and export,
+  and the critical-failure report's activity prefetch. The CLI writes its
+  events to its log and keeps no history, so without it the Activity view is
+  `ActivityHostSummary` (`activitySummary.tsx`): a note saying so, the last
+  check and each platform's status from the snapshot.
+
+A control that depends on a missing capability is left out, not disabled.
+Settings entries name their capability as `requires` in
+`settingsRegistry.tsx`, and `buildSettingsRegistry` drops them, and any group
+they empty, before search sees the tree. The rest read the flags from
+`HostCapabilitiesContext`, which `Popup.tsx` provides from the adapter. A
+view a host cannot show resolves to the Queue (`viewForHost`). A hidden watch
+source keeps its place in the saved `watchSourcePriority`; only the list leaves
+it out, and moving a row swaps it with its listed neighbour.
+`tests/popupHostCapabilities.test.tsx` guards both the default and a CLI-like
+host.
+
+### Window frame and the app UI (#979)
+
+`Popup` takes an optional `windowFrame` (`PopupWindowFrame` in `Popup.tsx`). Without it the frame
+is the popup's fixed 720x600 one, its class kept in `POPUP_FRAME_CLASS`, which
+`tests/popupWindowFrame.test.tsx` holds the extension popup to. With it the same frame fills the
+window (`data-frame="window"`), and the host can add destinations of its own (`PopupHostView`:
+an id, a label key, an icon and a render function) after Activity and Settings in the rail. A host
+view renders inside the frame's providers, so it reads the frame's translator and runtime; choosing
+any built-in view closes it. `signInView` names the host view the status line's Sign in action
+opens (`SignInActionContext`), instead of the platform's sign-in page, which only signs in a
+browser session.
+
+The window frame has a shell of its own around the same views (`windowShell.tsx`). A header
+(`WindowHeader`) runs across the content: the platform switch, then the host's account chip, then
+the status strip (`StatusStrip` with `inHeader`), the refresh and the platform's switch. Platform
+comes before account because together they scope everything below. The rail becomes a sidebar
+(`WorkspaceRail`'s `sidebar`) without the platform switch, which the user collapses to icons or
+expands to labels. It defaults to expanded from `COMBINED_DROPS_MEDIA_QUERY` and collapsed below it.
+The user's choice is kept under `SIDEBAR_STORAGE_KEY` in the host's `storage`. The popup's rail
+still collapses by container query (`RailMode` "auto"), and every rail and strip prop is optional,
+so the popup's DOM is unchanged. `accountsView` names the host view that manages accounts; with it
+the header shows `AccountChip`, which reads the sign-in from `authHealth` through
+`accountStatusDisplay`, the same mapping the app UI's Accounts page uses, and whose menu opens that
+view. A platform has one account today. The chip is where a second will be picked: its menu lists
+the platform's accounts above "Manage accounts", and the page below follows the chosen one.
+
+In the window frame a view's title row and body share one centred column capped at 60rem
+(`WINDOW_CONTENT_CLASS`), so a wide screen gets margins rather than stretched rows; campaign lists
+stay a single column, as in the popup. With `combineDropViews` (the app UI sets it) and a viewport
+of at least 1280px (`COMBINED_DROPS_MEDIA_QUERY`), Completed and Games leave the rail. The Queue,
+Games and Completed become cards on one Drops page (`CombinedDropsPage` in `combinedDrops.tsx`,
+up to 120rem wide), and the rail's one drops entry is named Drops. With room for them (the page's
+container from 72rem) the three cards stand side by side; narrower, Games and Completed stack beside
+the Queue. A narrower window keeps the popup's three views, and resizing switches between the two:
+a window widened on Completed or Games lands on the combined page at that section, and narrowed
+again lands on the Queue.
+
+The combined page fills the window, which does not scroll: the platform panel drops its
+`data-scroll-panel` and each card's body scrolls on its own, each a `data-scroll-panel`, so
+`scrollIntoPanel` moves the one holding its target. The campaigns outside the queue (action
+required, skipped, upcoming) stay in view at the foot of the Queue card: `QueuePanel` portals them
+into the `NotInQueueSlotContext` element the page provides, which takes no room when empty and
+scrolls on its own past 45% of the card; without a slot they follow the queue, as in the popup.
+Stacked, a Games or Completed card is only as tall as its content, and the two share the height
+when both overflow. `changeView` maps a request for either view to the Queue and focuses its card,
+counting requests so asking again while on the page focuses it again. Each card body is its own
+`@container`, so rows lay out for the card's width. Games and Completed each get their card
+header's toolbar slot (`ViewToolbarSlotContext`), so their controls sit in their card rather than
+the page's title row. `tests/popupWindowFrame.test.tsx` covers both frames.
+
+`packages/app-ui` is that host for `lurkloot serve`. One client (`src/api.ts`) makes every request,
+same-origin and relative (`/v1/...`): the popup adapter (`src/adapter.ts`) posts each
+`RuntimeMessage` to `/v1/session/messages` and returns its `result`, and the Accounts view
+(`src/accounts.tsx`) drives the sign-in routes. On a 401 the client asks for the access token once,
+through one shared prompt however many requests are waiting, keeps it in `sessionStorage` and sends
+it as `Authorization: Bearer`; a refused token is cleared and asked for again. Typed errors become
+`ControlPlaneError`s; the app shows a refused settings change with its `paths`, and a lost
+connection as one warning rather than per request. The adapter keeps UI-only preferences in
+`localStorage` and takes `languageOverride` out of every settings save, putting it back on every
+snapshot. The pasted Twitch address lives only in an uncontrolled input that is cleared before the
+request is sent. The app never stores or shows a token. In development Vite proxies `/v1` to a
+running serve unchanged (its `Host` stays the loopback dev origin and matches `Origin`, so serve's
+checks pass), or answers it from `fixture/controlPlane.ts`, which the app-ui tests also run
+against.
+
+`serve` hosts the built bundle itself (#980). The CLI build (`pnpm build:cli`) builds the app UI
+and copies it to `packages/cli/dist/app`, beside `dist/index.mjs`, and the Docker image does the
+same. `defaultAppRoot` in `packages/cli/src/runtime/appAssets.ts` finds it there, and the control
+plane answers every path outside `/v1` from it: GET and HEAD only, with content types, a
+content-security policy that keeps the page to its own origin (images aside), no framing, and the
+page revalidated while hashed `assets/` are cached for good. A path is decoded once, any dot segment,
+backslash or NUL is refused, and the resolved file must sit under the root. A directory is never
+listed: an extensionless path that names no file gets `index.html` (the SPA fallback), and a missing
+file is a 404. The app's files need no bearer token, because the page has to load before it can
+ask for one, but they keep the loopback Host check against DNS rebinding. `/v1` stays the API's,
+so an unknown endpoint is still a JSON 404. A CLI built without the bundle serves the control plane
+alone. `packages/cli/tests/serveApp.test.ts` covers the fallback, the traversal refusals and the
+token split.
+
 ### Onboarding tour
 
 A fresh install, and a first update for someone who was never offered it, shows
@@ -1409,3 +1620,26 @@ change runtime state or normal popup layout. The opening story shows the whole p
 actual size; the others crop it with scoped camera styles or use editorial artwork.
 Localized headings fit after bundled fonts load; the screenshot generator waits for that fit,
 and rejects overflowing copy, clipped subjects or an out-of-canvas focus region.
+
+## Firefox Add-ons sources
+
+Firefox Add-ons reviewers rebuild the add-on from `lurkloot-X.Y.Z-firefox-sources.zip` and reject
+it when the result differs from the uploaded add-on. The rules that keep the rebuild exact:
+
+- **The archive is the workspace.** `zip` in `packages/extension/wxt.config.ts` roots it at the
+  repository, so it carries every package the add-on bundles, the lockfile and
+  [BUILDING.md](../BUILDING.md). Packages the add-on does not bundle keep only their
+  `package.json`, which the frozen lockfile needs.
+- **The archive is an allowlist.** WXT does not read `.gitignore`, so a local zip of the repository
+  root would pick up untracked files such as the CLI's `auth/credentials.json`. `includeSources`,
+  which WXT globs in place of every file under the root, names each build input;
+  `sourcesArchive.test.ts` pins it.
+- **The build reads only what the archive carries.** Nothing in the build may depend on files the
+  archive leaves out. Tailwind's automatic source detection did: it scanned the extension's tests
+  and store scripts for class names. The popup stylesheet turns detection off and scans only
+  `packages/popup-ui/src`; `popupStylesheet.test.ts` pins that.
+- **Proved on every build.** `scripts/check-firefox-sources.sh` rebuilds from the archive in an
+  empty directory and compares the output with the add-on zip file by file. The build workflow runs
+  it after the release zips are normalized.
+- **No markup injection.** Bundled code builds DOM nodes rather than assigning markup strings, which
+  review flags. `noMarkupInjection.test.ts` covers every bundled package.

@@ -78,9 +78,19 @@ interface Anchor {
 
 const ANCHORS: Record<Platform, Anchor[]> = {
   twitch: [
-    // Immediately left of the Prime crown, inside the icon cluster.
+    // Immediately left of the Prime crown, inside the icon cluster. The crown
+    // may itself be hidden — 7TV's "Hide Prime offers" sets it display:none —
+    // which is fine: a "before" anchor is judged by the cluster it sits in.
     { find: () => [...document.querySelectorAll(".top-nav__prime")], place: "before" },
-    { find: () => [...document.querySelectorAll(".top-nav__menu")], place: "append" },
+    // Without the crown, the start of the right-hand icon cluster. Never append
+    // to `.top-nav__menu` itself: 7TV inserts its settings button before the
+    // last child of `.top-nav__menu.lastChild`, expecting that to be Twitch's
+    // cluster, and ended up inside the Lurkloot button when it was (#1008).
+    {
+      find: () =>
+        [...document.querySelectorAll(".top-nav__menu")].map((menu) => menu.lastElementChild),
+      place: "prepend",
+    },
   ],
   kick: [
     // Kick's nav carries no semantic hooks, so this keys off the layout
@@ -116,12 +126,47 @@ const BUTTON_METRICS: Record<Platform, { height: number; radius: number; padding
 // would mean making it a second web-accessible resource, and the nav's other
 // icons are single-colour, so the gradient logo would look pasted on.
 // currentColor lets it inherit the site's own nav foreground.
-const ICON = `
-<svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true" focusable="false">
-  <circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-opacity="0.35" stroke-width="2.5"/>
-  <path d="M12 3.5 A8.5 8.5 0 1 1 5.05 16.9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M10.4 9.1 a0.7 0.7 0 0 1 1.05-0.6 l3.6 2.3 a0.7 0.7 0 0 1 0 1.2 l-3.6 2.3 a0.7 0.7 0 0 1-1.05-0.6 z" fill="currentColor"/>
-</svg>`;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Built node by node rather than parsed from markup: a content script that
+// assigns innerHTML is flagged in Firefox Add-ons review, even for a constant.
+function svgElement(tag: string, attributes: Record<string, string>): SVGElement {
+  const element = document.createElementNS(SVG_NS, tag);
+  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+  return element;
+}
+
+function createIcon(): SVGElement {
+  const svg = svgElement("svg", {
+    viewBox: "0 0 24 24",
+    width: "18",
+    height: "18",
+    fill: "none",
+    "aria-hidden": "true",
+    focusable: "false",
+  });
+  svg.append(
+    svgElement("circle", {
+      cx: "12",
+      cy: "12",
+      r: "8.5",
+      stroke: "currentColor",
+      "stroke-opacity": "0.35",
+      "stroke-width": "2.5",
+    }),
+    svgElement("path", {
+      d: "M12 3.5 A8.5 8.5 0 1 1 5.05 16.9",
+      stroke: "currentColor",
+      "stroke-width": "2.5",
+      "stroke-linecap": "round",
+    }),
+    svgElement("path", {
+      d: "M10.4 9.1 a0.7 0.7 0 0 1 1.05-0.6 l3.6 2.3 a0.7 0.7 0 0 1 0 1.2 l-3.6 2.3 a0.7 0.7 0 0 1-1.05-0.6 z",
+      fill: "currentColor",
+    }),
+  );
+  return svg;
+}
 
 interface PanelUiState {
   left?: number;
@@ -352,7 +397,10 @@ export function resolveAnchorFor(
     for (const element of candidate.find()) {
       if (!element) continue;
       matched = true;
-      if (rendered(element)) return { element, place: candidate.place };
+      // Judge the container the button will land in, not the anchor: a
+      // "before" anchor can be hidden while its siblings are laid out.
+      const container = candidate.place === "before" ? element.parentElement : element;
+      if (rendered(container)) return { element, place: candidate.place };
     }
   }
   return matched ? "noneRendered" : "noMatch";
@@ -363,7 +411,14 @@ function createButton(): HTMLButtonElement {
   const el = document.createElement("button");
   el.id = BUTTON_ID;
   el.type = "button";
-  el.innerHTML = `${ICON}<span>Lurkloot</span><span id="${CARET_ID}" aria-hidden="true" style="opacity:.7;font-size:9px;line-height:1">▾</span>`;
+  const label = document.createElement("span");
+  label.textContent = "Lurkloot";
+  const caret = document.createElement("span");
+  caret.id = CARET_ID;
+  caret.setAttribute("aria-hidden", "true");
+  caret.style.cssText = "opacity:.7;font-size:9px;line-height:1";
+  caret.textContent = "▾";
+  el.append(createIcon(), label, caret);
   // The visible text is the accessible name, so no aria-label: adding one would
   // override what the user can actually read. Neither string is localized —
   // this module is dependency-free by design and cannot reach the locale

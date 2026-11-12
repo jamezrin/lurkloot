@@ -31,8 +31,8 @@ export interface SocketHostDocument {
 }
 
 // The service worker end: a WebSocketFactory whose sockets live in the
-// offscreen socket host (socketHost.ts). Create it once, at the worker's top
-// level, so onConnect is registered before the document connects.
+// offscreen socket host (socketHost.ts). Create it once, synchronously when
+// the worker starts, so onConnect is registered before the document connects.
 export function createSocketHostFactory(host: SocketHostDocument): WebSocketFactory {
   const setTimer = host.setTimer ?? ((callback, delayMs) => setTimeout(callback, delayMs));
   const clearTimer = host.clearTimer ?? ((timer) => clearTimeout(timer));

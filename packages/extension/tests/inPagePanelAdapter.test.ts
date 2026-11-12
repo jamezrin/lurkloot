@@ -55,6 +55,15 @@ describe("in-page panel adapter", () => {
     }
   });
 
+  // The panel shows the rate nudge, and an adapter without reviewStore falls
+  // back to the Chrome Web Store, which would be wrong in the Firefox build.
+  it("names the store this build is installed from", async () => {
+    const { EXTENSION_REVIEW_STORE, reviewStoreFor } = await import("../src/core/reviewStore");
+    expect(createInPagePanelAdapter().reviewStore).toBe(EXTENSION_REVIEW_STORE);
+    expect(reviewStoreFor(true)).toBe("firefox-add-ons");
+    expect(reviewStoreFor(false)).toBe("chrome-web-store");
+  });
+
   it("refuses to open a non-https link", async () => {
     const { browser } = await import("wxt/browser");
     createInPagePanelAdapter().openLink("javascript:alert(1)");

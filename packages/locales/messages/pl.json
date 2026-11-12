@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Zwiń panel boczny"
+  },
+  "navSidebarExpand": {
+    "message": "Rozwiń panel boczny"
+  },
   "navQueue": {
     "message": "Kolejka"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "Krótka recenzja w Chrome Web Store bardzo pomaga."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Krótka recenzja w Dodatkach do Firefoksa bardzo pomaga."
+  },
   "rateNudgeAction": {
     "message": "Oceń"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Linia ewoluuje tylko odznakę, którą już posiadasz. Bez niej oglądanie nic nie daje."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Brak historii aktywności"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot zapisuje tutaj, co robi, w dzienniku, a nie w historii do przeglądania. Poniżej widać, co właśnie robi."
+  },
+  "activityLastCheck": {
+    "message": "Ostatnie sprawdzenie"
+  },
+  "activityNoCheckYet": {
+    "message": "Jeszcze nie"
+  },
+  "appNavAccounts": {
+    "message": "Konta"
+  },
+  "windowAccountTitle": {
+    "message": "Konto $1"
+  },
+  "windowAccountManage": {
+    "message": "Zarządzaj kontami"
+  },
+  "appAccountsIntro": {
+    "message": "Zaloguj Lurkloot do Twitcha i Kicka. Logowanie jest zapisywane w prywatnym magazynie Lurkloot na komputerze, na którym działa. Ta strona nigdy nie pokazuje ani nie zapisuje tokenów."
+  },
+  "appAccountSignedIn": {
+    "message": "Zalogowano"
+  },
+  "appAccountChecking": {
+    "message": "Sprawdzanie…"
+  },
+  "appAccountSignedOut": {
+    "message": "Niezalogowano"
+  },
+  "appAccountRejected": {
+    "message": "Logowanie nie jest już ważne"
+  },
+  "appAccountUnavailable": {
+    "message": "Nie można teraz sprawdzić"
+  },
+  "appAccountSourceStored": {
+    "message": "Zapisane przez Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "Ze zmiennej środowiskowej"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Zmienna środowiskowa SA_* nadal dostarcza to logowanie, więc Lurkloot będzie z niej korzystać, niezależnie od tego, co zalogujesz lub wylogujesz tutaj. Aby używać logowania z tej strony, usuń zmienną i uruchom Lurkloot ponownie."
+  },
+  "appAccountSignOut": {
+    "message": "Wyloguj"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Wylogowano."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Wylogowano, ale zmienna środowiskowa SA_* nadal loguje Lurkloot."
+  },
+  "appAccountNothingToForget": {
+    "message": "Nie było zapisanego logowania do usunięcia."
+  },
+  "appRecommended": {
+    "message": "Zalecane"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Zaloguj się przez przeglądarkę"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Widzi wszystkie kampanie dropów."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Otwórz stronę logowania Twitcha i zaloguj się."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Otwórz logowanie do Twitcha"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Twitch przekieruje cię potem na $1. Skopiuj cały ten adres z paska adresu."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Wklej adres, na który Twitch cię przekierował"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Zakończ logowanie"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Zalogowano do Twitcha."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Zalogowano do Twitcha jako $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "Adres nie ma części #access_token?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv może usunąć ją z paska adresu niemal od razu. Zanim się zalogujesz, otwórz narzędzia deweloperskie przeglądarki na karcie Network i włącz Preserve log. Następnie zaloguj się, filtruj po access_token i skopiuj nagłówek location przekierowania id.twitch.tv. Wklej go tutaj."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Zaloguj się kodem"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Tutaj nie wymaga logowania w przeglądarce, ale Twitch pokazuje to logowanie tylko dla kampanii, które już rozpocząłeś."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Połącz kodem z telewizora"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Zeskanuj kod telefonem w aplikacji Kick, w której jesteś zalogowany, i potwierdź go tam."
+  },
+  "appDeviceLoginStart": {
+    "message": "Pobierz kod"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Otwórz link"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "Kod QR linku logowania"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Zeskanuj to aparatem telefonu. Link otworzy się w aplikacji Kick, a nie w przeglądarce komputera."
+  },
+  "appDeviceLoginCode": {
+    "message": "Kod"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Czekam na potwierdzenie kodu…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Anuluj"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Zalogowano."
+  },
+  "appDeviceLoginExpired": {
+    "message": "Kod wygasł. Pobierz nowy kod, aby spróbować ponownie."
+  },
+  "appDeviceLoginFailed": {
+    "message": "Logowanie się nie powiodło. Pobierz nowy kod, aby spróbować ponownie."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "Logowanie zostało anulowane."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "Ten adres nie zawiera tokena logowania. Skopiuj pełny adres, na który przekierował cię Twitch."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch odrzucił to logowanie. Zacznij od nowa na stronie logowania."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Nie udało się połączyć z Twitchem ani Kickiem. Spróbuj za chwilę."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "Nie udało się połączyć z usługą $1. Spróbuj za chwilę."
+  },
+  "appErrorNetwork": {
+    "message": "Nie można połączyć się z Lurkloot. Czy lurkloot serve nadal działa?"
+  },
+  "appErrorUnauthorized": {
+    "message": "Token dostępu został odrzucony."
+  },
+  "appErrorGeneric": {
+    "message": "Żądanie nie powiodło się ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot nie może zapisać tego ustawienia w pliku konfiguracyjnym: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot odrzucił tę wartość: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot nie mógł zaktualizować pliku konfiguracyjnego. Nic nie zostało zmienione."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot nie może tego tutaj zrobić."
+  },
+  "appConnecting": {
+    "message": "Łączenie z Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "Nie można połączyć się z Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "Uruchom go poleceniem lurkloot serve, a potem spróbuj ponownie."
+  },
+  "appRetry": {
+    "message": "Spróbuj ponownie"
+  },
+  "appConnectionLost": {
+    "message": "Utracono połączenie z Lurkloot. Ponawiam…"
+  },
+  "appDismiss": {
+    "message": "Zamknij"
+  },
+  "appTokenTitle": {
+    "message": "Token dostępu"
+  },
+  "appTokenBody": {
+    "message": "Ten Lurkloot potrzebuje tokena dostępu, czyli wartości LURKLOOT_SERVE_TOKEN. Jest przechowywany tylko w tej karcie przeglądarki."
+  },
+  "appTokenRejected": {
+    "message": "Ten token został odrzucony. Sprawdź go i spróbuj ponownie."
+  },
+  "appTokenLabel": {
+    "message": "Token dostępu"
+  },
+  "appTokenSubmit": {
+    "message": "Dalej"
   }
 }

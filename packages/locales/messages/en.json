@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Collapse sidebar"
+  },
+  "navSidebarExpand": {
+    "message": "Expand sidebar"
+  },
   "navQueue": {
     "message": "Queue"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "A quick review on the Chrome Web Store helps a lot."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "A quick review on Firefox Add-ons helps a lot."
+  },
   "rateNudgeAction": {
     "message": "Rate it"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "A line only evolves a badge you already own. Without that badge, watching earns nothing."
+  },
+  "activityNoHistoryTitle": {
+    "message": "No activity history here"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot writes what it does to its log here, not to a history you can browse. Below is what it is doing now."
+  },
+  "activityLastCheck": {
+    "message": "Last check"
+  },
+  "activityNoCheckYet": {
+    "message": "Not yet"
+  },
+  "appNavAccounts": {
+    "message": "Accounts"
+  },
+  "windowAccountTitle": {
+    "message": "$1 account"
+  },
+  "windowAccountManage": {
+    "message": "Manage accounts"
+  },
+  "appAccountsIntro": {
+    "message": "Sign Lurkloot in to Twitch and Kick. Your sign-in is saved in Lurkloot's own private store on the machine it runs on. This page never shows or keeps a token."
+  },
+  "appAccountSignedIn": {
+    "message": "Signed in"
+  },
+  "appAccountChecking": {
+    "message": "Checking…"
+  },
+  "appAccountSignedOut": {
+    "message": "Not signed in"
+  },
+  "appAccountRejected": {
+    "message": "Sign-in no longer valid"
+  },
+  "appAccountUnavailable": {
+    "message": "Can't check right now"
+  },
+  "appAccountSourceStored": {
+    "message": "Saved by Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "From an environment variable"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "An SA_* environment variable still supplies this sign-in, so Lurkloot keeps using it whatever you sign in or out here. Remove the variable and restart Lurkloot to use this page's sign-in."
+  },
+  "appAccountSignOut": {
+    "message": "Sign out"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Signed out."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Signed out, but an SA_* environment variable still signs Lurkloot in."
+  },
+  "appAccountNothingToForget": {
+    "message": "There was no saved sign-in to forget."
+  },
+  "appRecommended": {
+    "message": "Recommended"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Sign in with your browser"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Sees every drop campaign."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Open the Twitch sign-in page and sign in."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Open Twitch sign-in"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Twitch then sends you to $1. Copy that whole address from the address bar."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Paste the address Twitch sent you to"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Finish sign-in"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Signed in to Twitch."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Signed in to Twitch as $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "The address has no #access_token part?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv can remove it from the address bar almost at once. Before you sign in, open the browser's developer tools on the Network tab and turn on Preserve log. Then sign in, filter for access_token, and copy the location header of the id.twitch.tv redirect. Paste that here instead."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Sign in with a code"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Needs no browser sign-in here, but Twitch only shows this sign-in the campaigns you have already started."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Link with a TV code"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Scan the code with your phone, in the Kick app where you are signed in, and confirm it there."
+  },
+  "appDeviceLoginStart": {
+    "message": "Get a code"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Open link"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "QR code for the sign-in link"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Scan this with your phone's camera. The link opens in the Kick app; it does not open in a computer's browser."
+  },
+  "appDeviceLoginCode": {
+    "message": "Code"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Waiting for you to confirm the code…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Cancel"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Signed in."
+  },
+  "appDeviceLoginExpired": {
+    "message": "The code expired. Get a new one to try again."
+  },
+  "appDeviceLoginFailed": {
+    "message": "The sign-in failed. Get a new code to try again."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "The sign-in was cancelled."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "That address has no sign-in token. Copy the full address Twitch sent you to."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch rejected this sign-in. Start again from the sign-in page."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Couldn't reach Twitch or Kick. Try again in a moment."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "Couldn't reach $1. Try again in a moment."
+  },
+  "appErrorNetwork": {
+    "message": "Can't reach Lurkloot. Is lurkloot serve still running?"
+  },
+  "appErrorUnauthorized": {
+    "message": "The access token was refused."
+  },
+  "appErrorGeneric": {
+    "message": "The request failed ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot can't save this setting to its config file: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot rejected this value: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot couldn't update its config file. Nothing was changed."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot can't do that here."
+  },
+  "appConnecting": {
+    "message": "Connecting to Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "Can't reach Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "Start it with lurkloot serve, then try again."
+  },
+  "appRetry": {
+    "message": "Try again"
+  },
+  "appConnectionLost": {
+    "message": "Lost the connection to Lurkloot. Retrying…"
+  },
+  "appDismiss": {
+    "message": "Dismiss"
+  },
+  "appTokenTitle": {
+    "message": "Access token"
+  },
+  "appTokenBody": {
+    "message": "This Lurkloot needs its access token, the value of LURKLOOT_SERVE_TOKEN. It is kept in this browser tab only."
+  },
+  "appTokenRejected": {
+    "message": "That token was refused. Check it and try again."
+  },
+  "appTokenLabel": {
+    "message": "Access token"
+  },
+  "appTokenSubmit": {
+    "message": "Continue"
   }
 }

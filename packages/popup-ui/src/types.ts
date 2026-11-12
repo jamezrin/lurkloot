@@ -17,6 +17,7 @@ import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming
 import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
 import type { CampaignRankTier } from "@lurkloot/shared/ranking";
 import type { PopupView } from "./shell";
+import type { PopupHostCapabilities } from "./hostCapabilities";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -237,6 +238,8 @@ export function variantShowsPopup(variant: ScreenshotVariant): variant is Screen
  * existing user who has just updated. Only the welcome copy differs. */
 export type OnboardingAudience = "new" | "returning";
 
+export type ReviewStore = "chrome-web-store" | "firefox-add-ons";
+
 export interface PopupAdapter {
   requestTwitchExtensionPermission?(provider: TwitchExtensionProviderId): Promise<boolean>;
   version: string;
@@ -274,8 +277,17 @@ export interface PopupAdapter {
   // it with a Blob URL; hosts that omit it (the site demo) hide Export all.
   downloadFile?(filename: string, contents: string, mimeType?: string): void;
   resetExtension?(): Promise<RuntimeSnapshot>;
+  // Optional: the store the rate nudge sends the user to review in. Omitted
+  // means the Chrome Web Store, which the Chromium build and the site demo
+  // are installed from. The Firefox build passes "firefox-add-ons". null
+  // hides the nudge, for a host that no store distributes.
+  reviewStore?: ReviewStore | null;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   resolveCompatibility?(settings: CompatibilitySettings): PopupCompatibilityResolution;
+  // Optional: what this host supports. Omitted means every capability, which
+  // is the extension. A host that farms without a browser (the CLI app)
+  // declares each flag, and the popup leaves out what depends on a false one.
+  hostCapabilities?: Readonly<PopupHostCapabilities>;
 }
 
 export interface PopupInitialState {

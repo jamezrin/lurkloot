@@ -1,6 +1,7 @@
 import { saveCredentials } from "../authStore";
 import { TWITCH_SMARTBOX_CLIENT_ID } from "../twitch";
 import type { Logger } from "../logger";
+import { waitForDeviceApproval, type DeviceLoginFlow, type DevicePoll } from "./deviceLogin";
 
 // Twitch's device-code OAuth, so a headless host can get a Twitch token with no
 // browser: request a code, show the user the activation URL, then poll until they
@@ -8,7 +9,7 @@ import type { Logger } from "../logger";
 // device flow. The transport sends the same Client-ID as the issued token.
 const DEVICE_ENDPOINT = "https://id.twitch.tv/oauth2/device";
 const TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/token";
-// No scopes are needed for the drops GQL (matches TDM's empty-scopes request).
+// No scopes are needed for the drops GQL.
 const SCOPES = "";
 
 export interface DeviceCode {
@@ -19,8 +20,11 @@ export interface DeviceCode {
   expires_in: number;
 }
 
-export async function requestDeviceCode(clientId = TWITCH_SMARTBOX_CLIENT_ID): Promise<DeviceCode> {
-  const response = await fetch(DEVICE_ENDPOINT, {
+export async function requestDeviceCode(
+  clientId = TWITCH_SMARTBOX_CLIENT_ID,
+  fetchImpl: typeof fetch = fetch,
+): Promise<DeviceCode> {
+  const response = await fetchImpl(DEVICE_ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: clientId, scopes: SCOPES }),
@@ -37,41 +41,51 @@ interface TokenResponse {
   message?: string;
 }
 
-// Polls the token endpoint until the user authorizes (or the code expires).
-// `authorization_pending` is the normal wait state; back off on `slow_down`.
-export async function pollForToken(
+// One poll of the token endpoint. `authorization_pending` is the normal wait
+// state; `slow_down` asks for a longer interval; anything else is a hard failure.
+export async function pollDeviceToken(
   deviceCode: string,
-  intervalSeconds: number,
-  expiresInSeconds: number,
   clientId = TWITCH_SMARTBOX_CLIENT_ID,
-  sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
-): Promise<string> {
-  const deadline = Date.now() + expiresInSeconds * 1000;
-  let intervalMs = intervalSeconds * 1000;
-  while (Date.now() < deadline) {
-    await sleep(intervalMs);
-    const response = await fetch(TOKEN_ENDPOINT, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: clientId,
-        device_code: deviceCode,
-        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
-      }),
-    });
-    const data = (await response.json()) as TokenResponse;
-    if (data.access_token) return data.access_token;
-    if (data.message === "authorization_pending" || data.error === "authorization_pending")
-      continue;
-    if (data.message === "slow_down" || data.error === "slow_down") {
-      intervalMs += 5000;
-      continue;
-    }
-    throw new Error(
-      `Device authorization failed: ${data.message ?? data.error ?? "unknown error"}`,
-    );
-  }
-  throw new Error("Device code expired before authorization");
+  fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<DevicePoll> {
+  const response = await fetchImpl(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      device_code: deviceCode,
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+    }),
+    ...(signal ? { signal } : {}),
+  });
+  const data = (await response.json()) as TokenResponse;
+  if (data.access_token) return { status: "approved", token: data.access_token };
+  if (data.message === "authorization_pending" || data.error === "authorization_pending")
+    return { status: "pending" };
+  if (data.message === "slow_down" || data.error === "slow_down") return { status: "slow_down" };
+  throw new Error(`Device authorization failed: ${data.message ?? data.error ?? "unknown error"}`);
+}
+
+// Requests a device code and returns the started flow. The device code itself
+// stays inside the flow: only the activation URL and user code leave it.
+export async function startTwitchDeviceLogin(
+  options: { clientId?: string; fetchImpl?: typeof fetch } = {},
+): Promise<DeviceLoginFlow> {
+  const clientId = options.clientId ?? TWITCH_SMARTBOX_CLIENT_ID;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const code = await requestDeviceCode(clientId, fetchImpl);
+  return {
+    platform: "twitch",
+    verificationUrl: code.verification_uri,
+    userCode: code.user_code,
+    intervalMs: code.interval * 1000,
+    expiresInMs: code.expires_in * 1000,
+    expiredMessage: "Device code expired before authorization",
+    poll: (signal) => pollDeviceToken(code.device_code, clientId, fetchImpl, signal),
+    credentials: (token) => ({ twitch: { authToken: token, clientId } }),
+    dispose: async () => {},
+  };
 }
 
 export async function twitchDeviceLogin(
@@ -79,18 +93,17 @@ export async function twitchDeviceLogin(
   logger: Logger,
   clientId = TWITCH_SMARTBOX_CLIENT_ID,
 ): Promise<void> {
-  const code = await requestDeviceCode(clientId);
-  logger.info(`Open ${code.verification_uri} and enter code: ${code.user_code}`, "login");
-  logger.info(
-    `Waiting for authorization (expires in ${Math.round(code.expires_in / 60)} min)…`,
-    "login",
-  );
-  const accessToken = await pollForToken(
-    code.device_code,
-    code.interval,
-    code.expires_in,
-    clientId,
-  );
-  saveCredentials(authDir, { twitch: { authToken: accessToken, clientId } });
-  logger.info("Twitch device login complete; token saved", "login");
+  const flow = await startTwitchDeviceLogin({ clientId });
+  try {
+    logger.info(`Open ${flow.verificationUrl} and enter code: ${flow.userCode}`, "login");
+    logger.info(
+      `Waiting for authorization (expires in ${Math.round(flow.expiresInMs / 60_000)} min)…`,
+      "login",
+    );
+    const accessToken = await waitForDeviceApproval(flow);
+    saveCredentials(authDir, flow.credentials(accessToken));
+    logger.info("Twitch device login complete; token saved", "login");
+  } finally {
+    await flow.dispose();
+  }
 }

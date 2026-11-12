@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { saveCredentials } from "../authStore";
 import { initCycle, createTvLinkAuthenticator } from "../transport/cycle";
 import type { Logger } from "../logger";
+import { waitForDeviceApproval, type DeviceLoginFlow } from "./deviceLogin";
 
 // Kick's smart-TV link flow, so a headless host can get a Kick session token
 // with no browser: generate a uuid + short code, show the user the activation
@@ -34,48 +35,76 @@ export function requestTvLink(): TvLink {
 // Resolves the link once the user approves it (the response carries a token).
 export type TvLinkAuthenticator = (uuid: string, code: string) => Promise<{ token?: string }>;
 
-// Polls the authenticate endpoint until the user approves the link (returning a
-// token) or the code expires. Kick does not document a "pending" body, so any
-// response without a token is treated as still-waiting; the only terminal
-// outcomes are a token or the deadline. `authenticate` and `sleep` are
-// injectable for tests.
-export async function pollForToken(
-  uuid: string,
-  code: string,
-  authenticate: TvLinkAuthenticator,
-  intervalSeconds = POLL_INTERVAL_SECONDS,
-  expiresInSeconds = EXPIRES_IN_SECONDS,
-  sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
-): Promise<string> {
-  const deadline = Date.now() + expiresInSeconds * 1000;
-  while (Date.now() < deadline) {
-    await sleep(intervalSeconds * 1000);
-    const { token } = await authenticate(uuid, code);
-    if (token) return token;
-  }
-  throw new Error("TV link code expired before approval");
+// The authenticate call and what it holds (a cycletls subprocess), so the flow
+// can release it however it ends.
+export interface TvLinkClient {
+  authenticate: TvLinkAuthenticator;
+  dispose(): Promise<void>;
+}
+
+async function createCycleTvLinkClient(): Promise<TvLinkClient> {
+  const cycleTLS = await initCycle();
+  return {
+    authenticate: createTvLinkAuthenticator(cycleTLS),
+    dispose: async () => {
+      await cycleTLS.exit();
+    },
+  };
+}
+
+// Starts a TV link and returns the flow. Kick does not document a "pending"
+// body, so any response without a token is treated as still-waiting; the only
+// terminal outcomes are a token or the deadline. The uuid and code together
+// let anyone collect the token once the user approves, so the link is shown to
+// the user and never logged by `serve`.
+export async function startKickDeviceLogin(
+  options: { createClient?: () => Promise<TvLinkClient>; link?: TvLink } = {},
+): Promise<DeviceLoginFlow> {
+  const link = options.link ?? requestTvLink();
+  const createClient = options.createClient ?? createCycleTvLinkClient;
+  // Started on the first poll, so the link is shown before cycletls spins up.
+  let client: Promise<TvLinkClient> | undefined;
+  return {
+    platform: "kick",
+    verificationUrl: link.verificationUrl,
+    userCode: link.code,
+    intervalMs: POLL_INTERVAL_SECONDS * 1000,
+    expiresInMs: EXPIRES_IN_SECONDS * 1000,
+    expiredMessage: "TV link code expired before approval",
+    poll: async () => {
+      client ??= createClient();
+      const { token } = await (await client).authenticate(link.uuid, link.code);
+      return token ? { status: "approved", token } : { status: "pending" };
+    },
+    credentials: (sessionToken) => ({ kick: { sessionToken } }),
+    dispose: async () => {
+      if (!client) return;
+      const started = client;
+      client = undefined;
+      // A client that never started has nothing to release.
+      const startedClient = await started.catch(() => undefined);
+      await startedClient?.dispose();
+    },
+  };
 }
 
 export async function kickDeviceLogin(authDir: string, logger: Logger): Promise<void> {
-  const link = requestTvLink();
-  logger.info(
-    `Open ${link.verificationUrl} (signed in to Kick) and confirm code: ${link.code}`,
-    "login",
-  );
-  logger.info(
-    `Waiting for approval (expires in ${Math.round(EXPIRES_IN_SECONDS / 60)} min)…`,
-    "login",
-  );
-  const cycleTLS = await initCycle();
+  const flow = await startKickDeviceLogin();
   try {
-    const sessionToken = await pollForToken(
-      link.uuid,
-      link.code,
-      createTvLinkAuthenticator(cycleTLS),
+    logger.info(
+      // The link is a deep link into Kick's phone app; kick.com has no page
+      // for it on a desktop browser.
+      `Open ${flow.verificationUrl} on your phone, in the Kick app where you are signed in, and confirm code: ${flow.userCode}`,
+      "login",
     );
-    saveCredentials(authDir, { kick: { sessionToken } });
+    logger.info(
+      `Waiting for approval (expires in ${Math.round(flow.expiresInMs / 60_000)} min)…`,
+      "login",
+    );
+    const sessionToken = await waitForDeviceApproval(flow);
+    saveCredentials(authDir, flow.credentials(sessionToken));
     logger.info("Kick device login complete; token saved", "login");
   } finally {
-    await cycleTLS.exit();
+    await flow.dispose();
   }
 }

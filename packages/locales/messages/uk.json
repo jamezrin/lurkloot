@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Згорнути бічну панель"
+  },
+  "navSidebarExpand": {
+    "message": "Розгорнути бічну панель"
+  },
   "navQueue": {
     "message": "Черга"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "Короткий відгук у Chrome Web Store дуже допомагає."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Короткий відгук у Додатках Firefox дуже допомагає."
+  },
   "rateNudgeAction": {
     "message": "Оцінити"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Лінія розвиває лише значок, який у вас уже є. Без нього перегляд нічого не дає."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Історії активності тут немає"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot записує свої дії до журналу тут, а не до історії для перегляду. Нижче показано, що він робить зараз."
+  },
+  "activityLastCheck": {
+    "message": "Остання перевірка"
+  },
+  "activityNoCheckYet": {
+    "message": "Ще немає"
+  },
+  "appNavAccounts": {
+    "message": "Облікові записи"
+  },
+  "windowAccountTitle": {
+    "message": "Обліковий запис $1"
+  },
+  "windowAccountManage": {
+    "message": "Керувати обліковими записами"
+  },
+  "appAccountsIntro": {
+    "message": "Увійдіть до Lurkloot у Twitch і Kick. Ваш вхід зберігається в приватному сховищі Lurkloot на комп’ютері, де він працює. Ця сторінка ніколи не показує і не зберігає токени."
+  },
+  "appAccountSignedIn": {
+    "message": "Вхід виконано"
+  },
+  "appAccountChecking": {
+    "message": "Перевірка…"
+  },
+  "appAccountSignedOut": {
+    "message": "Вхід не виконано"
+  },
+  "appAccountRejected": {
+    "message": "Вхід більше не дійсний"
+  },
+  "appAccountUnavailable": {
+    "message": "Зараз не можна перевірити"
+  },
+  "appAccountSourceStored": {
+    "message": "Збережено Lurkloot"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "Зі змінної середовища"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Змінна середовища SA_* досі задає цей вхід, тож Lurkloot продовжує його використовувати, що б ви не робили тут зі входом і виходом. Щоб користуватися входом із цієї сторінки, видаліть змінну й перезапустіть Lurkloot."
+  },
+  "appAccountSignOut": {
+    "message": "Вийти"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Ви вийшли."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Ви вийшли, але змінна середовища SA_* досі входить до Lurkloot."
+  },
+  "appAccountNothingToForget": {
+    "message": "Збереженого входу, який можна було б видалити, не було."
+  },
+  "appRecommended": {
+    "message": "Рекомендовано"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Увійти через браузер"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Бачить усі кампанії дропів."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Відкрийте сторінку входу в Twitch і увійдіть."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Відкрити вхід у Twitch"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Потім Twitch перенаправить вас на $1. Скопіюйте всю цю адресу з адресного рядка."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Вставте адресу, на яку Twitch вас перенаправив"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Завершити вхід"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Вхід у Twitch виконано."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Вхід у Twitch виконано як $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "В адресі немає частини #access_token?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv може прибрати її з адресного рядка майже одразу. Перед входом відкрийте інструменти розробника браузера на вкладці Network і увімкніть Preserve log. Потім увійдіть, відфільтруйте за access_token і скопіюйте заголовок location перенаправлення id.twitch.tv. Вставте його сюди."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Увійти за кодом"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Тут не потрібен вхід у браузері, але Twitch показує цей вхід лише для кампаній, які ви вже почали."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Прив’язати за кодом із телевізора"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Відскануйте код телефоном у застосунку Kick, де ви ввійшли в обліковий запис, і підтвердьте його там."
+  },
+  "appDeviceLoginStart": {
+    "message": "Отримати код"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Відкрити посилання"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "QR-код посилання для входу"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Відскануйте камерою телефона. Посилання відкриється в застосунку Kick, а не в браузері комп’ютера."
+  },
+  "appDeviceLoginCode": {
+    "message": "Код"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Очікування підтвердження коду…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Скасувати"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Вхід виконано."
+  },
+  "appDeviceLoginExpired": {
+    "message": "Термін дії коду минув. Отримайте новий код, щоб спробувати знову."
+  },
+  "appDeviceLoginFailed": {
+    "message": "Вхід не вдався. Отримайте новий код, щоб спробувати знову."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "Вхід скасовано."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "У цій адресі немає токена входу. Скопіюйте повну адресу, на яку вас перенаправив Twitch."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch відхилив цей вхід. Почніть знову зі сторінки входу."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Не вдалося зв’язатися з Twitch або Kick. Спробуйте за хвилину."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "Не вдалося зв’язатися зі службою $1. Спробуйте за хвилину."
+  },
+  "appErrorNetwork": {
+    "message": "Немає зв’язку з Lurkloot. Чи ще працює lurkloot serve?"
+  },
+  "appErrorUnauthorized": {
+    "message": "Токен доступу відхилено."
+  },
+  "appErrorGeneric": {
+    "message": "Запит не вдався ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot не може зберегти це налаштування у свій файл конфігурації: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot відхилив це значення: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot не зміг оновити свій файл конфігурації. Нічого не змінено."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot не може цього зробити тут."
+  },
+  "appConnecting": {
+    "message": "Підключення до Lurkloot…"
+  },
+  "appUnreachableTitle": {
+    "message": "Немає зв’язку з Lurkloot"
+  },
+  "appUnreachableBody": {
+    "message": "Запустіть його командою lurkloot serve і спробуйте знову."
+  },
+  "appRetry": {
+    "message": "Спробувати знову"
+  },
+  "appConnectionLost": {
+    "message": "Втрачено зв’язок із Lurkloot. Повторна спроба…"
+  },
+  "appDismiss": {
+    "message": "Закрити"
+  },
+  "appTokenTitle": {
+    "message": "Токен доступу"
+  },
+  "appTokenBody": {
+    "message": "Цей Lurkloot потребує токена доступу, тобто значення LURKLOOT_SERVE_TOKEN. Він зберігається лише в цій вкладці браузера."
+  },
+  "appTokenRejected": {
+    "message": "Токен відхилено. Перевірте його й спробуйте знову."
+  },
+  "appTokenLabel": {
+    "message": "Токен доступу"
+  },
+  "appTokenSubmit": {
+    "message": "Продовжити"
   }
 }

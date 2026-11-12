@@ -1,17 +1,23 @@
 import type React from "react";
 import { motion } from "motion/react";
 import { Star, X } from "lucide-react";
-import { CHROME_WEB_STORE_REVIEW_URL } from "./constants";
 import { useT } from "./context";
 import { cn } from "./primitives";
 import { Tip } from "./tooltip";
+import type { ReviewStoreLink } from "./rateNudge.logic";
 
-export { shouldShowGithubStarNudge, shouldShowRateNudge } from "./rateNudge.logic";
+export {
+  reviewStoreLink,
+  shouldShowGithubStarNudge,
+  shouldShowRateNudge,
+} from "./rateNudge.logic";
 
 export function RateNudge({
+  store,
   onRate,
   onDismiss,
 }: {
+  store: ReviewStoreLink;
   onRate(): void;
   onDismiss(): void;
 }): React.ReactElement {
@@ -33,10 +39,10 @@ export function RateNudge({
           {t("rateNudgeTitle")}
         </p>
         <p className="mt-0.5 text-[11px] leading-snug text-zinc-600 dark:text-zinc-300">
-          {t("rateNudgeBody")}
+          {t(store.bodyKey)}
         </p>
         <a
-          href={CHROME_WEB_STORE_REVIEW_URL}
+          href={store.href}
           target="_blank"
           rel="noreferrer"
           onClick={onRate}

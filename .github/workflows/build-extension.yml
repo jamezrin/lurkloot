@@ -42,7 +42,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
-          version: 12.16.1
+          version: 12.18.0
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -72,7 +72,7 @@ jobs:
           persist-credentials: false
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
-          version: 12.16.1
+          version: 12.18.0
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -107,6 +107,14 @@ jobs:
           normalize_zip "$chrome_zip" "release-assets/lurkloot-$version-chrome.zip"
           normalize_zip "$firefox_zip" "release-assets/lurkloot-$version-firefox.zip"
           normalize_zip "$sources_zip" "release-assets/lurkloot-$version-firefox-sources.zip"
+      - name: Rebuild the Firefox add-on from its sources archive
+        # Firefox Add-ons reviewers rebuild the add-on from this archive and reject a mismatch.
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          scripts/check-firefox-sources.sh \
+            "release-assets/lurkloot-$version-firefox-sources.zip" \
+            "release-assets/lurkloot-$version-firefox.zip"
       - name: Checksum unsigned build output
         working-directory: release-assets
         run: sha256sum lurkloot-* > UNSIGNED_SHA256SUMS

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { AnimatePresence } from "motion/react";
+import { createPortal } from "react-dom";
 import { ChevronRight, Clock3, Pin } from "lucide-react";
 import type {
   CategorySelection,
@@ -53,6 +54,12 @@ function pinPosition(visiblePins: CampaignView[], toIndex: number): number {
   const displaced = visiblePins[Math.max(0, Math.min(toIndex, visiblePins.length - 1))];
   return displaced?.pinIndex ?? toIndex;
 }
+
+/** Where the queue puts the campaigns outside it (action required, skipped,
+ * upcoming). The window frame's combined drops page provides an element below
+ * the queue's scrolling list, so they stay in view; without one they follow
+ * the queue, as in the popup. */
+export const NotInQueueSlotContext = React.createContext<HTMLElement | null>(null);
 
 export function QueuePanel({
   campaigns,
@@ -121,6 +128,7 @@ export function QueuePanel({
     initialExpandedIds(campaigns),
   );
   const listRef = useRef<HTMLDivElement>(null);
+  const notInQueueSlot = React.useContext(NotInQueueSlotContext);
   const searching = query.trim().length > 0;
 
   const queued = useMemo(
@@ -183,8 +191,10 @@ export function QueuePanel({
   useEffect(() => {
     if (!focus || searching) return;
     const frame = requestAnimationFrame(() => {
-      const cards = listRef.current?.querySelectorAll<HTMLElement>("[data-campaign-id]");
-      const card = cards && [...cards].find((node) => node.dataset.campaignId === focus.id);
+      const cards = [listRef.current, notInQueueSlot].flatMap((root) => [
+        ...(root?.querySelectorAll<HTMLElement>("[data-campaign-id]") ?? []),
+      ]);
+      const card = cards.find((node) => node.dataset.campaignId === focus.id);
       scrollIntoPanel(card, "smooth");
     });
     return () => cancelAnimationFrame(frame);
@@ -297,6 +307,124 @@ export function QueuePanel({
       ? `${t("rankReasonUnlinked")} · ${byStrategy}`
       : byStrategy;
   }
+
+  // Campaigns outside the queue: action required, skipped and upcoming.
+  // Rendered after the queue, or in the host's slot for them when it gives one.
+  const notInQueue = (
+    <>
+      {skipped.length > 0 || actionRequired.length > 0 || upcoming.length > 0 ? (
+        <GroupDivider label={t("queueNotInQueue")} />
+      ) : null}
+
+      {actionRequired.length > 0 ? (
+        <Disclosure
+          group="action-required"
+          label={t("queueActionRequired")}
+          count={actionRequired.length}
+          hint={t("queueActionRequiredHint")}
+          expanded={showActionRequired}
+          onToggle={() => setShowActionRequired((current) => !current)}
+        >
+          {actionRequired.map((campaign, index) => (
+            <div key={campaign.id} data-campaign-id={campaign.id}>
+              <QueueRow
+                kind="skipped"
+                campaign={campaign}
+                index={index}
+                farmingIndex={-1}
+                anyFarming={anyFarming}
+                game={gameMap[campaign.gameId]}
+                expanded={Boolean(expandedIds[campaign.id])}
+                refreshing={refreshing}
+                actions={actions}
+                rewardFilter={rewardFilter}
+                {...categoryActions}
+              />
+            </div>
+          ))}
+        </Disclosure>
+      ) : null}
+
+      {skipped.length > 0 ? (
+        <Disclosure
+          group="skipped"
+          label={t("queueSkipped")}
+          count={skipped.length}
+          hint={
+            filteredCount > 0
+              ? t("queueSkippedByFilter", String(filteredCount))
+              : [
+                  ...new Set(
+                    skipped.map((campaign) => {
+                      const rejection = campaign.farmingRejection;
+                      return (
+                        rejection
+                        && campaignRejectionMessage(
+                          rejection,
+                          campaign.rewardFilter ?? rewardFilter,
+                          t,
+                          locale,
+                        )
+                      );
+                    }),
+                  ),
+                ]
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .join(" · ")
+          }
+          expanded={showSkipped}
+          onToggle={() => setShowSkipped((current) => !current)}
+        >
+          {skipped.map((campaign, index) => (
+            <div key={campaign.id} data-campaign-id={campaign.id}>
+              <QueueRow
+                kind="skipped"
+                campaign={campaign}
+                index={index}
+                farmingIndex={-1}
+                anyFarming={anyFarming}
+                game={gameMap[campaign.gameId]}
+                expanded={Boolean(expandedIds[campaign.id])}
+                refreshing={refreshing}
+                actions={actions}
+                rewardFilter={rewardFilter}
+                {...categoryActions}
+              />
+            </div>
+          ))}
+        </Disclosure>
+      ) : null}
+
+      {upcoming.length > 0 ? (
+        <Disclosure
+          group="upcoming"
+          label={t("queueUpcoming")}
+          count={upcoming.length}
+          expanded={showUpcoming}
+          onToggle={() => setShowUpcoming((current) => !current)}
+        >
+          {upcoming.map((campaign, index) => (
+            <div key={campaign.id} data-campaign-id={campaign.id}>
+              <QueueRow
+                kind="upcoming"
+                campaign={campaign}
+                index={index}
+                farmingIndex={-1}
+                anyFarming={anyFarming}
+                game={gameMap[campaign.gameId]}
+                expanded={Boolean(expandedIds[campaign.id])}
+                refreshing={refreshing}
+                actions={actions}
+                rewardFilter={rewardFilter}
+                {...categoryActions}
+              />
+            </div>
+          ))}
+        </Disclosure>
+      ) : null}
+    </>
+  );
 
   return (
     <section className="space-y-1.5">
@@ -441,117 +569,7 @@ export function QueuePanel({
             </EmptyPanel>
           ) : null}
 
-          {skipped.length > 0 || actionRequired.length > 0 || upcoming.length > 0 ? (
-            <GroupDivider label={t("queueNotInQueue")} />
-          ) : null}
-
-          {actionRequired.length > 0 ? (
-            <Disclosure
-              group="action-required"
-              label={t("queueActionRequired")}
-              count={actionRequired.length}
-              hint={t("queueActionRequiredHint")}
-              expanded={showActionRequired}
-              onToggle={() => setShowActionRequired((current) => !current)}
-            >
-              {actionRequired.map((campaign, index) => (
-                <div key={campaign.id} data-campaign-id={campaign.id}>
-                  <QueueRow
-                    kind="skipped"
-                    campaign={campaign}
-                    index={index}
-                    farmingIndex={-1}
-                    anyFarming={anyFarming}
-                    game={gameMap[campaign.gameId]}
-                    expanded={Boolean(expandedIds[campaign.id])}
-                    refreshing={refreshing}
-                    actions={actions}
-                    rewardFilter={rewardFilter}
-                    {...categoryActions}
-                  />
-                </div>
-              ))}
-            </Disclosure>
-          ) : null}
-
-          {skipped.length > 0 ? (
-            <Disclosure
-              group="skipped"
-              label={t("queueSkipped")}
-              count={skipped.length}
-              hint={
-                filteredCount > 0
-                  ? t("queueSkippedByFilter", String(filteredCount))
-                  : [
-                      ...new Set(
-                        skipped.map((campaign) => {
-                          const rejection = campaign.farmingRejection;
-                          return (
-                            rejection
-                            && campaignRejectionMessage(
-                              rejection,
-                              campaign.rewardFilter ?? rewardFilter,
-                              t,
-                              locale,
-                            )
-                          );
-                        }),
-                      ),
-                    ]
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .join(" · ")
-              }
-              expanded={showSkipped}
-              onToggle={() => setShowSkipped((current) => !current)}
-            >
-              {skipped.map((campaign, index) => (
-                <div key={campaign.id} data-campaign-id={campaign.id}>
-                  <QueueRow
-                    kind="skipped"
-                    campaign={campaign}
-                    index={index}
-                    farmingIndex={-1}
-                    anyFarming={anyFarming}
-                    game={gameMap[campaign.gameId]}
-                    expanded={Boolean(expandedIds[campaign.id])}
-                    refreshing={refreshing}
-                    actions={actions}
-                    rewardFilter={rewardFilter}
-                    {...categoryActions}
-                  />
-                </div>
-              ))}
-            </Disclosure>
-          ) : null}
-
-          {upcoming.length > 0 ? (
-            <Disclosure
-              group="upcoming"
-              label={t("queueUpcoming")}
-              count={upcoming.length}
-              expanded={showUpcoming}
-              onToggle={() => setShowUpcoming((current) => !current)}
-            >
-              {upcoming.map((campaign, index) => (
-                <div key={campaign.id} data-campaign-id={campaign.id}>
-                  <QueueRow
-                    kind="upcoming"
-                    campaign={campaign}
-                    index={index}
-                    farmingIndex={-1}
-                    anyFarming={anyFarming}
-                    game={gameMap[campaign.gameId]}
-                    expanded={Boolean(expandedIds[campaign.id])}
-                    refreshing={refreshing}
-                    actions={actions}
-                    rewardFilter={rewardFilter}
-                    {...categoryActions}
-                  />
-                </div>
-              ))}
-            </Disclosure>
-          ) : null}
+          {notInQueueSlot ? createPortal(notInQueue, notInQueueSlot) : notInQueue}
         </div>
       )}
     </section>

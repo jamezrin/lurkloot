@@ -1,5 +1,30 @@
 [
   {
+    "version": "1.25.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "The CLI has a new command, lurkloot serve. It farms like lurkloot run and also serves a Lurkloot app you open in your browser, with the same views as the extension popup in a full window. From there you can turn platforms on and off, change settings, which are saved to config.json, and sign in to Twitch and Kick without a terminal. The Docker image includes it, and the new compose.yaml runs it at http://127.0.0.1:8420 behind an access token."
+      },
+      {
+        "kind": "improved",
+        "text": "On Firefox, the request to rate Lurkloot now links to Firefox Add-ons instead of the Chrome Web Store."
+      },
+      {
+        "kind": "fixed",
+        "text": "Lurkloot no longer keeps opening and closing twitch.tv tabs when Twitch rejects every integrity token they give it. After two rejected tokens it stops opening tabs and logs a warning. Opening twitch.tv yourself, or turning Twitch off and on, lets it try again."
+      },
+      {
+        "kind": "fixed",
+        "text": "When you are signed out of Twitch, Lurkloot shows Needs sign-in straight away instead of first opening a twitch.tv tab and waiting about 30 seconds."
+      },
+      {
+        "kind": "fixed",
+        "text": "With 7TV installed, its settings badge no longer ends up inside the Lurkloot button in Twitch's top bar, so clicking the button no longer opens both."
+      }
+    ]
+  },
+  {
     "version": "1.24.0",
     "changes": [
       {

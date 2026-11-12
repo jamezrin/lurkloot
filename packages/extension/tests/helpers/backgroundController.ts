@@ -254,6 +254,8 @@ export function integrityHeaders(integrity: TwitchIntegrity): IntegrityHeader[] 
     { name: "Client-Integrity", value: integrity.integrity },
     { name: "Client-Session-Id", value: integrity.clientSessionId },
     { name: "X-Device-Id", value: integrity.deviceId },
+    // A signed-in page's request; without it the capture is ignored.
+    { name: "Authorization", value: "OAuth test-session" },
   ];
 }
 
@@ -371,6 +373,7 @@ export function harness(
     wait?: (ms: number, signal: AbortSignal) => Promise<void>;
     checkCredentialAvailability?: (platform: Platform) => Promise<CredentialAvailability>;
     authProbeTimeoutMs?: number;
+    credentialLookupTimeoutMs?: number;
     loadTwitchIntegrity?: () => Promise<TwitchIntegrity | undefined>;
     saveTwitchIntegrity?: (value: TwitchIntegrity) => Promise<void>;
     saveSettings?: (value: ExtensionSettings) => Promise<void>;
@@ -534,6 +537,9 @@ export function harness(
     ...(overrides.authProbeTimeoutMs === undefined
       ? {}
       : { authProbeTimeoutMs: overrides.authProbeTimeoutMs }),
+    ...(overrides.credentialLookupTimeoutMs === undefined
+      ? {}
+      : { credentialLookupTimeoutMs: overrides.credentialLookupTimeoutMs }),
     ...(overrides.loadTwitchIntegrity
       ? { loadTwitchIntegrity: vi.fn(overrides.loadTwitchIntegrity) }
       : {}),

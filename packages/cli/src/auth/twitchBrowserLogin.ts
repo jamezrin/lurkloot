@@ -16,34 +16,41 @@ import { TWITCH_ANDROID_CLIENT_ID } from "../twitch";
 // read from that address, checked with Twitch, and saved; it is never logged.
 const AUTHORIZE_ENDPOINT = "https://id.twitch.tv/oauth2/authorize";
 const VALIDATE_ENDPOINT = "https://id.twitch.tv/oauth2/validate";
-const REDIRECT_URI = "https://www.twitch.tv/";
+export const TWITCH_BROWSER_LOGIN_REDIRECT_URI = "https://www.twitch.tv/";
 
 export function twitchAndroidAuthorizeUrl(): string {
   const params = new URLSearchParams({
     client_id: TWITCH_ANDROID_CLIENT_ID,
     response_type: "token",
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: TWITCH_BROWSER_LOGIN_REDIRECT_URI,
   });
   return `${AUTHORIZE_ENDPOINT}?${params.toString()}`;
 }
+
+// The pasted address carries no usable token, or reports a refused sign-in.
+export class TwitchRedirectError extends Error {}
+
+// Twitch answered the validation and refused the token.
+export class TwitchTokenRejectedError extends Error {}
 
 // Reads the access token from the pasted redirect address. Accepts the whole
 // address (`https://www.twitch.tv/#access_token=…&scope=…`) or just its
 // fragment. Twitch reports a refused sign-in as `error` in the fragment.
 export function parseTwitchRedirect(input: string): string {
   const text = input.trim();
-  if (!text) throw new Error("Nothing was pasted; paste the address Twitch sent you to");
+  if (!text)
+    throw new TwitchRedirectError("Nothing was pasted; paste the address Twitch sent you to");
   const hashIndex = text.indexOf("#");
   const fragment = hashIndex >= 0 ? text.slice(hashIndex + 1) : text;
   const params = new URLSearchParams(fragment);
   const error = params.get("error");
   if (error) {
     const description = params.get("error_description");
-    throw new Error(`Twitch refused the sign-in: ${description ?? error}`);
+    throw new TwitchRedirectError(`Twitch refused the sign-in: ${description ?? error}`);
   }
   const token = params.get("access_token");
   if (!token || !/^[a-z0-9]+$/i.test(token)) {
-    throw new Error(
+    throw new TwitchRedirectError(
       "The pasted address has no access_token; copy the full https://www.twitch.tv/#access_token=… address",
     );
   }
@@ -75,12 +82,12 @@ export async function validateTwitchAndroidToken(
   });
   const data = (await response.json().catch(() => ({}))) as ValidateResponse;
   if (!response.ok) {
-    throw new Error(
+    throw new TwitchTokenRejectedError(
       `Twitch rejected the token: HTTP ${response.status}${data.message ? ` ${data.message}` : ""}`,
     );
   }
   if (data.client_id !== TWITCH_ANDROID_CLIENT_ID) {
-    throw new Error(
+    throw new TwitchTokenRejectedError(
       "That token was not issued by the sign-in link this command printed; open that link and paste the address it ends on",
     );
   }
@@ -98,6 +105,23 @@ async function readRedirectInput(): Promise<string> {
   }
 }
 
+// Reads, validates and saves the token from a pasted redirect address: the one
+// path both `auth twitch browser-login` and `serve` take. Nothing is written
+// unless Twitch confirms the token, and the return value carries no token.
+export async function completeTwitchBrowserLogin(
+  authDir: string,
+  address: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ValidatedTwitchToken> {
+  const token = parseTwitchRedirect(address);
+  const validated = await validateTwitchAndroidToken(token, fetchImpl);
+  // Replace the stored Twitch login whole: fields left over from a web import
+  // (device ID, Kasada cookie) belong to another session and must not linger.
+  forgetCredentials(authDir, "twitch");
+  saveCredentials(authDir, { twitch: { authToken: token, clientId: validated.clientId } });
+  return validated;
+}
+
 export async function twitchBrowserLogin(
   authDir: string,
   logger: Logger,
@@ -112,12 +136,7 @@ export async function twitchBrowserLogin(
     "Twitch then sends you to https://www.twitch.tv/#access_token=…. Copy that whole address. If twitch.tv removes the #access_token part before you can copy it, open the browser's developer tools on the Network tab with Preserve log on before signing in, and copy the location header of the id.twitch.tv redirect.",
     "login",
   );
-  const token = parseTwitchRedirect(await readInput());
-  const validated = await validateTwitchAndroidToken(token, fetchImpl);
-  // Replace the stored Twitch login whole: fields left over from a web import
-  // (device ID, Kasada cookie) belong to another session and must not linger.
-  forgetCredentials(authDir, "twitch");
-  saveCredentials(authDir, { twitch: { authToken: token, clientId: validated.clientId } });
+  const validated = await completeTwitchBrowserLogin(authDir, await readInput(), fetchImpl);
   logger.info(
     `Twitch browser login complete${validated.login ? ` for ${validated.login}` : ""}; token saved`,
     "login",

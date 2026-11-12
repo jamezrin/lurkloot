@@ -104,6 +104,12 @@
   "navGroupDrops": {
     "message": "Drops"
   },
+  "navSidebarCollapse": {
+    "message": "Seitenleiste einklappen"
+  },
+  "navSidebarExpand": {
+    "message": "Seitenleiste ausklappen"
+  },
   "navQueue": {
     "message": "Warteschlange"
   },
@@ -1391,6 +1397,9 @@
   "rateNudgeBody": {
     "message": "Eine kurze Bewertung im Chrome Web Store hilft sehr."
   },
+  "rateNudgeBodyFirefox": {
+    "message": "Eine kurze Bewertung in den Firefox-Add-ons hilft sehr."
+  },
   "rateNudgeAction": {
     "message": "Bewerten"
   },
@@ -2398,5 +2407,212 @@
   },
   "rewardLanesOwnedOnly": {
     "message": "Eine Linie entwickelt nur ein Abzeichen, das du bereits besitzt. Ohne dieses Abzeichen bringt das Zuschauen nichts."
+  },
+  "activityNoHistoryTitle": {
+    "message": "Hier gibt es keinen Aktivitätsverlauf"
+  },
+  "activityNoHistoryBody": {
+    "message": "Lurkloot protokolliert hier, was es tut, nicht in einen Verlauf, durch den du blättern kannst. Unten siehst du, was es gerade tut."
+  },
+  "activityLastCheck": {
+    "message": "Letzte Prüfung"
+  },
+  "activityNoCheckYet": {
+    "message": "Noch nicht"
+  },
+  "appNavAccounts": {
+    "message": "Konten"
+  },
+  "windowAccountTitle": {
+    "message": "$1-Konto"
+  },
+  "windowAccountManage": {
+    "message": "Konten verwalten"
+  },
+  "appAccountsIntro": {
+    "message": "Melde Lurkloot bei Twitch und Kick an. Deine Anmeldung wird im eigenen privaten Speicher von Lurkloot auf dem Rechner gespeichert, auf dem es läuft. Diese Seite zeigt nie ein Token an und speichert keines."
+  },
+  "appAccountSignedIn": {
+    "message": "Angemeldet"
+  },
+  "appAccountChecking": {
+    "message": "Wird geprüft…"
+  },
+  "appAccountSignedOut": {
+    "message": "Nicht angemeldet"
+  },
+  "appAccountRejected": {
+    "message": "Anmeldung nicht mehr gültig"
+  },
+  "appAccountUnavailable": {
+    "message": "Gerade nicht prüfbar"
+  },
+  "appAccountSourceStored": {
+    "message": "Von Lurkloot gespeichert"
+  },
+  "appAccountSourceEnvironment": {
+    "message": "Aus einer Umgebungsvariable"
+  },
+  "appAccountEnvironmentNote": {
+    "message": "Eine SA_*-Umgebungsvariable liefert diese Anmeldung weiterhin, daher nutzt Lurkloot sie unabhängig davon, was du hier an- oder abmeldest. Entferne die Variable und starte Lurkloot neu, um die Anmeldung dieser Seite zu verwenden."
+  },
+  "appAccountSignOut": {
+    "message": "Abmelden"
+  },
+  "appAccountSignedOutDone": {
+    "message": "Abgemeldet."
+  },
+  "appAccountSignedOutEnvironment": {
+    "message": "Abgemeldet, aber eine SA_*-Umgebungsvariable meldet Lurkloot weiterhin an."
+  },
+  "appAccountNothingToForget": {
+    "message": "Es gab keine gespeicherte Anmeldung zum Vergessen."
+  },
+  "appRecommended": {
+    "message": "Empfohlen"
+  },
+  "appTwitchBrowserLoginTitle": {
+    "message": "Mit dem Browser anmelden"
+  },
+  "appTwitchBrowserLoginDescription": {
+    "message": "Sieht jede Drop-Kampagne."
+  },
+  "appTwitchBrowserLoginStepOpen": {
+    "message": "Öffne die Twitch-Anmeldeseite und melde dich an."
+  },
+  "appTwitchBrowserLoginOpen": {
+    "message": "Twitch-Anmeldung öffnen"
+  },
+  "appTwitchBrowserLoginStepCopy": {
+    "message": "Twitch leitet dich danach auf $1 weiter. Kopiere diese ganze Adresse aus der Adressleiste."
+  },
+  "appTwitchBrowserLoginAddressLabel": {
+    "message": "Füge die Adresse ein, zu der Twitch dich weitergeleitet hat"
+  },
+  "appTwitchBrowserLoginSubmit": {
+    "message": "Anmeldung abschließen"
+  },
+  "appTwitchBrowserLoginDone": {
+    "message": "Bei Twitch angemeldet."
+  },
+  "appTwitchBrowserLoginDoneAs": {
+    "message": "Bei Twitch angemeldet als $1."
+  },
+  "appTwitchBrowserLoginFallbackTitle": {
+    "message": "Fehlt der Teil #access_token in der Adresse?"
+  },
+  "appTwitchBrowserLoginFallbackBody": {
+    "message": "twitch.tv kann ihn fast sofort aus der Adressleiste entfernen. Öffne vor dem Anmelden die Entwicklertools des Browsers, wechsle zum Tab Network und aktiviere Preserve log. Melde dich dann an, filtere nach access_token und kopiere den location-Header der Weiterleitung von id.twitch.tv. Füge diesen stattdessen hier ein."
+  },
+  "appTwitchDeviceLoginTitle": {
+    "message": "Mit einem Code anmelden"
+  },
+  "appTwitchDeviceLoginDescription": {
+    "message": "Hier ist keine Browser-Anmeldung nötig, aber Twitch zeigt diese Anmeldung nur für Kampagnen an, die du bereits gestartet hast."
+  },
+  "appKickDeviceLoginTitle": {
+    "message": "Mit einem TV-Code verknüpfen"
+  },
+  "appKickDeviceLoginDescription": {
+    "message": "Scanne den Code mit deinem Handy in der Kick-App, in der du angemeldet bist, und bestätige ihn dort."
+  },
+  "appDeviceLoginStart": {
+    "message": "Code anfordern"
+  },
+  "appDeviceLoginOpen": {
+    "message": "Link öffnen"
+  },
+  "appDeviceLoginQrLabel": {
+    "message": "QR-Code für den Anmeldelink"
+  },
+  "appKickDeviceLoginScan": {
+    "message": "Scanne dies mit der Kamera deines Handys. Der Link öffnet sich in der Kick-App, nicht im Browser eines Computers."
+  },
+  "appDeviceLoginCode": {
+    "message": "Code"
+  },
+  "appDeviceLoginWaiting": {
+    "message": "Warten auf deine Bestätigung des Codes…"
+  },
+  "appDeviceLoginCancel": {
+    "message": "Abbrechen"
+  },
+  "appDeviceLoginApproved": {
+    "message": "Angemeldet."
+  },
+  "appDeviceLoginExpired": {
+    "message": "Der Code ist abgelaufen. Fordere einen neuen an, um es erneut zu versuchen."
+  },
+  "appDeviceLoginFailed": {
+    "message": "Die Anmeldung ist fehlgeschlagen. Fordere einen neuen Code an, um es erneut zu versuchen."
+  },
+  "appDeviceLoginCancelled": {
+    "message": "Die Anmeldung wurde abgebrochen."
+  },
+  "appErrorInvalidRedirect": {
+    "message": "Diese Adresse enthält kein Anmelde-Token. Kopiere die vollständige Adresse, zu der Twitch dich weitergeleitet hat."
+  },
+  "appErrorLoginRejected": {
+    "message": "Twitch hat diese Anmeldung abgelehnt. Starte auf der Anmeldeseite neu."
+  },
+  "appErrorUpstreamUnavailable": {
+    "message": "Twitch oder Kick sind nicht erreichbar. Versuche es gleich noch einmal."
+  },
+  "appErrorPlatformUnavailable": {
+    "message": "$1 ist nicht erreichbar. Versuche es gleich noch einmal."
+  },
+  "appErrorNetwork": {
+    "message": "Lurkloot ist nicht erreichbar. Läuft lurkloot serve noch?"
+  },
+  "appErrorUnauthorized": {
+    "message": "Das Zugriffstoken wurde abgelehnt."
+  },
+  "appErrorGeneric": {
+    "message": "Die Anfrage ist fehlgeschlagen ($1)."
+  },
+  "appErrorSettingsUnrepresentable": {
+    "message": "Lurkloot kann diese Einstellung nicht in seiner Konfigurationsdatei speichern: $1"
+  },
+  "appErrorSettingsInvalid": {
+    "message": "Lurkloot hat diesen Wert abgelehnt: $1"
+  },
+  "appErrorSettingsNotSaved": {
+    "message": "Lurkloot konnte seine Konfigurationsdatei nicht aktualisieren. Es wurde nichts geändert."
+  },
+  "appErrorUnsupported": {
+    "message": "Lurkloot kann das hier nicht tun."
+  },
+  "appConnecting": {
+    "message": "Verbindung zu Lurkloot wird hergestellt…"
+  },
+  "appUnreachableTitle": {
+    "message": "Lurkloot ist nicht erreichbar"
+  },
+  "appUnreachableBody": {
+    "message": "Starte es mit lurkloot serve und versuche es dann erneut."
+  },
+  "appRetry": {
+    "message": "Erneut versuchen"
+  },
+  "appConnectionLost": {
+    "message": "Verbindung zu Lurkloot verloren. Neuer Versuch…"
+  },
+  "appDismiss": {
+    "message": "Schließen"
+  },
+  "appTokenTitle": {
+    "message": "Zugriffstoken"
+  },
+  "appTokenBody": {
+    "message": "Dieses Lurkloot braucht sein Zugriffstoken, den Wert von LURKLOOT_SERVE_TOKEN. Es wird nur in diesem Browser-Tab gespeichert."
+  },
+  "appTokenRejected": {
+    "message": "Dieses Token wurde abgelehnt. Prüfe es und versuche es erneut."
+  },
+  "appTokenLabel": {
+    "message": "Zugriffstoken"
+  },
+  "appTokenSubmit": {
+    "message": "Weiter"
   }
 }
