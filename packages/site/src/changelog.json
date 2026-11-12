@@ -22,7 +22,8 @@
         "kind": "fixed",
         "text": "With 7TV installed, its settings badge no longer ends up inside the Lurkloot button in Twitch's top bar, so clicking the button no longer opens both."
       }
-    ]
+    ],
+    "date": "2026-11-12"
   },
   {
     "version": "1.24.0",
