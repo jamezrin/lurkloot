@@ -163,6 +163,15 @@ describe("serve binding", () => {
     ).toEqual({ host: "0.0.0.0", port: 9000, token: TOKEN });
   });
 
+  it("keeps a configured token on a loopback bind", () => {
+    // How a launcher locks its own serve to its window (#1023).
+    expect(resolveServeBinding({ port: 0, env: { [SERVE_TOKEN_ENV]: TOKEN } })).toEqual({
+      host: "127.0.0.1",
+      port: 0,
+      token: TOKEN,
+    });
+  });
+
   it("refuses a short token and an invalid port", () => {
     expect(() => resolveServeBinding({ env: { [SERVE_TOKEN_ENV]: "short" } })).toThrow(
       /at least 16/,

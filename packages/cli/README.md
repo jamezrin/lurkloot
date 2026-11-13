@@ -406,6 +406,42 @@ curl -s -H 'content-type: application/json' \
 LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" lurkloot serve --host 0.0.0.0
 ```
 
+### Running under a launcher
+
+Two `serve` options exist for a parent process that starts `serve` as its child,
+such as the desktop app. Both are off by default, and `run` has neither.
+
+- **`--ready-json`** prints one line on stdout once the control plane listens:
+
+  ```json
+  {"event":"ready","url":"http://127.0.0.1:49152/"}
+  ```
+
+  `url` is the address that reaches the server from this machine. With
+  `--port 0` it carries the port the OS picked; on a wildcard bind it names
+  `127.0.0.1`. It never carries the token. The human log line is still written.
+  Logs always go to stderr, so in practice the ready line is the only line on
+  stdout, but read stdout line by line and take the first line that parses as
+  JSON with `"event":"ready"` rather than assuming it is the first line: a
+  transport's helper process (cycletls) can write to stdout too.
+- **`--exit-with-stdin`** shuts down when stdin ends, closes or fails, the same
+  way as SIGINT/SIGTERM: the server closes, the loop stops, and the process
+  exits with code 0. Closing the pipe is how a launcher stops `serve` on Windows,
+  which has no SIGTERM. It also stops `serve` if the launcher crashes, because
+  the OS closes the pipe then. Anything written to stdin is read and discarded;
+  it is not a command channel. Do not use this option without a pipe on stdin:
+  with stdin at `/dev/null`, as under `docker run` without `-i`, `serve` stops as
+  soon as it starts.
+
+To keep other programs on the machine out of the API, the launcher sets a fresh
+`LURKLOOT_SERVE_TOKEN` for each launch. A token applies to a loopback bind too
+(see [Security model](#security-model)).
+
+```bash
+LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" \
+  lurkloot serve --port 0 --ready-json --exit-with-stdin
+```
+
 ## Event logging
 
 The farming engine reports typed activity and diagnostic batches directly to
