@@ -133,7 +133,7 @@ posting where a self-promotional link is off-topic or against community rules.
 | --- | --- |
 | Reddit | Answer real questions in r/Twitch, r/RustGame, r/Kick threads about drop farming; link only where it is the actual answer. |
 | GitHub awesome lists | Browser-extension and self-hosted/Docker lists — the CLI and the multi-arch image are the angle for the self-hosted ones. |
-| Extension directories | Listings that index Chrome Web Store extensions. |
+| Extension directories | Listings that index Chrome Web Store and Firefox Add-ons extensions. |
 | Twitch Drops guides | Guide sites and wikis that maintain tool lists. |
 | Kick Drops guides | Thinner ground today; worth revisiting as Kick's drops ecosystem grows. |
 | Game communities | Rust and other drop-heavy titles, around campaign launches when the question is being asked anyway. |

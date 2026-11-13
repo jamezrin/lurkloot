@@ -21,6 +21,8 @@ export const DOCKER_IMAGE = "ghcr.io/jamezrin/lurkloot-cli:latest";
 
 export const EXTERNAL_URLS = {
   chrome: "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
+  // The listing's slug (docs/store-readiness.md, "First submission").
+  firefox: "https://addons.mozilla.org/firefox/addon/lurkloot/",
   github: "https://github.com/jamezrin/lurkloot",
   cli: "https://github.com/jamezrin/lurkloot/tree/main/packages/cli",
   ghcr: "https://github.com/jamezrin/lurkloot/pkgs/container/lurkloot-cli",
@@ -36,6 +38,7 @@ function withCampaign(url: string, campaign: "extension_install" | "open_source"
 
 export const LINKS = {
   chrome: withCampaign(EXTERNAL_URLS.chrome, "extension_install"),
+  firefox: withCampaign(EXTERNAL_URLS.firefox, "extension_install"),
   // On-site pages (no trailing slash, matching `trailingSlash: "ignore"`).
   privacy: "/privacy",
   changelog: "/changelog",
