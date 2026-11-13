@@ -8,7 +8,7 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 
 - `packages/extension` — the WXT extension shell (`entrypoints/`, browser-specific `src/`, `wxt.config.ts`, `public/`, `tests/`). Builds to `packages/extension/.output/{chrome-mv3,firefox-mv2}`.
 - `packages/core` — the browser-free farming engine (`@lurkloot/core`): scheduler, background controller, platform adapters/parsers, tab/watch abstractions, tabless watch logic, and Twitch integrity helpers. It is consumed by both the extension and CLI.
-- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`.
+- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`. `build` bundles `dist/index.mjs` (ESM, `cycletls` and `ws` left in `node_modules`) and copies the app UI to `dist/app`; `build:executable` builds the standalone executable (see "Standalone CLI executable" below).
 - `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
 - `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
 - `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
@@ -665,6 +665,41 @@ every request; a loopback bind refuses non-loopback `Host` headers (DNS rebindin
 never reads one, the sign-in routes answer with presence, source and the Twitch login name only, and `GET /v1/session` is assembled from named fields of the snapshot's auth
 health and the credential store's presence reading, never by spreading objects, so it carries no
 account id either. A `getSnapshot` answer is the popup's full snapshot, account id included.
+
+### Standalone CLI executable (#1022)
+
+The release also ships the CLI as a standalone `lurkloot` executable per OS, for users without
+Node and as the desktop app's sidecar (#981). `packages/cli/scripts/buildExecutable.mjs` bundles
+`src/index.ts` a second time, as CommonJS with every dependency inside but cycletls (a
+single-executable application's main script can only `require` built-ins), and injects it into a
+copy of the building Node binary with postject. cycletls is GPL-3.0, so it is never compiled in:
+the build aliases `cycletls` to `src/runtime/cycleTlsStandalone.ts` and refuses a bundle that
+still contains cycletls code. The archive puts the cycletls package beside the executable in
+`cycletls/`, as the Docker image keeps it in `node_modules`: its unmodified `package.json`,
+`LICENSE` and `dist/index.js`, its runtime dependency closure flat in `cycletls/node_modules`, and
+the platform's Go binary as `cycletls`/`cycletls.exe`. Beside them go the app UI (`app/`),
+`LICENSE` and a generated `NOTICE`. The `dist/index.mjs` build and the Docker image are untouched:
+they import the real package.
+
+What `node dist/index.mjs` finds beside the bundle or in `node_modules`, the executable finds
+beside itself. `packages/cli/src/runtime/standalone.ts` is the one place that decides this: it
+answers `undefined` unless `node:sea`'s `isSea()` is true, and then resolves paths from
+`dirname(process.execPath)`. In the executable, the shim's `initCycleTLS` loads the package
+from `cycletls/` with `createRequire` on first use (`loadStandaloneCycleTls`), so commands that
+never start cycletls run without the folder, and a missing folder is a `MissingCycleTlsError`
+naming it rather than a fallback to some other copy. Nothing the package requires may come from
+outside that folder: Node would otherwise look for a missing dependency in every `node_modules`
+above the install (`~/Downloads/node_modules`, say). `confineRequires` makes any resolution from
+inside `cycletls/` to a file outside it fail as `MODULE_NOT_FOUND`, and `WS_NO_BUFFER_UTIL` and
+`WS_NO_UTF_8_VALIDATE` stop ws from looking for its unshipped native add-ons at all. `initCycle` (`src/transport/cycle.ts`, the
+only `initCycleTLS` call, used by the impersonate transport and the Kick TV link) passes the Go
+binary in that folder as cycletls's `executablePath`, and `defaultAppRoot`
+(`src/runtime/appAssets.ts`) serves that `app/`. The build
+machine's paths never reach the binary. cycletls starts its binary through `sh -c` outside
+Windows, so a standalone path with spaces or shell characters is refused up front rather than
+left to hang. `packages/cli/tests/standalone.test.ts` guards the resolution in both modes, and
+`scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI, including once
+with `cycletls/` moved away. #1031 replaces the cycletls wrapper with a client of our own.
 
 ### Characterization coverage
 

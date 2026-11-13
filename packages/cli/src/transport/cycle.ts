@@ -9,6 +9,7 @@ import { SafeFetchError } from "@lurkloot/core/fetchError";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
 import type { PlatformCredentials } from "../authStore";
+import { assertCycleTlsPathStartable, standaloneCycleTlsPath } from "../runtime/standalone";
 import { CHROME_HTTP2, CHROME_JA3, CHROME_UA, hasHeader, headersToObject } from "./common";
 
 export type { CycleTLSClient } from "cycletls";
@@ -19,8 +20,15 @@ export type { CycleTLSClient } from "cycletls";
 // engine's own callers of needsKickSessionBearer never reach wss.
 const KICK_BEARER_PROTOCOLS = ["https:", "wss:"];
 
-export function initCycle(): Promise<CycleTLSClient> {
-  return initCycleTLS();
+// cycletls starts its Go binary from its own package directory. The standalone
+// executable has no node_modules, so it ships the binary beside itself and
+// names it here (runtime/standalone.ts); everywhere else cycletls finds its own.
+export async function initCycle(
+  executablePath = standaloneCycleTlsPath(),
+): Promise<CycleTLSClient> {
+  if (executablePath === undefined) return initCycleTLS();
+  assertCycleTlsPathStartable(executablePath, process.platform);
+  return initCycleTLS({ executablePath });
 }
 
 export function kickHeaders(

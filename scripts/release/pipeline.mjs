@@ -75,6 +75,35 @@ export function validatePromotion({ stableVersion, version, label }) {
   return { bump, version };
 }
 
+// The standalone `lurkloot` executables (#1022), one archive per target. Each target is built on
+// a runner of its own OS and architecture (.github/workflows/build-cli-executables.yml), and
+// packages/cli/scripts/buildExecutable.mjs names its archive with cliArchiveName.
+export const cliExecutableTargets = [
+  { id: "linux-x64", platform: "linux", arch: "x64", archive: "tar.gz" },
+  { id: "linux-arm64", platform: "linux", arch: "arm64", archive: "tar.gz" },
+  { id: "macos-arm64", platform: "darwin", arch: "arm64", archive: "tar.gz" },
+  { id: "macos-x64", platform: "darwin", arch: "x64", archive: "tar.gz" },
+  { id: "windows-x64", platform: "win32", arch: "x64", archive: "zip" },
+];
+
+export function cliExecutableTarget(platform, arch) {
+  const target = cliExecutableTargets.find(
+    (candidate) => candidate.platform === platform && candidate.arch === arch,
+  );
+  if (!target) throw new Error(`no lurkloot executable target for ${platform}-${arch}`);
+  return target;
+}
+
+// The archive's top-level directory, and with the extension added, its file name.
+export function cliArchiveBase(version, target) {
+  parseManifestVersion(version);
+  return `lurkloot-cli-${version}-${target.id}`;
+}
+
+export function cliArchiveName(version, target) {
+  return `${cliArchiveBase(version, target)}.${target.archive}`;
+}
+
 // The upload steps glob their assets directory, so anything a build step leaves behind would be
 // published. Both the candidate prerelease and the stable release must carry exactly this set.
 export function expectedReleaseAssets(version) {
@@ -84,6 +113,7 @@ export function expectedReleaseAssets(version) {
     `lurkloot-${version}-chrome.zip`,
     `lurkloot-${version}-firefox-sources.zip`,
     `lurkloot-${version}-firefox.zip`,
+    ...cliExecutableTargets.map((target) => cliArchiveName(version, target)),
   ];
 }
 
