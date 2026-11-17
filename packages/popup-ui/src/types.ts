@@ -209,8 +209,6 @@ export type CampaignView = {
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;
 
-export type ScreenshotLayout = "hero" | "extras" | "steps" | "settings" | "updated";
-
 type ScreenshotCopy = {
   glow: string;
   eyebrowKey: string;

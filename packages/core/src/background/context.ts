@@ -1,7 +1,6 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { ObserverSlot } from "./observerSlot";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshotLane } from "../core/discoverySnapshot";

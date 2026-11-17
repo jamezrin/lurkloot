@@ -12,7 +12,6 @@ import {
   type PopupAdapter,
 } from "@lurkloot/popup-ui";
 import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
-import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { SupportedLocale } from "@lurkloot/shared/models";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
 import { dismissPendingOnboarding, loadPendingOnboarding } from "../../src/core/onboarding";

@@ -238,4 +238,3 @@ export async function connectFortniteSocket(options: {
     serverNow: () => (serverStamp === undefined ? now() : serverStamp + now() - syncedAt),
   };
 }
-export type FortniteConnection = Awaited<ReturnType<typeof connectFortniteSocket>>;

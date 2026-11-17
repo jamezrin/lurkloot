@@ -461,27 +461,6 @@ export function ProgressBar({
   );
 }
 
-export function MetaStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-lg bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
-      <div className="mb-0.5 flex items-center gap-1 text-[9px] font-semibold uppercase text-zinc-400 dark:text-zinc-500">
-        <Icon size={11} /> {label}
-      </div>
-      <div className="truncate text-xs font-semibold tabular text-zinc-800 dark:text-zinc-100">
-        {value}
-      </div>
-    </div>
-  );
-}
-
 export function EmptyPanel({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-24 place-items-center rounded-2xl border border-dashed border-zinc-300 bg-white p-4 text-center text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">
