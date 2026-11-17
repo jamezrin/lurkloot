@@ -25,11 +25,11 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 - `pnpm dev:firefox`: run WXT for Firefox.
 - `pnpm dev:site`: run the Astro site dev server.
 - `pnpm dev:app` / `pnpm dev:app:fixture`: run the app UI against a local `lurkloot serve`, or against fixture data.
-- `pnpm test`: run the extension Vitest suite once.
+- `pnpm test`: run every package's test script once (`pnpm -r --if-present test`).
 - `pnpm typecheck`: run `tsc --noEmit` across all packages (`pnpm -r typecheck`).
 - `pnpm build` / `pnpm build:firefox`: create production extension builds.
 - `pnpm build:site`: build the Astro site; `pnpm build:all` builds every package.
-- `pnpm check`: run script tests, workspace typechecks, the workspace test suites, the Astro site build and the app UI build.
+- `pnpm check`: run Biome, script tests, the locale key check, workspace typechecks, the workspace test suites, the Astro site build and the app UI build.
 - `pnpm verify`: run `pnpm check` and both browser builds.
 - `pnpm zip` / `pnpm zip:firefox`: package release artifacts into `packages/extension/.output/`.
 - `pnpm store:generate` (and `store:generate:screenshots` / `:promo` / `:descriptions`), `pnpm store:sync`, `pnpm store:verify`: generate the Chrome Web Store listing bundle and sync it to the Developer Dashboard. Operator tooling that needs a signed-in Chrome; see [docs/chrome-web-store-submission.md](docs/chrome-web-store-submission.md).
@@ -78,7 +78,7 @@ Use strict TypeScript and ES modules. Keep imports explicit and prefer `type` im
 
 ## Testing Guidelines
 
-Tests use Vitest in a Node environment with globals enabled and live in `packages/extension/tests/`. Add focused `*.test.ts` files matching the module being exercised, such as `scheduler.test.ts`, `parsers.test.ts`, or `version.test.ts`. Prefer deterministic unit tests with mocked adapters, browser APIs, or storage rather than live Twitch/Kick calls. Run `pnpm test` for test-only changes and `pnpm verify` before releases.
+Tests use Vitest in a Node environment with globals enabled. Most live in `packages/extension/tests/`, which also covers `core`, `shared` and `popup-ui`; `cli`, `app-ui`, `store-sync` and `site` keep their own `tests/` directory. Add focused `*.test.ts` files matching the module being exercised, such as `scheduler.test.ts`, `parsers.test.ts`, or `version.test.ts`. Prefer deterministic unit tests with mocked adapters, browser APIs, or storage rather than live Twitch/Kick calls. Run `pnpm test` for test-only changes and `pnpm verify` before releases.
 
 ## Worktrees
 
