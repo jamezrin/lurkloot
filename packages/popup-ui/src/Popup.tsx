@@ -1,7 +1,7 @@
 import type React from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Clock3, RotateCcw, Settings as SettingsIcon } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import { RotateCcw } from "lucide-react";
 import type {
   ActivityPage,
   ActivitySessionsPage,
@@ -75,7 +75,6 @@ import {
   reuseIfUnchanged,
   reuseUnchangedViews,
   channelViewFromSession,
-  fallbackGame,
   gameItemsFromCampaigns,
   campaignSection,
   pinCampaignAt,

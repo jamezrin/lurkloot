@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { main as storeSync } from "@lurkloot/store-sync/cli";
 import { DEFAULT_LOCALE, LOCALES, NAME, PATHS, validateLocales } from "./lurkloot.mjs";

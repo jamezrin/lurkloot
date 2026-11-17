@@ -39,7 +39,6 @@ import {
 import { isCampaignUnlinked } from "@lurkloot/shared/unlinkedCampaigns";
 import {
   applySubscriptionMarks,
-  canClaimReward,
   isRewardAvailableToEarn,
   isRewardDeadlineFeasible,
   isRewardObtained,

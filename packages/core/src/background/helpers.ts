@@ -2,7 +2,6 @@ import { campaignRewardData } from "../core/rewardClaims";
 import type {
   DropCampaign,
   DropReward,
-  EngineSettings,
   Platform,
   SchedulerState,
   WatchReasonCode,
@@ -167,10 +166,6 @@ export function farmingStopReason(session: WatchSession): FarmingStopReason {
 
 export function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
   return Object.prototype.hasOwnProperty.call(FARMING_STOP_REASON_CODES, code);
-}
-
-export function hasEnabledPlatform(settings: EngineSettings): boolean {
-  return (["twitch", "kick"] as Platform[]).some((platform) => settings.platform[platform].enabled);
 }
 
 export function platformLabel(platform: Platform): string {

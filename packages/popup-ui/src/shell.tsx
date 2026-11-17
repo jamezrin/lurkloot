@@ -38,17 +38,6 @@ export type PopupView =
   | "activity"
   | "settings";
 
-export const POPUP_VIEWS: PopupView[] = [
-  "queue",
-  "completed",
-  "games",
-  "watchlist",
-  "nopixel",
-  "fortnite",
-  "activity",
-  "settings",
-];
-
 interface NavItem {
   view: PopupView;
   labelKey: string;

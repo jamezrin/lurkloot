@@ -1,4 +1,4 @@
-import type { ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { Platform } from "@lurkloot/shared/models";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { ScreenshotVariant } from "./types";
 
@@ -16,7 +16,6 @@ export const PLATFORM_INVENTORY_URLS: Record<Platform, string> = {
 
 export const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
 export const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections";
-export const SHOW_ADVANCED_SETTINGS_KEY = "popup:showAdvancedSettings";
 
 // Chrome Web Store listing for the rate/review nudge. Single source of truth for
 // the store id so the reviews URL stays correct if the listing slug changes.

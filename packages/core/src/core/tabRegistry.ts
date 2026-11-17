@@ -6,7 +6,7 @@ import type {
 } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import type { TwitchIntegrity, TwitchIntegrityRequest } from "./twitchIntegrity";
+import type { TwitchIntegrity } from "./twitchIntegrity";
 export type { TwitchIntegrityRequest } from "./twitchIntegrity";
 import type { KickPageContextCycleObservation } from "../platforms/adapter";
 import { createTwitchRequestIdentity, type TwitchRequestIdentity } from "./transport";

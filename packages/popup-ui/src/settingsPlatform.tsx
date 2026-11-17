@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Plus, Search } from "lucide-react";
 import type {
   CategoryMode,
@@ -10,7 +10,7 @@ import { GAME_ACCENTS, PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { initials } from "./format";
 import type { GameItem } from "./types";
-import { CompactRow, RemoveRowButton, reorderFromDragEnd } from "./primitives";
+import { CompactRow, RemoveRowButton } from "./primitives";
 import { SelectSettingRow } from "./settingsControls";
 
 // The three category modes share ONE stored list, so switching mode only
