@@ -4,8 +4,8 @@ import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events
 import {
   createActivityEventReporter,
   createActivityMessageHandler,
-  createRuntimeMessageDispatcher,
-} from "../src/core/activityMessages";
+} from "@lurkloot/shared/activityHistory";
+import { createRuntimeMessageDispatcher } from "../src/core/activityMessages";
 
 describe("activity message routing", () => {
   it("handles history messages through the extension repository", async () => {

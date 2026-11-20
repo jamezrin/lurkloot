@@ -57,8 +57,8 @@ import {
 import {
   createActivityEventReporter,
   createActivityMessageHandler,
-  createRuntimeMessageDispatcher,
-} from "../src/core/activityMessages";
+} from "@lurkloot/shared/activityHistory";
+import { createRuntimeMessageDispatcher } from "../src/core/activityMessages";
 import {
   twitchHeartbeatExchange,
   twitchHeartbeatFetchText,
