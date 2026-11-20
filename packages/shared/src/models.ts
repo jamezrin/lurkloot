@@ -18,6 +18,7 @@ export type PlatformAuthReasonCode =
   | "security_policy_blocked"
   | "credential_lookup_failed"
   | "platform_unavailable"
+  | "waf_challenge"
   | "network_unavailable";
 
 export type PlatformAuthMessageKey =

@@ -20,7 +20,7 @@ import {
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createBrowserTabs, liveBrowserTabApi } from "../src/core/tabs";
 import { createExtensionTabPorts } from "../src/core/tabPorts";
-import { inspectKickDocument } from "../src/core/kickPageDocument";
+import { inspectKickDocument, kickPageContextOptions } from "../src/core/kickPageDocument";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import {
   createBackgroundAlarmListener,
@@ -279,12 +279,10 @@ function createExtensionAdapter(
           createKickFetcher({
             routeState: kickDiscoveryState.routeDiagnostics,
             background: (url, init) => fetchKickInBackground<unknown>(url, init),
-            pageFetch: (url, init) =>
+            pageFetch: (url, init, backgroundError) =>
               fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
-                retainPageContext: { platform: "kick" },
-                inspectDocument: inspectKickDocument,
+                ...kickPageContextOptions(backgroundError),
                 emit,
-                openReason: "background_rejected",
               }),
             onBackgroundSuccess: (host) => kickPageContextRecovery.recordBackgroundSuccess(host),
             onPageFallback: (host, operationEmit) => {

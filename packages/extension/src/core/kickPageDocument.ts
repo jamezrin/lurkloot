@@ -1,4 +1,17 @@
 import type { SafeFetchFailure } from "@lurkloot/core/fetchError";
+import { isKickHttpChallenge } from "@lurkloot/core/transport";
+import type { PageFetchOptions } from "./browserTabs";
+
+export function kickPageContextOptions(backgroundError: unknown): PageFetchOptions {
+  return {
+    retainPageContext: { platform: "kick" },
+    inspectDocument: inspectKickDocument,
+    openReason: "background_rejected",
+    // Repeated HTTP challenges can outlast the tab-churn window. Retry in a
+    // usable context if one exists, without opening another tab on each retry.
+    ...(isKickHttpChallenge(backgroundError) ? { reusePageContextOrThrow: backgroundError } : {}),
+  };
+}
 
 // Kick's PageDocumentInspector: Kick can answer a page request with its
 // security-policy JSON instead of the page (#794). browserTabs injects it into

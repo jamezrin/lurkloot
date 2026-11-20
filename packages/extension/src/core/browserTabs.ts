@@ -23,6 +23,7 @@ import { withAbortSignal } from "@lurkloot/core/abort";
 import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import {
   fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity,
+  kickHttpChallenge,
   type CookieApi,
 } from "@lurkloot/core/transport";
 import {
@@ -729,6 +730,9 @@ export interface PageFetchOptions {
   // reloading it to force activity is not ours to do — so user tabs are skipped
   // and an extension-owned context is created or explicitly navigated instead.
   requireFreshPageContext?: boolean;
+  // Reuse a viable context or surface the failure that prompted the fallback.
+  // The caller uses this when creating a tab would repeat a blocked request.
+  reusePageContextOrThrow?: Error;
   // Without an inspector every tab on the origin counts as a usable context.
   inspectDocument?: PageDocumentInspector;
 }
@@ -1138,7 +1142,11 @@ function unwrapPageFetchResult<T>(candidate: unknown): T {
   const envelope = candidate as Record<string, unknown>;
   if (envelope.__lurklootPageFetch !== true) return candidate as T;
   if (envelope.ok === true) return envelope.data as T;
-  throw new SafeFetchError(safeFetchFailure(envelope.error));
+  const failure = safeFetchFailure(envelope.error);
+  if (envelope.challenge === true && (failure.status === 401 || failure.status === 403)) {
+    throw kickHttpChallenge(failure.status);
+  }
+  throw new SafeFetchError(failure);
 }
 
 async function acquirePageContextTab(
@@ -1175,6 +1183,7 @@ async function acquirePageContextTab(
       ),
       refs: 0,
       abort,
+      reusePageContextOrThrow: options?.reusePageContextOrThrow,
     };
     registry.pageContextTabs.set(origin, entry);
     promise = entry.promise;
@@ -1184,6 +1193,14 @@ async function acquirePageContextTab(
     return await withAbortSignal(promise, signal);
   } catch (error) {
     entry.refs -= 1;
+    if (entry.reusePageContextOrThrow && error === entry.reusePageContextOrThrow) {
+      // No tab was acquired. A normal fallback that joined this lookup can
+      // still create a context, while reuse-only callers keep their own error.
+      if (registry.pageContextTabs.get(origin) === entry) registry.pageContextTabs.delete(origin);
+      signal?.throwIfAborted();
+      if (options?.reusePageContextOrThrow) throw options.reusePageContextOrThrow;
+      return acquirePageContextTab(registry, browserApi, originUrl, origin, options, signal);
+    }
     if (entry.refs === 0 && registry.pageContextTabs.get(origin) === entry) {
       registry.pageContextTabs.delete(origin);
       entry.abort.abort(signal?.aborted ? signal.reason : error);
@@ -1444,6 +1461,7 @@ async function findOrCreatePageContextTab(
     } catch {
       signal?.throwIfAborted();
     }
+    if (options?.reusePageContextOrThrow) throw options.reusePageContextOrThrow;
     registry.retainedPageContextTabs.delete(retained.platform);
     registry.retainedPageContextRevision += 1;
     openReason = "managed_context_unusable";
@@ -1484,6 +1502,8 @@ async function findOrCreatePageContextTab(
       );
     }
   }
+
+  if (options?.reusePageContextOrThrow) throw options.reusePageContextOrThrow;
 
   // The breaker is open: this platform kept reopening a managed tab. Opening
   // another one is exactly the user-hostile behaviour we detected, so the fetch
@@ -1828,6 +1848,7 @@ export async function pageFetchJson(targetUrl: string, initJson?: string): Promi
     });
     const text = await response.text();
     if (!response.ok) {
+      const authStatus = response.status === 401 || response.status === 403;
       let body: Record<string, unknown> = {};
       try {
         const parsed = JSON.parse(text) as unknown;
@@ -1835,6 +1856,16 @@ export async function pageFetchJson(targetUrl: string, initJson?: string): Promi
           body = parsed as Record<string, unknown>;
       } catch {
         // Never retain non-JSON response bodies.
+        // This function is serialized into the page, so it cannot call the
+        // transport classifier. Return only the status and a challenge marker.
+        if (authStatus && text.trim() !== "") {
+          return {
+            __lurklootPageFetch: true,
+            ok: false,
+            challenge: true,
+            error: { kind: "http_error", status: response.status },
+          };
+        }
       }
       const rawReason =
         typeof body.error === "string"
@@ -1856,7 +1887,7 @@ export async function pageFetchJson(targetUrl: string, initJson?: string): Promi
         error: {
           kind: blocked
             ? "security_policy_blocked"
-            : response.status === 401 || response.status === 403
+            : authStatus
               ? "authentication_rejected"
               : "http_error",
           status: response.status,

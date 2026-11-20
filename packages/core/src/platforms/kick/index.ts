@@ -11,7 +11,7 @@ import type {
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import type { DiscoverySignalController } from "../../core/discoverySignals";
-import { KickWafBlockedError } from "../../core/transport";
+import { isKickHttpChallenge, KickWafBlockedError } from "../../core/transport";
 import { authHealthFromError } from "../../core/fetchError";
 import type { WebSocketFactory } from "../../core/webSocket";
 import {
@@ -273,8 +273,8 @@ export class KickPageContextRecoveryTracker {
 }
 
 // The page fallback exists for failures tied to the service-worker origin: WAF
-// blocks, network/CORS rejections, challenge pages, auth rejections (a Cloudflare
-// 403 page classifies as one) and server errors. A definitive client error is
+// blocks, network/CORS rejections, challenge pages, auth rejections and server
+// errors. A definitive client error is
 // Kick's answer to the request itself, which the page tab would receive too, so
 // falling back would only open a kick.com tab for nothing — e.g. every claim on
 // an unlinked campaign answers 400 INVALID_CLAIM. Rate limiting (429) likewise
@@ -291,7 +291,11 @@ function isOriginIndependentKickFailure(error: unknown): boolean {
 // counted until the caller flushes the drained logical operation.
 export function createKickFetcher(deps: {
   background: (url: string, init?: RequestInit) => Promise<unknown>;
-  pageFetch?: (url: string, init?: RequestInit) => Promise<unknown>;
+  pageFetch?: (
+    url: string,
+    init: RequestInit | undefined,
+    backgroundError: unknown,
+  ) => Promise<unknown>;
   onBackgroundSuccess?: (host: string, emit: EventEmitter) => Promise<void> | void;
   onPageFallback?: (host: string, emit: EventEmitter) => Promise<void> | void;
   routeState?: KickRouteState;
@@ -340,7 +344,7 @@ export function createKickFetcher(deps: {
           // CLI transports have no page fallback and retain their original error.
           if (!pageFetch || isOriginIndependentKickFailure(error)) throw error;
           init?.signal?.throwIfAborted();
-          result = await pageFetch(url, init);
+          result = await pageFetch(url, init, error);
           routeState.report(
             emit,
             host,
@@ -448,6 +452,14 @@ export class KickAdapter implements PlatformAdapter {
         message: { key: "authPlatformUnavailable" },
       };
     } catch (error) {
+      if (isKickHttpChallenge(error)) {
+        return {
+          status: "unavailable",
+          checkedAt,
+          reasonCode: "waf_challenge",
+          message: { key: "authPlatformUnavailable" },
+        };
+      }
       if (isSafeFetchError(error)) {
         if (error.failure.kind === "authentication_rejected") {
           return {

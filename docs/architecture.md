@@ -124,11 +124,10 @@ an empty list for the existing five-minute window. The followed-list cache in
 each platform's discovery state also records whether it has warned for the
 current failure streak. Only the first failure emits a warning, with a fixed
 cause class (WAF block, auth, network, or other). The warning treats recognized
-Kick challenge responses as WAF blocks and HTTP server errors as other. This
-classification only applies to the warning; auth probes still interpret the
-original transport failure kinds. A successful lookup, including
-an empty list, resets the streak. Twitch replaces its cache and streak on an
-account switch. Strict Twitch discovery also waits for stale refreshes so the
+Kick challenge responses as WAF blocks and HTTP server errors as other. The
+warning reports the lookup outcome independently of the identity probe. A
+successful lookup, including an empty list, resets the streak. Twitch replaces
+its cache and streak on an account switch. Strict Twitch discovery also waits for stale refreshes so the
 refresh's warning reaches the discovery event collector.
 
 ## Background controller ownership and concurrency
@@ -1276,7 +1275,24 @@ which set their headers directly:
 
 ## Kick Integration
 
-`KickAdapter` uses Kick JSON APIs from the Kick page context.
+`KickAdapter` uses Kick JSON APIs. Native fetch (the CLI's `http` transport and
+the extension background) and CycleTLS share a failure classifier. A non-empty, non-JSON
+401 or 403 becomes a `KickWafBlockedError` with `challenge: true`. The error
+retains the status and a fixed message. A JSON credential rejection still maps
+to `authentication_rejected`, as does an empty 401 or 403. A JSON security-policy block keeps its
+existing classification and safe reference.
+
+When the identity probe receives an HTTP challenge it reports unavailable
+(`waf_challenge`). The scheduler records a platform error and applies the usual
+exponential backoff. Scheduled ticks use the deadline from committed state
+to defer the identity request until the retry is due. The first probe on a
+fresh controller rechecks immediately. The next successful probe lets
+discovery and farming resume.
+
+For HTTP challenges the extension limits the fallback to existing usable
+page contexts, which prevents repeated opens during a sustained block. The
+in-page fetch crosses the script boundary with a challenge marker and status
+so that a challenged fallback also reports unavailable.
 
 - Campaign discovery fetches `https://web.kick.com/api/v1/drops/campaigns`.
 - Progress refresh fetches `https://web.kick.com/api/v1/drops/progress`.

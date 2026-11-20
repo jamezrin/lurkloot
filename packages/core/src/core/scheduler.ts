@@ -1820,7 +1820,18 @@ export async function* decidePlatformTick(
       return;
     }
 
-    if (tick.state.authHealth[platform].status !== "healthy") {
+    const health = tick.state.authHealth[platform];
+    const authChallenge = health.reasonCode === "waf_challenge";
+    // A probe skipped during backoff can still be the last observed health
+    // if the retry deadline passed while this tick was being prepared.
+    const inBackoff =
+      isInBackoff(previous)
+      || (authChallenge
+        && Date.parse(health.checkedAt ?? "") < Date.parse(previous.retryAfter ?? ""));
+    if (authChallenge && !inBackoff) {
+      throw new Error("The identity request was blocked by a WAF challenge");
+    }
+    if (health.status !== "healthy" && !authChallenge) {
       yield* suspendPlatformForAuthentication(tick, platform, previous);
       return;
     }
@@ -1830,7 +1841,8 @@ export async function* decidePlatformTick(
     // stopped. Failures are swallowed — gamification is strictly additive to
     // farming and must never fail the tick or trip the error backoff.
     const challengesDue =
-      autoClaimChallengesFor(settings, platform)
+      !authChallenge
+      && autoClaimChallengesFor(settings, platform)
       && capabilities.claimChallenges
       && challengePollDue(tick.state, platform, Date.now());
     if (challengesDue) {
@@ -1862,7 +1874,7 @@ export async function* decidePlatformTick(
       }
     }
 
-    if (isInBackoff(previous)) {
+    if (inBackoff) {
       tick.state.sessions[platform] = {
         ...previous,
         status: "error",

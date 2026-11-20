@@ -22,7 +22,11 @@ import {
   type TabRegistry,
   type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabRegistry";
-import { fetchKickInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
+import {
+  fetchKickInBackgroundWith,
+  kickHttpChallenge,
+  KickWafBlockedError,
+} from "@lurkloot/core/transport";
 import {
   AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
@@ -1549,6 +1553,40 @@ describe("tab manager", () => {
       reference: "9e4db7e3",
     });
     expect(JSON.stringify(error)).not.toContain("must-not-survive");
+  });
+
+  it("lets a normal fallback create a context after sharing a reuse-only lookup", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi
+          .fn()
+          .mockResolvedValueOnce([{ result: { usable: true } }])
+          .mockResolvedValueOnce([{ result: { id: 42 } }]),
+      },
+    };
+    const origin = "https://kick.com/drops/inventory";
+    const url = "https://kick.com/api/v1/user";
+    const challenge = kickHttpChallenge(403);
+    const reuseOnly = fetchJsonInPageWithBrowser(
+      registry,
+      browser,
+      origin,
+      url,
+      undefined,
+      kickPageOptions({ reusePageContextOrThrow: challenge }),
+    );
+    const normal = fetchJsonInPageWithBrowser(
+      registry,
+      browser,
+      origin,
+      url,
+      undefined,
+      kickPageOptions(),
+    );
+    await expect(reuseOnly).rejects.toBe(challenge);
+    await expect(normal).resolves.toEqual({ id: 42 });
+    expect(browser.tabs.create).toHaveBeenCalledOnce();
   });
 
   it("rejects a completed security-policy document and recovers with a valid Kick context", async () => {
@@ -3737,6 +3775,60 @@ describe("fetchKickInBackgroundWith", () => {
     if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
     expect(error.failure).toEqual({ kind, status, reason });
     expect(JSON.stringify(error)).not.toContain("must-not-survive");
+    vi.unstubAllGlobals();
+  });
+
+  it("treats an HTML 403 challenge page as a WAF challenge without keeping the body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            "<!DOCTYPE html><html><head><title>Just a moment...</title></head><body>must-not-survive</body></html>",
+            {
+              status: 403,
+              headers: { "content-type": "text/html; charset=UTF-8", "cf-mitigated": "challenge" },
+            },
+          ),
+      ),
+    );
+
+    const error = await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user").catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(KickWafBlockedError);
+    if (!(error instanceof KickWafBlockedError)) throw new Error("Expected KickWafBlockedError");
+    expect(error.challenge).toBe(true);
+    expect(error.failure).toMatchObject({ kind: "http_error", status: 403 });
+    expect(error.message).toContain("HTTP 403");
+    expect(`${error.message}${JSON.stringify(error)}`).not.toContain("must-not-survive");
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ["a JSON 401", 401, JSON.stringify({ message: "Unauthenticated." }), "Unauthenticated."],
+    ["an empty 403", 403, "", undefined],
+  ])("keeps %s as an authentication rejection", async (_label, status, body, reason) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () => new Response(body, { status, headers: { "content-type": "application/json" } }),
+      ),
+    );
+
+    const error = await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user").catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).not.toBeInstanceOf(KickWafBlockedError);
+    expect(isSafeFetchError(error)).toBe(true);
+    if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
+    expect(error.failure).toEqual({
+      kind: "authentication_rejected",
+      status,
+      ...(reason ? { reason } : {}),
+    });
     vi.unstubAllGlobals();
   });
 

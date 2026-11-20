@@ -193,19 +193,35 @@ export function needsKickSessionBearer(
 export class KickWafBlockedError extends SafeFetchError {
   readonly challenge: boolean;
 
-  constructor(candidate: string | SafeFetchFailure) {
+  constructor(candidate: string | SafeFetchFailure, challenge = typeof candidate === "string") {
     super(typeof candidate === "string" ? { kind: "network_error", reason: candidate } : candidate);
     this.name = "KickWafBlockedError";
-    // Transports pass a plain message for a suspected challenge body. The
-    // structured network failure also allows fallback after a fetch rejection.
-    this.challenge = typeof candidate === "string";
+    this.challenge = challenge;
   }
 }
 
-// Exported so headless transports outside the extension (e.g. the CLI's
-// cycletls-backed Kick fetcher) classify Kick's HTTP failures the same way
-// checkAuthHealth does, instead of guessing from the status code alone.
-export function safeKickFailure(status: number, text: string): SafeFetchFailure {
+export function kickHttpChallenge(status: number): KickWafBlockedError {
+  return new KickWafBlockedError(
+    {
+      kind: "http_error",
+      status,
+      reason: "Non-JSON response (likely a Cloudflare challenge page)",
+    },
+    true,
+  );
+}
+
+export function isKickHttpChallenge(error: unknown): error is KickWafBlockedError {
+  return (
+    error instanceof KickWafBlockedError
+    && error.challenge
+    && (error.failure.status === 401 || error.failure.status === 403)
+  );
+}
+
+// Shared by native fetch and the CLI's CycleTLS-backed fetcher.
+export function kickHttpError(status: number, text: string): SafeFetchError {
+  const authStatus = status === 401 || status === 403;
   let body: Record<string, unknown> = {};
   try {
     const parsed = JSON.parse(text) as unknown;
@@ -213,6 +229,7 @@ export function safeKickFailure(status: number, text: string): SafeFetchFailure 
       body = parsed as Record<string, unknown>;
   } catch {
     // Non-JSON response bodies are never retained.
+    if (authStatus && text.trim() !== "") return kickHttpChallenge(status);
   }
   const reason =
     typeof body.error === "string"
@@ -221,16 +238,17 @@ export function safeKickFailure(status: number, text: string): SafeFetchFailure 
         ? body.message
         : undefined;
   const blocked = /security policy|request blocked/i.test(reason ?? "");
-  return safeFetchFailure({
+  const failure = safeFetchFailure({
     kind: blocked
       ? "security_policy_blocked"
-      : status === 401 || status === 403
+      : authStatus
         ? "authentication_rejected"
         : "http_error",
     status,
     reason,
     reference: body.reference,
   });
+  return blocked ? new KickWafBlockedError(failure) : new SafeFetchError(failure);
 }
 
 // Spike: attempt a Kick API call straight from the service worker (no tab),
@@ -265,12 +283,7 @@ export async function fetchKickInBackgroundWith<T>(
   }
 
   const text = await response.text();
-  if (!response.ok) {
-    const failure = safeKickFailure(response.status, text);
-    throw failure.kind === "security_policy_blocked"
-      ? new KickWafBlockedError(failure)
-      : new SafeFetchError(failure);
-  }
+  if (!response.ok) throw kickHttpError(response.status, text);
 
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {

@@ -4,14 +4,159 @@ import type { PlatformAuthHealth } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { createKickFetcher } from "@lurkloot/core/kick";
 import { kickAdapter } from "../helpers/adapters";
-import { KickWafBlockedError } from "@lurkloot/core/transport";
+import { fetchKickInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
 import { channel, deferred, farming, harness } from "../helpers/backgroundController";
+import {
+  fetchJsonInPageWithBrowser,
+  pageFetchJson,
+  type BrowserTabApi,
+} from "../../src/core/browserTabs";
+import { kickPageContextOptions } from "../../src/core/kickPageDocument";
 
 // Auth health probes, refreshes and invalidation.
 
 describe("background controller", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("backs off a Kick HTML challenge at the identity endpoint and resumes after a healthy probe", async () => {
+    vi.useFakeTimers();
+    const fetch = vi.fn(
+      async () =>
+        new Response("<!doctype html><title>Just a moment…</title>", {
+          status: 403,
+          headers: { "content-type": "text/html" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const kick = kickAdapter(
+      createKickFetcher({
+        background: (url, init) => fetchKickInBackgroundWith({}, url, init),
+      }),
+    );
+    vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) =>
+      kick.checkAuthHealth(signal),
+    );
+    const tick = () => env.controller.tick(["kick"], "alarm");
+
+    await tick();
+    expect(env.state.authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "waf_challenge",
+    });
+    expect(env.state.sessions.kick).toMatchObject({
+      status: "error",
+      reasonCode: "platform_error",
+      errorChecks: 1,
+    });
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+    const firstRetry = env.state.sessions.kick.retryAfter;
+
+    vi.advanceTimersByTime(30_000);
+    await tick();
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(env.state.sessions.kick).toMatchObject({
+      reasonCode: "platform_backoff",
+      retryAfter: firstRetry,
+      errorChecks: 1,
+    });
+
+    vi.advanceTimersByTime(30_000);
+    await tick();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(env.state.sessions.kick).toMatchObject({ reasonCode: "platform_error", errorChecks: 2 });
+    expect(Date.parse(env.state.sessions.kick.retryAfter ?? "") - Date.now()).toBe(120_000);
+
+    fetch.mockResolvedValueOnce(Response.json({ id: 42 }));
+    vi.advanceTimersByTime(120_000);
+    await tick();
+    expect(env.state.authHealth.kick.status).toBe("healthy");
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(env.state.sessions.kick.retryAfter).toBeUndefined();
+  });
+
+  it("never opens a Kick page context across hours of HTTP challenges and can reuse a user tab", async () => {
+    vi.useFakeTimers();
+    const challenge = () =>
+      new Response("<!doctype html><title>Just a moment…</title>private-body", { status: 403 });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => challenge()),
+    );
+    vi.stubGlobal("document", { cookie: "", contentType: "text/html" });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const origin = "https://kick.com/drops/inventory";
+    const query = vi.fn<BrowserTabApi["tabs"]["query"]>(async () => []);
+    const create = vi.fn(async () => ({ id: 42 }));
+    const remove = vi.fn(async () => {});
+    let pageIdentityAvailable = false;
+    const executeScript = vi.fn<
+      NonNullable<NonNullable<BrowserTabApi["scripting"]>["executeScript"]>
+    >(async (details) => {
+      const { func, args } = details as { func: (...args: never[]) => unknown; args?: never[] };
+      return [
+        {
+          result:
+            func === pageFetchJson && pageIdentityAvailable
+              ? { __lurklootPageFetch: true, ok: true, data: { id: 42 } }
+              : await func(...(args ?? [])),
+        },
+      ];
+    });
+    const browser: BrowserTabApi = {
+      tabs: { query, create, remove, get: vi.fn(), update: vi.fn() },
+      scripting: { executeScript },
+    };
+    const kick = kickAdapter(
+      createKickFetcher({
+        background: (url, init) => fetchKickInBackgroundWith({}, url, init),
+        pageFetch: (url, init, error) =>
+          fetchJsonInPageWithBrowser(
+            env.tabRegistry,
+            browser,
+            origin,
+            url,
+            init,
+            kickPageContextOptions(error),
+          ),
+      }),
+    );
+    vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) =>
+      kick.checkAuthHealth(signal),
+    );
+    const tick = () => env.controller.tick(["kick"], "alarm");
+
+    for (let minute = 0; minute < 180; minute += 1) {
+      await tick();
+      vi.advanceTimersByTime(60_000);
+    }
+    expect(query.mock.calls.length).toBeGreaterThan(5);
+    expect(create).not.toHaveBeenCalled();
+    expect(executeScript).not.toHaveBeenCalled();
+    expect(env.state.authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "waf_challenge",
+    });
+
+    query.mockResolvedValue([{ id: 7, url: origin }]);
+    vi.setSystemTime(Date.parse(env.state.sessions.kick.retryAfter ?? ""));
+    await tick();
+    expect(executeScript).toHaveBeenCalledTimes(2);
+    expect(env.state.authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "waf_challenge",
+    });
+    expect(JSON.stringify(env.reportEvents.mock.calls)).not.toContain("private-body");
+
+    pageIdentityAvailable = true;
+    vi.setSystemTime(Date.parse(env.state.sessions.kick.retryAfter ?? ""));
+    await tick();
+    expect(env.state.authHealth.kick.status).toBe("healthy");
+    expect(create).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {
