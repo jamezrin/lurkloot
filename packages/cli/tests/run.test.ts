@@ -24,6 +24,7 @@ import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 import { createSubscriptionWaitReporter, runLoop } from "../src/runtime/run";
 import { createLogger } from "../src/logger";
 import type { Logger } from "../src/logger";
+import { deferred } from "./helpers/deferred";
 import { runCliBaselineCell } from "./helpers/tickBaseline";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { saveState } from "../src/storage";
@@ -89,14 +90,6 @@ async function fakeTransport(
 }
 
 const HEALTHY: PlatformAuthHealth = { status: "healthy", message: { key: "authHealthy" } };
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve };
-}
 
 async function readAuthHealth(statePath: string): Promise<SchedulerState["authHealth"]> {
   const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
@@ -861,6 +854,7 @@ describe("runLoop heartbeat driver", () => {
     expect(watcher.tick).not.toHaveBeenCalled();
 
     process.emit("SIGTERM");
+    await vi.advanceTimersByTimeAsync(5_000);
     await running;
     expect(transport.dispose).toHaveBeenCalledOnce();
 

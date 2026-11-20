@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import {
   type ActivityHistoryRepository,
@@ -13,13 +12,16 @@ import {
   decodeActivityCursor,
   encodeActivityCursor,
   foldActivityBatch,
+  sanitizeStoredActivity,
+  selectActivityHistoryEvents,
   toStoredActivityEvents,
 } from "@lurkloot/shared/activityHistory";
-import type { EngineEvent, StoredEngineEvent } from "@lurkloot/shared/events";
+import type { ActivityEvent, EngineEvent, StoredEngineEvent } from "@lurkloot/shared/events";
+import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
 import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { ActivityPage, ActivityQuery } from "@lurkloot/shared/messages";
 import type { Platform } from "@lurkloot/shared/models";
-import { writeJsonAtomically } from "./storage";
+import { readJsonSidecar, writeJsonAtomically } from "./storage";
 
 // The CLI's activity history (#1088): the extension's history, kept in one
 // bounded JSON file beside state.json instead of IndexedDB. Retention, the
@@ -28,52 +30,57 @@ import { writeJsonAtomically } from "./storage";
 // every change is pruned to the shared bounds and written back atomically.
 
 export const ACTIVITY_FILE_NAME = "activity.json";
+export const ACTIVITY_WRITE_INTERVAL_MS = 30_000;
 const FILE_VERSION = 1;
+
+type StoredActivity = ActivityEvent & Pick<StoredEngineEvent, "id" | "at">;
 
 interface ActivityFile {
   version: typeof FILE_VERSION;
-  events: StoredEngineEvent[];
+  events: StoredActivity[];
   sessions: FarmingSessionSummary[];
 }
 
 export interface CliActivityHistory extends ActivityHistoryRepository {
   append(events: readonly EngineEvent[]): Promise<void>;
-  // Resolves once every change made so far is on disk (or failed to save).
-  flush(): Promise<void>;
+  // Stops accepting events and drains changes and writes already queued.
+  close(): Promise<void>;
 }
 
 export interface FileActivityHistoryOptions {
   // A write that failed; the history stays in memory and the next change
   // writes it again.
   onSaveError?(error: unknown): void;
-  // A file that could not be read or parsed. The history starts empty, and the
-  // next change replaces the file.
+  // The history starts empty when the file cannot be read or parsed.
+  // An unsupported version stays on disk while new activity is kept in memory.
   onLoadError?(error: unknown): void;
   now?(): number;
   randomId?(): string;
 }
 
 // The history sits beside the state file, in the CLI's data directory:
-// activity.json for the default state.json, `<name>.activity.json` for any
+// activity.json for the default state.json, `<state file>.activity.json` for any
 // other, so two processes with their own --state files in one directory never
 // rewrite each other's history.
 export function activityPathFor(statePath: string): string {
   const name = basename(statePath);
   if (name === "state.json") return join(dirname(statePath), ACTIVITY_FILE_NAME);
-  const stem = name.endsWith(".json") ? name.slice(0, -".json".length) : name;
-  return join(dirname(statePath), `${stem}.${ACTIVITY_FILE_NAME}`);
+  return join(dirname(statePath), `${name}.${ACTIVITY_FILE_NAME}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isStoredEvent(value: unknown): value is StoredEngineEvent {
+function isStoredEvent(value: unknown): value is StoredActivity {
   return (
     isRecord(value)
     && typeof value.id === "string"
     && typeof value.at === "string"
-    && (value.category === "activity" || value.category === "diagnostic")
+    && value.category === "activity"
+    && typeof value.code === "string"
+    && isRecord(value.data)
+    && isActivityTimelineEvent({ category: value.category, code: value.code })
   );
 }
 
@@ -88,14 +95,23 @@ function isSession(value: unknown): value is FarmingSessionSummary {
   );
 }
 
+class UnsupportedActivityVersionError extends Error {}
+
 // Entries the CLI could not have written are dropped, not trusted.
-function parseActivityFile(text: string): ActivityFile {
-  const parsed = JSON.parse(text) as unknown;
-  if (!isRecord(parsed) || parsed.version !== FILE_VERSION)
-    throw new Error(`${ACTIVITY_FILE_NAME} is not a version ${FILE_VERSION} activity file`);
+function parseActivityFile(parsed: unknown): ActivityFile {
+  if (!isRecord(parsed) || !("version" in parsed)) {
+    throw new Error("Invalid activity history snapshot");
+  }
+  if (parsed.version !== FILE_VERSION) {
+    throw new UnsupportedActivityVersionError(
+      "Unsupported activity history version. The file was left intact",
+    );
+  }
   return {
     version: FILE_VERSION,
-    events: Array.isArray(parsed.events) ? parsed.events.filter(isStoredEvent) : [],
+    events: Array.isArray(parsed.events)
+      ? parsed.events.filter(isStoredEvent).map(sanitizeStoredActivity)
+      : [],
     sessions: Array.isArray(parsed.sessions) ? parsed.sessions.filter(isSession) : [],
   };
 }
@@ -104,29 +120,23 @@ function emptyFile(): ActivityFile {
   return { version: FILE_VERSION, events: [], sessions: [] };
 }
 
-// Keeps each category within its retention and record budget (newest kept),
-// and the sessions the activity retention and getActivitySessions can still
-// show: an open one always, ended ones for 30 days and at most the page size
-// per platform.
+// Keep recent rows and sessions within the shared activity budget.
 function prune(file: ActivityFile, now: number): ActivityFile {
-  const events = [...file.events].sort(compareActivityRecords);
-  const kept: StoredEngineEvent[] = [];
-  for (const category of ["activity", "diagnostic"] as const) {
-    const cutoff = activityRetentionCutoff(category, now);
-    const recent = events.filter((event) => event.category === category && event.at >= cutoff);
-    kept.push(...recent.slice(-MAX_ACTIVITY_RECORDS_PER_CATEGORY));
-  }
-  kept.sort(compareActivityRecords);
+  const cutoff = activityRetentionCutoff("activity", now);
+  const events = file.events
+    .filter((event) => event.at >= cutoff)
+    .sort(compareActivityRecords)
+    .slice(-MAX_ACTIVITY_RECORDS_PER_CATEGORY);
   const sessions: FarmingSessionSummary[] = [];
   for (const platform of ["twitch", "kick"] as const) {
     const retained = file.sessions
       .filter((session) => session.platform === platform && activitySessionRetained(session, now))
-      .sort((left, right) => (left.startedAt < right.startedAt ? 1 : -1));
+      .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
     const open = retained.filter((session) => !session.endedAt);
-    const ended = retained.filter((session) => session.endedAt).slice(0, MAX_ACTIVITY_SESSIONS);
-    sessions.push(...open, ...ended);
+    const ended = retained.filter((session) => session.endedAt);
+    sessions.push(...[...open, ...ended].slice(0, MAX_ACTIVITY_SESSIONS));
   }
-  return { version: FILE_VERSION, events: kept, sessions };
+  return { version: FILE_VERSION, events, sessions };
 }
 
 export function createFileActivityHistory(
@@ -141,14 +151,21 @@ export function createFileActivityHistory(
   let changes: Promise<void> = Promise.resolve();
   // One write in flight; a change made meanwhile is written after it.
   let writing: Promise<void> | undefined;
+  let timer: NodeJS.Timeout | undefined;
+  let nextWriteAt = 0;
+  let unsupportedVersion: UnsupportedActivityVersionError | undefined;
   let dirty = false;
+  let saveFailed = false;
+  let clearing = false;
+  let closing: Promise<void> | undefined;
 
   const load = (): Promise<ActivityFile> => {
     if (file) return Promise.resolve(file);
     loading ??= (async () => {
       try {
-        file = parseActivityFile(await readFile(path, "utf8"));
+        file = prune(parseActivityFile(await readJsonSidecar(path)), now());
       } catch (error) {
+        if (error instanceof UnsupportedActivityVersionError) unsupportedVersion = error;
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") options.onLoadError?.(error);
         file = emptyFile();
       }
@@ -157,28 +174,45 @@ export function createFileActivityHistory(
     return loading;
   };
 
-  const write = (): void => {
-    dirty = true;
-    if (writing) return;
-    writing = (async () => {
-      while (dirty) {
-        dirty = false;
-        const snapshot = file ?? emptyFile();
-        try {
-          await writeJsonAtomically(path, snapshot, 0o600, 0);
-        } catch (error) {
-          options.onSaveError?.(error);
-        }
-      }
-      writing = undefined;
-    })();
+  const persist = async (snapshot: ActivityFile): Promise<void> => {
+    nextWriteAt = performance.now() + ACTIVITY_WRITE_INTERVAL_MS;
+    await writeJsonAtomically(path, snapshot, 0o600, 0);
   };
 
-  const change = (apply: (current: ActivityFile) => ActivityFile): Promise<void> => {
-    const run = changes.then(async () => {
-      file = prune(apply(await load()), now());
-      write();
-    });
+  const persistBestEffort = async (snapshot: ActivityFile): Promise<void> => {
+    try {
+      await persist(snapshot);
+      saveFailed = false;
+    } catch (error) {
+      saveFailed = true;
+      options.onSaveError?.(error);
+    }
+  };
+
+  const cancelTimer = () => {
+    clearTimeout(timer);
+    timer = undefined;
+  };
+
+  const scheduleWrite = (): void => {
+    if (!dirty || timer || writing || clearing || closing) return;
+    timer = setTimeout(
+      () => {
+        timer = undefined;
+        if (!file) return;
+        dirty = false;
+        writing = persistBestEffort(file).finally(() => {
+          writing = undefined;
+          scheduleWrite();
+        });
+      },
+      Math.max(0, Math.ceil(nextWriteAt - performance.now())),
+    );
+    timer.unref();
+  };
+
+  const change = (apply: () => Promise<void>): Promise<void> => {
+    const run = changes.then(apply);
     changes = run.catch(() => undefined);
     return run;
   };
@@ -191,9 +225,12 @@ export function createFileActivityHistory(
 
   return {
     append: (events) => {
-      if (events.length === 0) return Promise.resolve();
-      return change((current) => {
-        const stored = toStoredActivityEvents(events, new Date(now()).toISOString(), randomId);
+      if (closing) return Promise.resolve();
+      const activity = selectActivityHistoryEvents(events, false);
+      if (activity.length === 0) return Promise.resolve();
+      return change(async () => {
+        const current = await load();
+        const stored = toStoredActivityEvents(activity, new Date(now()).toISOString(), randomId);
         const byId = new Map(current.sessions.map((session) => [session.id, session]));
         const { records, sessions } = foldActivityBatch(stored, {
           get: (id) => byId.get(id),
@@ -203,11 +240,16 @@ export function createFileActivityHistory(
             ),
         });
         for (const session of sessions) byId.set(session.id, session);
-        return {
-          version: FILE_VERSION,
-          events: [...current.events, ...records],
-          sessions: [...byId.values()],
-        };
+        file = prune(
+          {
+            version: FILE_VERSION,
+            events: [...current.events, ...records.filter(isStoredEvent)],
+            sessions: [...byId.values()],
+          },
+          now(),
+        );
+        dirty = !unsupportedVersion;
+        scheduleWrite();
       });
     },
 
@@ -243,15 +285,39 @@ export function createFileActivityHistory(
       const at = now();
       return current.sessions
         .filter((session) => session.platform === platform && activitySessionRetained(session, at))
-        .sort((left, right) => (left.startedAt < right.startedAt ? 1 : -1))
+        .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
         .slice(0, MAX_ACTIVITY_SESSIONS);
     },
 
-    clear: () => change(() => emptyFile()),
+    clear: () => {
+      if (closing) return Promise.reject(new Error("The activity history is closed"));
+      return change(async () => {
+        await load();
+        if (unsupportedVersion) throw unsupportedVersion;
+        clearing = true;
+        cancelTimer();
+        try {
+          await writing;
+          const empty = emptyFile();
+          await persist(empty);
+          file = empty;
+          dirty = false;
+          saveFailed = false;
+        } finally {
+          clearing = false;
+          scheduleWrite();
+        }
+      });
+    },
 
-    async flush(): Promise<void> {
-      await changes;
-      while (writing) await writing;
+    close() {
+      cancelTimer();
+      closing ??= (async () => {
+        await changes;
+        await writing;
+        if (file && (dirty || saveFailed)) await persistBestEffort(file);
+      })();
+      return closing;
     },
   };
 }

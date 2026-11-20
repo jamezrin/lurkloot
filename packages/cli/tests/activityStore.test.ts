@@ -11,6 +11,7 @@ import {
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import {
   activityPathFor,
+  ACTIVITY_WRITE_INTERVAL_MS,
   type CliActivityHistory,
   createFileActivityHistory,
 } from "../src/activityStore";
@@ -24,7 +25,7 @@ beforeEach(async () => {
   path = join(dir, "activity.json");
 });
 afterEach(async () => {
-  await Promise.all(stores.splice(0).map((store) => store.flush()));
+  await Promise.all(stores.splice(0).map((store) => store.close()));
   await rm(dir, { recursive: true, force: true });
 });
 
@@ -87,7 +88,9 @@ describe("CLI activity history", () => {
   it("lives beside the state file", () => {
     expect(activityPathFor("/data/lurkloot/state.json")).toBe("/data/lurkloot/activity.json");
     // Two --state files in one directory keep two histories.
-    expect(activityPathFor("/data/lurkloot/alt.json")).toBe("/data/lurkloot/alt.activity.json");
+    expect(activityPathFor("/data/lurkloot/alt.json")).toBe(
+      "/data/lurkloot/alt.json.activity.json",
+    );
     expect(activityPathFor("/data/lurkloot/alt-state")).toBe(
       "/data/lurkloot/alt-state.activity.json",
     );
@@ -143,7 +146,7 @@ describe("CLI activity history", () => {
   it("survives a restart", async () => {
     const store = history();
     await store.append([sessionStarted("s1", at(-5_000)), claimed("kept", at(-1_000), "s1")]);
-    await store.flush();
+    await store.close();
 
     const reopened = history();
     const page = await reopened.load({ category: "activity" });
@@ -154,13 +157,77 @@ describe("CLI activity history", () => {
     ]);
   });
 
+  it("coalesces batches within the write interval and saves them when idle", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
+    const store = history();
+    try {
+      await store.clear();
+      await store.append([claimed("second", at(-2_000))]);
+      await store.append([claimed("third", at(-1_000))]);
+      expect((await store.load({ category: "activity" })).events).toHaveLength(2);
+      expect(vi.getTimerCount()).toBe(1);
+      await vi.advanceTimersByTimeAsync(ACTIVITY_WRITE_INTERVAL_MS - 1);
+      expect(await readFile(path, "utf8")).not.toContain("second");
+      await vi.advanceTimersByTimeAsync(1);
+      await vi.waitFor(async () => {
+        const saved = await readFile(path, "utf8");
+        expect(saved).toContain("second");
+        expect(saved).toContain("third");
+      });
+    } finally {
+      await store.close();
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps interruption reasons but drops unstructured exception text", async () => {
+    const store = history();
+    await store.append([
+      {
+        category: "activity",
+        code: "interruption",
+        level: "error",
+        platform: "twitch",
+        data: { reason: "platform_error", detail: "request failed with OAuth private-token" },
+      },
+    ]);
+    await store.close();
+    const { events } = await history().load({ category: "activity" });
+    expect(events[0]?.data).toEqual({ reason: "platform_error" });
+    expect(await readFile(path, "utf8")).not.toContain("private-token");
+  });
+
+  it("preserves publisher link parameters and removes URL credentials", async () => {
+    const store = history();
+    const claim = claimed("reward", at(-1_000));
+    if (claim.category !== "activity" || claim.code !== "reward_claimed") throw new Error();
+    await store.append([
+      {
+        ...claim,
+        data: {
+          ...claim.data,
+          campaignUrl: "https://example.com/campaign?campaign=launch#rewards",
+          rewardImageUrl: "https://user:private-password@example.com/reward",
+        },
+      },
+    ]);
+    await store.close();
+    const { events } = await history().load({ category: "activity" });
+    expect(events[0]?.data).toHaveProperty(
+      "campaignUrl",
+      "https://example.com/campaign?campaign=launch#rewards",
+    );
+    expect(events[0]?.data).toHaveProperty("rewardImageUrl", "https://example.com/reward");
+    expect(await readFile(path, "utf8")).not.toContain("private-");
+  });
+
   it("stays within the shared record budget and retention", async () => {
     const store = history();
     const events = Array.from({ length: MAX_ACTIVITY_RECORDS_PER_CATEGORY + 50 }, (_, index) =>
       claimed(`reward-${index}`, at(-1_000_000 + index)),
     );
     await store.append([claimed("expired", at(-ACTIVITY_RETENTION_MS - 1_000)), ...events]);
-    await store.flush();
+    await store.close();
 
     const onDisk = JSON.parse(await readFile(path, "utf8")) as { events: unknown[] };
     expect(onDisk.events).toHaveLength(MAX_ACTIVITY_RECORDS_PER_CATEGORY);
@@ -232,11 +299,13 @@ describe("CLI activity history", () => {
   it("clears events and sessions, on disk too", async () => {
     const store = history();
     await store.append([sessionStarted("s1", at(-5_000)), claimed("gone", at(-1_000), "s1")]);
-    await store.clear();
-    await store.flush();
+    await store.close();
+    const live = history();
+    await live.append([claimed("queued", at(-500))]);
+    await live.clear();
 
-    expect((await store.load({ category: "activity" })).events).toEqual([]);
-    expect(await store.loadSessions("twitch")).toEqual([]);
+    expect((await live.load({ category: "activity" })).events).toEqual([]);
+    expect(await live.loadSessions("twitch")).toEqual([]);
     const reopened = history();
     expect((await reopened.load({ category: "activity" })).events).toEqual([]);
     expect(await reopened.loadSessions("twitch")).toEqual([]);
@@ -246,7 +315,7 @@ describe("CLI activity history", () => {
     const store = history();
     await store.append([claimed("one", at(-2_000))]);
     await store.append([claimed("two", at(-1_000))]);
-    await store.flush();
+    await store.close();
     expect(await readdir(dir)).toEqual(["activity.json"]);
   });
 
@@ -258,21 +327,66 @@ describe("CLI activity history", () => {
     expect(onLoadError).toHaveBeenCalledOnce();
 
     await store.append([claimed("fresh", at(-1_000))]);
-    await store.flush();
+    await store.close();
     expect((await history().load({ category: "activity" })).events).toHaveLength(1);
+  });
+
+  it("rejects snapshots larger than 4 MiB", async () => {
+    await writeFile(
+      path,
+      JSON.stringify({
+        version: 1,
+        events: [],
+        sessions: [],
+        padding: " ".repeat(4 * 1024 * 1024),
+      }),
+    );
+    const onLoadError = vi.fn();
+    const store = track(createFileActivityHistory(path, { onLoadError }));
+    expect((await store.load({ category: "activity" })).events).toEqual([]);
+    expect(onLoadError).toHaveBeenCalledOnce();
+  });
+
+  it("leaves an unsupported version on disk after clear, append and close", async () => {
+    const newer = JSON.stringify({ version: 2, records: ["newer history"] });
+    await writeFile(path, newer);
+    const store = history();
+    await expect(store.clear()).rejects.toThrow("version");
+    await store.append([claimed("live only", at(-1_000))]);
+    expect((await store.load({ category: "activity" })).events).toHaveLength(1);
+    await store.close();
+    expect(await readFile(path, "utf8")).toBe(newer);
   });
 
   it("keeps the history in memory when a write fails, and writes it next time", async () => {
     const blocked = join(dir, "missing-dir-is-a-file");
     await writeFile(blocked, "");
     const onSaveError = vi.fn();
-    const store = createFileActivityHistory(join(blocked, "activity.json"), {
-      onSaveError,
-      now: () => NOW,
-    });
+    const file = join(blocked, "activity.json");
+    const store = track(
+      createFileActivityHistory(file, {
+        onSaveError,
+        now: () => NOW,
+      }),
+    );
     await store.append([claimed("kept", at(-1_000))]);
-    await store.flush();
-    expect(onSaveError).toHaveBeenCalled();
+    await vi.waitFor(() => expect(onSaveError).toHaveBeenCalled());
+    expect((await store.load({ category: "activity" })).events).toHaveLength(1);
+    await rm(blocked);
+    await store.append([claimed("later", at(-500))]);
+    await store.close();
+    expect(await readFile(file, "utf8")).toContain("kept");
+    expect(await readFile(file, "utf8")).toContain("later");
+  });
+
+  it("retains history if the atomic clear cannot be saved", async () => {
+    const blocked = join(dir, "state-directory");
+    await writeFile(blocked, "");
+    const store = track(
+      createFileActivityHistory(join(blocked, "activity.json"), { now: () => NOW }),
+    );
+    await store.append([claimed("kept", at(-1_000))]);
+    await expect(store.clear()).rejects.toThrow();
     expect((await store.load({ category: "activity" })).events).toHaveLength(1);
   });
 });

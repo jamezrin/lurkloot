@@ -384,7 +384,7 @@ describe("activity repository", () => {
         category: "activity",
         code: "interruption",
         level: "warn",
-        data: { reason: "runtime_restart" },
+        data: { reason: "runtime_restart", detail: "raw exception details" },
       },
     ]);
 
@@ -392,7 +392,9 @@ describe("activity repository", () => {
 
     expect(page.events).toHaveLength(2);
     expect(page.events.some((event) => event.platform === "kick")).toBe(false);
-    expect(page.events.some((event) => event.platform == null)).toBe(true);
+    expect(page.events.find((event) => event.platform == null)?.data).toEqual({
+      reason: "runtime_restart",
+    });
   });
 
   it("paginates case-insensitive diagnostic message matches within a platform", async () => {

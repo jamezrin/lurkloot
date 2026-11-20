@@ -1708,7 +1708,30 @@ The popup shows one category at a time. The activity/diagnostics switch selects 
 
 The CLI's output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Log retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains event data, and legacy event fields disappear after the state is loaded and saved.
 
-After logging, the CLI reporter passes the same batch to its activity store (`packages/cli/src/activityStore.ts`, #1088): `activity.json` beside `state.json` (`<name>.activity.json` beside any other `--state` file), under both `run` and `serve`. It keeps the timeline's activity events and session summaries only. Diagnostics stay in the log, since the CLI has no diagnostic logging setting, so free-text messages never reach the file. The whole history is held in memory, pruned to the shared bounds on every change, and written back through the same atomic temporary-file-and-rename helper as `state.json`, one write at a time; shutdown waits for the last one. An unreadable file is reported and replaced by a new history. `serve` hands the same store to the control plane, which answers the three activity messages from it and never routes them to the controller.
+The CLI reporter queues each batch for the activity store and sends the batch to the logger.
+Both `run` and `serve` use `packages/cli/src/activityStore.ts`. The default file is
+`activity.json` beside `state.json`. A custom state filename gets `.activity.json` appended
+to its full name. The store retains structured timeline events and session summaries.
+Both backends use the shared batch filter and stored event conversion. Stored timeline
+rows keep stable interruption reasons and omit raw exception details. HTTPS activity links
+keep their query parameters and anchors with embedded credentials removed. CLI diagnostics
+stay in the log. Activity follows the shared 30-day and 2,000-record limits. Session
+summaries keep open sessions and recent ended sessions within the 200-per-platform
+response limit.
+
+The CLI serializes in-memory mutations and writes compact snapshots through the same
+atomic file helper as `state.json`. Batches coalesce within a 30-second write interval.
+The run loop closes the store through `stopFarming`. After controller shutdown it gives
+in-flight jobs and detached controller work a shared five-second window to report commits,
+then drains state writes and flushes activity in teardown. A failed write keeps the live
+history available. Sidecar reads use `readJsonSidecar` with a 4 MiB limit. An unsupported
+activity file version leaves the disk snapshot intact and keeps new history in memory.
+The same store answers the three activity messages in `serve`. Clear joins the initial
+load and any previous write, then atomically saves an empty history before acknowledging
+the request. Clear fails if the disk snapshot uses an unsupported version.
+`activityStore.test.ts` exercises the shared limits, coalescing, sanitization and atomic
+clearing. `serveActivity.test.ts` covers restart, claims over HTTP, and a claim that commits
+during signal shutdown.
 
 ### Diagnostics export (#1089)
 

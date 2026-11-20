@@ -51,13 +51,19 @@ export interface PointsEarnedData {
 }
 
 // Platform responses and vendor state are untrusted: a URL is kept only when it
-// is an absolute https URL with no embedded credentials.
-export function safeHttpsUrl(value: unknown): string | undefined {
+// is an absolute https URL. Callers may discard embedded credentials instead
+// of discarding the link.
+export function safeHttpsUrl(value: unknown, stripCredentials = false): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   try {
     const url = new URL(trimmed);
-    return url.protocol === "https:" && !url.username && !url.password ? trimmed : undefined;
+    if (url.protocol !== "https:") return undefined;
+    if (!url.username && !url.password) return trimmed;
+    if (!stripCredentials) return undefined;
+    url.username = "";
+    url.password = "";
+    return url.href;
   } catch {
     return undefined;
   }

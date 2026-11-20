@@ -649,16 +649,24 @@ state file also removes any legacy embedded `events` field.
 `run` and `serve` also keep the activity the extension's Activity view shows
 (claims, farming starts and stops, interruptions, obtained rewards and each
 farming session's point and reward totals) in `activity.json`, beside
-`state.json` in the data directory. With `--state <dir>/<name>.json` it is
-`<dir>/<name>.activity.json`, so processes with their own state files keep
-their own histories. It has the
-extension's bounds: 30 days, at most 2,000 entries, and session summaries for
-30 days after they end. Entries are structured codes and values, which the app
-shows in its own language. Diagnostics are never stored there, so the file
-holds no log text, tokens or cookies. The file is rewritten through a
-temporary file and a rename, so a crash leaves the previous one. Delete it, or
-send `clearActivity`, to start over; an unreadable one is reported in the log
-and replaced.
+`state.json` in the data directory. A custom state filename gets a sidecar
+with `.activity.json` appended to its full name. History keeps up to 2,000
+events from the last 30 days and up to 200 session summaries per platform,
+including open sessions and ones that ended in the last 30 days.
+The app localizes the structured records. Activity snapshots omit diagnostic
+messages, raw interruption details and credentials embedded in HTTPS links.
+Publisher query parameters and anchors are preserved.
+
+The CLI saves activity atomically and combines batches into at most one
+scheduled write every 30 seconds. On shutdown it gives in-flight farming jobs
+and background work up to five seconds to finish before flushing pending
+activity. The app's Clear activity action saves the empty history before
+returning success.
+
+The CLI reads activity snapshots up to 4 MiB. If an activity file is unreadable
+or exceeds the limit, it logs a warning and starts with an empty history.
+If the file declares an unsupported version, the CLI leaves it on disk,
+keeps new activity in memory for that run, and rejects requests to clear it.
 
 Subscription requirements are reported separately from watch progress. The CLI
 never tries to satisfy them by opening or farming a stream, and it reports

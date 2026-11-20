@@ -1,4 +1,5 @@
 import type {
+  ActivityEvent,
   ActivityHistoryRecord,
   EngineEvent,
   EventCategory,
@@ -18,6 +19,7 @@ import type {
   RuntimeMessage,
 } from "./messages";
 import type { Platform } from "./models";
+import { safeHttpsUrl } from "./rewardEvents";
 
 // The activity history every host keeps behind the popup's activity messages:
 // its retention, its record format, how a batch folds into farming sessions,
@@ -105,6 +107,27 @@ export function activityQueryMatcher(
     && (!normalizedQuery || event.message?.toLowerCase().includes(normalizedQuery) === true);
 }
 
+// Stored timelines keep stable interruption reasons. Raw exception details can
+// contain secrets and belong to diagnostics. Preserve public links, including
+// publisher query parameters and anchors, without embedded credentials.
+export function sanitizeStoredActivity<T extends ActivityEvent>(event: T): T {
+  if (event.code === "interruption") return { ...event, data: { reason: event.data.reason } };
+  const data: Record<string, unknown> = { ...event.data };
+  for (const key of [
+    "campaignUrl",
+    "rewardImageUrl",
+    "gameImageUrl",
+    "imageUrl",
+    "channelImageUrl",
+  ]) {
+    if (!(key in data)) continue;
+    const safe = safeHttpsUrl(data[key], true);
+    if (safe) data[key] = safe;
+    else delete data[key];
+  }
+  return { ...event, data };
+}
+
 // The stored form of a reported batch. `at` is when the event was emitted, or
 // the batch's write time for an event that reached storage without one. The
 // id keeps events that share a timestamp in emission order.
@@ -114,13 +137,14 @@ export function toStoredActivityEvents(
   randomId: () => string,
 ): StoredEngineEvent[] {
   return events.map((event, index) => {
-    const { emittedAt, ...rest } = event;
+    const { emittedAt, ...stored } =
+      event.category === "activity" ? sanitizeStoredActivity(event) : event;
     const at = emittedAt ?? writtenAt;
     return {
-      ...rest,
+      ...stored,
       id: `${at}-${String(index).padStart(6, "0")}-${randomId()}`,
       at,
-      ...(event.data ? { data: { ...event.data } } : {}),
+      ...(event.category === "diagnostic" && event.data ? { data: { ...event.data } } : {}),
     };
   }) as StoredEngineEvent[];
 }
@@ -239,6 +263,17 @@ interface ActivityEventReporterDeps {
   append(events: readonly EngineEvent[]): Promise<void>;
 }
 
+export function selectActivityHistoryEvents(
+  events: readonly EngineEvent[],
+  diagnosticLogging: boolean,
+): EngineEvent[] {
+  // Activity outside the timeline (tab open/close) is kept only through
+  // its diagnostic mirror.
+  return events.filter((event) =>
+    event.category === "activity" ? isActivityTimelineEvent(event) : diagnosticLogging,
+  );
+}
+
 // What a host's reporter keeps of each batch: the timeline's activity always,
 // diagnostics only while the host keeps them.
 export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
@@ -250,11 +285,7 @@ export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
       // A settings read must not prevent durable activity history. Treat a
       // missing setting as diagnostics disabled and retain normal activity.
     }
-    // Activity that is not part of the user-facing timeline (tab open/close)
-    // is kept only through its diagnostic mirror.
-    const accepted = events.filter((event) =>
-      event.category === "activity" ? isActivityTimelineEvent(event) : diagnosticLogging,
-    );
+    const accepted = selectActivityHistoryEvents(events, diagnosticLogging);
     if (accepted.length > 0) await deps.append(accepted);
   };
 }

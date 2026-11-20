@@ -2,16 +2,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { ActivityHistoryRecord, EventEmitter } from "@lurkloot/shared/events";
 import type { ActivityPage, ActivitySessionsPage } from "@lurkloot/shared/messages";
 import type { DropCampaign } from "@lurkloot/shared/models";
+import { activityPathFor, createFileActivityHistory } from "../src/activityStore";
 import { describeCredentialHealth } from "../src/authStore";
 import { createLogger } from "../src/logger";
 import { runLoop } from "../src/runtime/run";
 import { serveLoop } from "../src/runtime/serve";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
+import { loadState, saveState } from "../src/storage";
 import type { TransportHandle } from "../src/transport";
+import { deferred } from "./helpers/deferred";
 import { idleAdapter, idleTransport, memoryStateStore } from "./helpers/fakeFarming";
 
 // `serve` keeps the activity the farming loop reports (#1088): a claim made
@@ -57,7 +61,7 @@ function claimableCampaign(): DropCampaign {
 
 // Twitch has one claimable reward and claims it; Kick idles. Every refresh
 // also reports a diagnostic carrying a planted secret, which must not be kept.
-function claimingTransport(): TransportHandle {
+function claimingTransport(beforeClaim?: () => Promise<void>): TransportHandle {
   const base = idleTransport();
   let claimed = false;
   let emit: EventEmitter | undefined;
@@ -70,6 +74,7 @@ function claimingTransport(): TransportHandle {
       return [campaign];
     },
     claimReward: async () => {
+      if (beforeClaim) await beforeClaim();
       claimed = true;
       return true;
     },
@@ -215,5 +220,99 @@ describe("serve activity history", () => {
     };
     expect(onDisk.events.map((event) => event.code)).toContain("reward_claimed");
     expect(onDisk.events.every((event) => event.category === "activity")).toBe(true);
+  });
+
+  it("persists a claim that resolves after SIGTERM", async () => {
+    dir = await mkdtemp(join(tmpdir(), "run-activity-signal-"));
+    const statePath = join(dir, "state.json");
+    const { promise: claiming, resolve: claimStarted } = deferred<void>();
+    const { promise: pendingClaim, resolve: finishClaim } = deferred<void>();
+    const { promise: committing, resolve: commitStarted } = deferred<void>();
+    const { promise: pendingCommit, resolve: finishCommit } = deferred<void>();
+    const transport = claimingTransport(() => {
+      claimStarted();
+      return pendingClaim;
+    });
+    const running = runLoop({
+      settings: DEFAULT_CLI_SETTINGS,
+      statePath,
+      stateStore: {
+        load: () => loadState(statePath),
+        save: async (state) => {
+          if (state.campaigns.twitch[0]?.rewards[0]?.status === "claimed") {
+            commitStarted();
+            await pendingCommit;
+          }
+          await saveState(statePath, state);
+        },
+      },
+      // The control plane drains before controller.shutdown() aborts ticks.
+      startHost: async () => ({
+        close: async () => {
+          finishClaim();
+          await committing;
+        },
+      }),
+      transport,
+      logger: quiet,
+      checkCredentialAvailability: async () => ({ status: "available" }),
+    });
+    await claiming;
+    process.emit("SIGTERM");
+    await committing;
+    finishCommit();
+    await running;
+
+    const onDisk = await readFile(activityPathFor(statePath), "utf8");
+    expect(onDisk).toContain("reward_claimed");
+    expect(await readFile(statePath, "utf8")).toContain('"status": "claimed"');
+  });
+
+  it("flushes buffered claims when launcher input closes, even if disposal fails", async () => {
+    dir = await mkdtemp(join(tmpdir(), "serve-activity-stop-"));
+    const statePath = join(dir, "state.json");
+    const path = activityPathFor(statePath);
+    const history = createFileActivityHistory(path);
+    await history.clear(); // Put subsequent appends inside the write interval.
+    const input = new PassThrough();
+    let port = 0;
+    const running = serveLoop({
+      binding: { host: "127.0.0.1", port: 0 },
+      settings: DEFAULT_CLI_SETTINGS,
+      statePath,
+      stateStore: memoryStateStore(),
+      activityHistory: history,
+      transport: {
+        ...claimingTransport(),
+        dispose: async () => {
+          throw new Error("Transport disposal failed");
+        },
+      },
+      logger: quiet,
+      appRoot: null,
+      exitWithInput: input,
+      describeCredentials: () => describeCredentialHealth("/nonexistent-lurkloot-auth", {}),
+      checkCredentialAvailability: async () => ({ status: "available" }),
+      onListening: (address) => {
+        port = address.port;
+      },
+    });
+    const stopped = expect(running).rejects.toThrow("Transport disposal failed");
+    try {
+      await vi.waitFor(() => expect(port).not.toBe(0));
+      await vi.waitFor(
+        async () => {
+          expect((await activity(port)).some((event) => event.code === "reward_claimed")).toBe(
+            true,
+          );
+        },
+        { timeout: 5_000 },
+      );
+      expect(await readFile(path, "utf8")).not.toContain("reward_claimed");
+    } finally {
+      input.end();
+      await stopped;
+    }
+    expect(await readFile(path, "utf8")).toContain("reward_claimed");
   });
 });
