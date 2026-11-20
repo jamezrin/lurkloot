@@ -409,6 +409,8 @@ function kickCategoryImage(banner: unknown): string | undefined {
 
 export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
+  // Room for the full 30-entry Watchlist and some live follows.
+  readonly knownChannelLimit = 40;
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
   private readonly discoveryState: KickDiscoveryState;
@@ -760,28 +762,39 @@ export class KickAdapter implements PlatformAdapter {
     // The cache belongs to this revision, never the adapter lifetime. Cache raw
     // responses so category expectations and ACL/campaign metadata stay local.
     const evidence = new Map<string, Promise<unknown>>();
-    const fetcher: PageFetcher = {
-      fetchJson: <T>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T> => {
+    let rateLimit: unknown;
+    const evidenceFetcher = (bestEffort: boolean): PageFetcher => ({
+      fetchJson: async <T>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T> => {
         let pending = evidence.get(url);
         if (!pending) {
-          pending = this.fetcher.fetchJson(url, init, emit);
+          if (bestEffort && rateLimit) throw rateLimit;
+          pending = this.fetcher.fetchJson(url, init, emit).catch((error: unknown) => {
+            if (isSafeFetchError(error) && error.failure.status === 429) rateLimit = error;
+            throw error;
+          });
           evidence.set(url, pending);
         }
-        return pending as Promise<T>;
+        return (await pending) as T;
       },
-    };
+    });
+    const fetcher = evidenceFetcher(false);
+    const optionalFetcher = evidenceFetcher(true);
     const checks: Array<ChannelCheck | undefined> = new Array(requests.length).fill(undefined);
-    // One sequential candidate chain per campaign avoids speculative requests
-    // after an early match. Independent campaigns (and idle checks) share the
-    // worker limit and evidence cache.
+    // Ordinary candidates run in one sequential chain per campaign, stopping
+    // at the first match. Preferred candidates and idle checks run as
+    // independent jobs under the same worker limit.
     const groups: number[][] = [];
     const campaignGroups = new Map<string, number[]>();
     requests.forEach((request, index) => {
-      let group = request.campaign ? campaignGroups.get(request.campaign.id) : undefined;
+      if (!request.campaign || request.alwaysCheck) {
+        groups.push([index]);
+        return;
+      }
+      let group = campaignGroups.get(request.campaign.id);
       if (!group) {
         group = [];
         groups.push(group);
-        if (request.campaign) campaignGroups.set(request.campaign.id, group);
+        campaignGroups.set(request.campaign.id, group);
       }
       group.push(index);
     });
@@ -797,12 +810,20 @@ export class KickAdapter implements PlatformAdapter {
             if (failed) break;
             signal?.throwIfAborted();
             const request = requests[index]!;
+            if (request.bestEffort && rateLimit) continue;
             checkedChannels.add(request.channel.username.toLowerCase());
-            const check = await this.checkChannelWithFetcher(
-              request.channel,
-              { campaign: request.campaign, signal, requireComplete: true },
-              fetcher,
-            );
+            let check: ChannelCheck;
+            try {
+              check = await this.checkChannelWithFetcher(
+                request.channel,
+                { campaign: request.campaign, signal, requireComplete: true },
+                request.bestEffort ? optionalFetcher : fetcher,
+              );
+            } catch (error) {
+              signal?.throwIfAborted();
+              if (request.bestEffort) continue;
+              throw error;
+            }
             checks[index] = check;
             if (
               request.campaign

@@ -29,7 +29,9 @@ import {
   ignoreEvent,
   type AdapterOperationOptions,
   type CandidateChannelSelection,
+  type CandidateSelectionOptions,
   type ChannelPointsClaimOptions,
+  type KnownChannelChecks,
   type PageFetcher,
   type PlatformAdapter,
 } from "../adapter";
@@ -116,8 +118,7 @@ const STREAM_DOWN_HINT_TTL_MS = 10 * 60_000;
 // campaign's claims back (#964). Linking happens on another site, so the claim
 // is retried after this window rather than on every tick.
 const UNLINKED_CLAIM_RETRY_MS = 15 * 60_000;
-// Followed channels that are live right now. Bounded generously: the preference
-// only matters for channels that also show up in a campaign's directory page.
+// Cap both the live-follow lookup and the combined Watchlist/follow probe pool.
 const FOLLOWED_CHANNELS_LIMIT = 100;
 const DISCOVERY_DETAIL_PRUNE_LIMIT = 32;
 // Directory reads per refresh to find a live channel whose drops tray reports a
@@ -603,6 +604,11 @@ type TwitchAvailabilityCandidate = {
   channelLogin: string;
   broadcastId: string;
 };
+
+interface TwitchKnownChannelProbe {
+  rateLimited: boolean;
+  attemptedAvailability: Set<string>;
+}
 
 interface TwitchFollowedLiveData {
   currentUser?: {
@@ -1251,6 +1257,7 @@ export function createTwitchGqlTransport(
 
 export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
+  readonly knownChannelLimit = FOLLOWED_CHANNELS_LIMIT;
   readonly compatibility?: ResolvedCompatibility["twitch"];
   readonly createChannelPointsPushController?: () => TwitchChannelPointsPushController;
   readonly createChatPresenceClient?: () => ChatPresenceClient;
@@ -2611,10 +2618,62 @@ export class TwitchAdapter implements PlatformAdapter {
     }
   }
 
+  async prepareKnownChannelChecks(
+    candidates: ChannelCandidate[],
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<KnownChannelChecks> {
+    const probe: TwitchKnownChannelProbe = { rateLimited: false, attemptedAvailability: new Set() };
+    const streams = await this.batchStreamInfoChecks(candidates, undefined, signal, probe);
+    return {
+      streams: {
+        checked: streams.checked,
+        observations: streams.checks,
+        metrics: {
+          cacheHits: 0,
+          cacheMisses: 0,
+          batchRequests: streams.batchRequests,
+          singleFallbacks: 0,
+        },
+      },
+      checkCampaign: async (campaign, checks) => {
+        signal?.throwIfAborted();
+        const matching = checks.filter(
+          (check) =>
+            check.live && twitchStreamCategoryMatches(check.candidate.categoryId, campaign),
+        );
+        // Sitewide campaigns earn by category and never appear in AvailableDrops.
+        if (campaign.sitewide) return { checked: matching.length, observations: matching };
+
+        const identified = matching.flatMap((check) => {
+          const { channelId, broadcastId, username } = check.candidate;
+          return channelId && broadcastId
+            ? [{ check, channelId, broadcastId, channelLogin: username }]
+            : [];
+        });
+        const availability = await this.batchCampaignAvailability(
+          identified,
+          campaign.id,
+          signal,
+          probe,
+        );
+        // An outside channel has no Drops-enabled directory evidence. Only a
+        // positive availability match can admit it into an ordinary campaign.
+        const observations = identified.flatMap(({ check, channelId }) =>
+          availability.matches.get(channelId) === true ? [{ ...check, campaignMatches: true }] : [],
+        );
+        return {
+          checked: observations.length,
+          observations,
+          metrics: availability,
+        };
+      },
+    };
+  }
+
   async selectCandidateChannel(
     candidates: ChannelCandidate[],
     campaign?: DropCampaign,
-    { signal }: AdapterOperationOptions = {},
+    { signal, precheckedStreams }: CandidateSelectionOptions = {},
   ): Promise<CandidateChannelSelection> {
     if (candidates.length === 0) return { checked: 0 };
     const startedAt = Date.now();
@@ -2627,6 +2686,15 @@ export class TwitchAdapter implements PlatformAdapter {
     let trustedDirectoryCandidates = 0;
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[index];
+      const prechecked = precheckedStreams?.get(candidate.username.toLowerCase());
+      if (prechecked) {
+        checks[index] = {
+          ...prechecked,
+          categoryMatches: twitchStreamCategoryMatches(prechecked.candidate.categoryId, campaign),
+          candidate: { ...candidate, ...prechecked.candidate },
+        };
+        continue;
+      }
       // A listing that says live is trusted, unless a stream-down push says the
       // stream since ended (#759): then the stream is checked.
       if (
@@ -2694,7 +2762,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const mode = this.options.strictCampaignAvailability
         ? "strict campaign availability"
         : "trusted discovery sources";
-      const streamInfoBatches = Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT);
+      const streamInfoBatches = streamCheckResult.batchRequests;
       const summary = [
         `${streamCandidates.length} candidates batch-checked`,
         `${checked} candidates evaluated`,
@@ -2762,9 +2830,7 @@ export class TwitchAdapter implements PlatformAdapter {
         metrics: {
           cacheHits: availabilityResult.cacheHits,
           cacheMisses: availabilityResult.cacheMisses,
-          batchRequests:
-            Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)
-            + availabilityResult.batchRequests,
+          batchRequests: streamCheckResult.batchRequests + availabilityResult.batchRequests,
           singleFallbacks:
             streamCheckResult.singleFallbacks
             + availabilityResult.singleFallbacks
@@ -2783,9 +2849,7 @@ export class TwitchAdapter implements PlatformAdapter {
       metrics: {
         cacheHits: availabilityResult.cacheHits,
         cacheMisses: availabilityResult.cacheMisses,
-        batchRequests:
-          Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)
-          + availabilityResult.batchRequests,
+        batchRequests: streamCheckResult.batchRequests + availabilityResult.batchRequests,
         singleFallbacks:
           streamCheckResult.singleFallbacks + availabilityResult.singleFallbacks + winnerFallbacks,
       },
@@ -2796,6 +2860,7 @@ export class TwitchAdapter implements PlatformAdapter {
     candidates: readonly TwitchAvailabilityCandidate[],
     campaignId: string,
     signal?: AbortSignal,
+    probe?: TwitchKnownChannelProbe,
   ): Promise<{
     matches: Map<string, boolean | undefined>;
     batchRequests: number;
@@ -2830,12 +2895,16 @@ export class TwitchAdapter implements PlatformAdapter {
         matches.set(candidate.channelId, lookup.campaignIds.has(campaignId));
         continue;
       }
+      if (probe) {
+        if (probe.rateLimited || probe.attemptedAvailability.has(candidate.channelId)) continue;
+        probe.attemptedAvailability.add(candidate.channelId);
+      }
       if (lookup.status === "expired") cacheExpirations += 1;
       else if (lookup.status === "broadcast_changed") broadcastInvalidations += 1;
       else cacheMisses += 1;
       uncached.push(candidate);
     }
-    if (uncached.length === 1) {
+    if (!probe && uncached.length === 1) {
       const candidate = uncached[0];
       // checkCampaignAvailability does not get to classify this lookup itself:
       // the loop above already read this entry, so a second read here would
@@ -2876,28 +2945,33 @@ export class TwitchAdapter implements PlatformAdapter {
     }>(chunks.length);
     let nextChunk = 0;
     await Promise.all(
-      Array.from({ length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) }, async () => {
-        for (;;) {
-          const chunkIndex = nextChunk;
-          nextChunk += 1;
-          const chunk = chunks[chunkIndex];
-          if (!chunk) return;
-          signal?.throwIfAborted();
-          results[chunkIndex] = await this.batchCampaignAvailabilityChunk(
-            chunk,
-            campaignId,
-            signal,
-          );
-        }
-      }),
+      Array.from(
+        { length: Math.min(probe ? 1 : GQL_BATCH_CONCURRENCY, chunks.length) },
+        async () => {
+          while (!probe?.rateLimited) {
+            const chunkIndex = nextChunk;
+            nextChunk += 1;
+            const chunk = chunks[chunkIndex];
+            if (!chunk) return;
+            signal?.throwIfAborted();
+            results[chunkIndex] = await this.batchCampaignAvailabilityChunk(
+              chunk,
+              campaignId,
+              signal,
+              probe,
+            );
+          }
+        },
+      ),
     );
-    for (const result of results) {
+    const completed = results.filter((result) => result);
+    for (const result of completed) {
       for (const [channelId, match] of result.matches) matches.set(channelId, match);
     }
     return {
       matches,
-      batchRequests: chunks.length,
-      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+      batchRequests: completed.length,
+      singleFallbacks: completed.reduce((total, result) => total + result.singleFallbacks, 0),
       cacheHits,
       cacheMisses,
       cacheExpirations,
@@ -2910,6 +2984,7 @@ export class TwitchAdapter implements PlatformAdapter {
     candidates: readonly TwitchAvailabilityCandidate[],
     campaignId: string,
     signal?: AbortSignal,
+    probe?: TwitchKnownChannelProbe,
   ): Promise<{
     matches: Map<string, boolean | undefined>;
     singleFallbacks: number;
@@ -2972,6 +3047,10 @@ export class TwitchAdapter implements PlatformAdapter {
       );
     } catch (error) {
       signal?.throwIfAborted();
+      if (probe) {
+        if (isSafeFetchError(error) && error.failure.status === 429) probe.rateLimited = true;
+        return { matches, singleFallbacks: 0 };
+      }
       if (authHealthFromError(error)) throw error;
       const message = errorMessage(error);
       for (const [index, candidate] of candidates.entries()) {
@@ -2991,7 +3070,12 @@ export class TwitchAdapter implements PlatformAdapter {
       }
       return { matches, singleFallbacks: candidates.length };
     }
-    if (twitchPageFetchError(raw)) {
+    const transportFailure = twitchPageFetchError(raw);
+    if (transportFailure) {
+      if (probe) {
+        if (transportFailure.status === 429) probe.rateLimited = true;
+        return { matches, singleFallbacks: 0 };
+      }
       for (const [index, candidate] of candidates.entries()) {
         diagnostic(
           this.emit,
@@ -3026,6 +3110,7 @@ export class TwitchAdapter implements PlatformAdapter {
       );
       const campaignIds = parseAvailableDropCampaigns(response, candidate.channelId);
       if (!campaignIds) {
+        if (probe) continue;
         singleFallbacks += 1;
         await fallback(candidate);
         continue;
@@ -3045,8 +3130,13 @@ export class TwitchAdapter implements PlatformAdapter {
     candidates: readonly ChannelCandidate[],
     campaign: DropCampaign | undefined,
     signal?: AbortSignal,
-  ): Promise<{ checks: ChannelCheck[]; singleFallbacks: number }> {
-    if (candidates.length === 0) return { checks: [], singleFallbacks: 0 };
+    probe?: TwitchKnownChannelProbe,
+  ): Promise<{
+    checks: ChannelCheck[];
+    singleFallbacks: number;
+    checked: number;
+    batchRequests: number;
+  }> {
     const chunks = Array.from(
       { length: Math.ceil(candidates.length / GQL_BATCH_OPERATION_LIMIT) },
       (_, index) =>
@@ -3057,21 +3147,29 @@ export class TwitchAdapter implements PlatformAdapter {
     );
     const results = new Array<{ checks: ChannelCheck[]; singleFallbacks: number }>(chunks.length);
     let nextChunk = 0;
+    let checked = 0;
     await Promise.all(
-      Array.from({ length: Math.min(GQL_BATCH_CONCURRENCY, chunks.length) }, async () => {
-        for (;;) {
-          const chunkIndex = nextChunk;
-          nextChunk += 1;
-          const chunk = chunks[chunkIndex];
-          if (!chunk) return;
-          signal?.throwIfAborted();
-          results[chunkIndex] = await this.batchStreamInfoChunk(chunk, campaign, signal);
-        }
-      }),
+      Array.from(
+        { length: Math.min(probe ? 1 : GQL_BATCH_CONCURRENCY, chunks.length) },
+        async () => {
+          while (!probe?.rateLimited) {
+            const chunkIndex = nextChunk;
+            nextChunk += 1;
+            const chunk = chunks[chunkIndex];
+            if (!chunk) return;
+            signal?.throwIfAborted();
+            checked += chunk.length;
+            results[chunkIndex] = await this.batchStreamInfoChunk(chunk, campaign, signal, probe);
+          }
+        },
+      ),
     );
+    const completed = results.filter((result) => result);
     return {
-      checks: results.flatMap((result) => result.checks),
-      singleFallbacks: results.reduce((total, result) => total + result.singleFallbacks, 0),
+      checks: completed.flatMap((result) => result.checks),
+      singleFallbacks: completed.reduce((total, result) => total + result.singleFallbacks, 0),
+      checked,
+      batchRequests: completed.length,
     };
   }
 
@@ -3079,6 +3177,7 @@ export class TwitchAdapter implements PlatformAdapter {
     candidates: readonly ChannelCandidate[],
     campaign: DropCampaign | undefined,
     signal?: AbortSignal,
+    probe?: TwitchKnownChannelProbe,
   ): Promise<{ checks: ChannelCheck[]; singleFallbacks: number }> {
     let raw: unknown;
     try {
@@ -3105,13 +3204,21 @@ export class TwitchAdapter implements PlatformAdapter {
         },
         this.emit,
       );
-    } catch {
+    } catch (error) {
       signal?.throwIfAborted();
+      if (probe) {
+        if (isSafeFetchError(error) && error.failure.status === 429) probe.rateLimited = true;
+        return { checks: [], singleFallbacks: 0 };
+      }
       const checks: ChannelCheck[] = [];
       for (const candidate of candidates) {
         checks.push(await this.checkChannel(candidate, { campaign, signal }));
       }
       return { checks, singleFallbacks: candidates.length };
+    }
+    if (probe && twitchPageFetchError(raw)?.status === 429) {
+      probe.rateLimited = true;
+      return { checks: [], singleFallbacks: 0 };
     }
     const responses = Array.isArray(raw) ? raw : candidates.length === 1 ? [raw] : [];
     const checks: ChannelCheck[] = [];
@@ -3119,11 +3226,13 @@ export class TwitchAdapter implements PlatformAdapter {
     for (const [index, candidate] of candidates.entries()) {
       const response = normalizeTwitchGqlResponse<TwitchStreamInfoData>(responses[index]);
       if (!response?.data?.user || response.errors?.length || response.error) {
+        if (probe) continue;
         singleFallbacks += 1;
         checks.push(await this.checkChannel(candidate, { campaign, signal }));
         continue;
       }
       const stream = response.data.user.stream;
+      if (probe && stream === undefined) continue;
       const categoryId = stream?.game?.id;
       checks.push({
         live: Boolean(stream),
@@ -4258,13 +4367,19 @@ function isTwitchGqlResponse<T>(value: TwitchGqlResponse<T> | null): value is Tw
 // because executeScript discards rejection messages. Pull the diagnostic out.
 function twitchPageFetchError(
   value: unknown,
-): { message: string; kind: TwitchGqlFailureKind } | undefined {
+): { message: string; kind: TwitchGqlFailureKind; status?: number } | undefined {
   if (value != null && typeof value === "object" && !Array.isArray(value)) {
-    const envelope = value as { __twitchGqlError?: unknown; __twitchGqlFailureKind?: unknown };
+    const envelope = value as {
+      __twitchGqlError?: unknown;
+      __twitchGqlFailureKind?: unknown;
+      __twitchGqlStatus?: unknown;
+    };
     if (typeof envelope.__twitchGqlError === "string") {
       const kind = envelope.__twitchGqlFailureKind;
       return {
         message: envelope.__twitchGqlError,
+        status:
+          typeof envelope.__twitchGqlStatus === "number" ? envelope.__twitchGqlStatus : undefined,
         kind: kind === "credentials" || kind === "platform" ? kind : "network",
       };
     }

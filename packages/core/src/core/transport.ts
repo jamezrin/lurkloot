@@ -56,7 +56,11 @@ function twitchGqlErrorEnvelope(
   status: number,
   body: string,
   headers: Headers,
-): { __twitchGqlError: string; __twitchGqlFailureKind: "network" | "credentials" | "platform" } {
+): {
+  __twitchGqlError: string;
+  __twitchGqlFailureKind: "network" | "credentials" | "platform";
+  __twitchGqlStatus: number;
+} {
   return {
     __twitchGqlError: [
       `Twitch GQL ${summary}`,
@@ -64,6 +68,7 @@ function twitchGqlErrorEnvelope(
       `authHeader=${headers.has("authorization") ? "yes" : "no"}`,
       `body=${body.slice(0, 300)}`,
     ].join("; "),
+    __twitchGqlStatus: status,
     __twitchGqlFailureKind: status === 0 ? "network" : status === 401 ? "credentials" : "platform",
   };
 }

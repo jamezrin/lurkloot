@@ -1,4 +1,8 @@
-import type { ClaimedChallenge, PlatformAdapter } from "../platforms/adapter";
+import {
+  channelCandidateForLogin as fallbackChannel,
+  type ClaimedChallenge,
+  type PlatformAdapter,
+} from "../platforms/adapter";
 import type {
   CampaignSearchBackoff,
   ChannelCandidate,
@@ -269,7 +273,11 @@ export async function chooseCampaignDecision(
   settings: EngineSettings,
   adapter: Pick<
     PlatformAdapter,
-    "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+    | "listCandidateChannels"
+    | "campaignScopedCandidates"
+    | "selectCandidateChannel"
+    | "checkChannel"
+    | "listFollowedChannels"
   >,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
@@ -351,9 +359,10 @@ export async function chooseCampaignDecision(
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     signal?.throwIfAborted();
-    const reusableDirectoryKey = campaign.allowedChannels?.length
-      ? undefined
-      : (campaign.categoryId ?? campaign.slug);
+    const reusableDirectoryKey =
+      adapter.campaignScopedCandidates || campaign.allowedChannels?.length
+        ? undefined
+        : (campaign.categoryId ?? campaign.slug);
     let listedCandidates = reusableDirectoryKey
       ? generalCandidatesByCategory.get(reusableDirectoryKey)
       : undefined;
@@ -397,7 +406,8 @@ export async function chooseCampaignDecision(
       list.sort((left, right) => {
         // ACL stays the strongest key: for an ACL-restricted campaign a followed
         // channel outside the allow list cannot earn the drop at all.
-        if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
+        const acl = Number(Boolean(right.isAclMatch)) - Number(Boolean(left.isAclMatch));
+        if (acl !== 0) return acl;
         const preference =
           channelPreferenceScore(left, idleWatchlist, followed)
           - channelPreferenceScore(right, idleWatchlist, followed);
@@ -804,16 +814,6 @@ function channelFromCheck(
   };
 }
 
-function fallbackChannel(platform: Platform, username: string): ChannelCandidate {
-  const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
-  return {
-    platform,
-    username,
-    displayName: username,
-    url: `${host}/${username}`,
-  };
-}
-
 // The channel, tab, playback, and heartbeat are gone. Status, message, and
 // reason come from the caller. A counter the caller does not pass keeps the
 // previous session's value: an auth pause leaves errorChecks, an idle decision
@@ -922,7 +922,11 @@ async function selectWatchTarget(
   settings: EngineSettings,
   adapter: Pick<
     PlatformAdapter,
-    "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+    | "listCandidateChannels"
+    | "campaignScopedCandidates"
+    | "selectCandidateChannel"
+    | "checkChannel"
+    | "listFollowedChannels"
   >,
   signal?: AbortSignal,
   includeIdleWatchlist = true,
@@ -1179,6 +1183,7 @@ export function campaignSearchFingerprint(
     campaign,
     settings: {
       priorityMode: settings.priorityMode,
+      preferKnownChannels: settings.preferKnownChannels,
       // Carries this platform's pins and exclusions.
       platform: settings.platform[campaign.platform],
     },
@@ -1452,7 +1457,11 @@ export type SchedulerEffect = SchedulerEffects[SchedulerEffectType]["effect"];
 // in memory (selectionAdapterFromDiscoverySnapshot). Never a provider.
 export type SelectionView = Pick<
   PlatformAdapter,
-  "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+  | "listCandidateChannels"
+  | "campaignScopedCandidates"
+  | "selectCandidateChannel"
+  | "checkChannel"
+  | "listFollowedChannels"
 >;
 
 // What the platform's host can do, declared rather than probed from an adapter.

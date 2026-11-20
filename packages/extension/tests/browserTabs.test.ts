@@ -3526,6 +3526,24 @@ describe("fetchTwitchInBackgroundWith", () => {
     vi.unstubAllGlobals();
   });
 
+  it("preserves the HTTP status of Twitch GQL rate limits", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 429 })),
+    );
+    try {
+      const result = await fetchTwitchInBackgroundWith<{ __twitchGqlStatus?: number }>(
+        registry,
+        cookieApi,
+        "https://gql.twitch.tv/gql",
+        { credentials: "omit", body: "[]" },
+      );
+      expect(result.__twitchGqlStatus).toBe(429);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("returns channel page HTML for non-GQL Twitch URLs", async () => {
     vi.stubGlobal(
       "fetch",

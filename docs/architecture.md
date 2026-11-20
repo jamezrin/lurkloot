@@ -64,27 +64,57 @@ infeasible and statically disallowed campaigns stay in the inventory with empty
 channel observations. Claimable rewards and uncertain channel eligibility retain
 their existing behavior. This gate uses the same evaluator as selection.
 
-Kick checks eligible campaigns through an optional adapter batch contract. Three
-workers process independent campaigns; each campaign checks candidates in order
-and stops at its first valid channel. This avoids speculative requests after an
-early match. Watchlist checks are independent jobs and all remain observed.
-Raw API/page responses are shared by URL only within that discovery revision;
-each candidate retains its own campaign, ACL metadata and category expectation.
-The next revision fetches fresh evidence. A single campaign's candidate chain
-remains sequential, trading its latency for the existing early-match request
-budget. Campaign and candidate result ordering never depends on completion order.
+General campaigns start with directory candidates. With `preferKnownChannels`
+enabled, discovery also considers the platform's Watchlist and live follows.
+It filters drop exclusions, deduplicates by login, and fills a per-refresh probe
+pool in Watchlist order followed by live follows. The pool is capped at 40
+logins on Kick and 100 on Twitch. The full fetched follow list still ranks
+observed channels. Campaigns with a channel allow list use that list. Disabling
+the preference skips follow lookup and expansion. Idle Watchlist and watch
+streak checks remain available.
 
-Missing Kick inventory/progress, malformed general-channel directories, missing
-required category evidence, cancellation or failed checks do not replace the
-last coherent snapshot. On failure, workers stop taking new work and drain active
-requests before returning. The collector also drains paired inventory and
+Kick's `checkChannels` batch runs ordinary candidates in directory order and
+stops that chain at the first valid match. Known directory candidates receive
+their own best-effort observations so selection can rank them. Outside channels
+must be live in the campaign's category. Three workers process the batch and
+share raw API and page responses by URL within the revision, including across
+Drops and idle checks. Missing evidence for a known campaign candidate drops
+that observation. An HTTP 429 stops new optional requests for the rest of the
+revision. Started checks drain and the ordinary directory path keeps its
+required-evidence rules. Every idle Watchlist entry requires an observation
+even when it is also probed for a campaign. If the idle check cannot obtain
+evidence from the shared response or its usual lookup, the refresh fails.
+
+Twitch batches public stream checks for the known pool once per revision and
+reuses them for category checks and idle Watchlist selection. For a regular
+Drops campaign, a channel outside the directory or current watch needs a
+positive AvailableDrops match (or cached progress-confirmed availability),
+even with strict availability turned off. The Drops-enabled directory remains
+the ordinary source. For a sitewide campaign, a stream in an allowed campaign
+category is sufficient because those campaigns are absent from AvailableDrops.
+Optional Twitch batches run sequentially, skip unusable results and single
+retries, and stop admitting optional requests after a 429. Idle entries without
+usable probe evidence still run through ordinary idle selection, including its
+single-channel and page fallbacks. An uncached
+AvailableDrops probe runs at most once per channel per revision. Snapshots
+keep candidates scoped to their campaign, even when campaigns share a category.
+
+Missing Kick inventory or progress, malformed directories, missing required
+channel evidence and cancellation leave the last coherent snapshot in place.
+On failure, workers stop taking new work and drain active requests.
+The collector also drains paired inventory and
 followed-channel operations. Strict Kick discovery awaits stale followed-cache
 refreshes, including an existing refresh, before cycle-level fetch observation is
 consumed. This adds the followed lookup's latency once per five-minute cache
-expiry, while fresh-cache reads remain immediate. HTTP 429 never retries through a different
-execution context. Discovery diagnostics report duration, inventory count,
-campaigns skipped before channel work, candidate observations and unique channel
-checks. Failed attempts without counters report that work metrics are unavailable
+expiry, while fresh-cache reads remain immediate. Kick never retries an HTTP 429
+through a different execution context. Discovery diagnostics report duration, inventory count,
+campaigns skipped before channel work, candidate checks, and distinct channel
+logins checked. Kick's candidate count includes each returned batch check,
+including best-effort checks with usable evidence. Twitch's candidate count
+includes ordinary selection inputs and known channels admitted to campaigns.
+The distinct-login count includes attempted known-channel probes on both
+platforms. Twitch reports the shared probe's actual batch requests once per
+refresh. Failed attempts without counters report that work metrics are unavailable
 rather than reporting zero work. The attribution fields contain only counts;
 strict missing-evidence failures use fixed messages. Both extension and CLI run
 this collector and the same Kick adapter.
@@ -1154,7 +1184,14 @@ Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in the user's order, then the single live
 strategy, then name and id, and last the unlinked campaigns of a platform set to
-farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only) and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
+farm them last. Channel ordering within the selected campaign is also shared.
+Allow-listed channels rank first. With `preferKnownChannels` (on by default),
+Watchlist channels rank ahead of live follows, and live follows rank ahead of
+other channels. Viewer count breaks ties. Per-platform excluded drop channels
+filter campaign and supplemental provider candidates; explicitly listed
+Watchlist channels remain available for idle watching. The per-platform
+`unlinkedCampaigns` (`skip` only), `rewardFilter`, and `blockedCategories`
+narrow eligibility before ranking.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 

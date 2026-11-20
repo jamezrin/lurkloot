@@ -241,6 +241,12 @@ describe("scheduler campaign selection", () => {
         expectedCandidates: 2,
       },
       {
+        snapshot: fixture.snapshot,
+        previous: fixture.previous,
+        settings: { ...originalSettings, preferKnownChannels: false },
+        expectedCandidates: 2,
+      },
+      {
         snapshot: {
           ...fixture.snapshot,
           campaigns: fixture.snapshot.campaigns.map((entry) =>
