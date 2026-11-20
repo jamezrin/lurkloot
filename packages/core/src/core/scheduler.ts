@@ -67,7 +67,7 @@ import type {
 import { perform } from "./effectExecutor";
 import { challengeRewardData, claimChannel, type ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import { authHealthFromError, isSafeFetchError } from "./fetchError";
+import { authHealthFromError, isSafeFetchError, SafeFetchError } from "./fetchError";
 import { UnusableWatchTabError } from "./watchTabError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
@@ -1829,7 +1829,10 @@ export async function* decidePlatformTick(
       || (authChallenge
         && Date.parse(health.checkedAt ?? "") < Date.parse(previous.retryAfter ?? ""));
     if (authChallenge && !inBackoff) {
-      throw new Error("The identity request was blocked by a WAF challenge");
+      // The probe's health carries no HTTP status. The typed failure keeps the
+      // platform error in diagnostics and critical health, and it is not an auth
+      // failure: authHealthFromError ignores http_error.
+      throw new SafeFetchError({ kind: "http_error", reason: "Identity request challenged" });
     }
     if (health.status !== "healthy" && !authChallenge) {
       yield* suspendPlatformForAuthentication(tick, platform, previous);

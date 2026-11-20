@@ -53,6 +53,12 @@ describe("background controller", () => {
       errorChecks: 1,
     });
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+    // A typed platform failure, not an unknown error and not an auth failure.
+    expect(env.state.criticalHealth?.kick?.records?.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "http_error",
+      detail: "Identity request challenged",
+    });
     const firstRetry = env.state.sessions.kick.retryAfter;
 
     vi.advanceTimersByTime(30_000);
