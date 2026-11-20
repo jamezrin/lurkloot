@@ -771,17 +771,21 @@ export class KickAdapter implements PlatformAdapter {
       },
     };
     const checks: Array<ChannelCheck | undefined> = new Array(requests.length).fill(undefined);
-    // One sequential candidate chain per campaign avoids speculative requests
-    // after an early match. Independent campaigns (and idle checks) share the
-    // worker limit and evidence cache.
+    // Ordinary candidates run in one sequential chain per campaign, stopping
+    // at the first match. Preferred candidates and idle checks run as
+    // independent jobs under the same worker limit.
     const groups: number[][] = [];
     const campaignGroups = new Map<string, number[]>();
     requests.forEach((request, index) => {
-      let group = request.campaign ? campaignGroups.get(request.campaign.id) : undefined;
+      if (!request.campaign || request.alwaysCheck) {
+        groups.push([index]);
+        return;
+      }
+      let group = campaignGroups.get(request.campaign.id);
       if (!group) {
         group = [];
         groups.push(group);
-        if (request.campaign) campaignGroups.set(request.campaign.id, group);
+        campaignGroups.set(request.campaign.id, group);
       }
       group.push(index);
     });

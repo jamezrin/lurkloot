@@ -6,6 +6,10 @@ import {
   type DiscoveryRefreshMetrics,
   type DiscoveryRefreshResult,
 } from "@lurkloot/core/discoverySnapshot";
+import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
+import type { DropCampaign, Platform } from "@lurkloot/shared/models";
+import { mergeSettings } from "@lurkloot/shared/settings";
+import { jsonFetcher, kickAdapter, twitchAdapter } from "./helpers/adapters";
 
 const metrics: DiscoveryRefreshMetrics = {
   campaigns: 0,
@@ -183,6 +187,301 @@ describe("DiscoverySnapshotLane", () => {
 });
 
 describe("collectDiscoverySnapshot", () => {
+  describe.each(["kick", "twitch"] as const)("%s campaign channel preference", (platform) => {
+    const cases = [
+      { name: "follows a channel outside the directory", expected: "friend" },
+      {
+        name: "ranks an outside Watchlist channel first",
+        watchlist: ["watched"],
+        followed: ["Friend", "Watched"],
+        expected: "watched",
+      },
+      {
+        name: "uses viewer order with preference off",
+        enabled: false,
+        watchlist: ["watched"],
+        expected: "popular",
+      },
+      {
+        name: "keeps ACL campaigns restricted",
+        acl: true,
+        watchlist: ["watched"],
+        expected: "popular",
+      },
+      {
+        name: "excludes known channels from drop candidates",
+        excluded: ["friend", "watched"],
+        watchlist: ["watched"],
+        expected: "popular",
+      },
+      { name: "rejects an offline Watchlist channel", watchlist: ["offline"], expected: "friend" },
+      {
+        name: "rejects a Watchlist channel in the wrong category",
+        watchlist: ["wrong-category"],
+        expected: "friend",
+      },
+      {
+        name: "tries a directory fallback when known channels cannot earn",
+        wrongCategory: true,
+        expected: "popular",
+      },
+      {
+        name: "ranks followed peers by viewer count",
+        followed: ["small", "Friend"],
+        expected: "friend",
+      },
+      ...(platform === "twitch"
+        ? [
+            {
+              name: "uses campaign-specific candidates when strict availability differs in the same category",
+              strictAvailability: true,
+              expected: "friend",
+            },
+          ]
+        : []),
+    ];
+
+    it.each(cases)(
+      "$name",
+      async ({
+        enabled = true,
+        watchlist = [],
+        excluded = [],
+        acl = false,
+        wrongCategory = false,
+        followed = ["Friend"],
+        strictAvailability = false,
+        expected,
+      }) => {
+        const source = preferenceCampaign(platform, "first", "13");
+        const other = preferenceCampaign(platform, "second", strictAvailability ? "13" : "99");
+        if (acl) source.allowedChannels = ["popular"];
+        const lookups: string[] = [];
+        const directoryReads: string[] = [];
+        const watchlistHost = platform === "kick" ? "https://kick.com" : "https://www.twitch.tv";
+        const stream = (username: string) => {
+          lookups.push(username);
+          if (username === "offline") return null;
+          const category =
+            username === "wrong-category" || (username === "friend" && wrongCategory) ? "99" : "13";
+          const viewers = username === "popular" ? 25_000 : username === "friend" ? 100 : 10;
+          return { category, viewers };
+        };
+        const adapter =
+          platform === "kick"
+            ? kickAdapter(
+                jsonFetcher((url) => {
+                  if (url.includes("user/livestreams")) {
+                    return followed.map((slug) => ({ channel: { slug } }));
+                  }
+                  if (url.includes("/api/v1/livestreams")) {
+                    directoryReads.push(url);
+                    return {
+                      data: [{ slug: "popular", viewer_count: 25_000, category: { id: 13 } }],
+                    };
+                  }
+                  const live = stream(new URL(url).pathname.split("/").at(-1)!);
+                  return {
+                    id: 1,
+                    livestream: live && {
+                      id: 2,
+                      is_live: true,
+                      categories: [{ id: Number(live.category) }],
+                      viewer_count: live.viewers,
+                    },
+                  };
+                }),
+              )
+            : twitchAdapter(
+                jsonFetcher((_url, init) => {
+                  type Request = {
+                    operationName: string;
+                    variables: { channel: string; channelID: string };
+                  };
+                  const body = JSON.parse(String(init?.body)) as Request | Request[];
+                  const respond = (request: Request) => {
+                    if (request.operationName === "FollowedLiveChannels") {
+                      return {
+                        data: {
+                          currentUser: {
+                            followedLiveUsers: {
+                              edges: followed.map((login) => ({ node: { login } })),
+                            },
+                          },
+                        },
+                      };
+                    }
+                    if (request.operationName === "DropsHighlightService_AvailableDrops") {
+                      const id = request.variables.channelID;
+                      return {
+                        data: {
+                          channel: {
+                            id,
+                            viewerDropCampaigns: id === "friend-id" ? [{ id: other.id }] : [],
+                          },
+                        },
+                      };
+                    }
+                    if (request.operationName !== "StreamInfo") {
+                      directoryReads.push(request.operationName);
+                      return {
+                        data: {
+                          game: {
+                            streams: {
+                              edges: [
+                                {
+                                  node: {
+                                    id: "popular-stream",
+                                    viewersCount: 25_000,
+                                    broadcaster: { id: "popular-id", login: "popular" },
+                                  },
+                                },
+                              ],
+                            },
+                          },
+                        },
+                      };
+                    }
+                    const username = request.variables.channel;
+                    const live = stream(username);
+                    return {
+                      data: {
+                        user: {
+                          id: `${username}-id`,
+                          stream: live && {
+                            id: `${username}-stream`,
+                            game: { id: live.category },
+                            viewersCount: live.viewers,
+                          },
+                        },
+                      },
+                    };
+                  };
+                  return Array.isArray(body) ? body.map(respond) : respond(body);
+                }),
+                undefined,
+                { strictCampaignAvailability: strictAvailability },
+              );
+        vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue(acl ? [source] : [source, other]);
+        const listFollowedChannels = vi.spyOn(adapter, "listFollowedChannels");
+        const settings = mergeSettings(undefined);
+        settings.preferKnownChannels = enabled;
+        settings.platform[platform].campaignPins = [source.id];
+        settings.platform[platform].excludedChannels = excluded;
+        settings.platform[platform].watchlistChannels = watchlist;
+        const idle = watchlist.map((username) => ({
+          platform,
+          username,
+          url: `${watchlistHost}/${username}`,
+        }));
+        const lane = new DiscoverySnapshotLane(platform, ({ signal }) =>
+          collectDiscoverySnapshot(
+            adapter,
+            undefined,
+            signal,
+            Date.now,
+            enabled,
+            idle,
+            undefined,
+            settings,
+          ),
+        );
+        await lane.requestAndWait();
+        expect(lane.current().lastAttempt?.complete).toBe(true);
+        const snapshot = lane.current().snapshot!;
+        const result = await selectWatchTargetFromSnapshot({
+          snapshot,
+          previous: { platform, status: "idle", offlineChecks: 0 },
+          previousCampaigns: [],
+          settings,
+        });
+
+        expect(result.decision).toMatchObject({
+          action: "watch",
+          campaign: { id: strictAvailability ? other.id : source.id },
+          channel: { username: expected, live: true, url: `${watchlistHost}/${expected}` },
+        });
+        const [first, second] = snapshot.campaigns;
+        for (const username of [
+          ...excluded,
+          ...watchlist.filter((login) => login === "offline" || login === "wrong-category"),
+          ...(wrongCategory || strictAvailability ? ["friend"] : []),
+        ]) {
+          expect(first?.candidates.some(({ candidate }) => candidate.username === username)).toBe(
+            false,
+          );
+        }
+        if (enabled) {
+          expect(listFollowedChannels).toHaveBeenCalledOnce();
+        } else {
+          expect(listFollowedChannels).not.toHaveBeenCalled();
+        }
+        if (acl || !enabled) {
+          expect(lookups).not.toContain("friend");
+          expect(first?.candidates.map(({ candidate }) => candidate.username)).toEqual(["popular"]);
+        }
+        if (!acl) {
+          expect(directoryReads).toHaveLength(2);
+          expect(lookups.filter((username) => username === "friend")).toHaveLength(
+            enabled && !excluded.includes("friend") ? 1 : 0,
+          );
+          if (watchlist.length) {
+            expect(lookups.filter((username) => username === watchlist[0])).toHaveLength(1);
+          }
+          if (wrongCategory) {
+            expect(second?.candidates).toContainEqual(
+              expect.objectContaining({
+                candidate: expect.objectContaining({ username: "friend" }),
+                live: true,
+                categoryMatches: true,
+              }),
+            );
+          }
+        }
+        if (expected !== "popular" && !strictAvailability) {
+          expect(first?.candidates.map(({ candidate }) => candidate.username)).toContain("popular");
+        }
+        if (watchlist.includes("watched")) {
+          expect(snapshot.idleCandidates).toContainEqual(
+            expect.objectContaining({
+              candidate: expect.objectContaining({ username: "watched" }),
+              live: true,
+            }),
+          );
+        }
+      },
+    );
+  });
+
+  it("rejects a batch that skips a preferred candidate after a successful check", async () => {
+    const source = preferenceCampaign("kick", "general", "13");
+    const adapter = {
+      platform: "kick" as const,
+      refreshCampaigns: async () => [source],
+      listFollowedChannels: async () => ["first", "second"],
+      listCandidateChannels: async () => [],
+      checkChannel: vi.fn(),
+      checkChannels: vi.fn(async () => ({
+        checks: [
+          {
+            candidate: {
+              platform: "kick" as const,
+              username: "first",
+              url: "https://kick.com/first",
+            },
+            live: true,
+            categoryMatches: true,
+          },
+          undefined,
+        ],
+        uniqueChannelChecks: 1,
+      })),
+    };
+    await expect(
+      collectDiscoverySnapshot(adapter, undefined, new AbortController().signal),
+    ).rejects.toThrow("Channel discovery batch was incomplete");
+  });
+
   it("retains a backed-off campaign observation without candidate provider calls", async () => {
     const campaign = {
       id: "backed-off",
@@ -353,6 +652,21 @@ describe("collectDiscoverySnapshot", () => {
     ]);
   });
 });
+
+function preferenceCampaign(platform: Platform, id: string, categoryId: string): DropCampaign {
+  return {
+    id,
+    platform,
+    name: id,
+    categoryId,
+    gameName: id,
+    slug: id,
+    status: "active",
+    rewards: [
+      { id: "reward", name: "Reward", status: "locked", requiredMinutes: 60, watchedMinutes: 0 },
+    ],
+  };
+}
 
 describe("adapterFromDiscoverySnapshot", () => {
   it("does not perform inline provider discovery when no snapshot exists", async () => {

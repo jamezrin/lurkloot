@@ -64,15 +64,25 @@ infeasible and statically disallowed campaigns stay in the inventory with empty
 channel observations. Claimable rewards and uncertain channel eligibility retain
 their existing behavior. This gate uses the same evaluator as selection.
 
-Kick checks eligible campaigns through an optional adapter batch contract. Three
-workers process independent campaigns; each campaign checks candidates in order
-and stops at its first valid channel. This avoids speculative requests after an
-early match. Watchlist checks are independent jobs and all remain observed.
-Raw API/page responses are shared by URL only within that discovery revision;
-each candidate retains its own campaign, ACL metadata and category expectation.
-The next revision fetches fresh evidence. A single campaign's candidate chain
-remains sequential, trading its latency for the existing early-match request
-budget. Campaign and candidate result ordering never depends on completion order.
+General campaigns start with directory candidates. With `preferKnownChannels`
+enabled, discovery also considers the live follows already fetched for the
+snapshot and the platform's Watchlist. It deduplicates by login, filters drop
+exclusions, and adds a new channel only when its usual campaign check confirms
+it is live in an allowed category and does not reject campaign eligibility.
+Campaigns with a channel allow list use the allow-list source. Disabling the
+preference skips the follow lookup and candidate expansion. Idle Watchlist
+checks still run for Watchlist and watch streak selection.
+
+Kick's `checkChannels` batch checks every known candidate for a general
+campaign and keeps the first valid ordinary candidate as a fallback. Three
+workers process known-channel checks, ordinary campaign chains, and idle
+checks. They share raw
+API and fallback page responses by URL within the revision, including when a
+Watchlist channel is checked for both Drops and idle watching. Twitch batches
+public stream checks for the known channels once per revision using its existing
+selection path. It reuses that evidence for liveness and applies category and
+configured availability checks for each campaign. Snapshots keep candidates
+scoped to their campaign, even when campaigns share a category.
 
 Missing Kick inventory/progress, malformed general-channel directories, missing
 required category evidence, cancellation or failed checks do not replace the
@@ -1154,7 +1164,14 @@ Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in the user's order, then the single live
 strategy, then name and id, and last the unlinked campaigns of a platform set to
-farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only) and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
+farm them last. Channel ordering within the selected campaign is also shared.
+Allow-listed channels rank first. With `preferKnownChannels` (on by default),
+Watchlist channels rank ahead of live follows, and live follows rank ahead of
+other channels. Viewer count breaks ties. Per-platform excluded drop channels
+filter campaign and supplemental provider candidates; explicitly listed
+Watchlist channels remain available for idle watching. The per-platform
+`unlinkedCampaigns` (`skip` only), `rewardFilter`, and `blockedCategories`
+narrow eligibility before ranking.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 

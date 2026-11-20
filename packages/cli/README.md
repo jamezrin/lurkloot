@@ -144,6 +144,15 @@ are earned. A config still using the old `campaignPriorities` map,
 or `farmingEligibility` is migrated automatically, with a deprecation warning
 naming each moved key.
 
+`preferKnownChannels` defaults to `true`. For a general Drops campaign, the
+CLI can pick a live Watchlist or followed channel outside the Twitch or Kick
+directory results when the stream is in an allowed category and passes the
+campaign's eligibility checks. Eligible Watchlist channels rank ahead of
+followed channels, then other directory channels. Campaign allow lists and
+`excludedChannels` still apply to Drops. Setting `preferKnownChannels` to
+`false` skips the follow lookup and uses viewer count to rank campaign channels
+within the same allow-list priority.
+
 `watchSourcePriority` selects the first eligible watch source independently for
 each platform. Twitch defaults to `["drops", "nopixel", "fortnite", "watchlist"]`;
 Kick defaults to `["drops", "watchlist"]`. Reorder the array to prefer a

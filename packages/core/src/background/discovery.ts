@@ -1,7 +1,7 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { CategorySearchResult, CoreRuntimeMessage } from "@lurkloot/shared/messages";
-import type { PlatformAdapter } from "../platforms/adapter";
+import { channelCandidateForLogin, type PlatformAdapter } from "../platforms/adapter";
 import {
   campaignSearchBackoffApplies,
   isPlaybackTelemetryHealthy,
@@ -134,15 +134,7 @@ export function createDiscovery<S extends EngineSettings>(
                   .map((username) => username.trim().toLowerCase())
                   .filter(Boolean),
                 watchStreakChannelsFor(settings, platform),
-              ).map((username) => ({
-                platform,
-                username,
-                displayName: username,
-                url:
-                  platform === "twitch"
-                    ? `https://www.twitch.tv/${username}`
-                    : `https://kick.com/${username}`,
-              })),
+              ).map((username) => channelCandidateForLogin(platform, username)),
               (campaign, campaigns) => {
                 const backoff = state.campaignSearchBackoffs?.[platform];
                 if (

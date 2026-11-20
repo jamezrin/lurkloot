@@ -242,38 +242,43 @@ describe("Kick discovery batch", () => {
     expect(transport.fetchJson).toHaveBeenCalledTimes(2);
   });
 
-  it("finishes six unique checks in two bounded waves and keeps request order", async () => {
-    vi.useFakeTimers();
-    let active = 0;
-    let maximum = 0;
-    const transport = jsonFetcher(async (url) => {
-      active += 1;
-      maximum = Math.max(maximum, active);
-      const index = Number(url.split("/").at(-1));
-      await new Promise((resolve) => setTimeout(resolve, index % 3 === 0 ? 100 : 90));
-      active -= 1;
-      return liveResponse;
-    });
-    const start = Date.now();
-    const run = kickAdapter(transport).checkChannels(
-      [0, 1, 2, 3, 4, 5].map((id) => ({
-        channel: candidate(String(id)),
-        campaign: campaign({ id: String(id) }),
-      })),
-    );
-    await vi.runAllTimersAsync();
-    const result = await run;
-    expect(maximum).toBe(3);
-    expect(Date.now() - start).toBe(190);
-    expect(result.checks.map((check) => check!.candidate.username)).toEqual([
-      "0",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-    ]);
-  });
+  it.each(["independent campaigns", "preferred channels of one campaign"] as const)(
+    "checks %s in bounded waves and keeps request order",
+    async (scenario) => {
+      vi.useFakeTimers();
+      let active = 0;
+      let maximum = 0;
+      const transport = jsonFetcher(async (url) => {
+        active += 1;
+        maximum = Math.max(maximum, active);
+        const index = Number(url.split("/").at(-1));
+        await new Promise((resolve) => setTimeout(resolve, index % 3 === 0 ? 100 : 90));
+        active -= 1;
+        return liveResponse;
+      });
+      const start = Date.now();
+      const run = kickAdapter(transport).checkChannels(
+        [0, 1, 2, 3, 4, 5].map((id) => ({
+          channel: candidate(String(id)),
+          ...(scenario === "independent campaigns"
+            ? { campaign: campaign({ id: String(id) }) }
+            : { campaign: campaign(), alwaysCheck: true as const }),
+        })),
+      );
+      await vi.runAllTimersAsync();
+      const result = await run;
+      expect(maximum).toBe(3);
+      expect(Date.now() - start).toBe(190);
+      expect(result.checks.map((check) => check!.candidate.username)).toEqual([
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+      ]);
+    },
+  );
 
   it("stops admission on rate limiting, drains active checks and never retries through the page", async () => {
     vi.useFakeTimers();

@@ -29,6 +29,7 @@ import {
   ignoreEvent,
   type AdapterOperationOptions,
   type CandidateChannelSelection,
+  type CandidateSelectionOptions,
   type ChannelPointsClaimOptions,
   type PageFetcher,
   type PlatformAdapter,
@@ -2614,7 +2615,7 @@ export class TwitchAdapter implements PlatformAdapter {
   async selectCandidateChannel(
     candidates: ChannelCandidate[],
     campaign?: DropCampaign,
-    { signal }: AdapterOperationOptions = {},
+    { signal, precheckedStreams }: CandidateSelectionOptions = {},
   ): Promise<CandidateChannelSelection> {
     if (candidates.length === 0) return { checked: 0 };
     const startedAt = Date.now();
@@ -2627,6 +2628,15 @@ export class TwitchAdapter implements PlatformAdapter {
     let trustedDirectoryCandidates = 0;
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[index];
+      const prechecked = precheckedStreams?.get(candidate.username.toLowerCase());
+      if (prechecked) {
+        checks[index] = {
+          ...prechecked,
+          categoryMatches: twitchStreamCategoryMatches(prechecked.candidate.categoryId, campaign),
+          candidate: { ...candidate, ...prechecked.candidate },
+        };
+        continue;
+      }
       // A listing that says live is trusted, unless a stream-down push says the
       // stream since ended (#759): then the stream is checked.
       if (

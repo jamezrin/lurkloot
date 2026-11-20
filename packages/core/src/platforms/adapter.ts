@@ -20,6 +20,20 @@ import type { TwitchChannelPointsPushController } from "./twitch/channelPointsPu
 
 export const ignoreEvent: EventEmitter = () => {};
 
+const channelOrigins: Record<Platform, string> = {
+  kick: "https://kick.com",
+  twitch: "https://www.twitch.tv",
+};
+
+export function channelCandidateForLogin(platform: Platform, username: string): ChannelCandidate {
+  return {
+    platform,
+    username,
+    displayName: username,
+    url: `${channelOrigins[platform]}/${encodeURIComponent(username)}`,
+  };
+}
+
 export function diagnostic(
   emit: EventEmitter,
   level: LogLevel,
@@ -44,13 +58,22 @@ export interface ChannelPointsClaimOptions extends AdapterOperationOptions {
 export interface ChannelCheckRequest {
   channel: ChannelCandidate;
   campaign?: DropCampaign;
+  // Preferred channels need individual observations so selection can rank
+  // them. They do not satisfy the batch's early stop for other candidates.
+  alwaysCheck?: true;
 }
 
 export interface ChannelCheckBatch {
-  // Request order; undefined is allowed only after an earlier successful check
-  // for that campaign. Idle requests always require their own observation.
+  // Request order. Only ordinary campaign checks may be omitted, after an
+  // earlier ordinary candidate passed for that campaign.
   checks: Array<ChannelCheck | undefined>;
   uniqueChannelChecks: number;
+}
+
+export interface CandidateSelectionOptions extends AdapterOperationOptions {
+  // Stream checks from the same discovery refresh, collected without a
+  // campaign. Apply the current campaign's validation before selecting.
+  precheckedStreams?: ReadonlyMap<string, ChannelCheck>;
 }
 
 export interface CandidateChannelSelection {
@@ -102,15 +125,15 @@ export interface PlatformAdapter {
     campaign: DropCampaign,
     options?: AdapterOperationOptions,
   ): Promise<ChannelCandidate[]>;
+  // Snapshot entries are already scoped and validated per campaign.
+  campaignScopedCandidates?: true;
   selectCandidateChannel?(
     candidates: ChannelCandidate[],
     campaign?: DropCampaign,
-    options?: AdapterOperationOptions,
+    options?: CandidateSelectionOptions,
   ): Promise<CandidateChannelSelection>;
-  // Logins of live channels the signed-in account follows. Used only to break
-  // ties between candidates that are already eligible for the same campaign, so
-  // a platform without a follow API (or a signed-out session) can return an
-  // empty list and lose nothing but the preference.
+  // Logins of live channels the signed-in account follows, used for general
+  // campaign discovery and for ranking candidates that qualify.
   listFollowedChannels?(options?: AdapterOperationOptions): Promise<string[]>;
   checkChannel(
     channel: ChannelCandidate,
