@@ -195,7 +195,14 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
   try {
     await runLoop({
       ...runOptions,
-      ...(stop ? { stopSignal: stop.signal } : {}),
+      // A caller's own stop signal still stops the loop alongside the input one.
+      ...(stop
+        ? {
+            stopSignal: rest.stopSignal
+              ? AbortSignal.any([rest.stopSignal, stop.signal])
+              : stop.signal,
+          }
+        : {}),
       startHost: (controller) =>
         startControllerControlPlane(controller, {
           binding,

@@ -266,7 +266,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
       if (options.startHost) {
         let started: FarmingHost;
         try {
-          startingHost = options.startHost(controller);
+          // Recorded before any host code runs, so a stop that lands while the
+          // host starts (even synchronously) still waits for it and closes it.
+          const startHost = options.startHost;
+          startingHost = Promise.resolve().then(() => startHost(controller));
           started = await startingHost;
         } catch (error) {
           // A host that cannot start (a port in use) stops the loop the way a
