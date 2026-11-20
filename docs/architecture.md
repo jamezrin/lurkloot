@@ -89,6 +89,15 @@ rather than reporting zero work. The attribution fields contain only counts;
 strict missing-evidence failures use fixed messages. Both extension and CLI run
 this collector and the same Kick adapter.
 
+Failed followed-channel lookups on either platform remain best effort and cache
+an empty list for the existing five-minute window. The followed-list cache in
+each platform's discovery state also records whether it has warned for the
+current failure streak. Only the first failure emits a warning, with a fixed
+cause class (WAF block, auth, network, or other). A successful lookup, including
+an empty list, resets the streak. Twitch replaces its cache and streak on an
+account switch. Strict Twitch discovery also waits for stale refreshes so the
+refresh's warning reaches the discovery event collector.
+
 ## Background controller ownership and concurrency
 
 This section records how `createBackgroundController` (`packages/core/src/background/`) owns its
