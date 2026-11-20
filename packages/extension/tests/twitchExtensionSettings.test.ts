@@ -6,14 +6,16 @@ import {
   mergeSettings,
 } from "@lurkloot/shared/settings";
 
-describe("extension-only provider settings", () => {
+describe("shared provider settings", () => {
   it("defaults all providers and takeovers off without changing tabless defaults", () => {
     expect(mergeSettings(undefined).twitchExtensions).toEqual({
       nopixel: { enabled: false, autoOpenPacks: false },
       fortnite: { enabled: false, allowTakeovers: false },
     });
     expect(mergeSettings(undefined).tablessMode).toBe(true);
-    expect(mergeEngineSettings(DEFAULT_SETTINGS)).not.toHaveProperty("twitchExtensions");
+    expect(mergeEngineSettings(DEFAULT_SETTINGS).twitchExtensions).toEqual(
+      DEFAULT_SETTINGS.twitchExtensions,
+    );
   });
   it("merges individual provider toggles without losing other preferences", () => {
     const original = applySettingsPatch(DEFAULT_SETTINGS, {

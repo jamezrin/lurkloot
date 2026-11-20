@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isIPv4, isIPv6, type AddressInfo } from "node:net";
+import { twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type {
   EngineSettings,
@@ -36,6 +37,7 @@ const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 // (getTabId, playbackTelemetry, getPlaybackControl, exportCliCredentials,
 // resumeAfterManualClose), is refused before it reaches the controller.
 const SUPPORTED_MESSAGES = {
+  setTwitchExtensionEnabled: { platform: false, writesSettings: true },
   getSnapshot: { platform: false, writesSettings: false },
   exportDiagnostics: { platform: true, writesSettings: false },
   setPlatformEnabled: { platform: true, writesSettings: true },
@@ -407,6 +409,12 @@ function settingsMessageFieldError(
         ? "saveSettings needs a settingsPatch object"
         : undefined;
     }
+    case "setTwitchExtensionEnabled":
+      return typeof value.provider === "string"
+        && twitchExtensionProvider(value.provider)
+        && typeof value.enabled === "boolean"
+        ? undefined
+        : "setTwitchExtensionEnabled needs provider nopixel or fortnite and a boolean enabled";
     case "setPlatformEnabled":
     case "setAutomation":
       return typeof value.enabled === "boolean" ? undefined : `${type} needs a boolean enabled`;

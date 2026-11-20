@@ -6,7 +6,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
-import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
+import type { RuntimeMessage } from "@lurkloot/shared/messages";
 import type { EngineSettings } from "@lurkloot/shared/models";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import {
@@ -194,6 +194,7 @@ describe("control plane message allow-list", () => {
         "claimReward",
         "dismissCriticalFailure",
         "exportDiagnostics",
+        "setTwitchExtensionEnabled",
         "getSnapshot",
         "saveSettings",
         "searchCategories",
@@ -206,7 +207,8 @@ describe("control plane message allow-list", () => {
     );
   });
 
-  const accepted: CoreRuntimeMessage[] = [
+  const accepted: RuntimeMessage[] = [
+    { type: "setTwitchExtensionEnabled", provider: "fortnite", enabled: true },
     { type: "getSnapshot" },
     { type: "tickNow" },
     { type: "setPlatformEnabled", platform: "twitch", enabled: false },
@@ -229,17 +231,20 @@ describe("control plane message allow-list", () => {
     });
   });
 
-  it.each(["saveSettings", "updateIdleWatchlist", "setPlatformEnabled", "setAutomation"] as const)(
-    "refuses %s while settings are read-only",
-    async (type) => {
-      const { port, handleMessage } = await start();
-      const message = accepted.find((candidate) => candidate.type === type);
-      const reply = await postMessage(port, message);
-      expect(reply.status).toBe(409);
-      expect(errorCode(reply)).toBe("settings_read_only");
-      expect(handleMessage).not.toHaveBeenCalled();
-    },
-  );
+  it.each([
+    "saveSettings",
+    "updateIdleWatchlist",
+    "setPlatformEnabled",
+    "setAutomation",
+    "setTwitchExtensionEnabled",
+  ] as const)("refuses %s while settings are read-only", async (type) => {
+    const { port, handleMessage } = await start();
+    const message = accepted.find((candidate) => candidate.type === type);
+    const reply = await postMessage(port, message);
+    expect(reply.status).toBe(409);
+    expect(errorCode(reply)).toBe("settings_read_only");
+    expect(handleMessage).not.toHaveBeenCalled();
+  });
 
   const refused: RuntimeMessage[] = [
     { type: "getTabId" },
@@ -253,7 +258,6 @@ describe("control plane message allow-list", () => {
     { type: "resumeAfterManualClose", platform: "twitch" },
     { type: "resetExtension" },
     { type: "clearActivity" },
-    { type: "setTwitchExtensionEnabled", provider: "fortnite", enabled: true },
   ];
 
   it.each(refused)("refuses $type with a typed 422", async (message) => {
@@ -739,6 +743,39 @@ describe("serve saves settings to config.json", () => {
     }
   });
 
+  it("validates and persists Twitch Extension toggles", async () => {
+    const serving = await serveConfig();
+    try {
+      for (const fields of [
+        { provider: "unknown", enabled: true },
+        { provider: "nopixel", enabled: 1 },
+      ]) {
+        const reply = await postMessage(serving.port, {
+          type: "setTwitchExtensionEnabled",
+          ...fields,
+        });
+        expect(reply.status).toBe(400);
+      }
+      for (const enabled of [true, false]) {
+        const reply = await postMessage(serving.port, {
+          type: "setTwitchExtensionEnabled",
+          provider: "nopixel",
+          enabled,
+        });
+        expect(reply.status).toBe(200);
+        expect(reply.json).toEqual({ result: { enabled } });
+        expect((await currentSettings(serving.port)).twitchExtensions.nopixel.enabled).toBe(
+          enabled,
+        );
+        expect(loadConfig(serving.configPath).settings.twitchExtensions.nopixel.enabled).toBe(
+          enabled,
+        );
+      }
+    } finally {
+      await serving.stop();
+    }
+  });
+
   const rejected: Array<{
     patch: Record<string, unknown>;
     code: string;
@@ -750,9 +787,9 @@ describe("serve saves settings to config.json", () => {
       paths: ["muteFarmingTabs"],
     },
     {
-      patch: { twitchExtensions: { nopixel: { enabled: true } } },
-      code: "settings_unrepresentable",
-      paths: ["twitchExtensions"],
+      patch: { twitchExtensions: { nopixel: { enabled: "yes" } } },
+      code: "settings_invalid",
+      paths: ["twitchExtensions.nopixel.enabled"],
     },
     {
       patch: { pauseOnManualWatch: true },

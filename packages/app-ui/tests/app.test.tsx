@@ -51,12 +51,12 @@ function adapterFor(client = fixtureClient(), onError = vi.fn()) {
 }
 
 describe("HTTP popup adapter", () => {
-  it("declares the CLI host's capabilities", () => {
+  it("declares the CLI host's capabilities", async () => {
     const { adapter } = adapterFor();
     expect(adapter.hostCapabilities).toBe(CLI_HOST_CAPABILITIES);
     expect(CLI_HOST_CAPABILITIES).toEqual({
       tabs: false,
-      twitchExtensions: false,
+      twitchExtensions: true,
       credentialExport: false,
       extensionPreferences: false,
       language: true,
@@ -64,7 +64,7 @@ describe("HTTP popup adapter", () => {
     });
     // Nothing that only the extension can do.
     expect(adapter.exportCredentials).toBeUndefined();
-    expect(adapter.requestTwitchExtensionPermission).toBeUndefined();
+    await expect(adapter.requestTwitchExtensionPermission?.("nopixel")).resolves.toBe(true);
     expect(adapter.resetExtension).toBeUndefined();
     expect(adapter.getPendingOnboarding).toBeUndefined();
     expect(adapter.reviewStore).toBeNull();
@@ -164,10 +164,10 @@ describe("app over the control plane", () => {
   it("shows no extension-only control anywhere", async () => {
     const { container } = await mountApp();
 
-    // The rail: no Twitch Extension providers; Accounts is there.
-    expect(container.querySelector('[data-rail-group="navExtensions"]')).toBeNull();
-    expect(container.querySelector('button[data-view="nopixel"]')).toBeNull();
-    expect(container.querySelector('button[data-view="fortnite"]')).toBeNull();
+    // The rail includes Twitch Extension providers and Accounts.
+    expect(container.querySelector('[data-rail-group="navExtensions"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="nopixel"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="fortnite"]')).not.toBeNull();
     expect(container.querySelector('button[data-host-view="accounts"]')).not.toBeNull();
     // No tips, rate or star nudges, update notice or onboarding tour.
     expect(container.textContent).not.toContain(text("rateNudgeTitle"));
@@ -194,12 +194,26 @@ describe("app over the control plane", () => {
       expect(settings, key).not.toContain(text(key));
     }
     expect(container.querySelector('[id="settings-section-general.farmingTabs"]')).toBeNull();
-    expect(container.querySelector('[id="settings-section-twitch.extensions"]')).toBeNull();
+    expect(container.querySelector('[id="settings-section-twitch.extensions"]')).not.toBeNull();
     // The language is the app's own, so its picker stays.
     expect(settings).toContain(text("settingsLanguageTitle"));
 
     await click(container.querySelector('button[data-view="activity"]'));
     expect(container.querySelector("[data-activity-summary]")).not.toBeNull();
+  });
+
+  it("enables Fortnite from its provider view through the control plane", async () => {
+    const { container, client } = await mountApp();
+    await click(container.querySelector('button[data-view="fortnite"]'));
+    const toggle = () => container.querySelector('[role="switch"][aria-label="Fortnite"]');
+    await vi.waitFor(() => expect(toggle()?.getAttribute("aria-checked")).toBe("false"));
+    await click(toggle());
+    await vi.waitFor(() => expect(toggle()?.getAttribute("aria-checked")).toBe("true"));
+    expect(client.calls).toContainEqual({
+      method: "POST",
+      path: "/v1/session/messages",
+      body: { type: "setTwitchExtensionEnabled", provider: "fortnite", enabled: true },
+    });
   });
 
   it("polls the snapshot over HTTP at the popup's five-second cadence", async () => {

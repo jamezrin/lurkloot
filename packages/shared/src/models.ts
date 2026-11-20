@@ -624,6 +624,7 @@ export interface EngineSettings {
   priorityMode: PriorityMode;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
+  twitchExtensions: TwitchExtensionsSettings;
   offlineRetryLimit: number;
   // Consecutive failed tabless heartbeats before falling back to a watch tab.
   tablessFallbackFailureLimit: number;
@@ -700,7 +701,6 @@ export interface TwitchExtensionsSettings {
 }
 
 export interface ExtensionSettings extends EngineSettings {
-  twitchExtensions: TwitchExtensionsSettings;
   // Number of committed Kick scheduler cycles using direct background fetches
   // required before an extension-owned fallback page is closed.
   kickPageContextRecoverySuccesses: number;

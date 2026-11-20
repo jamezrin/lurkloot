@@ -19,12 +19,12 @@ export function createHttpTransport(
   _enabled: EnabledPlatforms,
   twitchIntegrity?: CliTwitchIntegrity,
 ): TransportHandle {
-  const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
-  const { adapters, createAdapter, createAdapters } = createCliAdapters(creds, {
+  const adapters = createCliAdapters(creds, {
     twitchIntegrity,
-    twitchFetcher: () => ({
-      fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init),
+    twitchFetcher: (credentials) => ({
+      fetchJson: (url, init) =>
+        fetchTwitchInBackgroundWith(twitchCookieApi(credentials), url, init),
     }),
     twitchHeartbeat: () => ({
       heartbeatFetchText: async (url, init) => {
@@ -68,9 +68,7 @@ export function createHttpTransport(
     }),
   });
   return {
-    adapters,
-    createAdapter,
-    createAdapters,
+    ...adapters,
     async dispose() {
       // The http transport holds no long-lived resources.
     },

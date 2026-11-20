@@ -1,3 +1,4 @@
+import { toEngineSettings } from "../src/settings";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
@@ -680,10 +681,27 @@ it("exports redacted diagnostics from a custom state path in the bundled CLI", a
   }
 }, 15_000);
 
-it("rejects browser-only Twitch provider integration settings", () => {
+it("round-trips Twitch Extension settings through the config and its engine mapping", () => {
+  const twitchExtensions = {
+    nopixel: { enabled: true, autoOpenPacks: true },
+    fortnite: { enabled: true, allowTakeovers: true },
+  };
+  const template = parseJsonc(defaultConfigJsonc());
+  expect(template.settings.twitchExtensions).toEqual({
+    nopixel: { enabled: false, autoOpenPacks: false },
+    fortnite: { enabled: false, allowTakeovers: false },
+  });
+  const config = parseConfig({ settings: { twitchExtensions } }, CONFIG_PATH);
+  expect(config.settings.twitchExtensions).toEqual(twitchExtensions);
+  expect(toEngineSettings(config.settings).twitchExtensions).toEqual(twitchExtensions);
   expect(() =>
-    parseConfig({ settings: { twitchExtensions: { nopixel: { enabled: true } } } }, CONFIG_PATH),
-  ).toThrow(/extension-only/);
+    parseConfig(
+      {
+        settings: { twitchExtensions: { fortnite: { allowTakeovers: "yes" } } },
+      },
+      CONFIG_PATH,
+    ),
+  ).toThrow(/twitchExtensions.fortnite.allowTakeovers/);
 });
 
 describe("subscription marks in the generated config", () => {

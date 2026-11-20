@@ -66,6 +66,10 @@ export function createCredentialRefreshingTransport(
       refresh();
       return handle.createAdapters(emit, settings);
     },
+    twitchExtensionAccess: () => {
+      refresh();
+      return handle.twitchExtensionAccess?.();
+    },
     dispose: () => handle.dispose(),
   };
 }

@@ -226,7 +226,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Twitch integrity (the token, the persisted token, the lifecycle generation) | The integrity service's own state (#589). The token has one in-memory copy, in the tab registry, with the capture waiters and in-flight acquisition; the service is its only writer; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, and Twitch's enabled flag from any settings save (#589): a save that disables Twitch cancels a mint in flight and holds off integrity work until it ends, and a serialized reconcile after it follows the stored flag, so a failed save needs no rollback | A newer lifecycle generation, and for persistence a host reset | The service's own lanes, no controller lock (#589): token bookkeeping, then the refresh alarm. A schedule re-checks it owns the lifecycle inside the alarm lane, where a disable's clear also runs | Token reloaded from storage | Extension only |
 | Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
 | Host jobs | The job scheduler port: `browser.alarms` (extension), Node timers (CLI) | `ensureCadenceJobs`, `rescheduleTickJobs`, each service's reconcile and reschedule, integrity scheduling | Settings changes, disable | After the settings lock is released, from the latest stored settings; the integrity alarm has its own lane (#589) | Alarms survive a service-worker restart; the CLI re-ensures its cadence jobs on start | Both; jobs whose capability a host lacks are inert (#593) |
-| Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/core/src/extensions/host/host.ts`; the extension stores deadlines under `twitchExtensionLane` in local storage (#594) | The host's reconcile loop | Accepted Twitch state commits and settings commits that affect the lane, through `packages/core/src/extensions/host/commitHook.ts` (#594) | Outside the controller | The memory port restores validated, unexpired deadlines; summaries and sessions are re-acquired | Core implementation, wired in the extension |
+| Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/core/src/extensions/host/host.ts`; deadlines in extension local storage (`twitchExtensionLane`, #594) or CLI `twitch-extension-lane.json` | The host's reconcile loop | Accepted Twitch state commits and settings commits that affect the lane, through `packages/core/src/extensions/host/commitHook.ts` (#594) | Outside the controller | The memory port restores validated, unexpired deadlines; summaries and sessions are re-acquired | Core implementation, wired in both hosts |
 
 ### Locks and queues
 
@@ -588,7 +588,7 @@ of optional hooks:
 | `credentials` | Cookie observation | The file/env credential store |
 | `tabs` (`watch`: `WatchTabPort`, `pageContexts`: `PageContextPort`, which also carries page-context recovery), `tabRegistry` | Browser tabs. Watch tabs are the host's, not `PlatformAdapter`'s (#598) | Absent: every watch is tabless |
 | `twitch.integrity` | Page capture | Absent |
-| `twitch.supplementalSources` | Twitch Extensions host (#587 adds `prepare`) | Absent |
+| `twitch.supplementalSources` | Twitch Extensions host | Same host, with Node transports and config-based opt-in |
 
 The CLI settings store (`packages/cli/src/settingsStore.ts`, #976) is what `serve` (#975) gives
 the controller as `storage.loadSettings`/`saveSettings`. It maps engine settings back to the CLI
@@ -697,15 +697,19 @@ reconciliation, and the loop closes it first on shutdown; `run` passes none and 
 (`packages/cli/tests/runNoServer.test.ts`). The control plane only forwards the popup's
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
 messages the CLI host supports; it holds no farming logic. Host messages such as
-`exportDiagnostics` are dispatched by `serve.ts` before forwarding core messages. Core stays
-free of HTTP.
+`exportDiagnostics` are dispatched by `serve.ts` before forwarding core messages.
+The CLI host handles `setTwitchExtensionEnabled` through the lane and submits its settings
+patch to the controller through the same config store as other settings. Snapshot replies attach
+the lane's transient provider summaries. Core stays free of HTTP.
 
 The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
 all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
 necessary. It then waits for any startup reconciliation in progress, which can begin a state save
-after shutdown starts. After shutting down the controller, `runLoop` drains background work and
-tracked state writes. It disposes the transport and flushes the diagnostics sidecar last, after
-disposal reports settle. `--once` and host startup failure use the same farming teardown.
+after shutdown starts. After shutting down the controller, `runLoop` unsubscribes the Twitch Extensions
+commit hook and closes the lane, including its drivers, sockets and queued writes. It then
+drains background work and tracked state writes. It disposes the transport and flushes the
+diagnostics sidecar last, after disposal reports settle. `--once` and host startup failure use
+the same farming teardown.
 The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
 event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
 stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
@@ -839,7 +843,7 @@ tested too (#598).
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
 | `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Watchlist changes from the page") |
 | Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
-| Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
+| Supplemental lane: restore completion for the same viewer, including after a transient lookup failure | `twitchExtensionHost.test.ts`; `packages/cli/tests/twitchExtensions.test.ts` |
 | The scheduler tick decides from plain inputs and names its effects; one handler per effect type | `schedulerEffects.test.ts` |
 | A tick's effects run with no lock held; concurrent telemetry is kept, a contradicting writer drops the decision but not the claims or tabs it produced, and an overlapping claim is requested once (#599) | `backgroundController/tickEffects.test.ts`; `tickCommit.test.ts` |
 | No I/O while a lock is held, with no exceptions (#591) | `lockedIo.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
@@ -899,9 +903,9 @@ facade (#583, #591). "Background controller ownership and concurrency" above has
   reward stays reserved until that commit lands. Sign-in loss ends claim work, and a claim the
   provider accepted before an abort is still recorded.
 - **Hosts.** Both hosts construct the controller from the same host ports and run the same jobs and
-  startup reconciliation. The extension declares every capability: browser tabs, Twitch
-  integrity capture and supplemental sources. The CLI declares none of them, so it always watches
-  tabless and its jobs that need those capabilities are inert.
+  startup reconciliation and declare supplemental sources. The extension also declares browser
+  tabs and Twitch integrity capture. The CLI always watches tablessly, and jobs that need
+  browser capabilities are inert there.
 
 ### Campaign ranking
 
@@ -1527,7 +1531,7 @@ A host of `@lurkloot/popup-ui` says what it supports through the optional
 toolbar popup and the site demo declare nothing. A host that declares the
 object has to set every flag, so a new flag is a type error there rather
 than a control it silently shows. The app UI over the headless CLI (#979)
-declares `language` and nothing else (`CLI_HOST_CAPABILITIES` in
+declares `language` and `twitchExtensions` (`CLI_HOST_CAPABILITIES` in
 `packages/app-ui/src/adapter.ts`).
 
 - `tabs`: the Farming tabs group (tabless, auto-close, mute, keep videos
@@ -1773,13 +1777,36 @@ diagnostics before disposing the transport.
 
 ## Tabless Twitch Extension rewards
 
-The host factory and its ports are exported from `@lurkloot/core/extensions/host` (#1086). Core owns the lane, commit hook, permission policy, session lifecycle and provider drivers. The extension's background entrypoint supplies the settings and state access, permission checks, lane memory, viewer login, event publication and tick requests. It also supplies the NoPixelV HTTP fetcher and the Fortnite socket factory. Native grants, local storage, cookie reads, socket admission and the browser manifest stay in the extension. The CLI has yet to wire these ports (#1087).
+The host factory and its ports are exported from `@lurkloot/core/extensions/host` (#1086). Core owns the lane, commit hook, permission policy, session lifecycle and provider drivers. The extension's background entrypoint supplies the settings and state access, permission checks, lane memory, viewer login, event publication and tick requests. The shared driver factory reads provider settings per session and maps rewards and diagnostics to the session-scoped event publisher. The extension supplies the NoPixelV HTTP fetcher and the Fortnite socket factory. Native grants, local storage, cookie reads, socket admission and the browser manifest stay in the extension.
 
-The extension injects the host's supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. The platform's configured watch-source order controls selection and preemption. Completion or unavailability releases the lane with bounded reprobes. See [source-priority decisions](watch-source-priority.md).
+Both hosts inject the same supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. The platform's configured watch-source order controls selection and preemption. Completion or unavailability releases the lane with bounded reprobes. See [source-priority decisions](watch-source-priority.md).
 
 Supplemental sessions carry their own watch identity and `tablessOnly` marker. Their heartbeat does not require invented campaign/reward IDs, and neither heartbeat failures nor ambiguous ordinary campaign discovery may cause tab fallback. Instead, once a failing heartbeat result reaches `tablessFallbackFailureLimit`, the lane's commit hook cools that provider's channel for five minutes, like an unavailable report, so the next selection moves to another channel or source. A failed due reprobe consumes its turn, and further failures never renew an active cooldown (#594). Ordinary drop sessions retain their existing watch-mode policy.
 
 The GQL session source takes a Client-ID from its host and delegates authentication to the supplied transport. The extension passes the Twitch adapter's existing web Client-ID and its normal authenticated background fetcher. Privileged provider drivers send channel-scoped viewer authorization directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider sessions are not restored after a worker restart. The lane's completion and cooldown deadlines are (#594): the host stores them under `twitchExtensionLane` whenever they change, as provider ids, epoch deadlines and channel logins only, and restores them on the next start after validating each entry and dropping expired ones. Without that, an MV3 worker that is stopped between alarms would forget a finished provider and probe it again on every wake. The memory is tied to the signed-in Twitch login, read from Twitch's `login` cookie (a username, not a credential). It is restored only for the same login, and a change of Twitch's auth cookie stops the providers at once but forgets what the lane learned only if the login changed: Twitch re-sets that cookie on ordinary page loads. A restore never brings back what the host has already cleared (an account change, a disable, an ordinary invalidation), and reset clears the key with the rest of local storage. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results. Every report and every piece of driver activity (a pack opened, a giveaway joined, a sprite captured, each reported as `reward_obtained`, and a takeover started, logged as a diagnostic) is published through the provider's runtime session, which drops it once the session is no longer the provider's current one or was aborted. Each of those transitions stops or replaces the session first, so the lane meets #585's rule that stale work publishes nothing, without going through the controller's commits (#594). The lane follows the controller's accepted commits through an after-commit hook, not storage events or alarms. A change to its authority (Twitch enabled, a provider's settings, auth, the session's status or channel, a manual pause or watch) stops the providers synchronously, then a reconcile brings them back in line. The hook never waits on that reconcile, so a Twitch tick or auth refresh that settles its commit hooks never waits on provider session reads. Reconciles run one at a time. A tabless-only session commits a heartbeat result every minute, which keeps the driver refresh and session renewal cadence the every-alarm reconcile used to give.
+
+The CLI binds the shared lane in `runtime/run.ts` (#1087). A provider's `enabled` setting
+authorizes contact with its backend. `serve` validates provider toggles and persists them to
+`config.json`. The CLI uses Node fetch for NoPixelV and the existing Twitch chat observer when
+NoPixelV holds the watch slot. Fortnite uses Node `ws` for its declared
+`backendSocketOrigin` and fixed handler path, with no URL userinfo or redirects. The handshake
+sets only the provider frame's `Origin`. The socket port consumes late errors and waits for
+close with a two-second close timeout on shutdown. The CLI leaves the optional Hermes broadcast
+ports unwired pending #1105. Provider session refreshes continue through polling.
+
+Both CLI transports match GQL Client-ID to the effective credential and resolve the viewer
+login through Twitch's identity query. The lane starts when a configured provider is needed
+or a provider is enabled explicitly. A disable with no active lane saves the setting directly.
+If the viewer lookup fails, the shared host defers provider selection and memory writes and
+retries on a later tick. It keeps previously learned completion until the lookup confirms
+a different account or sign-out. An explicit non-web client refusal parks that provider for the
+lifetime of the credential revision. The lane emits one English warning, yields to other watch sources
+and leaves auth health to the regular probe. Reloading credentials aborts stale provider
+sessions and discovery, then permits a new probe. The CLI's `twitch-extension-lane.json`
+sits beside `state.json` and uses the same atomic writer. Both reads and writes are bounded.
+Core validates provider and channel keys and expiry, and restores only deadlines belonging
+to the authenticated login. The CLI lane and socket tests cover selection, NoPixelV chat and
+pack logging, restart, refusal across hours of ticks, socket admission and shutdown.
 
 NoPixelV uses its normal REST watchtime/giveaway protocol. Fortnite uses its normal socket handshake, versioned state reads and sprite capture commands; authoritative participant increments confirm captures, and actual server reward state determines completion. Optional takeovers require separate opt-in, server eligibility and ownership confirmation. See [provider details and live acceptance](twitch-extensions/foundation.md).
 

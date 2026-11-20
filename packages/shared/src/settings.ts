@@ -175,6 +175,10 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       claimLinkHandling: "auto",
     },
   },
+  twitchExtensions: {
+    nopixel: { enabled: false, autoOpenPacks: false },
+    fortnite: { enabled: false, allowTakeovers: false },
+  },
   offlineRetryLimit: 3,
   tablessFallbackFailureLimit: 5,
   pollIntervalMinutes: 1,
@@ -191,10 +195,6 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
 // The extension's full defaults: the engine contract plus the host-only knobs.
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   ...DEFAULT_ENGINE_SETTINGS,
-  twitchExtensions: {
-    nopixel: { enabled: false, autoOpenPacks: false },
-    fortnite: { enabled: false, allowTakeovers: false },
-  },
   kickPageContextRecoverySuccesses: 3,
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
@@ -384,6 +384,16 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       60,
       DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes,
     ),
+    twitchExtensions: {
+      nopixel: {
+        enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false),
+        autoOpenPacks: booleanOr(value?.twitchExtensions?.nopixel?.autoOpenPacks, false),
+      },
+      fortnite: {
+        enabled: booleanOr(value?.twitchExtensions?.fortnite?.enabled, false),
+        allowTakeovers: booleanOr(value?.twitchExtensions?.fortnite?.allowTakeovers, false),
+      },
+    },
     criticalFailurePromptEnabled: booleanOr(
       value?.criticalFailurePromptEnabled,
       DEFAULT_ENGINE_SETTINGS.criticalFailurePromptEnabled,
@@ -396,16 +406,6 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
   return {
     ...mergeEngineSettings(value),
-    twitchExtensions: {
-      nopixel: {
-        enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false),
-        autoOpenPacks: booleanOr(value?.twitchExtensions?.nopixel?.autoOpenPacks, false),
-      },
-      fortnite: {
-        enabled: booleanOr(value?.twitchExtensions?.fortnite?.enabled, false),
-        allowTakeovers: booleanOr(value?.twitchExtensions?.fortnite?.allowTakeovers, false),
-      },
-    },
     kickPageContextRecoverySuccesses: clampInteger(
       value?.kickPageContextRecoverySuccesses,
       1,
@@ -451,8 +451,6 @@ function normalizeLanguageOverride(value: LanguageOverride | undefined): Languag
 // validate the result their own way: the extension through applySettingsPatch
 // below, the CLI against its config schema, which rejects what this keeps
 // (an extension-only key, a wrong type) instead of dropping it.
-// twitchExtensions is layered only when either side has it, so engine-only
-// settings stay free of the extension block unless the patch adds one.
 export function overlaySettingsPatch<S extends EngineSettings>(
   current: S,
   patch: SettingsPatch,
@@ -471,6 +469,12 @@ export function overlaySettingsPatch<S extends EngineSettings>(
         ...patch.platform?.kick,
       },
     },
+    twitchExtensions: {
+      ...current.twitchExtensions,
+      ...patch.twitchExtensions,
+      nopixel: { ...current.twitchExtensions.nopixel, ...patch.twitchExtensions?.nopixel },
+      fortnite: { ...current.twitchExtensions.fortnite, ...patch.twitchExtensions?.fortnite },
+    },
     compatibility: {
       twitch: {
         ...current.compatibility.twitch,
@@ -482,13 +486,6 @@ export function overlaySettingsPatch<S extends EngineSettings>(
       },
     },
   };
-  const currentExtensions = (current as Partial<ExtensionSettings>).twitchExtensions;
-  if (currentExtensions || patch.twitchExtensions) {
-    merged.twitchExtensions = {
-      nopixel: { ...currentExtensions?.nopixel, ...patch.twitchExtensions?.nopixel },
-      fortnite: { ...currentExtensions?.fortnite, ...patch.twitchExtensions?.fortnite },
-    };
-  }
   return merged;
 }
 
