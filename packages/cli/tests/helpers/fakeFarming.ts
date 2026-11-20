@@ -10,6 +10,7 @@ import type {
 } from "@lurkloot/shared/models";
 import { DEFAULT_CLI_SETTINGS } from "../../src/settings";
 import type { TransportHandle } from "../../src/transport";
+import type { CliActivityHistory } from "../../src/activityStore";
 
 // An offline adapter: healthy auth and empty data, so a loop ticks without
 // touching the network.
@@ -54,5 +55,17 @@ export function memoryStateStore(): {
     save: async (next) => {
       state = next;
     },
+  };
+}
+
+// An activity history that keeps nothing, for loop tests whose state path is
+// not a directory they own.
+export function discardingActivityHistory(): CliActivityHistory {
+  return {
+    append: async () => undefined,
+    load: async () => ({ events: [] }),
+    loadSessions: async () => [],
+    clear: async () => undefined,
+    flush: async () => undefined,
   };
 }

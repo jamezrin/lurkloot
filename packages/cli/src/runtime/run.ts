@@ -17,6 +17,12 @@ import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
 import { reportCliEvents } from "../events";
+import {
+  activityPathFor,
+  createFileActivityHistory,
+  type CliActivityHistory,
+} from "../activityStore";
+import { createActivityEventReporter } from "@lurkloot/shared/activityHistory";
 import { subscriptionWaitKeys } from "./status";
 import { createNodeJobScheduler } from "./jobs";
 import { errorMessage } from "@lurkloot/shared/errors";
@@ -67,6 +73,9 @@ export interface RunOptions {
     save(state: SchedulerState): Promise<void>;
   };
   settingsStore?: SettingsStore;
+  // Where reported activity is kept (#1088). Defaults to activity.json beside
+  // the state file; `serve` passes the one its control plane answers from.
+  activityHistory?: CliActivityHistory;
   // Started once the controller exists, before startup reconciliation and the
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
   startHost?: (
@@ -80,6 +89,20 @@ export interface RunOptions {
 }
 
 const nextTurn = () => new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+
+// The file-backed activity history, with its failures reported to the log:
+// farming goes on without it.
+export function createCliActivityHistory(path: string, logger: Logger): CliActivityHistory {
+  return createFileActivityHistory(path, {
+    onLoadError: (error) =>
+      logger.warn(
+        `Could not read the activity history (${errorMessage(error)}); starting a new one`,
+        "activity",
+      ),
+    onSaveError: (error) =>
+      logger.warn(`Could not save the activity history: ${errorMessage(error)}`, "activity"),
+  });
+}
 
 // Logs each campaign reward newly waiting on a subscription once, and forgets
 // the ones that stopped waiting, so a reward that waits again is logged again.
@@ -141,6 +164,16 @@ export async function runLoop(options: RunOptions): Promise<void> {
     while (stateWrites.size > 0) await Promise.allSettled([...stateWrites]);
   };
 
+  const activityHistory =
+    options.activityHistory ?? createCliActivityHistory(activityPathFor(statePath), logger);
+  // The extension's reporter: the timeline's activity is kept, and diagnostics
+  // are not, since the CLI has no diagnostic logging setting. They go to the
+  // log, which is where a diagnostic's English text and ids are for.
+  const recordActivity = createActivityEventReporter({
+    loadDiagnosticLogging: async () => false,
+    append: (events) => activityHistory.append(events),
+  });
+
   // Timers fire into the controller once it exists.
   let dispatchJob: (name: string) => void = () => undefined;
   const jobs = createNodeJobScheduler((name) => dispatchJob(name));
@@ -157,9 +190,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
       saveState: saveRuntimeState,
     },
     events: {
-      report: (events) => {
+      report: async (events) => {
         diagnostics?.append(events);
-        return reportCliEvents(events, logger);
+        await reportCliEvents(events, logger);
+        await recordActivity(events);
       },
       notify: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
     },
