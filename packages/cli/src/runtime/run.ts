@@ -142,22 +142,18 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const writeRuntimeState =
     options.stateStore?.save
     ?? (async (state: SchedulerState): Promise<void> => saveState(statePath, state));
-  // State writes in flight. Shutdown waits for them before the transport goes
-  // and the loop resolves, so the process never exits halfway through one.
-  const stateWrites = new Set<Promise<void>>();
-  const saveRuntimeState = (state: SchedulerState): Promise<void> => {
-    const write = writeRuntimeState(state);
+  const storageWrites = new Set<Promise<void>>();
+  let storageClosed = false;
+  const trackStorageWrite = async (save: () => Promise<void>): Promise<void> => {
+    if (storageClosed) throw new Error("Farming storage is closed");
+    const write = Promise.resolve().then(save);
     const forget = () => {
-      stateWrites.delete(write);
+      storageWrites.delete(write);
     };
     // The controller gets the write itself, and with it any failure.
     write.then(forget, forget);
-    stateWrites.add(write);
+    storageWrites.add(write);
     return write;
-  };
-  // A write can start while an earlier one is awaited (an aborted tick commits).
-  const settleStateWrites = async () => {
-    while (stateWrites.size > 0) await Promise.allSettled([...stateWrites]);
   };
 
   const activityHistory =
@@ -172,12 +168,12 @@ export async function runLoop(options: RunOptions): Promise<void> {
     capabilities: CLI_CAPABILITIES,
     storage: {
       loadSettings: () => settingsStore.load(),
-      saveSettings: (next) => settingsStore.save(next),
+      saveSettings: (next) => trackStorageWrite(() => settingsStore.save(next)),
       ...(settingsStore.applyPatch
         ? { applySettingsPatch: settingsStore.applyPatch.bind(settingsStore) }
         : {}),
       loadState: loadRuntimeState,
-      saveState: saveRuntimeState,
+      saveState: (state) => trackStorageWrite(() => writeRuntimeState(state)),
     },
     events: {
       report: async (events) => {
@@ -263,7 +259,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
         SHUTDOWN_DRAIN_MS,
       );
       if (!settled) logger.warn("Timed out waiting for farming work to settle", "run");
-      await settleStateWrites();
+      // A stopped job can still be between its last abort check and its save.
+      // Close admission before draining so it cannot start an untracked write;
+      // writes accepted before this point still land.
+      storageClosed = true;
+      await Promise.allSettled([...storageWrites]);
       await transport.dispose();
     } finally {
       // Disposal can emit transport diagnostics that are still being reported.

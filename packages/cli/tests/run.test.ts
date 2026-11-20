@@ -102,7 +102,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   vi.useRealTimers();
-  await rm(dir, { recursive: true, force: true });
+  await rm(dir, { recursive: true, force: true, maxRetries: 3 });
 });
 
 async function runOnce(
@@ -692,14 +692,16 @@ function fakeHeartbeatWatcher(
 }
 
 interface HeartbeatDriverHarnessOptions {
+  checkAuthHealth?: PlatformAdapter["checkAuthHealth"];
+  onStateSave?: (statePath: string, state: SchedulerState) => Promise<void>;
   refreshCampaigns?: (call: number) => Promise<DropCampaign[]>;
   heartbeat?: () => Promise<HeartbeatResult>;
+  beforeLoadState?: () => Promise<void> | undefined;
   dispose?: () => Promise<void>;
   beforeCreateAdapter?: (platform: Platform) => void;
   logger?: Logger;
   once?: boolean;
-  // Wait for the first tick to start the watcher before returning.
-  awaitWatch?: boolean;
+  stopSignal?: AbortSignal;
   claimChannelPoints?: PlatformAdapter["claimChannelPoints"];
 }
 
@@ -721,7 +723,9 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
     contextKey,
     nextDueAt: new Date(HEARTBEAT_TEST_START.getTime() + 60_000).toISOString(),
   };
-  await saveState(statePath, {
+  // Keep storage on the promise queue so advancing the fake clock also lets
+  // these jobs commit. File I/O would require a separate completion barrier.
+  let state: SchedulerState = {
     ...structuredClone(DEFAULT_STATE),
     authHealth: {
       ...DEFAULT_STATE.authHealth,
@@ -735,16 +739,19 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
       ...DEFAULT_STATE.sessions,
       twitch: session,
     },
-  });
+  };
 
   let refreshCalls = 0;
+  const discoveryStarted = deferred<void>();
   const watcher = fakeHeartbeatWatcher(options.heartbeat);
   const twitch = fakeAdapter("twitch", HEALTHY);
   twitch.supportsTabless = true;
   twitch.createTablessWatcher = () => watcher;
+  if (options.checkAuthHealth) twitch.checkAuthHealth = options.checkAuthHealth;
   if (options.claimChannelPoints) twitch.claimChannelPoints = options.claimChannelPoints;
   twitch.refreshCampaigns = vi.fn(async () => {
     refreshCalls += 1;
+    discoveryStarted.resolve();
     return options.refreshCampaigns?.(refreshCalls) ?? [HEARTBEAT_TEST_CAMPAIGN];
   });
   // The restart reconciliation pauses the seeded watch (#593), so the first
@@ -785,15 +792,26 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
   const running = runLoop({
     settings,
     statePath,
+    stateStore: {
+      load: async () => {
+        await options.beforeLoadState?.();
+        return state;
+      },
+      save: async (next) => {
+        await options.onStateSave?.(statePath, next);
+        state = next;
+      },
+    },
     transport,
     logger: options.logger ?? createLogger("error"),
     checkCredentialAvailability: async () => ({ status: "available" }),
     ...(options.once ? { once: true } : {}),
+    ...(options.stopSignal ? { stopSignal: options.stopSignal } : {}),
   });
-  await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledOnce());
-  if (options.awaitWatch !== false)
-    await vi.waitFor(() => expect(watcher.start).toHaveBeenCalledOnce());
-  return { running, statePath, transport, twitch, watcher };
+  // Diagnostics restoration still uses real I/O before the first job starts.
+  await discoveryStarted.promise;
+  await vi.advanceTimersByTimeAsync(0);
+  return { running, statePath, readState: () => state, transport, twitch, watcher };
 }
 
 describe("runLoop heartbeat driver", () => {
@@ -803,27 +821,19 @@ describe("runLoop heartbeat driver", () => {
   });
 
   it("attempts heartbeats every minute independently of the seven-minute discovery period", async () => {
-    const { running, statePath, twitch, watcher } = await startHeartbeatDriver();
+    const { running, readState, twitch, watcher } = await startHeartbeatDriver();
     try {
+      expect(watcher.start).toHaveBeenCalledOnce();
       expect(watcher.tick).not.toHaveBeenCalled();
-      await vi.waitFor(async () => {
-        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-        expect(state.sessions.twitch.lastCheckedAt).toBeDefined();
-      });
+      expect(readState().sessions.twitch.lastCheckedAt).toBe(HEARTBEAT_TEST_START.toISOString());
 
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(1));
+      expect(watcher.tick).toHaveBeenCalledTimes(1);
       expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
-      // The attempt stays in flight until its result is stored, and a heartbeat
-      // fired meanwhile joins it instead of ticking again. Wait for the store,
-      // or the next minute's fire can land while the file write is still out.
-      await vi.waitFor(async () => {
-        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-        expect(state.sessions.twitch.lastHeartbeatAt).toBeDefined();
-      });
+      expect(readState().sessions.twitch.lastHeartbeatOk).toBe(true);
 
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(2));
+      expect(watcher.tick).toHaveBeenCalledTimes(2);
       expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
     } finally {
       process.emit("SIGTERM");
@@ -837,28 +847,32 @@ describe("runLoop heartbeat driver", () => {
   it("pauses the previous process's watch at startup and sends it no heartbeat before discovery re-selects it", async () => {
     const blockedDiscovery = deferred<DropCampaign[]>();
     vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
-    const { running, statePath, transport, twitch, watcher } = await startHeartbeatDriver({
+    const { running, readState, transport, twitch, watcher } = await startHeartbeatDriver({
       refreshCampaigns: async () => blockedDiscovery.promise,
-      awaitWatch: false,
     });
 
-    const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-    expect(state.sessions.twitch).toMatchObject({
-      status: "paused",
-      reasonCode: "runtime_restart",
-    });
-    expect(state.sessions.twitch.channel).toBeUndefined();
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
-    expect(watcher.start).not.toHaveBeenCalled();
-    expect(watcher.tick).not.toHaveBeenCalled();
-
-    process.emit("SIGTERM");
-    await vi.advanceTimersByTimeAsync(5_000);
-    await running;
+    try {
+      const state = readState();
+      expect(state.sessions.twitch).toMatchObject({
+        status: "paused",
+        reasonCode: "runtime_restart",
+      });
+      expect(state.sessions.twitch.channel).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(watcher.start).not.toHaveBeenCalled();
+      expect(watcher.tick).not.toHaveBeenCalled();
+    } finally {
+      process.emit("SIGTERM");
+      try {
+        // The blocked discovery holds the shutdown drain until its timeout.
+        await vi.advanceTimersByTimeAsync(5_000);
+        await running;
+      } finally {
+        blockedDiscovery.resolve([HEARTBEAT_TEST_CAMPAIGN]);
+      }
+    }
     expect(transport.dispose).toHaveBeenCalledOnce();
-
-    blockedDiscovery.resolve([HEARTBEAT_TEST_CAMPAIGN]);
   });
 
   // Behavior change (#590): the CLI runs the one-minute channel-points job, like
@@ -869,12 +883,12 @@ describe("runLoop heartbeat driver", () => {
     const { running, twitch } = await startHeartbeatDriver({ claimChannelPoints });
     try {
       // The first tick claims as part of its watch.
-      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledOnce());
+      expect(claimChannelPoints).toHaveBeenCalledOnce();
 
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledTimes(2));
+      expect(claimChannelPoints).toHaveBeenCalledTimes(2);
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledTimes(3));
+      expect(claimChannelPoints).toHaveBeenCalledTimes(3);
       expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
       expect(claimChannelPoints).toHaveBeenLastCalledWith(
         expect.objectContaining({ username: "heartbeat-creator" }),
@@ -895,16 +909,16 @@ describe("runLoop heartbeat driver", () => {
     });
     const { running, twitch } = await startHeartbeatDriver({ claimChannelPoints });
     try {
-      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledOnce());
+      expect(claimChannelPoints).toHaveBeenCalledOnce();
       // The job's claim is held open, so later job fires and the next tick
       // find it running and send nothing.
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledTimes(2));
-      await vi.advanceTimersByTimeAsync(6 * 60_000);
-      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
       expect(claimChannelPoints).toHaveBeenCalledTimes(2);
-      pending.resolve(false);
+      await vi.advanceTimersByTimeAsync(6 * 60_000);
+      expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
+      expect(claimChannelPoints).toHaveBeenCalledTimes(2);
     } finally {
+      pending.resolve(false);
       process.emit("SIGTERM");
       await running;
     }
@@ -912,49 +926,31 @@ describe("runLoop heartbeat driver", () => {
 
   it("attempts a due heartbeat while discovery is blocked", async () => {
     const blockedDiscovery = deferred<DropCampaign[]>();
-    const { running, statePath, twitch, watcher } = await startHeartbeatDriver({
+    const { running, readState, twitch, watcher } = await startHeartbeatDriver({
       refreshCampaigns: async (call) =>
         call === 1 ? [HEARTBEAT_TEST_CAMPAIGN] : blockedDiscovery.promise,
     });
-    // The first tick anchors the cadence when it starts the watch.
-    const firstDueAt = await vi.waitFor(async () => {
-      const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-      const nextDueAt = Date.parse(state.sessions.twitch.tablessHeartbeat?.nextDueAt ?? "");
-      expect(nextDueAt).toBeGreaterThan(0);
-      return nextDueAt;
-    });
     try {
-      for (let minute = 1; minute <= 6; minute += 1) {
+      for (let minute = 1; minute <= 7; minute += 1) {
         await vi.advanceTimersByTimeAsync(60_000);
-        await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(minute));
-        await vi.waitFor(async () => {
-          const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-          expect(state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
-            new Date(firstDueAt + minute * 60_000).toISOString(),
-          );
-        });
+        expect(watcher.tick).toHaveBeenCalledTimes(minute);
+        expect(readState().sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+          new Date(HEARTBEAT_TEST_START.getTime() + (minute + 1) * 60_000).toISOString(),
+        );
       }
 
-      await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
-      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledTimes(7));
-      await vi.waitFor(async () => {
-        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-        expect(Date.parse(state.sessions.twitch.lastHeartbeatAt ?? "")).toBeGreaterThanOrEqual(
-          HEARTBEAT_TEST_START.getTime() + 7 * 60_000,
-        );
-      });
+      const seventhMinute = new Date(HEARTBEAT_TEST_START.getTime() + 7 * 60_000).toISOString();
+      expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
+      expect(readState().sessions.twitch.lastHeartbeatAt).toBe(seventhMinute);
+      expect(readState().sessions.twitch.lastCheckedAt).toBe(HEARTBEAT_TEST_START.toISOString());
+      blockedDiscovery.resolve([HEARTBEAT_TEST_CAMPAIGN]);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(readState().sessions.twitch.lastCheckedAt).toBe(seventhMinute);
+      expect(readState().sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+        new Date(HEARTBEAT_TEST_START.getTime() + 8 * 60_000).toISOString(),
+      );
     } finally {
       blockedDiscovery.resolve([HEARTBEAT_TEST_CAMPAIGN]);
-      await vi.waitFor(async () => {
-        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-        expect(Date.parse(state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThanOrEqual(
-          HEARTBEAT_TEST_START.getTime() + 7 * 60_000,
-        );
-        expect(state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
-          new Date(firstDueAt + 7 * 60_000).toISOString(),
-        );
-      });
       process.emit("SIGTERM");
       await running;
     }
@@ -962,22 +958,24 @@ describe("runLoop heartbeat driver", () => {
 
   it("runs seven-minute discovery while a heartbeat is blocked", async () => {
     const blockedHeartbeat = deferred<HeartbeatResult>();
-    const { running, statePath, twitch, watcher } = await startHeartbeatDriver({
+    const { running, readState, twitch, watcher } = await startHeartbeatDriver({
       heartbeat: () => blockedHeartbeat.promise,
     });
     try {
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(watcher.tick).toHaveBeenCalledOnce());
+      expect(watcher.tick).toHaveBeenCalledOnce();
 
       await vi.advanceTimersByTimeAsync(6 * 60_000);
-      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
+      expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
       expect(watcher.tick).toHaveBeenCalledOnce();
+      expect(readState().sessions.twitch.lastCheckedAt).toBe(
+        new Date(HEARTBEAT_TEST_START.getTime() + 7 * 60_000).toISOString(),
+      );
+      blockedHeartbeat.resolve({ ok: true, live: true });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(readState().sessions.twitch.lastHeartbeatOk).toBe(true);
     } finally {
       blockedHeartbeat.resolve({ ok: true, live: true });
-      await vi.waitFor(async () => {
-        const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-        expect(state.sessions.twitch.lastHeartbeatOk).toBe(true);
-      });
       process.emit("SIGTERM");
       await running;
     }
@@ -1004,17 +1002,104 @@ describe("runLoop heartbeat driver", () => {
     try {
       failAdapterCreation = true;
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() =>
-        expect(logger.error).toHaveBeenCalledWith("heartbeat adapter failed", "heartbeat"),
-      );
+      expect(logger.error).toHaveBeenCalledWith("heartbeat adapter failed", "heartbeat");
       expect(watcher.tick).not.toHaveBeenCalled();
 
       failAdapterCreation = false;
       await vi.advanceTimersByTimeAsync(6 * 60_000);
-      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
+      expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
       expect(logger.error).not.toHaveBeenCalledWith(expect.any(String), "tick");
     } finally {
       process.emit("SIGTERM");
+      await running;
+    }
+  });
+
+  it("drains a reserved heartbeat commit before disposing the transport", async () => {
+    const stop = new AbortController();
+    const heartbeat = deferred<HeartbeatResult>();
+    const finishRead = deferred<void>();
+    const beforeLoadState = vi.fn<() => Promise<void> | undefined>();
+    let writeFinished = false;
+    const { running, readState, statePath, transport, watcher } = await startHeartbeatDriver({
+      heartbeat: () => heartbeat.promise,
+      beforeLoadState,
+      onStateSave: async (path, state) => {
+        if (!state.sessions.twitch.lastHeartbeatAt) return;
+        await saveState(path, state);
+        writeFinished = true;
+      },
+      dispose: async () => {
+        expect(writeFinished).toBe(true);
+      },
+      stopSignal: stop.signal,
+    });
+
+    try {
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      // The other minute jobs have finished. Hold the heartbeat transaction's
+      // read, after it reserves the result commit but before it starts a save.
+      beforeLoadState.mockClear().mockReturnValueOnce(finishRead.promise);
+      heartbeat.resolve({ ok: true, live: true });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(beforeLoadState).toHaveBeenCalledOnce();
+      expect(readState().sessions.twitch.lastHeartbeatAt).toBeUndefined();
+
+      stop.abort();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(transport.dispose).not.toHaveBeenCalled();
+    } finally {
+      heartbeat.resolve({ ok: true, live: true });
+      stop.abort();
+      finishRead.resolve();
+      await running;
+    }
+
+    expect(transport.dispose).toHaveBeenCalledOnce();
+    expect(JSON.parse(await readFile(statePath, "utf8"))).toMatchObject({
+      sessions: { twitch: { lastHeartbeatOk: true } },
+    });
+  });
+
+  it("does not start a state write from an alarm tick after shutdown", async () => {
+    const stop = new AbortController();
+    const authProbe = deferred<PlatformAuthHealth>();
+    const finishRead = deferred<void>();
+    const beforeLoadState = vi.fn<() => Promise<void> | undefined>();
+    const checkAuthHealth = vi
+      .fn(async () => HEALTHY)
+      .mockImplementationOnce(async () => HEALTHY)
+      .mockImplementationOnce(() => authProbe.promise);
+    const onStateSave = vi.fn(async () => {});
+    const { running } = await startHeartbeatDriver({
+      beforeLoadState,
+      checkAuthHealth,
+      onStateSave,
+      stopSignal: stop.signal,
+    });
+
+    try {
+      await vi.advanceTimersByTimeAsync(7 * 60_000);
+      expect(checkAuthHealth).toHaveBeenCalledTimes(2);
+      // The tick passed its abort check by the time the commit reads storage.
+      beforeLoadState.mockClear().mockReturnValueOnce(finishRead.promise);
+      authProbe.resolve(HEALTHY);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(beforeLoadState).toHaveBeenCalledOnce();
+
+      stop.abort();
+      // The blocked tick holds the bounded shutdown drain until it times out.
+      await vi.advanceTimersByTimeAsync(5_000);
+      await running;
+      const savesAtShutdown = onStateSave.mock.calls.length;
+      finishRead.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onStateSave).toHaveBeenCalledTimes(savesAtShutdown);
+    } finally {
+      authProbe.resolve(HEALTHY);
+      stop.abort();
+      finishRead.resolve();
       await running;
     }
   });

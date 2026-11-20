@@ -708,8 +708,11 @@ necessary. It then waits for any startup reconciliation in progress, which can b
 after shutdown starts. Once the controller shuts down, including closing the Hermes socket,
 `runLoop` unsubscribes the Twitch Extensions commit hook and closes the lane, including its
 drivers, sockets and queued writes. It gives in-flight jobs and detached background work a shared
-five-second window to report commits, then settles tracked state writes and disposes the transport.
-The teardown finally block gives disposal reports up to five seconds to settle, then closes the
+five-second window to report commits. Watcher cleanup waits for any reserved heartbeat result
+commit, including one still reading the latest state before its save. It then closes storage
+writes to new requests and waits for accepted state and settings writes to finish, so an alarm
+tick still reading state cannot start a save after the drain. It disposes the transport. The
+teardown finally block gives disposal reports up to five seconds to settle, then closes the
 activity history followed by the diagnostics history even if disposal fails. `--once` and host
 startup failure use the same farming teardown.
 The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
