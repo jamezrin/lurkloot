@@ -692,6 +692,8 @@ function fakeHeartbeatWatcher(
 }
 
 interface HeartbeatDriverHarnessOptions {
+  checkAuthHealth?: PlatformAdapter["checkAuthHealth"];
+  onStateSave?: (statePath: string, state: SchedulerState) => Promise<void>;
   refreshCampaigns?: (call: number) => Promise<DropCampaign[]>;
   heartbeat?: () => Promise<HeartbeatResult>;
   beforeLoadState?: () => Promise<void> | undefined;
@@ -745,6 +747,7 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
   const twitch = fakeAdapter("twitch", HEALTHY);
   twitch.supportsTabless = true;
   twitch.createTablessWatcher = () => watcher;
+  if (options.checkAuthHealth) twitch.checkAuthHealth = options.checkAuthHealth;
   if (options.claimChannelPoints) twitch.claimChannelPoints = options.claimChannelPoints;
   twitch.refreshCampaigns = vi.fn(async () => {
     refreshCalls += 1;
@@ -795,6 +798,7 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
         return state;
       },
       save: async (next) => {
+        await options.onStateSave?.(statePath, next);
         state = next;
       },
     },
@@ -807,7 +811,7 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
   // Diagnostics restoration still uses real I/O before the first job starts.
   await discoveryStarted.promise;
   await vi.advanceTimersByTimeAsync(0);
-  return { running, readState: () => state, transport, twitch, watcher };
+  return { running, statePath, readState: () => state, transport, twitch, watcher };
 }
 
 describe("runLoop heartbeat driver", () => {
@@ -1016,9 +1020,18 @@ describe("runLoop heartbeat driver", () => {
     const heartbeat = deferred<HeartbeatResult>();
     const finishRead = deferred<void>();
     const beforeLoadState = vi.fn<() => Promise<void> | undefined>();
-    const { running, readState, transport, watcher } = await startHeartbeatDriver({
+    let writeFinished = false;
+    const { running, readState, statePath, transport, watcher } = await startHeartbeatDriver({
       heartbeat: () => heartbeat.promise,
       beforeLoadState,
+      onStateSave: async (path, state) => {
+        if (!state.sessions.twitch.lastHeartbeatAt) return;
+        await saveState(path, state);
+        writeFinished = true;
+      },
+      dispose: async () => {
+        expect(writeFinished).toBe(true);
+      },
       stopSignal: stop.signal,
     });
 
@@ -1043,8 +1056,50 @@ describe("runLoop heartbeat driver", () => {
       await running;
     }
 
-    expect(readState().sessions.twitch.lastHeartbeatOk).toBe(true);
     expect(transport.dispose).toHaveBeenCalledOnce();
+    expect(JSON.parse(await readFile(statePath, "utf8"))).toMatchObject({
+      sessions: { twitch: { lastHeartbeatOk: true } },
+    });
+  });
+
+  it("does not start a state write from an alarm tick after shutdown", async () => {
+    const stop = new AbortController();
+    const authProbe = deferred<PlatformAuthHealth>();
+    const finishRead = deferred<void>();
+    const beforeLoadState = vi.fn<() => Promise<void> | undefined>();
+    const checkAuthHealth = vi
+      .fn(async () => HEALTHY)
+      .mockImplementationOnce(async () => HEALTHY)
+      .mockImplementationOnce(() => authProbe.promise);
+    const onStateSave = vi.fn(async () => {});
+    const { running } = await startHeartbeatDriver({
+      beforeLoadState,
+      checkAuthHealth,
+      onStateSave,
+      stopSignal: stop.signal,
+    });
+
+    try {
+      await vi.advanceTimersByTimeAsync(7 * 60_000);
+      expect(checkAuthHealth).toHaveBeenCalledTimes(2);
+      // The tick passed its abort check by the time the commit reads storage.
+      beforeLoadState.mockClear().mockReturnValueOnce(finishRead.promise);
+      authProbe.resolve(HEALTHY);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(beforeLoadState).toHaveBeenCalledOnce();
+
+      stop.abort();
+      await running;
+      const savesAtShutdown = onStateSave.mock.calls.length;
+      finishRead.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onStateSave).toHaveBeenCalledTimes(savesAtShutdown);
+    } finally {
+      authProbe.resolve(HEALTHY);
+      stop.abort();
+      finishRead.resolve();
+      await running;
+    }
   });
 
   it("clears both recurring drivers before transport disposal on SIGTERM", async () => {
