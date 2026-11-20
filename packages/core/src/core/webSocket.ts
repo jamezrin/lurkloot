@@ -6,7 +6,8 @@ export interface WebSocketMessageEventLike {
 
 export interface WebSocketLike {
   send(data: string): void;
-  close(): void;
+  // Hosts that can bound their close handshake may return its completion.
+  close(): void | Promise<void>;
   readyState: number;
   addEventListener(
     type: "open" | "message" | "close" | "error",

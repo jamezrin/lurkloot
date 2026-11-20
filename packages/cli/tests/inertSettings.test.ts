@@ -48,8 +48,7 @@ const KICK_CASES = TRANSPORTS.map((transport) => ({
 const ADAPTER_CASES = [...TWITCH_CASES, ...KICK_CASES];
 type AdapterCaseName = (typeof ADAPTER_CASES)[number]["name"];
 
-// List only the combinations missing each feature. Narrow the Twitch cases
-// when web sign-ins gain Hermes (#1096).
+// List only the combinations missing each feature.
 const KNOWN_GAPS: ReadonlyArray<{
   feature: AdapterFeature;
   cases: readonly AdapterCaseName[];
@@ -57,8 +56,10 @@ const KNOWN_GAPS: ReadonlyArray<{
 }> = [
   {
     feature: "channelPointsPush",
-    cases: TWITCH_CASES.map(({ name }) => name),
-    issue: issueUrl(1084),
+    cases: TWITCH_CASES.filter(({ clientId }) => clientId !== TWITCH_WEB_CLIENT_ID).map(
+      ({ name }) => name,
+    ),
+    issue: issueUrl(1101),
   },
   { feature: "chatPresence", cases: ["kick/http"], issue: issueUrl(1099) },
 ];

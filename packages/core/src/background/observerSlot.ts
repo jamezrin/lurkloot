@@ -18,6 +18,7 @@ export interface ObserverSlotHooks {
 export interface ObserverReconcile<T extends SlotObserver> extends ObserverSlotHooks {
   wanted: boolean;
   factory: (() => T) | undefined;
+  revision?: symbol;
   start(observer: T): Promise<void>;
   // False once the observers are closed (shutdown, host reset).
   open(): boolean;
@@ -36,6 +37,8 @@ export interface ObserverReconcile<T extends SlotObserver> extends ObserverSlotH
 export class ObserverSlot<T extends SlotObserver> {
   current: T | undefined;
   private stopEpoch = 0;
+  private revision?: symbol;
+  private stopping?: Promise<void>;
 
   constructor(
     private readonly platform: Platform,
@@ -51,25 +54,47 @@ export class ObserverSlot<T extends SlotObserver> {
     return this.stopEpoch;
   }
 
+  observerFor(revision: symbol | undefined): T | undefined {
+    return this.revision === revision ? this.current : undefined;
+  }
+
   async stop(emit: EventEmitter, hooks: ObserverSlotHooks = {}): Promise<void> {
     this.stopEpoch += 1;
     hooks.onChange?.();
     const observer = this.current;
-    if (!observer) return;
+    if (!observer) return this.stopping;
     // Clear before awaiting host cleanup so a callback captured by the old
     // observer cannot enqueue work while its teardown finishes.
     this.current = undefined;
-    await this.teardown(observer, emit);
+    const revision = this.revision;
+    this.revision = undefined;
+    const teardown = this.teardown(observer, emit);
+    // Versioned connections wait for the preceding credential's socket to
+    // close. Ordinary observers keep their existing non-blocking reconcile.
+    if (revision === undefined) return teardown;
+    this.stopping = teardown.finally(() => {
+      this.stopping = undefined;
+    });
+    await this.stopping;
   }
 
   async reconcile(request: ObserverReconcile<T>): Promise<void> {
     const { emit } = request;
     if (!request.wanted || !request.factory || !request.open()) {
-      if (this.current) await this.stop(emit, request);
+      if (this.current || this.stopping) await this.stop(emit, request);
       return;
     }
-    if (this.stopEpoch !== request.since) return;
+    let since = request.since;
+    if (this.stopping) await this.stopping;
+    if (this.stopEpoch !== since || !request.open()) return;
 
+    if (this.current && !this.observerFor(request.revision)) {
+      since += 1;
+      await this.stop(emit, request);
+      if (this.stopEpoch !== since || !request.open()) return;
+      // A newer reconcile can publish its observer while this one waits.
+      if (this.current && !this.observerFor(request.revision)) return;
+    }
     let observer = this.current;
     if (!observer) {
       try {
@@ -79,6 +104,7 @@ export class ObserverSlot<T extends SlotObserver> {
         return;
       }
       this.current = observer;
+      this.revision = request.revision;
       request.onChange?.();
     }
 
@@ -97,7 +123,7 @@ export class ObserverSlot<T extends SlotObserver> {
 
     // A stop, shutdown or reset can land while start() awaits its transport.
     // Teardown wins: the finished start must not keep its callback or socket.
-    if (this.current !== observer || !request.open() || this.stopEpoch !== request.since) {
+    if (this.current !== observer || !request.open() || this.stopEpoch !== since) {
       if (this.current === observer) {
         this.current = undefined;
         request.onChange?.();

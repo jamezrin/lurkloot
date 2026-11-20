@@ -219,6 +219,9 @@ export interface PlatformAdapter {
   supportsTabless?: boolean;
   createTablessWatcher?(): TablessWatchController;
   createDiscoverySignalController?(): DiscoverySignalController;
+  // Stable across rebuilds for the same credentials. A change invalidates
+  // the old socket and its callbacks. Hosts with their own invalidation omit it.
+  readonly channelPointsPushRevision?: symbol;
   createChannelPointsPushController?(): TwitchChannelPointsPushController;
   // Joins the watched channel's chat while presence is wanted (chatPresence.ts).
   createChatPresenceClient?(): ChatPresenceClient;

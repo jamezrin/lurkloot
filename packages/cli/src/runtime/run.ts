@@ -175,7 +175,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
   // before disposing the transport.
   const stopFarming = async () => {
     if (startupReconciliation) await startupReconciliation;
-    controller.shutdown();
+    await controller.shutdown();
     await controller.settleBackgroundWork();
     await settleStateWrites();
     try {

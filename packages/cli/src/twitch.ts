@@ -15,6 +15,20 @@ export const TWITCH_ANDROID_USER_AGENT =
 // client it used; SA_TWITCH_CLIENT_ID can override). Defaults to Smart TV for
 // new logins. The Android user agent is sent only when the
 // client is actually Android, so a custom client id is not misrepresented.
+// Whether the CLI opens Twitch's push connection (Hermes) for this identity.
+// Hermes is the web client's push service: the extension opens it with the
+// web client's token, and the CLI's web sign-in (`auth import`) is that same
+// client. Whether Hermes accepts an Android (`auth twitch browser-login`) or
+// Smart TV (`auth twitch device-login`) token, at the upgrade or at
+// `authenticate`, has not been checked live, and the push controller would
+// only reconnect against a refusal at the upgrade, unseen. So those sign-ins
+// keep polling: channel points are claimed by the minute job, Watchlist
+// streak rows are watched as ordinary rows, and a stream that ends is noticed
+// at the next discovery. Lifting this needs one live run per client.
+export function twitchIdentityUsesHermes(identity: { clientId: string }): boolean {
+  return identity.clientId === TWITCH_WEB_CLIENT_ID;
+}
+
 export function twitchClientIdentity(creds: PlatformCredentials): {
   clientId: string;
   userAgent?: string;

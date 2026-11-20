@@ -315,7 +315,7 @@ export function createLifecycle<S extends EngineSettings>(
     };
   }
 
-  function shutdown(): void {
+  function shutdown(): Promise<void> {
     lifecycleSlice.controllerShutdown = true;
     for (const platform of PLATFORMS) {
       stopDiscoveryLane(platform);
@@ -338,8 +338,8 @@ export function createLifecycle<S extends EngineSettings>(
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
     stopDiscoverySignalControllersInBackground(PLATFORMS);
-    stopTwitchChannelPointsPushInBackground();
     stopChatPresenceInBackground(PLATFORMS);
+    return stopTwitchChannelPointsPushInBackground();
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {

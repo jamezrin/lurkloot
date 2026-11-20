@@ -162,6 +162,7 @@ export function createChannelPoints<S extends EngineSettings>(
   | "stopTwitchChannelPointsPushAndReport"
   | "stopTwitchChannelPointsPushInBackground"
   | "twitchChannelPointsPushEpoch"
+  | "twitchChannelPointsPushAvailable"
   | "registerTwitchChannelPointsEffects"
   | "runTwitchChannelPointsClaim"
 > {
@@ -304,7 +305,7 @@ export function createChannelPoints<S extends EngineSettings>(
     });
   }
 
-  function stopTwitchChannelPointsPushInBackground(): void {
+  function stopTwitchChannelPointsPushInBackground(): Promise<void> {
     const run = stopTwitchChannelPointsPushAndReport().catch((error) => {
       diagnosticEvent(
         "warn",
@@ -313,6 +314,7 @@ export function createChannelPoints<S extends EngineSettings>(
       );
     });
     trackBackgroundWork(run);
+    return run;
   }
 
   function reconcileTwitchChannelPointsPushFromSettingsInBackground(settings: S): void {
@@ -409,6 +411,7 @@ export function createChannelPoints<S extends EngineSettings>(
     if (push.current !== controller || lifecycleSlice.controllerShutdown) return;
     const run = withEventCollector(async (emit, events) => {
       const identity = await channelIdentity(notice.channelId);
+      if (push.current !== controller || lifecycleSlice.controllerShutdown) return;
       emit({
         category: "activity",
         code: "points_earned",
@@ -561,6 +564,8 @@ export function createChannelPoints<S extends EngineSettings>(
     await push.reconcile({
       wanted: claims || streaks || points || channelId !== undefined,
       factory: adapter.createChannelPointsPushController,
+      revision: adapter.channelPointsPushRevision,
+      onChange: cancelStreamDownCheck,
       open: observersOpen,
       since,
       emit,
@@ -570,7 +575,7 @@ export function createChannelPoints<S extends EngineSettings>(
             ? {
                 onClaimAvailable: (notice: TwitchChannelPointsClaimNotice) => {
                   if (push.current !== controller) return;
-                  queueTwitchChannelPointsPushClaim(notice);
+                  queueTwitchChannelPointsPushClaim(controller, notice);
                 },
               }
             : {}),
@@ -624,6 +629,10 @@ export function createChannelPoints<S extends EngineSettings>(
   // Read where the state the push follows is committed, under its lock.
   function twitchChannelPointsPushEpoch(): number {
     return push.epoch;
+  }
+
+  function twitchChannelPointsPushAvailable(adapter: PlatformAdapter): boolean {
+    return push.observerFor(adapter.channelPointsPushRevision)?.watchStreaksAvailable ?? true;
   }
 
   // After a Twitch tick commits (#695), with no lock held: the push follows
@@ -702,7 +711,10 @@ export function createChannelPoints<S extends EngineSettings>(
     if (controller) for (const event of controller.drainEvents()) emit(event);
   }
 
-  function queueTwitchChannelPointsPushClaim(notice: TwitchChannelPointsClaimNotice): void {
+  function queueTwitchChannelPointsPushClaim(
+    controller: TwitchChannelPointsPushController,
+    notice: TwitchChannelPointsClaimNotice,
+  ): void {
     if (lifecycleSlice.controllerShutdown) return;
     if (pushClaimsInFlight.has(notice.claimId)) return;
     pushClaimsInFlight.add(notice.claimId);
@@ -710,7 +722,7 @@ export function createChannelPoints<S extends EngineSettings>(
       withEventCollector(async (emit, events) => {
         try {
           drainPushEvents(emit);
-          await claimTwitchChannelPointsFromPush(notice, emit);
+          await claimTwitchChannelPointsFromPush(controller, notice, emit);
         } finally {
           pushClaimsInFlight.delete(notice.claimId);
           drainPushEvents(emit);
@@ -742,6 +754,7 @@ export function createChannelPoints<S extends EngineSettings>(
   }
 
   async function claimTwitchChannelPointsFromPush(
+    controller: TwitchChannelPointsPushController,
     notice: TwitchChannelPointsClaimNotice,
     emit: EventEmitter,
   ): Promise<void> {
@@ -750,7 +763,12 @@ export function createChannelPoints<S extends EngineSettings>(
       ports.storage.loadSettings(),
       ports.storage.loadState(),
     ]);
-    if (!pushSettingsAllow(settings) || state.authHealth.twitch.status !== "healthy") return;
+    if (
+      push.current !== controller
+      || !pushSettingsAllow(settings)
+      || state.authHealth.twitch.status !== "healthy"
+    )
+      return;
     const channel = eligibleTwitchChannelPointsChannel(settings, state);
     if (!channel) return;
     if (channel.channelId !== undefined && channel.channelId !== notice.channelId) return;
@@ -762,6 +780,7 @@ export function createChannelPoints<S extends EngineSettings>(
         await claims.afterRunning(async () => {
           signal.throwIfAborted();
           const adapter = createAdapter("twitch", settings, emit, true);
+          if (push.observerFor(adapter.channelPointsPushRevision) !== controller) return false;
           return (
             (await adapter.claimChannelPoints?.(channel, {
               claimId: notice.claimId,
@@ -822,6 +841,7 @@ export function createChannelPoints<S extends EngineSettings>(
     stopTwitchChannelPointsPushAndReport,
     stopTwitchChannelPointsPushInBackground,
     twitchChannelPointsPushEpoch,
+    twitchChannelPointsPushAvailable,
     registerTwitchChannelPointsEffects,
     runTwitchChannelPointsClaim,
   };

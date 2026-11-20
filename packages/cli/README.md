@@ -213,18 +213,18 @@ every host, with a deprecation warning.
 }
 ```
 
-### Accepted but not working yet
+### Settings with limited CLI support
 
-These keys are accepted so a config can be shared with the extension. The
-table shows where they have no effect. A per-platform setting that asks for an unavailable
+These settings can be shared with the extension. Their CLI support depends on
+the platform, transport and sign-in. A per-platform setting that asks for an unavailable
 feature and differs from its default logs one warning per run. If the signed-in
 identity changes during a run, the warning can first appear when the new adapter
 lacks the feature. Once logged, it stays quiet for the rest of that run.
 
 | Setting | Why | Tracked in |
 |---|---|---|
-| `platform.twitch.channelPointsPushClaim` (with `autoClaimChannelPoints` on) | No Twitch push connection; channel points are still claimed by the one-minute check | [#1084](https://github.com/jamezrin/lurkloot/issues/1084) |
-| `platform.twitch.watchlistStreakChannels`, `watchStreakBudgetMinutes`, `watchStreakRetryCooldownMinutes`, `watchStreakMaxRounds` | No Twitch push connection, so watch streaks cannot be observed; the channels are watched as ordinary Watchlist channels | [#1084](https://github.com/jamezrin/lurkloot/issues/1084) |
+| `platform.twitch.channelPointsPushClaim` (with `autoClaimChannelPoints` on) | Web sign-ins support push; Android and Smart TV sign-ins claim points through the one-minute check | [#1101](https://github.com/jamezrin/lurkloot/issues/1101) |
+| `platform.twitch.watchlistStreakChannels`, `watchStreakBudgetMinutes`, `watchStreakRetryCooldownMinutes`, `watchStreakMaxRounds` | Web sign-ins support streaks; Android and Smart TV sign-ins watch these as ordinary Watchlist channels | [#1101](https://github.com/jamezrin/lurkloot/issues/1101) |
 | `platform.kick.alwaysEnterChat` on `http` | The HTTP transport cannot reach Kick realtime through the WAF | [#1099](https://github.com/jamezrin/lurkloot/issues/1099) |
 
 The default config is quiet. `channelPointsPushClaim` is on by default, and
@@ -308,6 +308,42 @@ Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
 `SA_KICK_SESSION_TOKEN`. The rotating Kasada cookie is loaded only from the
 private auth store, so a stale environment value cannot override a refresh.
+
+### Twitch push (Hermes)
+
+Twitch's web client gets live notices over one push connection, Hermes. With
+a **web sign-in** (`auth import`), the CLI opens that connection too, as the
+extension does. The socket presents Twitch's web `Origin`
+(`https://www.twitch.tv`) and no other identity header: no User-Agent, Referer,
+cookie or client hint. Over it the CLI:
+
+- claims channel-point bonuses as Twitch announces them
+  (`channelPointsPushClaim`), with the one-minute claim job as the fallback;
+- sees watch-streak payouts, so `watchlistStreakChannels` rows are maintained
+  the way the extension maintains them, tuned by `watchStreakBudgetMinutes`,
+  `watchStreakRetryCooldownMinutes` and `watchStreakMaxRounds`;
+- hears when the watched stream ends, checks it 60 s later and switches
+  channel without waiting for the next discovery.
+
+The **Android** (`auth twitch browser-login`) and **Smart TV**
+(`auth twitch device-login`) sign-ins do not open Hermes. Hermes is the web
+client's service, and whether it accepts a token issued to those clients has
+not been checked live. These sign-ins keep polling instead: channel points are
+claimed by the one-minute job, `channelPointsPushClaim` has no effect,
+`watchlistStreakChannels` rows are watched as ordinary Watchlist rows, and an
+ended stream is noticed at the next check. Defaults stay quiet. The CLI warns
+once per changed setting that requests unsupported push functionality. Chat
+presence (`alwaysEnterChat`) uses a separate connection for all three sign-ins.
+
+If a web sign-in's push connection fails three times in a row, the CLI logs
+one warning, pauses streak priority and accrual, and starts retrying at
+five-minute intervals with backoff up to 30 minutes. Confirmation of the
+channel-points subscription restores streak tracking. Updating the web login
+while the CLI runs replaces the old connection on the next reconciliation.
+
+`run --once`, SIGINT, SIGTERM, and `serve --exit-with-stdin` wait for the
+Hermes socket to close. The socket is dropped if the peer takes more than
+2 s to answer the close frame.
 
 ## Commands
 

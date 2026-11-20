@@ -647,8 +647,8 @@ For adapter-backed settings the guard uses the production transports and checks 
 Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus Kick on
 each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
 where it is missing. Narrow a row's cases when support lands for some combinations,
-and remove the row when all its cases gain support. For #1096, keep only Android and
-Smart TV in the Hermes row. The Kick chat gap applies to `kick/http` (#1099).
+and remove the row when all its cases gain support. The Hermes gap applies to Android and
+Smart TV sign-ins (#1101). The Kick chat gap applies to `kick/http` (#1099).
 The guard fails for unexpected gaps and stale exceptions. It also checks
 that changed values requesting a missing feature produce a warning.
 
@@ -1221,10 +1221,15 @@ The extension never presents its own `chrome-extension://` or `moz-extension://`
 
 - **Twitch Extension providers (#798).** A provider with its own socket backend declares `backendSocketOrigin` in `packages/core/src/extensions/registry.ts` (Fortnite today). It is optional, requested in the same prompt as `backendOrigin` and required with it (`twitchExtensionProviderOrigins`). Its socket opens in the socket host like the platforms' sockets, under a websocket-only rule (ids from 9105) that presents the provider's extension frame origin, `https://<extension-id>.ext-twitch.tv`. On Firefox the same `webRequest` listener covers it. The Fortnite profile forwards every frame, because its driver reads them all.
 
-Core asks a `WebSocketFactory` to open a URL. The CLI's Kick chat socket uses the
-same realtime endpoint allow-list as the extension and sets only
-`Origin: https://kick.com` in the handshake options. The viewer and Pusher
-discovery sockets retain their existing handshake.
+Core asks a `WebSocketFactory` to open a URL. The CLI passes Node `ws` sockets,
+which set their headers directly:
+
+- **CLI Hermes (#1084).** `packages/cli/src/transport/twitchHermes.ts` builds the Twitch push socket for both CLI transports. It permits only `wss://hermes.twitch.tv` URLs without userinfo and sets only `Origin: https://www.twitch.tv`. An error listener absorbs Node's socket error before the close event. The adapter's socket close resolves on that event. The `ws` two-second close timeout destroys the connection if the peer stays silent. Controller shutdown awaits this close for one-shot runs, signals and stdin EOF. `twitchHermes.test.ts` checks the URL allow-list and upgrade headers. `runHermes.test.ts` drives shutdown against a local peer that ignores close.
+- **CLI Twitch chat IRC.** The CLI passes a plain `ws` socket as its own
+  `chatWebSocketFactory`. IRC needs no Origin header.
+- **CLI Kick.** The chat socket uses the same realtime endpoint allow-list as the
+  extension and sets only `Origin: https://kick.com` in the handshake options.
+  The viewer and Pusher discovery sockets retain their existing handshake.
 
 ## Twitch Integration
 
@@ -1376,11 +1381,20 @@ claims to know the user's streak count.
   progress ends.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
-- **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's
-  push factory (`adapterOffers(adapter, "channelPointsPush")`). Without it (the CLI, until
-  #1084), maintained rows read as unavailable and are watched in their ordinary place, so the
-  toggle never takes a channel out of rotation, and the tick warns once that
-  `watchlistStreakChannels` and any changed `watchStreak*` tuning have no effect (#1090).
+- **Hermes availability.** The CLI offers the push factory for web sign-ins (#1084).
+  Android and Smart TV use claim polling and ordinary Watchlist ordering. The
+  tick's unsupported-settings reporter warns for changed settings only (#1090).
+  Each CLI adapter carries an opaque in-memory credential revision, stable
+  across builds for the same login. The observer slot revokes old callbacks
+  and drains the previous socket before replacing it on a revision change.
+  For CLI web sign-ins, the push controller reports itself unavailable after
+  three consecutive failures, warns once per observer, and retries after 5,
+  10, 20 and then 30 minutes. A confirmed points subscription clears the
+  suspension. The channel-points service reads availability from the observer
+  for the current revision, and the tick combines it with the adapter's factory
+  when deciding streak priority and accrual. This signal never writes auth
+  health. The extension uses its existing retry policy. `runHermes.test.ts`
+  exercises credential reload and several hours of timed refusal and recovery.
 
 ## Tabless Watch
 
@@ -1422,7 +1436,7 @@ semantics adds its own shape instead of bending a common one.
 
 Some rewards need the account in the watched channel's chat: NoPixelV credits daily watch time from the channel's chatter list (#683). `background/chatPresence.ts` keeps one `ChatPresenceClient` per platform in an `ObserverSlot` and reconciles it after each tick commit and settings save, against the committed session only (`chatPresenceDecision` in `core/chatPresence.ts`). Presence is wanted while a platform watches **tablessly** with healthy auth and no manual pause, and either `platform.<p>.alwaysEnterChat` is on or the watching Twitch Extension provider declares `needsChatPresence`. Tab watches never use it: the page joins chat itself. A commit that leaves auth unhealthy or ends the watch stops it before any await. Presence never affects heartbeat health, rotation or tab fallback; its status is attached to snapshots as `state.chatPresence` and never persisted.
 
-The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat without starting Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect, from the tick's unsupported-settings report (`adapterSettings.ts`, #1090) including Kick on the CLI's `http` transport (#1099). See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
+The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat independently of Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect, from the tick's unsupported-settings report (`adapterSettings.ts`, #1090) including Kick on the CLI's `http` transport (#1099). See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
 
 On the CLI's `impersonate` transport, the Kick adapter offers
 `createChatPresenceClient` and asks for the transport-owned realtime connection
