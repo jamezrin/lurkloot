@@ -1089,6 +1089,8 @@ describe("runLoop heartbeat driver", () => {
       expect(beforeLoadState).toHaveBeenCalledOnce();
 
       stop.abort();
+      // The blocked tick holds the bounded shutdown drain until it times out.
+      await vi.advanceTimersByTimeAsync(5_000);
       await running;
       const savesAtShutdown = onStateSave.mock.calls.length;
       finishRead.resolve();
