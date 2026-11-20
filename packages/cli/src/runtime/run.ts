@@ -161,6 +161,9 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const stopFarming = async () => {
     if (startupReconciliation) await startupReconciliation;
     controller.shutdown();
+    // A single tick can start watchers and observers. Drain their background
+    // cleanup before disposing the transport so --once leaves no watch running.
+    if (options.once) await controller.settleBackgroundWork();
     await settleStateWrites();
     await transport.dispose();
   };
@@ -202,14 +205,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     } catch (error) {
       logger.error(errorMessage(error), "run");
     }
-    // The tick may have started tabless watchers, and a Kick one holds its own
-    // WebSocket and handshake timer outside the transport. Shutdown stops them
-    // in the background; drain that before the transport goes, or the process
-    // keeps watching after the single tick.
-    controller.shutdown();
-    await controller.settleBackgroundWork();
-    await settleStateWrites();
-    await transport.dispose();
+    await stopFarming();
     return;
   }
 

@@ -189,8 +189,7 @@ export function defaultConfigJsonc(): string {
         // Lurkloot treats their subscription as made, like the popup's
         // "Mark as subscribed".
         "subscribedRewardMarks": ${json(kick.subscribedRewardMarks ?? [])},
-        // Join each watched channel's chat. Not supported by the CLI yet: it
-        // logs a warning once and ignores this.
+        // Join each watched channel's chat on the impersonate transport.
         "alwaysEnterChat": ${json(kick.alwaysEnterChat ?? false)},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}

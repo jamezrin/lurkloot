@@ -1,6 +1,8 @@
 import { fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
+import type { KickRealtimeConnection } from "@lurkloot/core/kick/realtime";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
+import { createNodeKickRealtime } from "./kickRealtime";
 import {
   createCycleKickFetcher,
   createNodeKickWebSocketFactory,
@@ -47,7 +49,9 @@ export async function createImpersonateTransport(
   twitchIntegrity?: CliTwitchIntegrity,
 ): Promise<TransportHandle> {
   const cycleTLS = await (deps.initClient ?? initCycle)();
-  const { adapters, createAdapter, createAdapters } = createCliAdapters(creds, {
+  const kickFetcher = createCycleKickFetcher(cycleTLS, creds);
+  let kickRealtime: KickRealtimeConnection | undefined;
+  const built = createCliAdapters(creds, {
     twitchIntegrity,
     twitchFetcher: () => ({
       fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init),
@@ -135,15 +139,15 @@ export async function createImpersonateTransport(
         }
       },
     }),
-    kickFetcher: () => createCycleKickFetcher(cycleTLS, creds),
+    kickFetcher: () => kickFetcher,
     kickWebSocketFactory: () => createNodeKickWebSocketFactory(creds),
+    createKickChatPresenceConnection: () => (kickRealtime ??= createNodeKickRealtime(kickFetcher)),
   });
 
   return {
-    adapters,
-    createAdapter,
-    createAdapters,
+    ...built,
     async dispose() {
+      await kickRealtime?.stop();
       await cycleTLS.exit();
     },
   };
