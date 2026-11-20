@@ -1,9 +1,11 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
-import type { EngineEvent } from "@lurkloot/shared/events";
+import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
+import { describeCredentialHealth } from "../src/authStore";
 import { createLogger } from "../src/logger";
 import {
   createDiagnosticsHistory,
@@ -15,8 +17,9 @@ import {
   loadDiagnostics,
 } from "../src/runtime/diagnostics";
 import { runLoop } from "../src/runtime/run";
+import { serveLoop } from "../src/runtime/serve";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
-import { idleTransport } from "./helpers/fakeFarming";
+import { idleTransport, memoryStateStore } from "./helpers/fakeFarming";
 
 let dir: string;
 let statePath: string;
@@ -86,15 +89,15 @@ describe("CLI diagnostics", () => {
       expect(history.recent().map((event) => event.message)).toEqual(["third", "second", "first"]);
       expect(await messagesOnDisk()).toEqual(["first"]);
       await vi.advanceTimersByTimeAsync(DIAGNOSTICS_WRITE_INTERVAL_MS);
-      history.append([diagnostic("fourth")]);
       await vi.waitFor(async () =>
-        expect(await messagesOnDisk()).toEqual(["fourth", "third", "second", "first"]),
+        expect(await messagesOnDisk()).toEqual(["third", "second", "first"]),
       );
       expect((await readFile(diagnosticsPath(statePath), "utf8")).trimEnd()).not.toContain("\n");
       history.append([diagnostic("last")]);
       expect(await messagesOnDisk()).not.toContain("last");
       await history.close();
-      expect(await messagesOnDisk()).toEqual(["last", "fourth", "third", "second", "first"]);
+      expect(await messagesOnDisk()).toEqual(["last", "third", "second", "first"]);
+      expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
     }
@@ -113,13 +116,53 @@ describe("CLI diagnostics", () => {
     expect(await readFile(statePath, "utf8")).not.toContain('"events"');
   });
 
+  it.each(["SIGTERM", "stdin EOF"])("persists the last teardown diagnostic on %s", async (stop) => {
+    const input = new PassThrough();
+    const transport = idleTransport();
+    const createAdapter = transport.createAdapter;
+    let emitKickDiagnostic: EventEmitter | undefined;
+    transport.createAdapter = (platform, emit, settings) => {
+      if (platform === "kick") emitKickDiagnostic = emit;
+      return createAdapter(platform, emit, settings);
+    };
+    vi.mocked(transport.dispose).mockImplementation(async () => {
+      emitKickDiagnostic?.({
+        ...diagnostic("Final teardown report"),
+        platform: "kick",
+        code: "kick_fetch_summary",
+      });
+    });
+    const running = serveLoop({
+      binding: { host: "127.0.0.1", port: 0 },
+      describeCredentials: () => describeCredentialHealth(dir, {}),
+      appRoot: null,
+      exitWithInput: input,
+      settings: DEFAULT_CLI_SETTINGS,
+      statePath,
+      stateStore: memoryStateStore(),
+      checkCredentialAvailability: async () => ({ status: "available" }),
+      transport,
+      logger,
+    });
+    try {
+      await vi.waitFor(() => expect(emitKickDiagnostic).toBeDefined());
+    } finally {
+      if (stop === "SIGTERM") process.emit("SIGTERM");
+      else input.end();
+      await running;
+      input.destroy();
+    }
+    const { events } = await loadDiagnostics(statePath);
+    expect(events[0]?.message).toBe("Final teardown report");
+  });
+
   it("uses a readable report when the diagnostics file is missing or corrupt", async () => {
     expect(await loadDiagnostics(statePath)).toEqual({ events: [] });
     await writeFile(diagnosticsPath(statePath), "{broken");
     expect(await loadDiagnostics(statePath)).toEqual({ events: [] });
   });
 
-  it("keeps accepting diagnostics after a snapshot write fails", async () => {
+  it("retries a failed snapshot on close without another append", async () => {
     const path = diagnosticsPath(statePath);
     await mkdir(path);
     const onWarn = vi.fn();
@@ -129,10 +172,8 @@ describe("CLI diagnostics", () => {
     expect(history.recent().map((event) => event.message)).toEqual(["before recovery"]);
 
     await rm(path, { recursive: true });
-    history.append([diagnostic("after recovery")]);
     await history.close();
     expect((await loadDiagnostics(statePath)).events.map((event) => event.message)).toEqual([
-      "after recovery",
       "before recovery",
     ]);
   });

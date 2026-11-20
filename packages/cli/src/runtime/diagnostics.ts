@@ -45,8 +45,9 @@ export function diagnosticCredentialValues(credentials: PlatformCredentials): Di
   return values;
 }
 
-// Appends update the live ring immediately. A batch can publish a snapshot
-// once the write interval has elapsed. Shutdown flushes any remaining rows.
+// Appends update the live ring immediately. Snapshots coalesce within the
+// write interval, even if no further batches arrive. Shutdown flushes any
+// remaining rows.
 export async function createDiagnosticsHistory(
   statePath: string,
   logger: Logger,
@@ -57,6 +58,7 @@ export async function createDiagnosticsHistory(
   let sequence = ring.length;
   let dirty = false;
   let writing: Promise<void> | undefined;
+  let writeTimer: ReturnType<typeof setTimeout> | undefined;
   let nextWriteAt = 0;
   let warned = false;
   let closed = false;
@@ -75,13 +77,22 @@ export async function createDiagnosticsHistory(
       await writeJsonAtomically(diagnosticsPath(statePath), recent(), 0o600, 0);
       warned = false;
     } catch {
+      dirty = true;
       if (!warned) logger.warn("Could not save recent diagnostics", "diagnostics");
       warned = true;
     }
   }
 
   function scheduleWrite(): void {
-    if (!dirty || closed || writing || performance.now() < nextWriteAt) return;
+    if (!dirty || closed || writing || writeTimer) return;
+    const delay = nextWriteAt - performance.now();
+    if (delay > 0) {
+      writeTimer = setTimeout(() => {
+        writeTimer = undefined;
+        scheduleWrite();
+      }, Math.ceil(delay)).unref();
+      return;
+    }
     writing = persist().finally(() => {
       writing = undefined;
       scheduleWrite();
@@ -114,6 +125,7 @@ export async function createDiagnosticsHistory(
 
   async function close(): Promise<void> {
     closed = true;
+    clearTimeout(writeTimer);
     await writing;
     if (dirty) {
       writing = persist();

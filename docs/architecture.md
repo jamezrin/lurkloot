@@ -703,11 +703,11 @@ free of HTTP.
 The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
 all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
 necessary. It then waits for any startup reconciliation in progress, which can begin a state save
-after shutdown starts. After shutting down the controller, `runLoop` drains tracked state writes
-before disposing the transport and resolving. A host that fails to start uses the same farming
-teardown. `run --once` uses the same farming teardown and waits for the controller's
-background cleanup. The host's `ready` hook runs once the loop has taken the host and yielded
-to I/O for two event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
+after shutdown starts. After shutting down the controller, `runLoop` drains background work and
+tracked state writes. It disposes the transport and flushes the diagnostics sidecar last, after
+disposal reports settle. `--once` and host startup failure use the same farming teardown.
+The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
+event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
 stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
 including on Windows or when the launcher crashes. An already-ended or destroyed input or
 file-backed stdin such as `/dev/null` stops the loop before binding. For pipes, the yield gives
@@ -1702,11 +1702,11 @@ The CLI reporter also sends diagnostics to the host-owned ring in `runtime/diagn
 before stderr filtering. It projects and redacts rows before retention, caps the ring at
 500 entries and caps the length of each message. Startup restores that bounded history
 from the sidecar after reapplying current redaction. One writer coalesces compact atomic
-snapshots beside the chosen state file. Incoming batches trigger writes at least five
-seconds apart during farming.
-Writes run outside the controller's locks and the reporter does not wait for them. A failed
-snapshot leaves the previous file intact and does not affect farming. Clean shutdown
-flushes pending rows.
+snapshots beside the chosen state file at least five seconds apart during farming. An
+unref'd timer publishes pending rows at the end of that interval, including when no new
+batch arrives. Writes run outside the controller's locks and the reporter does not wait
+for them. A failed snapshot leaves the previous file intact and keeps the buffer dirty for
+retry. Shutdown cancels the timer and flushes pending rows.
 
 The `serve` host answers `exportDiagnostics` with the live ring and the controller's snapshot,
 under the same HTTP authorization as other messages. The standalone command reads the

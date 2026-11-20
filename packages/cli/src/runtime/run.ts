@@ -99,7 +99,11 @@ export function createSubscriptionWaitReporter(logger: Logger): (state: Schedule
 // SIGINT/SIGTERM, disposing the transport.
 export async function runLoop(options: RunOptions): Promise<void> {
   const { settings, statePath, transport, logger } = options;
-  const diagnostics = await createDiagnosticsHistory(statePath, logger, options.diagnosticSecrets);
+  let diagnostics: Awaited<ReturnType<typeof createDiagnosticsHistory>> | undefined;
+  const restoreDiagnostics = async () => {
+    diagnostics = await createDiagnosticsHistory(statePath, logger, options.diagnosticSecrets);
+    return diagnostics;
+  };
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
@@ -148,7 +152,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     },
     events: {
       report: (events) => {
-        diagnostics.append(events);
+        diagnostics?.append(events);
         return reportCliEvents(events, logger);
       },
       notify: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
@@ -166,16 +170,20 @@ export async function runLoop(options: RunOptions): Promise<void> {
   });
 
   let startupReconciliation: Promise<EngineSettings | void> | undefined;
-  // Reconciliation can still start a save after a stop arrives. Join it before
-  // shutting down the controller and draining writes, then dispose the transport.
+  // Reconciliation can start a save after a stop arrives. Drain it, the
+  // controller's shutdown work (including watcher stops), and state saves
+  // before disposing the transport.
   const stopFarming = async () => {
     if (startupReconciliation) await startupReconciliation;
     controller.shutdown();
-    // A single tick can start watchers and observers. Drain their background
-    // cleanup before disposing the transport so --once leaves no watch running.
-    if (options.once) await controller.settleBackgroundWork();
+    await controller.settleBackgroundWork();
     await settleStateWrites();
-    await disposeRuntime();
+    try {
+      await transport.dispose();
+    } finally {
+      // Disposal can emit transport diagnostics that are still being reported.
+      await controller.settleBackgroundWork().finally(() => diagnostics?.close());
+    }
   };
 
   // The CLI's own view of committed state: subscription waits it has not
@@ -204,36 +212,30 @@ export async function runLoop(options: RunOptions): Promise<void> {
     void runJob(name);
   };
 
-  async function disposeRuntime(): Promise<void> {
-    const diagnosticWrites = diagnostics.close();
-    try {
-      await transport.dispose();
-    } finally {
-      await diagnosticWrites;
-    }
-  }
-
   logger.info("Starting farming loop", "run");
   if (options.once) {
     jobs.dispose();
-    await Promise.all([runJob(TWITCH_ALARM_NAME), runJob(KICK_ALARM_NAME)]);
-    await controller.settleBackgroundWork();
-    // A tick that changed nothing commits nothing, so report stored waits too.
     try {
-      reportSubscriptionWaits(await loadRuntimeState());
-    } catch (error) {
-      logger.error(errorMessage(error), "run");
+      await restoreDiagnostics();
+      await Promise.all([runJob(TWITCH_ALARM_NAME), runJob(KICK_ALARM_NAME)]);
+      await controller.settleBackgroundWork();
+      // A tick that changed nothing commits nothing, so report stored waits too.
+      try {
+        reportSubscriptionWaits(await loadRuntimeState());
+      } catch (error) {
+        logger.error(errorMessage(error), "run");
+      }
+    } finally {
+      await stopFarming();
     }
-    await stopFarming();
     return;
   }
 
   await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
     let host: FarmingHost | undefined;
-    // The host while it starts. Shutdown waits for it and closes it, so the loop
-    // never ends with a server still coming up behind it.
-    let startingHost: Promise<FarmingHost> | undefined;
+    // Shutdown joins diagnostics restoration and any host bind in progress.
+    let startingHost: Promise<FarmingHost | undefined> | undefined;
     const handleSigint = () => void shutdown("Received SIGINT");
     const handleSigterm = () => void shutdown("Received SIGTERM");
     const stopSignal = options.stopSignal;
@@ -278,30 +280,29 @@ export async function runLoop(options: RunOptions): Promise<void> {
     }
     stopSignal?.addEventListener("abort", handleStop, { once: true });
     void (async () => {
-      if (options.startHost) {
-        let started: FarmingHost;
-        try {
-          // Recorded before any host code runs, so a stop that lands while the
-          // host starts (even synchronously) still waits for it and closes it.
-          const startHost = options.startHost;
-          startingHost = Promise.resolve().then(() => startHost(controller, diagnostics));
-          started = await startingHost;
-        } catch (error) {
-          // A host that cannot start (a port in use) stops the loop the way a
-          // signal does, or the Node timers would keep the process alive.
-          if (stopped) return;
-          stopped = true;
-          stopJobs();
-          try {
-            await stopFarming();
-          } catch (teardownError) {
-            logger.error(errorMessage(teardownError), "run");
-          }
-          rejectLoop(error);
-          return;
-        }
-        // A stop during startup closes the host itself, after waiting for it.
+      let started: FarmingHost | undefined;
+      try {
+        // Record the promise before running host code, with signal handlers
+        // already installed while the sidecar loads.
+        startingHost = restoreDiagnostics().then((history) => {
+          if (!stopped) return options.startHost?.(controller, history);
+        });
+        started = await startingHost;
+      } catch (error) {
         if (stopped) return;
+        stopped = true;
+        stopJobs();
+        try {
+          await stopFarming();
+        } catch (teardownError) {
+          logger.error(errorMessage(teardownError), "run");
+        }
+        rejectLoop(error);
+        return;
+      }
+      // A stop during startup closes the host itself, after waiting for it.
+      if (stopped) return;
+      if (started) {
         host = started;
         // Give a pending pipe EOF a chance to arrive before announcing ready.
         // Two turns allow a full I/O poll. Later EOF still shuts down normally.

@@ -596,11 +596,12 @@ last saved scheduler state, and up to 500 recent engine diagnostics from the
 saved sidecar. The report identifies its source and includes the sidecar's last
 write time when available. The loop keeps diagnostics across restarts regardless
 of `--log`. It writes a private atomic snapshot beside the state file
-(`state.json.diagnostics.json` by default) when a diagnostic batch arrives at
-least five seconds after the previous write. Clean shutdown flushes pending
-diagnostics. Missing or
-unreadable history yields a report with no events. A disk write failure leaves
-the in-memory history available to `serve`. Run one farming process per state file.
+(`state.json.diagnostics.json` by default) at most once every five seconds
+during farming. It publishes pending rows when the interval ends, even if
+no new diagnostics arrive. Clean shutdown flushes any remaining rows.
+Missing or unreadable history yields a report with no events. A disk write
+failure leaves the in-memory history available to `serve` and is retried.
+Run one farming process per state file.
 
 The report includes Lurkloot and runtime versions, selected farming settings,
 auth health codes, session status and recent English diagnostic lines for both
