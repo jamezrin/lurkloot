@@ -67,7 +67,7 @@ describe("persistent Kick challenge without a page fallback", () => {
       vi.advanceTimersByTime(TICK_MS);
     }
 
-    expect([...statuses]).toEqual(["unavailable/waf_challenge"]);
+    expect([...statuses]).toEqual(["unavailable/request_challenged"]);
     expect(env.state.sessions.kick).toMatchObject({
       status: "error",
       retryAfter: expect.any(String),
@@ -86,7 +86,7 @@ describe("persistent Kick challenge without a page fallback", () => {
       );
     expect(authChanges).toHaveLength(1);
     expect(authChanges[0]).toMatchObject({
-      data: { to: "unavailable", reason: "waf_challenge" },
+      data: { to: "unavailable", reason: "request_challenged" },
     });
   });
 

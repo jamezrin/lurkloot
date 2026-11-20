@@ -1821,7 +1821,7 @@ export async function* decidePlatformTick(
     }
 
     const health = tick.state.authHealth[platform];
-    const authChallenge = health.reasonCode === "waf_challenge";
+    const authChallenge = health.reasonCode === "request_challenged";
     // A probe skipped during backoff can still be the last observed health
     // if the retry deadline passed while this tick was being prepared.
     const inBackoff =

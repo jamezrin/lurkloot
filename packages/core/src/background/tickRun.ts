@@ -172,7 +172,7 @@ export function createTickRun<S extends EngineSettings>(
     for (const platform of change.platforms) {
       const { authHealth, sessions } = change.state;
       const session = sessions[platform];
-      if (authHealth[platform].reasonCode === "waf_challenge" && session.status === "error") {
+      if (authHealth[platform].reasonCode === "request_challenged" && session.status === "error") {
         authProbeRetryAt[platform] = Date.parse(session.retryAfter ?? "");
       } else {
         delete authProbeRetryAt[platform];

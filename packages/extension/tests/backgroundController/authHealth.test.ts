@@ -45,7 +45,7 @@ describe("background controller", () => {
     await tick();
     expect(env.state.authHealth.kick).toMatchObject({
       status: "unavailable",
-      reasonCode: "waf_challenge",
+      reasonCode: "request_challenged",
     });
     expect(env.state.sessions.kick).toMatchObject({
       status: "error",
@@ -138,7 +138,7 @@ describe("background controller", () => {
     expect(executeScript).not.toHaveBeenCalled();
     expect(env.state.authHealth.kick).toMatchObject({
       status: "unavailable",
-      reasonCode: "waf_challenge",
+      reasonCode: "request_challenged",
     });
 
     query.mockResolvedValue([{ id: 7, url: origin }]);
@@ -147,7 +147,7 @@ describe("background controller", () => {
     expect(executeScript).toHaveBeenCalledTimes(2);
     expect(env.state.authHealth.kick).toMatchObject({
       status: "unavailable",
-      reasonCode: "waf_challenge",
+      reasonCode: "request_challenged",
     });
     expect(JSON.stringify(env.reportEvents.mock.calls)).not.toContain("private-body");
 

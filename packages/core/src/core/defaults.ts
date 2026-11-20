@@ -29,7 +29,7 @@ const AUTH_REASONS: Record<PlatformAuthStatus, readonly PlatformAuthReasonCode[]
   unavailable: [
     "credential_lookup_failed",
     "platform_unavailable",
-    "waf_challenge",
+    "request_challenged",
     "network_unavailable",
   ],
 };
@@ -49,7 +49,7 @@ const AUTH_MESSAGE_KEYS: Record<
   security_policy_blocked: "authSecurityPolicyBlocked",
   credential_lookup_failed: "authCredentialLookupFailed",
   platform_unavailable: "authPlatformUnavailable",
-  waf_challenge: "authPlatformUnavailable",
+  request_challenged: "authPlatformUnavailable",
   network_unavailable: "authNetworkUnavailable",
 };
 

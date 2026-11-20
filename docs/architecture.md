@@ -1283,7 +1283,7 @@ to `authentication_rejected`, as does an empty 401 or 403. A JSON security-polic
 existing classification and safe reference.
 
 When the identity probe receives an HTTP challenge it reports unavailable
-(`waf_challenge`). The scheduler records a platform error and applies the usual
+(`request_challenged`). The scheduler records a platform error and applies the usual
 exponential backoff. Scheduled ticks use the deadline from committed state
 to defer the identity request until the retry is due. The first probe on a
 fresh controller rechecks immediately. The next successful probe lets

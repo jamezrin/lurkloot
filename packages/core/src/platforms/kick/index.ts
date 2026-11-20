@@ -456,7 +456,7 @@ export class KickAdapter implements PlatformAdapter {
         return {
           status: "unavailable",
           checkedAt,
-          reasonCode: "waf_challenge",
+          reasonCode: "request_challenged",
           message: { key: "authPlatformUnavailable" },
         };
       }

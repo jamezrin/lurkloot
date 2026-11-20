@@ -61,12 +61,12 @@ describe("CLI http transport Kick failure classification", () => {
     [
       "an HTML 401 challenge as an unavailable platform",
       cloudflareChallenge(401),
-      { status: "unavailable", reasonCode: "waf_challenge" },
+      { status: "unavailable", reasonCode: "request_challenged" },
     ],
     [
       "an HTML 403 challenge as an unavailable platform",
       cloudflareChallenge(403),
-      { status: "unavailable", reasonCode: "waf_challenge" },
+      { status: "unavailable", reasonCode: "request_challenged" },
     ],
     [
       "a JSON 403 as rejected credentials",
