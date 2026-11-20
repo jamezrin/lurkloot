@@ -41,8 +41,9 @@ An archive unpacks to one folder:
   dependencies in `node_modules/`, and its Go helper as `cycletls`
   (`cycletls.exe`). It is not compiled into `lurkloot`: the CLI loads it from
   this folder, as the Docker image loads it from `node_modules`. Keep the
-  folder next to `lurkloot`. With the default `impersonate` transport, `run`,
-  `serve` and `discover` stop with an error naming the folder if it is missing.
+  folder next to `lurkloot`. If it is missing, `run`, `serve` and `discover`
+  with the default `impersonate` transport, and `auth kick device-login` with
+  any transport, stop with an error naming the folder.
 - `app/`: the app `lurkloot serve` serves at `/`.
 - `LICENSE` and `NOTICE`. The NOTICE lists the third-party software in the
   archive, with its licenses.
