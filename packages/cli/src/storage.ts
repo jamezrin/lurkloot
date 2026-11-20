@@ -32,12 +32,13 @@ export async function writeJsonAtomically(
   path: string,
   value: unknown,
   mode?: number,
+  indent = 2,
 ): Promise<void> {
   const directory = dirname(path);
   await mkdir(directory, { recursive: true });
   const temporary = join(directory, `.${basename(path)}.${randomUUID()}.tmp`);
   try {
-    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode, flag: "wx" });
+    await writeFile(temporary, `${JSON.stringify(value, null, indent)}\n`, { mode, flag: "wx" });
     await rename(temporary, path);
   } catch (error) {
     await rm(temporary, { force: true });

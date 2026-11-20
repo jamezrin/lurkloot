@@ -16,7 +16,7 @@ export type DiagnosticRecord = Pick<
 export type DiagnosticSecrets = readonly (string | undefined)[];
 
 const SENSITIVE_TEXT =
-  /\b(?:authorization|(?:set[-_ ]?)?cookie|kp[_-]uidz[-_]ssn|client[-_ ]integrity)\b|\b(?:(?:bearer|oauth)\s+\S+|(?:[\w-]*(?:token|cookie)|password|secret)["']?\s*[:=])|\b[a-z][a-z\d+.-]*:\/\/[^\s"'<>]*(?:[@?#][^\s"'<>]*)/i;
+  /\b(?:authorization|(?:set[-_ ]?)?cookie|kp[_-]uidz[-_]ssn|client[-_ ]integrity)\b|\b(?:(?:bearer|oauth|auth-token)\s+\S+|pass\s+oauth:\s*\S+|(?:[\w-]*(?:token|cookie)|password|secret)["']?\s*[:=])|\bv4\.local\.[\w-]+|\b[a-z][a-z\d+.-]*:\/\/[^\s"'<>]*(?:[@?#][^\s"'<>]*)/i;
 const JWT = /\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/;
 const REDACTED = "[redacted]";
 const MESSAGE_LIMIT = 1024;
@@ -81,6 +81,7 @@ export interface DiagnosticsExportInput {
   locale: string;
   at: string;
   coverage?: "full" | "recent";
+  history?: { source: "live buffer" } | { source: "saved sidecar"; savedAt?: string };
   snapshot?: RuntimeSnapshot<EngineSettings> | null;
   secrets?: DiagnosticSecrets;
 }
@@ -111,6 +112,10 @@ export function buildDiagnosticsExport(input: DiagnosticsExportInput): {
         [input.environment.label, input.environment.value],
         ["events", events.length],
         ...(input.coverage ? [["coverage", input.coverage] as const] : []),
+        ...(input.history ? [["diagnostic source", input.history.source] as const] : []),
+        ...(input.history?.source === "saved sidecar"
+          ? [["sidecar written at", input.history.savedAt] as const]
+          : []),
       ] as const
     ).map(field),
   ].join("\n");

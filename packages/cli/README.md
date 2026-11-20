@@ -574,27 +574,33 @@ immediate non-interactive refresh is needed.
 
 ## Diagnostics export
 
-Run this after reproducing a problem with `run` or `serve`:
+After reproducing a problem with `run` or `serve`, export from the same working
+directory or pass absolute paths. Use the same `--config` and, if set,
+`--state` as the farming process. The paths below are examples:
 
 ```sh
-lurkloot diagnostics export --out diagnostics.log
-# For a container named lurkloot, save the report on the host:
-docker exec lurkloot node /app/dist/index.mjs diagnostics export --config /data/config.json > diagnostics.log
+lurkloot diagnostics export --config /path/to/config.json --state /path/to/state.json --out diagnostics.log
+# Save the Compose service's report on the host:
+docker compose exec -T lurkloot node /app/dist/index.mjs diagnostics export --config /data/config.json > diagnostics.log
 ```
 
-Attach the resulting text file to your bug report. Omit `--out` (or pass
-`--out -`) for stdout. A file specified with `--out` must be new. Use
-the same `--config` and, if set, `--state` as the farming process. For Compose,
-use `docker compose exec -T lurkloot` in place of `docker exec lurkloot`.
+Append the matching `--state` path to the command before `>` if the container
+uses a custom state file. For Docker without Compose, replace
+`docker compose exec -T lurkloot` with `docker exec <container>`.
+
+Attach the resulting text file under **Additional context** in your bug report.
+Omit `--out` (or pass `--out -`) for stdout. A file specified with `--out` must be new.
 
 The command works while farming or after shutdown. It reads the local config,
 last saved scheduler state, and up to 500 recent engine diagnostics from the
-current or last process. Each process starts a fresh history and replaces the
-previous snapshot on its first diagnostic batch. The loop keeps these
-records regardless of `--log` and writes a private atomic snapshot beside the
-state file (`state.json.diagnostics.json` by default). Missing or unreadable
-history yields a report with no events. A disk write failure leaves the
-in-memory history available to `serve`. Run one farming process per state file.
+saved sidecar. The report identifies its source and includes the sidecar's last
+write time when available. The loop keeps diagnostics across restarts regardless
+of `--log`. It writes a private atomic snapshot beside the state file
+(`state.json.diagnostics.json` by default) when a diagnostic batch arrives at
+least five seconds after the previous write. Clean shutdown flushes pending
+diagnostics. Missing or
+unreadable history yields a report with no events. A disk write failure leaves
+the in-memory history available to `serve`. Run one farming process per state file.
 
 The report includes Lurkloot and runtime versions, selected farming settings,
 auth health codes, session status and recent English diagnostic lines for both

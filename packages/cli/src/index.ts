@@ -192,20 +192,32 @@ const diagnosticsCommand: CommandModule = {
         handler: async (argv) => {
           const config = configOf(argv, loggerOf(argv));
           const path = statePath(argv.state, config);
-          const [state, events] = await Promise.all([loadState(path), loadDiagnostics(path)]);
           const secrets = [
-            process.env[SERVE_TOKEN_ENV],
+            process.env[SERVE_TOKEN_ENV]?.trim(),
             ...diagnosticCredentialValues(loadCredentials(config.authDir)),
           ];
+          const [state, { events, savedAt }] = await Promise.all([
+            loadState(path),
+            loadDiagnostics(path, secrets),
+          ]);
           const { report } = exportCliDiagnostics({
             snapshot: { state, settings: toEngineSettings(config.settings) },
             events,
             secrets,
+            history: { source: "saved sidecar", savedAt },
           });
           if (argv.out === "-") {
             process.stdout.write(report);
           } else {
-            await writeFile(resolve(argv.out), report, { flag: "wx", mode: 0o600 });
+            try {
+              await writeFile(resolve(argv.out), report, { flag: "wx", mode: 0o600 });
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+              process.stderr.write(
+                "Diagnostics output file already exists. Choose a new --out path.\n",
+              );
+              process.exitCode = 1;
+            }
           }
         },
       })
@@ -293,7 +305,10 @@ const runCommand: CommandModule = {
       transport: handle,
       logger,
       once: Boolean(argv.once),
-      diagnosticSecrets: () => [process.env[SERVE_TOKEN_ENV], ...diagnosticCredentialValues(creds)],
+      diagnosticSecrets: () => [
+        process.env[SERVE_TOKEN_ENV]?.trim(),
+        ...diagnosticCredentialValues(creds),
+      ],
       checkCredentialAvailability: async (platform) =>
         runCredentialAvailability(config.authDir, platform),
     });

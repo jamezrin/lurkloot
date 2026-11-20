@@ -65,7 +65,7 @@ export interface RunOptions {
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
   startHost?: (
     controller: FarmingController,
-    diagnostics: Pick<ReturnType<typeof createDiagnosticsHistory>, "recent">,
+    diagnostics: Pick<Awaited<ReturnType<typeof createDiagnosticsHistory>>, "recent">,
   ) => Promise<FarmingHost>;
   diagnosticSecrets?: () => DiagnosticSecrets;
   // Aborting it stops the loop through the same shutdown as SIGINT/SIGTERM.
@@ -99,7 +99,7 @@ export function createSubscriptionWaitReporter(logger: Logger): (state: Schedule
 // SIGINT/SIGTERM, disposing the transport.
 export async function runLoop(options: RunOptions): Promise<void> {
   const { settings, statePath, transport, logger } = options;
-  const diagnostics = createDiagnosticsHistory(statePath, logger, options.diagnosticSecrets);
+  const diagnostics = await createDiagnosticsHistory(statePath, logger, options.diagnosticSecrets);
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);

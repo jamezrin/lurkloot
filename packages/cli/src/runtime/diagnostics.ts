@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import { open } from "node:fs/promises";
 import {
   buildDiagnosticsExport,
@@ -5,6 +6,7 @@ import {
   toDiagnosticRecord,
   type DiagnosticRecord,
   type DiagnosticSecrets,
+  type DiagnosticsExportInput,
 } from "@lurkloot/shared/diagnostics";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -15,7 +17,8 @@ import { writeJsonAtomically } from "../storage";
 import { CLI_VERSION } from "../version";
 
 export const DIAGNOSTICS_LIMIT = 500;
-// Room for JSON escaping, indentation and metadata at the record limit.
+export const DIAGNOSTICS_WRITE_INTERVAL_MS = 5_000;
+// Room for JSON escaping and for older, indented snapshots.
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
 export function diagnosticsPath(statePath: string): string {
@@ -23,26 +26,38 @@ export function diagnosticsPath(statePath: string): string {
 }
 
 export function diagnosticCredentialValues(credentials: PlatformCredentials): DiagnosticSecrets {
-  return [
+  const kickToken = credentials.kick?.sessionToken;
+  const values = [
     credentials.twitch?.authToken,
     credentials.twitch?.deviceId,
     credentials.twitch?.clientId,
     credentials.twitch?.kasadaSessionCookie,
-    credentials.kick?.sessionToken,
+    kickToken,
   ];
+  if (kickToken) {
+    try {
+      const decoded = decodeURIComponent(kickToken);
+      if (decoded !== kickToken) values.push(decoded);
+    } catch {
+      // Malformed encoding has no wire form. Keep the stored value redacted.
+    }
+  }
+  return values;
 }
 
-// Only one write runs at a time. Appends during a write are coalesced into the
-// next snapshot of the ring, with no per-batch work queued behind a slow disk.
-export function createDiagnosticsHistory(
+// Appends update the live ring immediately. A batch can publish a snapshot
+// once the write interval has elapsed. Shutdown flushes any remaining rows.
+export async function createDiagnosticsHistory(
   statePath: string,
   logger: Logger,
   getSecrets?: () => DiagnosticSecrets,
 ) {
-  const ring: DiagnosticRecord[] = [];
-  let sequence = 0;
+  const { events } = await loadDiagnostics(statePath, getSecrets?.());
+  const ring = events.reverse().map((event, index) => ({ ...event, id: String(index + 1) }));
+  let sequence = ring.length;
   let dirty = false;
   let writing: Promise<void> | undefined;
+  let nextWriteAt = 0;
   let warned = false;
   let closed = false;
 
@@ -54,17 +69,23 @@ export function createDiagnosticsHistory(
   }
 
   async function persist(): Promise<void> {
-    while (dirty) {
-      dirty = false;
-      try {
-        await writeJsonAtomically(diagnosticsPath(statePath), recent(), 0o600);
-        warned = false;
-      } catch {
-        if (!warned) logger.warn("Could not save recent diagnostics", "diagnostics");
-        warned = true;
-      }
+    dirty = false;
+    nextWriteAt = performance.now() + DIAGNOSTICS_WRITE_INTERVAL_MS;
+    try {
+      await writeJsonAtomically(diagnosticsPath(statePath), recent(), 0o600, 0);
+      warned = false;
+    } catch {
+      if (!warned) logger.warn("Could not save recent diagnostics", "diagnostics");
+      warned = true;
     }
-    writing = undefined;
+  }
+
+  function scheduleWrite(): void {
+    if (!dirty || closed || writing || performance.now() < nextWriteAt) return;
+    writing = persist().finally(() => {
+      writing = undefined;
+      scheduleWrite();
+    });
   }
 
   function append(events: readonly EngineEvent[]): void {
@@ -88,33 +109,44 @@ export function createDiagnosticsHistory(
       sequence += 1;
       dirty = true;
     }
-    if (dirty && !writing) writing = persist();
+    scheduleWrite();
   }
 
-  function close() {
+  async function close(): Promise<void> {
     closed = true;
-    return writing;
+    await writing;
+    if (dirty) {
+      writing = persist();
+      await writing;
+    }
   }
 
-  return { append, recent, flush: () => writing, close };
+  return { append, recent, close };
 }
 
 // The writer replaces the file atomically, so the fd refers to one snapshot
 // even if the running process publishes an update while this command reads.
-export async function loadDiagnostics(statePath: string): Promise<DiagnosticRecord[]> {
+export async function loadDiagnostics(
+  statePath: string,
+  secrets?: DiagnosticSecrets,
+): Promise<{ events: DiagnosticRecord[]; savedAt?: string }> {
   try {
-    const file = await open(diagnosticsPath(statePath), "r");
+    const file = await open(diagnosticsPath(statePath), constants.O_RDONLY | constants.O_NONBLOCK);
     try {
       const stat = await file.stat();
-      if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return [];
+      if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return { events: [] };
       const raw: unknown = JSON.parse(await file.readFile("utf8"));
-      return Array.isArray(raw) ? selectDiagnosticRecords(raw.slice(0, DIAGNOSTICS_LIMIT)) : [];
+      if (!Array.isArray(raw)) return { events: [] };
+      return {
+        events: selectDiagnosticRecords(raw.slice(0, DIAGNOSTICS_LIMIT), undefined, secrets),
+        savedAt: stat.mtime.toISOString(),
+      };
     } finally {
       await file.close();
     }
   } catch {
     // Missing, unreadable or corrupt history still permits a state report.
-    return [];
+    return { events: [] };
   }
 }
 
@@ -123,6 +155,7 @@ export function exportCliDiagnostics(input: {
   events: readonly DiagnosticRecord[];
   platform?: Platform;
   secrets?: DiagnosticSecrets;
+  history: NonNullable<DiagnosticsExportInput["history"]>;
 }): ReturnType<typeof buildDiagnosticsExport> {
   return buildDiagnosticsExport({
     ...input,

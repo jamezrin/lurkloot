@@ -1692,22 +1692,28 @@ The CLI has no activity store. Its output is already English, so it logs mirrore
 `@lurkloot/shared/diagnostics` builds the text report for the extension download and both
 CLI export paths. It reuses the critical-failure report's named settings and health fields,
 selects diagnostic rows, and redacts credential-shaped text and (when supplied by the CLI)
-known secret values. Reports carry session status and start time, without raw session
+known secret values, including the encoded and wire forms of Kick session tokens.
+Reports carry session status and start time, without raw session
 objects, auth payloads, user lists or event metadata. The extension's activity message
 handler projects the IndexedDB rows before returning them, and the popup supplies the
 environment and snapshot for the file.
 
 The CLI reporter also sends diagnostics to the host-owned ring in `runtime/diagnostics.ts`
 before stderr filtering. It projects and redacts rows before retention, caps the ring at
-500 entries and caps the length of each message. One writer serializes and coalesces atomic
-snapshots beside the chosen state file, outside the controller's locks and without awaiting
-disk writes at the reporter boundary. A failed snapshot leaves the previous file intact
-and does not affect farming. Clean shutdown drains pending writes.
+500 entries and caps the length of each message. Startup restores that bounded history
+from the sidecar after reapplying current redaction. One writer coalesces compact atomic
+snapshots beside the chosen state file. Incoming batches trigger writes at least five
+seconds apart during farming.
+Writes run outside the controller's locks and the reporter does not wait for them. A failed
+snapshot leaves the previous file intact and does not affect farming. Clean shutdown
+flushes pending rows.
 
 The `serve` host answers `exportDiagnostics` with the live ring and the controller's snapshot,
 under the same HTTP authorization as other messages. The standalone command reads the
 redacted sidecar plus the existing config and persisted state, including when no server
-is running. There is no added engine message or state writer. CLI diagnostics tests guard
+is running. Both reports label their diagnostic source, and the standalone report uses the
+sidecar modification time from the same file handle as the rows. There is no added engine
+message or state writer. CLI diagnostics tests guard
 the ring, file bounds, and redaction. The serve tests exercise export dispatch and access
 control over HTTP.
 

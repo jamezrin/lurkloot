@@ -134,6 +134,7 @@ export async function startControllerControlPlane(
             events: options.recentDiagnostics?.() ?? [],
             platform: message.platform,
             secrets: options.diagnosticSecrets?.(),
+            history: { source: "live buffer" },
           });
         }
         return controller.handleMessage(message);
