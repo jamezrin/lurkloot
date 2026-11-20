@@ -92,6 +92,7 @@ export function createTickRun<S extends EngineSettings>(
     | "stateRevision"
     | "tickInBackground"
     | "twitchChannelPointsPushEpoch"
+    | "twitchChannelPointsPushAvailable"
     | "waitingClaimRewardIds"
     | "withEventCollector"
     | "withStateLock"
@@ -139,6 +140,7 @@ export function createTickRun<S extends EngineSettings>(
     stateRevision,
     tickInBackground,
     twitchChannelPointsPushEpoch,
+    twitchChannelPointsPushAvailable,
     waitingClaimRewardIds,
     withEventCollector,
     withStateLock,
@@ -548,7 +550,11 @@ export function createTickRun<S extends EngineSettings>(
               capabilities: Object.fromEntries(
                 schedulerPlatforms.map((schedulerPlatform) => [
                   schedulerPlatform,
-                  tickCapabilities(adapters[schedulerPlatform], ports.capabilities.browserTabs),
+                  tickCapabilities(
+                    adapters[schedulerPlatform],
+                    ports.capabilities.browserTabs,
+                    twitchChannelPointsPushAvailable(adapters[schedulerPlatform]),
+                  ),
                 ]),
               ),
             },

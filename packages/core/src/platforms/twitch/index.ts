@@ -188,6 +188,13 @@ export interface TwitchAdapterOptions {
   // Without it there is no push controller: claims poll, watch streaks read as
   // unavailable and no stream-down push arrives.
   webSocketFactory?: WebSocketFactory;
+  // The CLI pins the push connection to one credential revision and opts into
+  // longer recovery probes while that connection is unavailable.
+  channelPointsPush?: {
+    revision: symbol;
+    getAuthToken: () => Promise<string | undefined>;
+    extendedReconnectBackoff?: boolean;
+  };
   // Factory for the IRC chat presence socket alone, for a host that joins chat
   // without Hermes (the CLI). Defaults to webSocketFactory.
   chatWebSocketFactory?: WebSocketFactory;
@@ -1260,6 +1267,7 @@ export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
   readonly knownChannelLimit = FOLLOWED_CHANNELS_LIMIT;
   readonly compatibility?: ResolvedCompatibility["twitch"];
+  readonly channelPointsPushRevision?: symbol;
   readonly createChannelPointsPushController?: () => TwitchChannelPointsPushController;
   readonly createChatPresenceClient?: () => ChatPresenceClient;
 
@@ -1345,12 +1353,15 @@ export class TwitchAdapter implements PlatformAdapter {
     const createWebSocket = options.webSocketFactory;
     const createChatWebSocket = options.chatWebSocketFactory ?? createWebSocket;
     const getAuthToken = options.getAuthToken;
-    if (createWebSocket && getAuthToken) {
+    const pushAuthToken = options.channelPointsPush?.getAuthToken ?? getAuthToken;
+    if (createWebSocket && pushAuthToken) {
+      this.channelPointsPushRevision = options.channelPointsPush?.revision;
       const discoveryState = this.discoveryState;
       this.createChannelPointsPushController = () =>
         new TwitchChannelPointsPushController({
           createWebSocket,
-          getAuthToken,
+          getAuthToken: pushAuthToken,
+          extendedReconnectBackoff: options.channelPointsPush?.extendedReconnectBackoff,
           resolveUserId: () => this.resolveViewerUserId(),
           clientId: this.options.clientId,
           observePlayback: (notice) => discoveryState.recordPlaybackNotice(notice),

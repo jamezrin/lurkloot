@@ -1,6 +1,6 @@
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import { DEFAULT_ENGINE_SETTINGS, watchStreakChannelsFor } from "@lurkloot/shared/settings";
+import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import WebSocket from "ws";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
@@ -102,25 +102,6 @@ export interface CliTransportDeps {
 const nodeWebSocketFactory: WebSocketFactory = (url) =>
   new WebSocket(url, { handshakeTimeout: 10_000 }) as unknown as WebSocketLike;
 
-// What a sign-in without Hermes loses, said once per process. Only when a
-// setting asks for push: the push claim with claiming on (both default on), or
-// a maintained watch streak.
-const TWITCH_NO_HERMES_WARNING =
-  "Twitch push (Hermes) is off for this sign-in, which is not a web session: "
-  + "platform.twitch.channelPointsPushClaim has no effect and channel points are claimed by polling, "
-  + "platform.twitch.watchlistStreakChannels are watched as ordinary Watchlist rows, "
-  + "and a stream that ends is noticed at the next check. "
-  + "A web sign-in imported with `auth import` uses it.";
-
-function settingsWantTwitchPush(settings: EngineSettings): boolean {
-  const twitch = settings.platform.twitch;
-  return (
-    twitch.enabled
-    && ((twitch.autoClaimChannelPoints && twitch.channelPointsPushClaim)
-      || watchStreakChannelsFor(settings, "twitch").length > 0)
-  );
-}
-
 export function createCliAdapters(
   creds: PlatformCredentials,
   deps: CliTransportDeps,
@@ -128,7 +109,9 @@ export function createCliAdapters(
   const kickClaimState = new KickClaimState();
   const kickDiscoveryState = new KickDiscoveryState();
   const twitchDiscoveryState = new TwitchDiscoveryState();
-  let warnedNoHermes = false;
+  let hermesRevision = Symbol();
+  let previousTwitchToken: string | undefined;
+  let previousTwitchClientId: string | undefined;
   const createAdapter = (
     platform: Platform,
     emit: EventEmitter | undefined,
@@ -142,22 +125,11 @@ export function createCliAdapters(
       identity.clientId === TWITCH_WEB_CLIENT_ID ? deps.twitchIntegrity : undefined;
     const twitchIdentity = identity.userAgent ? "android" : "web";
     const hermes = twitchIdentityUsesHermes(identity);
-    // The lazy `adapters` getter builds with no emitter; the warning waits
-    // for a build that can report it.
-    if (
-      platform === "twitch"
-      && !hermes
-      && emit
-      && !warnedNoHermes
-      && settingsWantTwitchPush(settings)
-    ) {
-      warnedNoHermes = true;
-      emit({
-        category: "diagnostic",
-        platform: "twitch",
-        level: "warn",
-        message: TWITCH_NO_HERMES_WARNING,
-      });
+    const twitchToken = creds.twitch?.authToken;
+    if (twitchToken !== previousTwitchToken || identity.clientId !== previousTwitchClientId) {
+      hermesRevision = Symbol();
+      previousTwitchToken = twitchToken;
+      previousTwitchClientId = identity.clientId;
     }
     const resolution = resolveCompatibility(settings.compatibility, {
       host: "cli",
@@ -182,6 +154,11 @@ export function createCliAdapters(
                     webSocketFactory:
                       deps.twitchHermesWebSocketFactory?.()
                       ?? createNodeTwitchHermesWebSocketFactory(),
+                    channelPointsPush: {
+                      revision: hermesRevision,
+                      getAuthToken: async () => twitchToken,
+                      extendedReconnectBackoff: true,
+                    },
                   }
                 : {}),
               // Chat keeps its own plain socket: it would otherwise default to

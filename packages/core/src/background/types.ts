@@ -416,8 +416,9 @@ export interface ControllerCalls<S extends EngineSettings> {
   stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void>;
   stopTwitchChannelPointsPushAndReport(): Promise<void>;
   rescheduleTwitchChannelPointsJob(): Promise<void>;
-  stopTwitchChannelPointsPushInBackground(): void;
+  stopTwitchChannelPointsPushInBackground(): Promise<void>;
   twitchChannelPointsPushEpoch(): number;
+  twitchChannelPointsPushAvailable(adapter: PlatformAdapter): boolean;
   registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
@@ -635,7 +636,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   reconcileStartup(): Promise<S>;
   handleStartup(): Promise<void>;
   snapshot(): Promise<RuntimeSnapshot<S>>;
-  shutdown(): void;
+  shutdown(): Promise<void>;
   prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void>;
 
   // messages.ts

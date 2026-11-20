@@ -647,8 +647,8 @@ For adapter-backed settings the guard uses the production transports and checks 
 Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus Kick on
 each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
 where it is missing. Narrow a row's cases when support lands for some combinations,
-and remove the row when all its cases gain support. For #1096, keep only Android and
-Smart TV in the Hermes row. The Kick chat gap applies to `kick/http` (#1099).
+and remove the row when all its cases gain support. The Hermes gap applies to Android and
+Smart TV sign-ins. The Kick chat gap applies to `kick/http` (#1099).
 The guard fails for unexpected gaps and stale exceptions. It also checks
 that changed values requesting a missing feature produce a warning.
 
@@ -1224,7 +1224,7 @@ The extension never presents its own `chrome-extension://` or `moz-extension://`
 Core asks a `WebSocketFactory` to open a URL. The CLI passes Node `ws` sockets,
 which set their headers directly:
 
-- **CLI Hermes (#1084).** `packages/cli/src/transport/twitchHermes.ts` builds the Twitch push socket for both CLI transports. It sets `Origin: https://www.twitch.tv` and no other header (no User-Agent, Referer, cookie or client hint), and it refuses any URL that is not `wss://hermes.twitch.tv`, so that Origin is never sent elsewhere. It registers an `error` listener, because a Node socket throws an `error` nobody hears (a refused handshake, or a close while still connecting) and the push controller listens only for messages and closes. Its `closeTimeout` is 2 s instead of `ws`'s 30 s, so a Hermes that never answers a close cannot hold `run --once` or a SIGTERM exit open. `twitchHermes.test.ts` checks the upgrade's headers against a local server and both failure paths.
+- **CLI Hermes (#1084).** `packages/cli/src/transport/twitchHermes.ts` builds the Twitch push socket for both CLI transports. It permits only `wss://hermes.twitch.tv` URLs without userinfo and sets only `Origin: https://www.twitch.tv`. An error listener absorbs Node's socket error before the close event. The adapter's socket close resolves on that event. The `ws` two-second close timeout destroys the connection if the peer stays silent. Controller shutdown awaits this close for one-shot runs, signals and stdin EOF. `twitchHermes.test.ts` checks the URL allow-list and upgrade headers. `runHermes.test.ts` drives shutdown against a local peer that ignores close.
 - **CLI Twitch chat IRC.** The CLI passes a plain `ws` socket as its own
   `chatWebSocketFactory`. IRC needs no Origin header.
 - **CLI Kick.** The chat socket uses the same realtime endpoint allow-list as the
@@ -1381,11 +1381,20 @@ claims to know the user's streak count.
   progress ends.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
-- **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's
-  push factory (`adapterOffers(adapter, "channelPointsPush")`). Without it (the CLI, until
-  #1084), maintained rows read as unavailable and are watched in their ordinary place, so the
-  toggle never takes a channel out of rotation, and the tick warns once that
-  `watchlistStreakChannels` and any changed `watchStreak*` tuning have no effect (#1090).
+- **Hermes availability.** The CLI offers the push factory for web sign-ins (#1084).
+  Android and Smart TV use claim polling and ordinary Watchlist ordering. The
+  tick's unsupported-settings reporter warns for changed settings only (#1090).
+  Each CLI adapter carries an opaque in-memory credential revision, stable
+  across builds for the same login. The observer slot revokes old callbacks
+  and drains the previous socket before replacing it on a revision change.
+  For CLI web sign-ins, the push controller reports itself unavailable after
+  three consecutive failures, warns once per observer, and retries after 5,
+  10, 20 and then 30 minutes. A confirmed points subscription clears the
+  suspension. The channel-points service reads availability from the observer
+  for the current revision, and the tick combines it with the adapter's factory
+  when deciding streak priority and accrual. This signal never writes auth
+  health. The extension uses its existing retry policy. `runHermes.test.ts`
+  exercises credential reload and several hours of timed refusal and recovery.
 
 ## Tabless Watch
 

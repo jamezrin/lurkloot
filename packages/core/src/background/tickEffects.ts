@@ -48,6 +48,7 @@ export function createTickEffectExecutor(): TickEffectExecutor {
 export function tickCapabilities(
   adapter: PlatformAdapter,
   watchTabs: boolean,
+  pointsPushAvailable = true,
 ): PlatformTickCapabilities {
   return {
     supportsTabless: Boolean(adapter.supportsTabless),
@@ -55,7 +56,7 @@ export function tickCapabilities(
     claimChallenges: adapterOffers(adapter, "claimChallenges"),
     claimChannelPoints: adapterOffers(adapter, "claimChannelPoints"),
     // A streak payout arrives only over the platform's push connection.
-    observeWatchStreaks: adapterOffers(adapter, "channelPointsPush"),
+    observeWatchStreaks: pointsPushAvailable && adapterOffers(adapter, "channelPointsPush"),
   };
 }
 

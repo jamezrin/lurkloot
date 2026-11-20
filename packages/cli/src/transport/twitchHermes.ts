@@ -19,7 +19,12 @@ export type HermesSocketOptions = ClientOptions & { closeTimeout: number };
 function isHermesUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "wss:" && parsed.hostname === HERMES_HOST;
+    return (
+      parsed.protocol === "wss:"
+      && parsed.hostname === HERMES_HOST
+      && parsed.username === ""
+      && parsed.password === ""
+    );
   } catch {
     return false;
   }
@@ -48,6 +53,22 @@ export function createNodeTwitchHermesWebSocketFactory(
     // only for messages and closes. A close always follows the error, and the
     // controller reconnects from that.
     socket.addEventListener("error", () => {});
-    return socket;
+    return {
+      get readyState() {
+        return socket.readyState;
+      },
+      send: (data) => socket.send(data),
+      addEventListener: (type, listener) => socket.addEventListener(type, listener),
+      close: async () => {
+        if (socket.readyState === WebSocket.CLOSED) return;
+        // ws destroys the connection at closeTimeout if the peer does not
+        // reply. Listen first so a synchronous close is covered too.
+        const closed = new Promise<void>((resolve) =>
+          socket.addEventListener("close", () => resolve()),
+        );
+        socket.close();
+        await closed;
+      },
+    };
   };
 }

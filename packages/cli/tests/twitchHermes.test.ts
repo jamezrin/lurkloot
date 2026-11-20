@@ -75,7 +75,7 @@ describe("Twitch Hermes WebSocket factory", () => {
     const createSocket = vi.fn(() => socket);
     const factory = createNodeTwitchHermesWebSocketFactory(createSocket);
 
-    expect(factory(HERMES_URL)).toBe(socket);
+    factory(HERMES_URL);
     expect(createSocket).toHaveBeenCalledOnce();
     const [url, options] = createSocket.mock.calls[0] as unknown as [
       string,
@@ -100,6 +100,8 @@ describe("Twitch Hermes WebSocket factory", () => {
     "wss://irc-ws.chat.twitch.tv/",
     "wss://hermes.twitch.tv.example.com/v1",
     "ws://hermes.twitch.tv/v1",
+    "wss://viewer@hermes.twitch.tv/v1",
+    "wss://:secret@hermes.twitch.tv/v1",
     "wss://pubsub-edge.twitch.tv/v1",
     "not a url",
   ])("opens no socket for %s", (url) => {

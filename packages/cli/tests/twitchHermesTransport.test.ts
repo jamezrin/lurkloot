@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { tickCapabilities } from "@lurkloot/core/background/tickEffects";
 import type { CycleTLSClient } from "cycletls";
-import type { EngineSettings } from "@lurkloot/shared/models";
-import type { EngineEvent } from "@lurkloot/shared/events";
-import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformCredentials } from "../src/authStore";
-import { createCliAdapters, type CliTransportDeps } from "../src/transport/common";
 import { createHttpTransport } from "../src/transport/http";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import { HERMES_CLOSE_TIMEOUT_MS } from "../src/transport/twitchHermes";
@@ -31,6 +27,7 @@ const created = vi.hoisted(
 
 vi.mock("ws", () => {
   class FakeWebSocket {
+    static readonly CLOSED = 3;
     readyState = 0;
     sent: string[] = [];
     closed = false;
@@ -50,6 +47,7 @@ vi.mock("ws", () => {
     close() {
       this.closed = true;
       this.readyState = 3;
+      for (const listener of this.listeners.get("close") ?? []) listener({});
     }
   }
   return { default: FakeWebSocket };
@@ -68,18 +66,6 @@ const SMART_TV: PlatformCredentials = {
 
 const HERMES_URL = `wss://hermes.twitch.tv/v1?clientId=${TWITCH_WEB_CLIENT_ID}`;
 
-function twitchSettings(
-  twitch: Partial<EngineSettings["platform"]["twitch"]> = {},
-): EngineSettings {
-  return {
-    ...DEFAULT_ENGINE_SETTINGS,
-    platform: {
-      ...DEFAULT_ENGINE_SETTINGS.platform,
-      twitch: { ...DEFAULT_ENGINE_SETTINGS.platform.twitch, enabled: true, ...twitch },
-    },
-  };
-}
-
 function stubCurrentUser(): void {
   vi.stubGlobal(
     "fetch",
@@ -97,29 +83,6 @@ function fakeCycleClient(): CycleTLSClient {
   const client = vi.fn(async () => ({ status: 200, data: {} })) as unknown as CycleTLSClient;
   (client as unknown as { exit: () => Promise<void> }).exit = vi.fn(async () => undefined);
   return client;
-}
-
-function adapterDeps(): CliTransportDeps {
-  return {
-    twitchFetcher: () => ({
-      fetchJson: async <T>() => ({ data: { currentUser: { id: "123", login: "viewer" } } }) as T,
-    }),
-    twitchHeartbeat: () => ({
-      heartbeatFetchText: async () => "",
-      heartbeatPost: async () => ({ status: 200 }),
-      heartbeatExchange: async () => ({ status: 200, body: "" }),
-    }),
-    kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
-  };
-}
-
-function hermesWarnings(events: EngineEvent[]): EngineEvent[] {
-  return events.filter(
-    (event) =>
-      event.category === "diagnostic"
-      && event.level === "warn"
-      && event.message.includes("Twitch push (Hermes) is off"),
-  );
 }
 
 afterEach(() => {
@@ -209,82 +172,5 @@ describe("CLI Twitch push (Hermes)", () => {
       await http.dispose();
       await impersonate.dispose();
     }
-  });
-
-  it.each([
-    ["Android", ANDROID],
-    ["Smart TV", SMART_TV],
-  ])("warns once that an %s sign-in keeps polling", (_name, creds) => {
-    const events: EngineEvent[] = [];
-    const built = createCliAdapters(creds, adapterDeps());
-    const settings = twitchSettings();
-    for (let build = 0; build < 3; build += 1) {
-      built.createAdapter("twitch", (event) => events.push(event), settings);
-      built.createAdapters((event) => events.push(event), settings);
-    }
-    const warnings = hermesWarnings(events);
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toMatchObject({ platform: "twitch", level: "warn" });
-  });
-
-  it("waits for a build that can report the warning", () => {
-    const events: EngineEvent[] = [];
-    const built = createCliAdapters(ANDROID, adapterDeps());
-    // The lazy getter builds with no emitter.
-    expect(built.adapters.twitch.createChannelPointsPushController).toBeUndefined();
-    built.createAdapter("twitch", (event) => events.push(event), twitchSettings());
-    expect(hermesWarnings(events)).toHaveLength(1);
-  });
-
-  it.each([
-    ["claiming is off", { autoClaimChannelPoints: false }],
-    ["the push claim is off", { channelPointsPushClaim: false }],
-    ["Twitch is disabled", { enabled: false }],
-  ])("says nothing when no setting asks for push (%s)", (_name, twitch) => {
-    const events: EngineEvent[] = [];
-    const built = createCliAdapters(ANDROID, adapterDeps());
-    built.createAdapter("twitch", (event) => events.push(event), twitchSettings(twitch));
-    expect(hermesWarnings(events)).toEqual([]);
-  });
-
-  it("warns for a maintained watch streak even with the push claim off", () => {
-    const events: EngineEvent[] = [];
-    const built = createCliAdapters(ANDROID, adapterDeps());
-    built.createAdapter(
-      "twitch",
-      (event) => events.push(event),
-      twitchSettings({
-        channelPointsPushClaim: false,
-        watchlistChannels: ["streaker"],
-        watchlistStreakChannels: ["streaker"],
-      }),
-    );
-    expect(hermesWarnings(events)).toHaveLength(1);
-  });
-
-  it("does not warn for a web sign-in", () => {
-    const events: EngineEvent[] = [];
-    const built = createCliAdapters(WEB, adapterDeps());
-    const { adapter } = built.createAdapter(
-      "twitch",
-      (event) => events.push(event),
-      twitchSettings(),
-    );
-    expect(adapter.createChannelPointsPushController).toBeDefined();
-    expect(hermesWarnings(events)).toEqual([]);
-  });
-
-  it("opens Hermes once a sign-in made while running replaces an Android one", () => {
-    const creds: PlatformCredentials = { twitch: { ...ANDROID.twitch! } };
-    const built = createCliAdapters(creds, adapterDeps());
-    expect(
-      built.createAdapter("twitch", () => {}, twitchSettings()).adapter
-        .createChannelPointsPushController,
-    ).toBeUndefined();
-    creds.twitch = { ...WEB.twitch! };
-    expect(
-      built.createAdapter("twitch", () => {}, twitchSettings()).adapter
-        .createChannelPointsPushController,
-    ).toBeDefined();
   });
 });
