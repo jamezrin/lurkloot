@@ -1712,29 +1712,30 @@ The CLI's output is already English, so it logs mirrored diagnostics at `debug` 
 
 The CLI reporter queues each batch for the activity store and sends the batch to the logger.
 Both `run` and `serve` use `packages/cli/src/activityStore.ts`. The default file is
-`activity.json` beside `state.json`. A custom state filename gets `.activity.json` appended
-to its full name. The store retains structured timeline events and session summaries.
+`state.json.activity.json` beside `state.json`. The store retains structured timeline
+events and session summaries.
 Both backends use the shared batch filter and stored event conversion. Stored timeline
-rows keep stable interruption reasons and omit raw exception details. HTTPS activity links
-keep their query parameters and anchors with embedded credentials removed. Activity follows the shared 30-day and 2,000-record limits. Session
+rows keep stable interruption reasons and details. The shared diagnostic redactor
+replaces credential-shaped detail text and caps details at 1,024 characters. HTTPS activity
+links keep their query parameters and anchors with embedded credentials removed. Activity
+follows the shared 30-day and 2,000-record limits. Session
 summaries keep open sessions and recent ended sessions within the 200-per-platform
 response limit.
 
 The CLI serializes in-memory mutations and writes compact snapshots through the same
 atomic file helper as `state.json`. Batches coalesce within a 30-second write interval.
 A failed write keeps the live history available. Both histories resolve sidecar paths through
-`stateSidecarPath` in `packages/cli/src/storage.ts`. It keeps the established default
-`activity.json` filename. The diagnostics sidecar always appends `.diagnostics.json` to the
-full state filename. Both use `readJsonSidecar` with a 4 MiB limit and the same atomic
-JSON writer. An unsupported
-activity file version leaves the disk snapshot intact and keeps new history in memory.
+`stateSidecarPath` in `packages/cli/src/storage.ts`, appending `.activity.json` or
+`.diagnostics.json` to the full state filename. Both use `readJsonSidecar` with a 4 MiB
+limit and the same atomic JSON writer. An unsupported activity file version leaves the
+disk snapshot intact and keeps new history in memory.
 The same store answers the three activity messages in `serve`. Clear joins the initial
 load and any previous write, then atomically saves an empty history before acknowledging
 the request. Clear fails if the disk snapshot uses an unsupported version.
 `activityStore.test.ts` exercises the shared limits, coalescing, sanitization and atomic
-clearing. `serveActivity.test.ts` covers restart, claims over HTTP, a claim that commits
-during signal shutdown, and both sidecars flushing on SIGTERM and stdin EOF when disposal
-fails.
+clearing. `serveActivity.test.ts` covers restart, claims over HTTP, a claim whose state
+write finishes after controller shutdown starts, and both sidecars flushing on SIGTERM
+and stdin EOF when disposal fails.
 
 ### Diagnostics export (#1089)
 

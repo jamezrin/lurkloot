@@ -695,8 +695,8 @@ describe("store boundaries", () => {
     }
     expect(readFileSync(configPath, "utf8")).toBe(before);
     expect(readdirSync(dir).sort()).toEqual([
-      "activity.json",
       "config.json",
+      "state.json.activity.json",
       "state.json.diagnostics.json",
     ]);
   });

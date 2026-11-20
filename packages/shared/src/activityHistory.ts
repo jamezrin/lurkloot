@@ -1,3 +1,4 @@
+import { redactDiagnosticText } from "./diagnostics";
 import type {
   ActivityEvent,
   ActivityHistoryRecord,
@@ -101,11 +102,20 @@ export function activityQueryMatcher(
     && (!normalizedQuery || event.message?.toLowerCase().includes(normalizedQuery) === true);
 }
 
-// Stored timelines keep stable interruption reasons. Raw exception details can
-// contain secrets and belong to diagnostics. Preserve public links, including
+// Stored timelines keep stable interruption reasons and redact exception
+// details with the same rules as diagnostics. Preserve public links, including
 // publisher query parameters and anchors, without embedded credentials.
 export function sanitizeStoredActivity<T extends ActivityEvent>(event: T): T {
-  if (event.code === "interruption") return { ...event, data: { reason: event.data.reason } };
+  if (event.code === "interruption") {
+    const { reason, detail } = event.data;
+    return {
+      ...event,
+      data: {
+        reason,
+        ...(typeof detail === "string" ? { detail: redactDiagnosticText(detail) } : {}),
+      },
+    };
+  }
   const data: Record<string, unknown> = { ...event.data };
   for (const key of [
     "campaignUrl",

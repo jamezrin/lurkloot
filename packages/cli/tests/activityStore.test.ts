@@ -87,7 +87,7 @@ function history(options: { now?: () => number } = {}) {
 describe("CLI activity history", () => {
   it("lives beside the state file", () => {
     expect(stateSidecarPath("/data/lurkloot/state.json", "activity")).toBe(
-      "/data/lurkloot/activity.json",
+      "/data/lurkloot/state.json.activity.json",
     );
     // Two --state files in one directory keep two histories.
     expect(stateSidecarPath("/data/lurkloot/alt.json", "activity")).toBe(
@@ -188,7 +188,13 @@ describe("CLI activity history", () => {
     }
   });
 
-  it("keeps interruption reasons but drops unstructured exception text", async () => {
+  it.each([
+    ["Upstream service unavailable", "Upstream service unavailable"],
+    ["request failed with OAuth private-token", "[redacted]"],
+    ["request failed with token=private-token", "[redacted]"],
+    ["request to https://user:password@example.test failed", "[redacted]"],
+    ["x".repeat(1_100), "x".repeat(1_024)],
+  ])("persists redacted, bounded interruption details", async (detail, expected) => {
     const store = history();
     await store.append([
       {
@@ -196,13 +202,14 @@ describe("CLI activity history", () => {
         code: "interruption",
         level: "error",
         platform: "twitch",
-        data: { reason: "platform_error", detail: "request failed with OAuth private-token" },
+        data: { reason: "platform_error", detail },
       },
     ]);
     await store.close();
     const { events } = await history().load({ category: "activity" });
-    expect(events[0]?.data).toEqual({ reason: "platform_error" });
-    expect(await readFile(path, "utf8")).not.toContain("private-token");
+    const data = { reason: "platform_error", detail: expected };
+    expect(events[0]?.data).toEqual(data);
+    expect(JSON.parse(await readFile(path, "utf8")).events[0]?.data).toEqual(data);
   });
 
   it("preserves publisher link parameters and removes URL credentials", async () => {

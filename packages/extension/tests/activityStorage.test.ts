@@ -95,6 +95,26 @@ describe("activity repository", () => {
     });
   });
 
+  it("keeps platform error details in activity and redacts credentials", async () => {
+    const interruption = (detail: string): EngineEvent => ({
+      category: "activity",
+      code: "interruption",
+      level: "error",
+      platform: "twitch",
+      data: { reason: "platform_error", detail },
+    });
+    await repository.append([
+      interruption("Upstream service unavailable"),
+      interruption("request failed with OAuth private-token"),
+    ]);
+
+    const { events } = await repository.load({ category: "activity" });
+    expect(events.map((event) => event.data)).toEqual([
+      { reason: "platform_error", detail: "[redacted]" },
+      { reason: "platform_error", detail: "Upstream service unavailable" },
+    ]);
+  });
+
   it("keeps activity when diagnostics exceed their independent cap", async () => {
     await repository.append([activityEvent("a")]);
     await repository.append(Array.from({ length: 2_001 }, (_, index) => diagnosticEvent(index)));
@@ -394,6 +414,7 @@ describe("activity repository", () => {
     expect(page.events.some((event) => event.platform === "kick")).toBe(false);
     expect(page.events.find((event) => event.platform == null)?.data).toEqual({
       reason: "runtime_restart",
+      detail: "raw exception details",
     });
   });
 

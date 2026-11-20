@@ -648,21 +648,23 @@ state file also removes any legacy embedded `events` field.
 
 `run` and `serve` also keep the activity the extension's Activity view shows
 (claims, farming starts and stops, interruptions, obtained rewards and each
-farming session's point and reward totals) in `activity.json`, beside
-`state.json` in the data directory. A custom state filename gets a sidecar
-with `.activity.json` appended to its full name. History keeps up to 2,000
+farming session's point and reward totals) in `state.json.activity.json`, beside
+`state.json` in the data directory. The CLI appends `.activity.json` to the
+full state filename, including when you set `--state`. History keeps up to 2,000
 events from the last 30 days and up to 200 session summaries per platform,
 including open sessions and ones that ended in the last 30 days.
-The app localizes the structured records. Activity snapshots omit diagnostic
-messages, raw interruption details and credentials embedded in HTTPS links.
-Publisher query parameters and anchors are preserved.
+The app localizes the structured records. Activity snapshots contain structured
+timeline events and session summaries. They keep interruption details up to
+1,024 characters and redact credential-shaped text. HTTPS activity links retain
+publisher query parameters and anchors, with embedded credentials removed.
 
 The CLI saves activity atomically and combines batches into at most one
-scheduled write every 30 seconds. On shutdown it gives in-flight farming jobs
-and background work up to five seconds to finish. SIGINT, SIGTERM and stdin EOF
-with `serve --exit-with-stdin` all drain state writes, dispose the transport
-and flush both histories. The app's Clear activity action saves the empty history before
-returning success.
+scheduled write every 30 seconds. On shutdown the CLI awaits controller and
+Twitch Extensions lane teardown, then gives in-flight farming jobs and background
+work up to five seconds to finish. SIGINT, SIGTERM and stdin EOF with
+`serve --exit-with-stdin` all settle state writes, dispose the transport and
+flush both histories. The app's Clear activity action saves the empty history
+before returning success.
 
 The CLI reads activity snapshots up to 4 MiB. If an activity file is unreadable
 or exceeds the limit, it logs a warning and starts with an empty history.

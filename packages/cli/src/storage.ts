@@ -21,11 +21,8 @@ export async function loadState(path: string): Promise<SchedulerState> {
   }
 }
 
-// Keep the default activity file name so existing histories still open.
+// Append the sidecar suffix to the full state path for both histories.
 export function stateSidecarPath(statePath: string, kind: "activity" | "diagnostics"): string {
-  if (kind === "activity" && basename(statePath) === "state.json") {
-    return join(dirname(statePath), "activity.json");
-  }
   return `${statePath}.${kind}.json`;
 }
 

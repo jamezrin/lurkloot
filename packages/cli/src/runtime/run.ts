@@ -70,8 +70,8 @@ export interface RunOptions {
     save(state: SchedulerState): Promise<void>;
   };
   settingsStore?: SettingsStore;
-  // Where reported activity is kept (#1088). Defaults to activity.json beside
-  // the default state file; `serve` passes the one its control plane answers from.
+  // Where reported activity is kept (#1088). Defaults to the state file's
+  // .activity.json sidecar. The loop passes the same history to the host.
   activityHistory?: CliActivityHistory;
   // Started once the controller exists, before startup reconciliation and the
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
@@ -247,10 +247,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
   // shutting down the controller and draining writes, then dispose the transport.
   const stopFarming = async () => {
     if (startupReconciliation) await startupReconciliation;
-    await controller.shutdown();
-    stopExtensionCommits();
-    await extensionLane.close();
     try {
+      await controller.shutdown();
+      stopExtensionCommits();
+      await extensionLane.close();
       // A job can report a successful claim after its state commit, even
       // after the controller aborts its tick. Keep the activity sink open
       // through that report, but do not wait indefinitely on an adapter.

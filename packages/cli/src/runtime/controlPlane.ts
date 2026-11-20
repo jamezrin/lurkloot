@@ -77,11 +77,6 @@ export type ControlPlaneActivityMessage = Extract<
   ControlPlaneMessage,
   { type: ActivityHistoryMessageType }
 >;
-export type ControlPlaneControllerMessage = Exclude<
-  ControlPlaneMessage,
-  { type: ActivityHistoryMessageType }
->;
-
 export function isActivityHistoryMessage(
   message: ControlPlaneMessage,
 ): message is ControlPlaneActivityMessage {

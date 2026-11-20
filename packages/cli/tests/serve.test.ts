@@ -10,7 +10,7 @@ import {
   type ActivityHistoryRepository,
   InvalidActivityCursorError,
 } from "@lurkloot/shared/activityHistory";
-import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
+import type { RuntimeMessage } from "@lurkloot/shared/messages";
 import type { EngineSettings } from "@lurkloot/shared/models";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import {

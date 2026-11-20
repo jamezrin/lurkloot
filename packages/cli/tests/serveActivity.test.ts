@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
+import { setImmediate } from "node:timers/promises";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { ActivityHistoryRecord, EventEmitter } from "@lurkloot/shared/events";
 import type { ActivityPage, ActivitySessionsPage } from "@lurkloot/shared/messages";
@@ -61,7 +62,7 @@ function claimableCampaign(): DropCampaign {
 
 // Twitch has one claimable reward and claims it; Kick idles. Every refresh
 // also reports a diagnostic that must stay out of the activity file.
-function claimingTransport(beforeClaim?: () => Promise<void>): TransportHandle {
+function claimingTransport(beforeClaim?: (signal?: AbortSignal) => Promise<void>): TransportHandle {
   const base = idleTransport();
   let claimed = false;
   let emit: EventEmitter | undefined;
@@ -73,8 +74,8 @@ function claimingTransport(beforeClaim?: () => Promise<void>): TransportHandle {
       if (claimed) campaign.rewards[0]!.status = "claimed";
       return [campaign];
     },
-    claimReward: async () => {
-      if (beforeClaim) await beforeClaim();
+    claimReward: async (_campaign, _reward, options) => {
+      if (beforeClaim) await beforeClaim(options?.signal);
       claimed = true;
       return true;
     },
@@ -176,7 +177,7 @@ describe("serve activity history", () => {
 
     // The diagnostic was logged and stays out of activity history.
     expect(logged).toContain(PLANTED_SECRET);
-    const onDisk = await readFile(join(dir, "activity.json"), "utf8");
+    const onDisk = await readFile(join(dir, "state.json.activity.json"), "utf8");
     expect(onDisk).toContain("reward_claimed");
     expect(onDisk).not.toContain('"diagnostic"');
     expect(onDisk).not.toContain(PLANTED_SECRET);
@@ -199,7 +200,7 @@ describe("serve activity history", () => {
     } finally {
       await second.stop();
     }
-    expect(JSON.parse(await readFile(join(dir, "activity.json"), "utf8"))).toEqual(
+    expect(JSON.parse(await readFile(join(dir, "state.json.activity.json"), "utf8"))).toEqual(
       expect.objectContaining({ events: [], sessions: [] }),
     );
   });
@@ -215,7 +216,7 @@ describe("serve activity history", () => {
       once: true,
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
-    const onDisk = JSON.parse(await readFile(join(dir, "activity.json"), "utf8")) as {
+    const onDisk = JSON.parse(await readFile(join(dir, "state.json.activity.json"), "utf8")) as {
       events: ActivityHistoryRecord[];
     };
     expect(onDisk.events.map((event) => event.code)).toContain("reward_claimed");
@@ -225,14 +226,18 @@ describe("serve activity history", () => {
   it("persists a claim that resolves after SIGTERM", async () => {
     dir = await mkdtemp(join(tmpdir(), "run-activity-signal-"));
     const statePath = join(dir, "state.json");
-    const { promise: claiming, resolve: claimStarted } = deferred<void>();
-    const { promise: pendingClaim, resolve: finishClaim } = deferred<void>();
     const { promise: committing, resolve: commitStarted } = deferred<void>();
     const { promise: pendingCommit, resolve: finishCommit } = deferred<void>();
-    const transport = claimingTransport(() => {
-      claimStarted();
-      return pendingClaim;
+    const { promise: aborted, resolve: claimAborted } = deferred<unknown>();
+    const transport = claimingTransport(async (signal) => {
+      if (!signal) throw new Error("Expected an abortable farming claim");
+      signal.addEventListener("abort", () => claimAborted(signal.reason), { once: true });
     });
+    const dispose = vi.fn(transport.dispose);
+    const { promise: reporting, resolve: reportStarted } = deferred<void>();
+    const { promise: pendingReport, resolve: finishReport } = deferred<void>();
+    const path = stateSidecarPath(statePath, "activity");
+    const history = createFileActivityHistory(path);
     const running = runLoop({
       settings: DEFAULT_CLI_SETTINGS,
       statePath,
@@ -246,24 +251,38 @@ describe("serve activity history", () => {
           await saveState(statePath, state);
         },
       },
-      // The control plane drains before controller.shutdown() aborts ticks.
-      startHost: async () => ({
-        close: async () => {
-          finishClaim();
-          await committing;
+      activityHistory: {
+        ...history,
+        append: async (events) => {
+          if (
+            events.some((event) => event.category === "activity" && event.code === "reward_claimed")
+          ) {
+            reportStarted();
+            await pendingReport;
+          }
+          await history.append(events);
         },
-      }),
-      transport,
+      },
+      transport: { ...transport, dispose },
       logger: quiet,
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
-    await claiming;
-    process.emit("SIGTERM");
-    await committing;
-    finishCommit();
-    await running;
+    try {
+      await committing;
+      process.emit("SIGTERM");
+      expect(await aborted).toEqual(new Error("Controller shutdown"));
+      finishCommit();
+      await reporting;
+      // The state write is complete, but the farming job still owes its report.
+      await setImmediate();
+      expect(dispose).not.toHaveBeenCalled();
+    } finally {
+      finishCommit();
+      finishReport();
+      await running;
+    }
 
-    const onDisk = await readFile(stateSidecarPath(statePath, "activity"), "utf8");
+    const onDisk = await readFile(path, "utf8");
     expect(onDisk).toContain("reward_claimed");
     expect(await readFile(statePath, "utf8")).toContain('"status": "claimed"');
   });

@@ -27,7 +27,7 @@ export interface PopupHostCapabilities {
    * preferences (the CLI app) can still keep the language on its own. */
   language: boolean;
   /** Keeps an activity history the popup can page through (the extension's
-   * IndexedDB, the CLI's activity.json). Guards the Activity log's fetches,
+   * IndexedDB, the CLI's activity sidecar). Guards the Activity log's fetches,
    * its sessions, clear and export; a host without it gets a summary of what
    * the snapshot carries instead. */
   activityHistory: boolean;
