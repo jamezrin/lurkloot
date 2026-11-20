@@ -1311,7 +1311,10 @@ the option the marker is a plain `http_error`.
   unavailable with no tab opening; this is the intended steady state.
 - A success for that host, from the page or from the service worker, clears the
   latch. The latch is in memory, so a restarted service worker starts over with
-  the normal fallback.
+  the normal fallback. That does not reopen tabs: the retained context is
+  persisted in `managedPageContextTabs` and rehydrated into the registry on
+  every tick, and the churn breaker is synced from persisted critical health.
+  After a restart a tab opens only when no usable context is open.
 
 `authHealth.test.ts` drives three hours of ticks for both cases, and
 `kickPageContextFallback.test.ts` covers the per-host latch.
