@@ -36,6 +36,7 @@ export declare function renderNotice(options: {
     dependencies?: BundledPackage[];
   };
   packages: BundledPackage[];
+  appLicenses: string;
 }): string;
 
 export declare function envWithoutNode(

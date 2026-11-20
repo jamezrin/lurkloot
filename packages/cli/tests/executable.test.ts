@@ -117,16 +117,34 @@ describe("executable build helpers", () => {
         dependencies: [{ name: "form-data", version: "4.0.6", license: "MIT", text: "fd license" }],
       },
       packages: [{ name: "ws", version: "8.22.1", license: "MIT", text: "ws license" }],
+      appLicenses: "## react - 19.2.7 (MIT)\n\nReact license text",
     });
     expect(notice).toContain("Lurkloot CLI 1.25.0");
     expect(notice).toContain("Node.js v24.11.1 runtime");
-    expect(notice).toContain("https://github.com/Danny-Dasilva/CycleTLS");
+    expect(notice).toContain(
+      "https://github.com/Danny-Dasilva/CycleTLS/tree/28f3d8b9a21470c35269fa24f3907626270ab1dc",
+    );
     expect(notice).toContain("  - ws 8.22.1 (MIT)");
     expect(notice).toContain("cycletls/ is the unmodified cycletls 2.0.5 npm package");
     expect(notice).toContain("it is not compiled in");
     expect(notice).toContain("  - form-data 4.0.6 (MIT)");
+    expect(notice).toContain("App UI (app/)");
+    expect(notice).toContain("React license text");
     for (const text of ["Node license text", "GPL text", "ws license", "fd license"])
       expect(notice).toContain(text);
+  });
+
+  it("rejects a cycletls version without a pinned source revision", () => {
+    expect(() =>
+      renderNotice({
+        version: "1.25.0",
+        nodeVersion: "v24.11.1",
+        nodeLicense: "Node license text",
+        cycleTls: { file: "cycletls", version: "2.0.6", license: "GPL text" },
+        packages: [],
+        appLicenses: "App licenses",
+      }),
+    ).toThrow(/cycletls 2\.0\.6.*pinned.*2\.0\.5/);
   });
 
   it("strip every directory holding node from the child's PATH", () => {

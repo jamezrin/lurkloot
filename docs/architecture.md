@@ -678,8 +678,11 @@ still contains cycletls code. The archive puts the cycletls package beside the e
 `cycletls/`, as the Docker image keeps it in `node_modules`: its unmodified `package.json`,
 `LICENSE` and `dist/index.js`, its runtime dependency closure flat in `cycletls/node_modules`, and
 the platform's Go binary as `cycletls`/`cycletls.exe`. Beside them go the app UI (`app/`),
-`LICENSE` and a generated `NOTICE`. The `dist/index.mjs` build and the Docker image are untouched:
-they import the real package.
+`LICENSE` and a generated `NOTICE`. The NOTICE links to CycleTLS's exact source commit and the
+build rejects an installed version that differs from the source pin. It also includes the app UI's
+license reports. Vite lists the bundled JavaScript packages and the app build adds the CSS and
+font licenses from the popup's styles. Both reports go with `dist/app`, including in Docker.
+The `dist/index.mjs` build and the Docker image still import the real CycleTLS package.
 
 What `node dist/index.mjs` finds beside the bundle or in `node_modules`, the executable finds
 beside itself. `packages/cli/src/runtime/standalone.ts` is the one place that decides this: it

@@ -19,6 +19,12 @@ const CYCLETLS_UPSTREAM = {
   "win32-x64": "index.exe",
 };
 
+// npm's gitHead for the distributed package, which has no matching upstream tag.
+const CYCLETLS_SOURCE = {
+  version: "2.0.5",
+  commit: "28f3d8b9a21470c35269fa24f3907626270ab1dc",
+};
+
 /** Maps a release target to the helper name in the upstream npm package. */
 export function cycleTlsUpstreamName(platform, arch) {
   const name = CYCLETLS_UPSTREAM[`${platform}-${arch}`];
@@ -105,7 +111,19 @@ export function dependencyClosure(dir, { resolve, read = (path) => readFileSync(
 }
 
 /** Lists the shipped third-party components and reproduces their license texts. */
-export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, packages }) {
+export function renderNotice({
+  version,
+  nodeVersion,
+  nodeLicense,
+  cycleTls,
+  packages,
+  appLicenses,
+}) {
+  if (cycleTls.version !== CYCLETLS_SOURCE.version) {
+    throw new Error(
+      `Installed cycletls ${cycleTls.version} differs from the pinned source for ${CYCLETLS_SOURCE.version}; update the source revision before packaging.`,
+    );
+  }
   const cycleTlsDependencies = cycleTls.dependencies ?? [];
   const lines = [
     `Lurkloot CLI ${version}`,
@@ -121,9 +139,8 @@ export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, pack
     "  General Public License v3.0 (cycletls/LICENSE, reproduced below): its JavaScript, and",
     `  its Go binary as cycletls/${cycleTls.file}, which runs as a separate process. The`,
     "  executable loads the JavaScript from that folder at run time; it is not compiled in.",
-    "  Its source code is at https://github.com/Danny-Dasilva/CycleTLS",
-    `  (version ${cycleTls.version}). cycletls/node_modules holds its runtime dependencies,`,
-    "  each with its own license file:",
+    `  Source for ${CYCLETLS_SOURCE.version}: https://github.com/Danny-Dasilva/CycleTLS/tree/${CYCLETLS_SOURCE.commit}`,
+    "  cycletls/node_modules holds its runtime dependencies, each with its own license file:",
     "",
   ];
   for (const pkg of cycleTlsDependencies)
@@ -134,6 +151,10 @@ export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, pack
     "",
   );
   for (const pkg of packages) lines.push(`  - ${pkg.name} ${pkg.version} (${pkg.license})`);
+  lines.push(
+    "",
+    "- The app UI's JavaScript, CSS and font licenses are listed in the App UI section below.",
+  );
   const section = (title, text) => {
     lines.push("", "=".repeat(78), title, "=".repeat(78), "", text.trimEnd());
   };
@@ -145,6 +166,7 @@ export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, pack
       pkg.text ?? `Licensed under ${pkg.license}; the package ships no license file.`,
     );
   }
+  section("App UI (app/)", appLicenses);
   return `${lines.join("\n")}\n`;
 }
 

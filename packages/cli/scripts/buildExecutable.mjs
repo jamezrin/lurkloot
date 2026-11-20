@@ -71,6 +71,9 @@ if (!existsSync(join(appDir, "index.html"))) {
   process.stderr.write(`No app UI in ${appDir}; run pnpm run build:app first\n`);
   process.exit(1);
 }
+const appLicenses = ["THIRD-PARTY-JS.md", "THIRD-PARTY-CSS.md"]
+  .map((file) => readFileSync(join(appDir, file), "utf8").trimEnd())
+  .join("\n\n");
 
 const work = join(packageRoot, "dist", "sea");
 const out = join(packageRoot, "dist", "executable", cliArchiveBase(version, target));
@@ -201,6 +204,7 @@ writeFileSync(
       dependencies: cycleTlsDependencies,
     },
     packages: bundledPackages(Object.keys(result.metafile.inputs), { root: packageRoot }),
+    appLicenses,
   }),
 );
 process.stdout.write(`Built ${relative(process.cwd(), out)}\n`);
