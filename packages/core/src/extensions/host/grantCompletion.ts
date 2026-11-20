@@ -2,7 +2,7 @@ import {
   twitchExtensionProviderOrigins,
   twitchExtensionProviders,
   twitchExtensionProvider,
-} from "@lurkloot/core/extensions/registry";
+} from "../registry";
 import type { TwitchExtensionProviderId } from "@lurkloot/shared/models";
 
 interface IntentStorage {

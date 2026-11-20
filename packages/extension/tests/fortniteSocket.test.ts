@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { connectFortniteSocket } from "../src/extensions/fortnite/socket";
+import { connectFortniteSocket } from "@lurkloot/core/extensions/fortnite/socket";
 import type { WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 class Socket {
   readyState = 1;

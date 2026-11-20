@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ connect: vi.fn() }));
-vi.mock("../src/extensions/fortnite/socket", () => ({ connectFortniteSocket: mock.connect }));
-import { createFortniteDriver } from "../src/extensions/fortnite/driver";
+vi.mock("@lurkloot/core/extensions/fortnite/socket", () => ({
+  connectFortniteSocket: mock.connect,
+}));
+import { createFortniteDriver } from "@lurkloot/core/extensions/fortnite/driver";
 const row = (type: string, state: unknown, key = type, version = 1) => ({
   type,
   key,

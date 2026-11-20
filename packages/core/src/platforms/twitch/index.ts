@@ -94,7 +94,7 @@ const CHANNEL_IDENTITIES_MAX = 100;
 
 // Twitch's web Client-ID — the default identity. It is the one Twitch gates
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
-const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+export const TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 // Deliberately wider than the default 1-minute poll cadence (plus the time
 // discovery consumes before selection even starts) so two selections roughly
 // 60s apart reuse the same entry instead of always missing at the boundary.

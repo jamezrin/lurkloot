@@ -64,7 +64,19 @@
     "./extensions/reports": "./src/extensions/reports.ts",
     "./extensions/nopixel/state": "./src/extensions/nopixel/state.ts",
     "./extensions/fortnite/state": "./src/extensions/fortnite/state.ts",
-    "./extensions/discovery": "./src/extensions/discovery.ts"
+    "./extensions/discovery": "./src/extensions/discovery.ts",
+    "./extensions/host": "./src/extensions/host/host.ts",
+    "./extensions/host/runtime": "./src/extensions/host/runtime.ts",
+    "./extensions/host/session": "./src/extensions/host/session.ts",
+    "./extensions/host/commitHook": "./src/extensions/host/commitHook.ts",
+    "./extensions/host/permissions": "./src/extensions/host/permissions.ts",
+    "./extensions/host/grantCompletion": "./src/extensions/host/grantCompletion.ts",
+    "./extensions/host/lifecycle": "./src/extensions/host/lifecycle.ts",
+    "./extensions/host/rewardEvents": "./src/extensions/host/rewardEvents.ts",
+    "./extensions/host/transport": "./src/extensions/host/transport.ts",
+    "./extensions/nopixel/driver": "./src/extensions/nopixel/driver.ts",
+    "./extensions/fortnite/driver": "./src/extensions/fortnite/driver.ts",
+    "./extensions/fortnite/socket": "./src/extensions/fortnite/socket.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -6,7 +6,7 @@ Audited implementation: `a6aacaf5`. Latest CI run [34751942993](https://github.c
 
 | Requirement | Current implementation evidence | Acceptance status |
 | --- | --- | --- |
-| Reusable browser-free foundation | `packages/core/src/extensions/`: descriptors, discovery, reducers and validated reports; `coreBoundary.test.ts` guards browser-free core. | Implemented and tested. |
+| Reusable browser-free host | `packages/core/src/extensions/` owns the host, drivers, descriptors, discovery, reducers and validated reports. The extension suite exercises core's public exports with injected ports. `coreBoundary.test.ts` guards WebExtension API access. | Implemented and tested. CLI wiring is tracked in #1087. |
 | Authorization without Twitch tabs or frames | `session.ts` uses selected-channel normal Twitch GQL authorization; session/runtime tests require no tab APIs. User popup probe confirmed active, authenticated, linked authorization for both providers. | Authenticated acquisition proven; vendor earning is separate. |
 | Privileged credential isolation | Session callbacks, driver cancellation and report allowlists; `twitchExtensionSession.test.ts`, `twitchExtensionReports.test.ts` and runtime credential-carrying report rejection. No persisted JWTs, vendor properties, pack IDs or cards. | Implemented and tested. |
 | Optional provider access and independent opt-ins | Gesture-time scoped backend grants; background revalidation, revocation and race tests; settings default providers, takeovers and pack opening off. | Implemented and tested; installed-browser lifecycle remains open. |

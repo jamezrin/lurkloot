@@ -1,4 +1,4 @@
-import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
+import type { WebSocketLike, WebSocketMessageEventLike } from "../../core/webSocket";
 
 type Socket = WebSocketLike & {
   removeEventListener?(
@@ -6,6 +6,8 @@ type Socket = WebSocketLike & {
     listener: (event: WebSocketMessageEventLike) => void,
   ): void;
 };
+export type FortniteSocketFactory = (url: string) => Socket;
+
 export class FortniteSocketFailure extends Error {
   constructor(
     readonly reason: "transport-error" | "provider-error" | "compatibility-error",
@@ -28,7 +30,7 @@ export interface FortnitePush {
 // persist properties or return them through runtime messages: the server can
 // include Epic session/device material. A fresh client uses ordinary hello {}.
 export async function connectFortniteSocket(options: {
-  createSocket(url: string): Socket;
+  createSocket: FortniteSocketFactory;
   signal: AbortSignal;
   onPush(push: FortnitePush): void;
   now?: () => number;

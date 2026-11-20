@@ -1,11 +1,11 @@
-import { createFortniteState } from "@lurkloot/core/extensions/fortnite/state";
+import { createFortniteState } from "./state";
 import type { TwitchExtensionReasonCode } from "@lurkloot/shared/models";
-import type { TwitchExtensionDriverFactory } from "../runtime";
-import { connectFortniteSocket } from "./socket";
+import type { TwitchExtensionDriverFactory } from "../host/runtime";
+import { connectFortniteSocket, type FortniteSocketFactory } from "./socket";
 
 type Connection = Awaited<ReturnType<typeof connectFortniteSocket>>;
 export function createFortniteDriver(options: {
-  createSocket: Parameters<typeof connectFortniteSocket>[0]["createSocket"];
+  createSocket: FortniteSocketFactory;
   onCaptured?(capture: { collectableId: string }): void;
   allowTakeovers?: boolean;
   onTakeoverStarted?(): void;

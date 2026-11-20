@@ -1,4 +1,4 @@
-import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCompletion";
+import { createTwitchExtensionGrantCompletion } from "@lurkloot/core/extensions/host/grantCompletion";
 import { KickRealtimeConnection, kickRealtimePost } from "@lurkloot/core/kick/realtime";
 import { createSocketHostFactory } from "../src/core/socketHostFactory";
 import { SOCKET_HOST_PATH } from "../src/core/socketHost";
@@ -33,7 +33,7 @@ import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
-import { driverRewardEvent, type DriverReward } from "../src/extensions/rewardEvents";
+import { driverRewardEvent, type DriverReward } from "@lurkloot/core/extensions/host/rewardEvents";
 import { withActivityDiagnostics } from "@lurkloot/core/activityDiagnostics";
 import type { EventEmitter, EngineEvent } from "@lurkloot/shared/events";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
@@ -44,7 +44,7 @@ import {
   KickDiscoveryState,
   KickPageContextRecoveryTracker,
 } from "@lurkloot/core/kick";
-import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import { TWITCH_CLIENT_ID, TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { armOnboardingForLifecycle } from "../src/core/onboarding";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
@@ -69,11 +69,11 @@ import {
   createCredentialAvailabilityProvider,
   createCredentialReader,
 } from "../src/core/credentialAvailability";
-import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
-import { createTwitchExtensionHost } from "../src/extensions/host";
-import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
-import { createFortniteDriver } from "../src/extensions/fortnite/driver";
-import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
+import { createTwitchExtensionCommitHook } from "@lurkloot/core/extensions/host/commitHook";
+import { createTwitchExtensionHost } from "@lurkloot/core/extensions/host";
+import { createTwitchExtensionSessionSource } from "@lurkloot/core/extensions/host/transport";
+import { createFortniteDriver } from "@lurkloot/core/extensions/fortnite/driver";
+import { createNoPixelDriver } from "@lurkloot/core/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob } from "../src/core/cliCredentialExport";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
@@ -376,6 +376,7 @@ function publishDriverReward(
 
 const extensionHost = createTwitchExtensionHost({
   source: createTwitchExtensionSessionSource({
+    clientId: TWITCH_CLIENT_ID,
     hasSession: async () => (await checkCredentialAvailability("twitch")).status === "available",
     fetchJson: (url, init) => fetchTwitchInBackground(url, init),
   }),

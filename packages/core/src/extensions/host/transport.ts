@@ -1,14 +1,18 @@
-import { withHeartbeatTimeout } from "@lurkloot/core/twitch/heartbeat";
+import { withHeartbeatTimeout } from "../../platforms/twitch/heartbeat";
 import type { SessionSource } from "./session";
 
-// The existing browser fetcher reads auth-token locally and adds Twitch's
-// explicit OAuth header. This source never exports cookies or credentials and
-// needs no page context/integrity acquisition tab for this session read.
-export function createTwitchExtensionSessionSource(options: {
+export interface TwitchExtensionSessionSourceOptions {
+  clientId: string;
   hasSession(): Promise<boolean>;
   fetchJson(url: string, init: RequestInit): Promise<unknown>;
   now?: () => number;
-}): SessionSource {
+}
+
+// The host supplies the Client-ID for its authenticated Twitch transport.
+// Only that transport attaches credentials.
+export function createTwitchExtensionSessionSource(
+  options: TwitchExtensionSessionSourceOptions,
+): SessionSource {
   return {
     hasSession: options.hasSession,
     now: options.now ?? Date.now,
@@ -18,7 +22,7 @@ export function createTwitchExtensionSessionSource(options: {
           options.fetchJson("https://gql.twitch.tv/gql", {
             method: "POST",
             headers: {
-              "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+              "Client-ID": options.clientId,
               "Content-Type": "text/plain; charset=UTF-8",
             },
             body: JSON.stringify({

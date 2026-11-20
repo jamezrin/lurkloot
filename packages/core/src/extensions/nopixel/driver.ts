@@ -6,9 +6,9 @@ import {
   parseNoPixelPackIds,
   parseNoPixelProgress,
   parseNoPixelSetup,
-} from "@lurkloot/core/extensions/nopixel/state";
+} from "./state";
 import type { TwitchExtensionReasonCode } from "@lurkloot/shared/models";
-import type { TwitchExtensionDriverFactory } from "../runtime";
+import type { TwitchExtensionDriverFactory } from "../host/runtime";
 
 const backend = "https://nopixel.streamingtoolsmith.com";
 type NoPixelPath =
@@ -20,7 +20,7 @@ type NoPixelPath =
   | "/channel/giveaway"
   | "/channel/giveaway/eligibility"
   | "/channel/giveaway/join";
-type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
+export type NoPixelFetch = (url: string, init?: RequestInit) => Promise<Response>;
 class ProviderFailure extends Error {
   constructor(
     readonly reason: TwitchExtensionReasonCode,
@@ -51,7 +51,7 @@ function openedPackSummary(cards: readonly { edition: NoPixelCardEdition }[]): N
 // viewer `/channel/giveaway/eligibility` admits (#730).
 // Pack opening is a separate explicit opt-in, confirmed by inventory rereads.
 export function createNoPixelDriver(
-  fetcher: Fetch,
+  fetcher: NoPixelFetch,
   onJoined: () => void = () => {},
   now: () => number = Date.now,
   diagnostic: (message: string) => void = () => {},

@@ -1,22 +1,29 @@
 import { describe, expect, it, vi } from "vitest";
-import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
+import { createTwitchExtensionSessionSource } from "@lurkloot/core/extensions/host/transport";
 
-describe("browser-session extension authorization transport", () => {
-  it("delegates authenticated GQL to the normal browser fetcher without tabs or cookie exports", async () => {
-    const fetchJson = vi.fn(async () => ({ data: {} }));
-    const source = createTwitchExtensionSessionSource({ fetchJson, hasSession: async () => true });
-    await source.query("selected-channel-query", { channelID: "123" });
-    const [url, init] = fetchJson.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://gql.twitch.tv/gql");
-    expect(JSON.parse(String(init.body))).toEqual({
-      operationName: "CoordinatorExtensionsForChannel",
-      query: "selected-channel-query",
-      variables: { channelID: "123" },
-    });
-    expect(new Headers(init.headers).get("Client-ID")).toBe("kimne78kx3ncx6brgo4mv6wki5h1ko");
-    expect(init.credentials).not.toBe("omit");
-    expect(new Headers(init.headers).has("Authorization")).toBe(false);
-  });
+describe("Twitch Extension session transport", () => {
+  it.each(["kimne78kx3ncx6brgo4mv6wki5h1ko", "host-client-id"])(
+    "sends GQL with the host's Client-ID (%s) and delegates authentication",
+    async (clientId) => {
+      const fetchJson = vi.fn(async (_url: string, _init: RequestInit) => ({ data: {} }));
+      const source = createTwitchExtensionSessionSource({
+        clientId,
+        fetchJson,
+        hasSession: async () => true,
+      });
+      await source.query("selected-channel-query", { channelID: "123" });
+      const [url, init] = fetchJson.mock.calls[0];
+      expect(url).toBe("https://gql.twitch.tv/gql");
+      expect(JSON.parse(String(init.body))).toEqual({
+        operationName: "CoordinatorExtensionsForChannel",
+        query: "selected-channel-query",
+        variables: { channelID: "123" },
+      });
+      expect(new Headers(init.headers).get("Client-ID")).toBe(clientId);
+      expect(init.credentials).not.toBe("omit");
+      expect(new Headers(init.headers).has("Authorization")).toBe(false);
+    },
+  );
   it("bounds a transport that ignores abort and propagates parent cancellation", async () => {
     vi.useFakeTimers();
     try {
@@ -26,6 +33,7 @@ describe("browser-session extension authorization transport", () => {
         return new Promise(() => {});
       });
       const source = createTwitchExtensionSessionSource({
+        clientId: "host-client-id",
         fetchJson,
         hasSession: async () => true,
       });

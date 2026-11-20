@@ -1,8 +1,5 @@
-import {
-  twitchExtensionProviderOrigins,
-  twitchExtensionProviders,
-} from "@lurkloot/core/extensions/registry";
-import { validateTwitchExtensionReport } from "@lurkloot/core/extensions/reports";
+import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "../registry";
+import { validateTwitchExtensionReport } from "../reports";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchExtensionProviderId, TwitchExtensionReport } from "@lurkloot/shared/models";
 import {

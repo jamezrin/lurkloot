@@ -7,8 +7,8 @@ import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models"
 import {
   createTwitchExtensionCommitHook,
   twitchExtensionCommitEffect,
-} from "../src/extensions/commitHook";
-import { createTwitchExtensionHost } from "../src/extensions/host";
+} from "@lurkloot/core/extensions/host/commitHook";
+import { createTwitchExtensionHost } from "@lurkloot/core/extensions/host";
 
 // #594: the lane follows the controller's accepted commits, not storage events
 // or every alarm.

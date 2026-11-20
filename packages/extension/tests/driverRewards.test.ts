@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { driverRewardEvent } from "../src/extensions/rewardEvents";
+import { driverRewardEvent } from "@lurkloot/core/extensions/host/rewardEvents";
 
 describe("Twitch Extension reward events", () => {
   it("reports an opened NoPixel pack with its per-edition counts", () => {

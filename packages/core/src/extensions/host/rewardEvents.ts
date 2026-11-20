@@ -1,7 +1,7 @@
 import type { ActivityEvent } from "@lurkloot/shared/events";
 import type { TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { RewardObtainedData } from "@lurkloot/shared/rewardEvents";
-import type { NoPixelOpenedPack } from "./nopixel/driver";
+import type { NoPixelOpenedPack } from "../nopixel/driver";
 
 // A reward a Twitch Extension driver obtained, as the driver knows it.
 export type DriverReward =
