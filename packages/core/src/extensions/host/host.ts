@@ -22,6 +22,7 @@ import {
 } from "./runtime";
 import type { SessionSource } from "./session";
 
+export { createTwitchExtensionDrivers } from "./drivers";
 export type { ProviderPermissionPort } from "./permissions";
 export type { TwitchExtensionDriver, TwitchExtensionDriverFactory } from "./runtime";
 export type { DriverSession, SessionSource } from "./session";
