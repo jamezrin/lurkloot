@@ -88,6 +88,15 @@ export type {
   TwitchIntegrityPort,
   WatchTabPort,
 } from "./hostPorts";
+export {
+  ADAPTER_BACKED_SETTINGS,
+  ADAPTER_FEATURES,
+  adapterFeatures,
+  adapterOffers,
+  inertAdapterSettings,
+  requestedAdapterSettings,
+} from "./adapterSettings";
+export type { AdapterBackedSetting, AdapterFeature, InertSetting } from "./adapterSettings";
 export { BACKGROUND_JOBS, jobIsInert, MIN_JOB_PERIOD_MINUTES, runBackgroundJob } from "./jobs";
 export type { BackgroundJob, JobRunner, JobSchedule, JobSchedulerPort, ScheduledJob } from "./jobs";
 

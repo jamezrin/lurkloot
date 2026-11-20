@@ -305,6 +305,11 @@ export function createTickRun<S extends EngineSettings>(
         // Dependents stop what the refreshed auth no longer allows from their
         // after-commit hooks (#595); the tick goes on once they have.
         await settleCommitHooks(authPlatforms);
+        // Settings the built adapters cannot honour (#1090). Only adapters the
+        // auth probe already built are read, so the check builds none.
+        await reportUnsupportedSettings(settings, tickContext, (adapterPlatform) =>
+          tickAdapters[adapterPlatform]?.built(settings),
+        );
       }
     }
 

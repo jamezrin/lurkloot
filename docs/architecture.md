@@ -579,6 +579,36 @@ never switches a feature off silently. A setting that needs a capability the hos
 (`tablessMode: false` or `pauseOnManualWatch` without browser tabs) is reported once per
 controller as an English diagnostic, with no platform, and changes nothing else.
 
+Host-wide flags cannot see a gap in one platform's adapter (the CLI declares `chatPresence`,
+but its Kick adapter has no presence client), so per-platform settings are also checked against
+the adapter the tick built (#1090). `packages/core/src/background/adapterSettings.ts` owns the
+table: `ADAPTER_BACKED_SETTINGS` names each per-platform field whose effect needs an adapter
+feature some host lacks (`alwaysEnterChat` → chat presence; `channelPointsPushClaim`,
+`watchlistStreakChannels` and the `watchStreak*` tuning → the push connection). Every
+candidate must differ from the platform's shared default and still request the feature.
+`adapterOffers` reads the feature from the built adapter (`createChatPresenceClient`,
+`createChannelPointsPushController`, …). `autoClaimChannelPoints` and `autoClaimChallenges`
+also need adapter features, but every real adapter offers them, so they stay out of the
+runtime table (controller-test fakes lack them) and the CLI guard maps them itself.
+`tickCapabilities` reads the same helper.
+
+After the auth probe, `reportUnsupportedSettings` checks the current tick's built adapters via
+`TickAdapterHandle.built`, which constructs none. It remembers only warnings it emitted.
+A key supported in an earlier tick can warn when a subsequent adapter lacks its feature.
+It warns once per key per controller lifetime, even if support returns and is lost again.
+The diagnostic carries its platform, as in “Kick on this host cannot join channel chat, so
+platform.kick.alwaysEnterChat has no effect”. The tick owns this warning.
+
+`packages/cli/tests/inertSettings.test.ts` maps every CLI setting to how it takes effect.
+For adapter-backed settings the guard uses the production transports and checks every
+Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus Kick on
+each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
+where it is missing. Narrow a row's cases when support lands for some combinations,
+and remove the row when all its cases gain support. For #1096, keep only Android and
+Smart TV in the Hermes row. For #1092, remove the `kick/impersonate` chat row and keep
+`kick/http`. The guard fails for unexpected gaps and stale exceptions. It also checks
+that changed values requesting a missing feature produce a warning.
+
 Without `browserTabs`, the watch surface is derived rather than configured: the tick passes
 `watchTabs: false` in each platform's `PlatformTickCapabilities`, so the scheduler always watches
 tabless, and heartbeat failures never fall back to a tab. Neither do a tabless-only supplemental
@@ -755,6 +785,7 @@ tested too (#598).
 | Duplicate and late job fires coalesce; no job runs after shutdown | `controllerContract.test.ts` ("jobs") |
 | Job scheduler semantics on each host | `hostPorts.test.ts` (`browser.alarms`); `packages/cli/tests/jobs.test.ts` (Node timers) |
 | Declared capabilities match the ports; unsupported settings are reported once | `hostPorts.test.ts`; `controllerContract.test.ts` ("capabilities") |
+| A changed per-platform setting that requests a missing adapter feature warns once per key, including after support is lost; the CLI guard checks effects and known gaps per transport and sign-in (#1090) | `adapterSettings.test.ts`; `backgroundController/chatPresence.test.ts`; `packages/cli/tests/inertSettings.test.ts` |
 | Without browser tabs every watch is tabless and heartbeat failures never fall back to a tab | `controllerContract.test.ts` ("watch surface") |
 | Only a user close of the watch tab pauses; the extension's own closes (finished campaign, restart) do not, and late playback from a closed tab is ignored | `controllerContract.test.ts` ("browser tabs", extension host) |
 | The CLI's `state.json` save is atomic | `packages/cli/tests/storage.test.ts` |
@@ -1290,8 +1321,10 @@ claims to know the user's streak count.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
 - **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's
-  push factory. Without it (the CLI), maintained rows read as unavailable and are watched in
-  their ordinary place, so the toggle never takes a channel out of rotation.
+  push factory (`adapterOffers(adapter, "channelPointsPush")`). Without it (the CLI, until
+  #1084), maintained rows read as unavailable and are watched in their ordinary place, so the
+  toggle never takes a channel out of rotation, and the tick warns once that
+  `watchlistStreakChannels` and any changed `watchStreak*` tuning have no effect (#1090).
 
 ## Tabless Watch
 
@@ -1333,7 +1366,7 @@ semantics adds its own shape instead of bending a common one.
 
 Some rewards need the account in the watched channel's chat: NoPixelV credits daily watch time from the channel's chatter list (#683). `background/chatPresence.ts` keeps one `ChatPresenceClient` per platform in an `ObserverSlot` and reconciles it after each tick commit and settings save, against the committed session only (`chatPresenceDecision` in `core/chatPresence.ts`). Presence is wanted while a platform watches **tablessly** with healthy auth and no manual pause, and either `platform.<p>.alwaysEnterChat` is on or the watching Twitch Extension provider declares `needsChatPresence`. Tab watches never use it: the page joins chat itself. A commit that leaves auth unhealthy or ends the watch stops it before any await. Presence never affects heartbeat health, rotation or tab fallback; its status is attached to snapshots as `state.chatPresence` and never persisted.
 
-The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat without starting Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect; Kick on the CLI is one, because it has no realtime connection there. See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
+The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat without starting Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect, from the tick's unsupported-settings report (`adapterSettings.ts`, #1090) rather than the chat-presence service; Kick on the CLI is one, because it has no realtime connection there (#1085). See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
 
 ## Playback Telemetry and Control
 
