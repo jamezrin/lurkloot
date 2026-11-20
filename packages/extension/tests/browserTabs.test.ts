@@ -24,6 +24,7 @@ import {
 } from "@lurkloot/core/tabRegistry";
 import {
   fetchKickInBackgroundWith,
+  isKickHttpChallenge,
   kickHttpChallenge,
   KickWafBlockedError,
 } from "@lurkloot/core/transport";
@@ -1553,6 +1554,36 @@ describe("tab manager", () => {
       reference: "9e4db7e3",
     });
     expect(JSON.stringify(error)).not.toContain("must-not-survive");
+  });
+
+  it("maps the in-page challenge marker only through the caller's challengeError", async () => {
+    const executeScript = vi.fn(async (details: unknown) => [
+      {
+        result:
+          (details as { func?: unknown }).func === pageFetchJson
+            ? {
+                __lurklootPageFetch: true,
+                ok: false,
+                challenge: true,
+                error: { kind: "http_error", status: 403 },
+              }
+            : { usable: true },
+      },
+    ]);
+    const browser = { ...browserMock(), scripting: { executeScript } };
+    const origin = "https://kick.com/drops/inventory";
+    const url = "https://kick.com/api/v1/user";
+
+    const plain = await fetchJsonInPageWithBrowser(registry, browser, origin, url).catch(
+      (caught: unknown) => caught,
+    );
+    expect(plain).not.toBeInstanceOf(KickWafBlockedError);
+    expect(isSafeFetchError(plain) && plain.failure).toEqual({ kind: "http_error", status: 403 });
+
+    const mapped = await fetchJsonInPageWithBrowser(registry, browser, origin, url, undefined, {
+      challengeError: kickHttpChallenge,
+    }).catch((caught: unknown) => caught);
+    expect(isKickHttpChallenge(mapped)).toBe(true);
   });
 
   it("lets a normal fallback create a context after sharing a reuse-only lookup", async () => {
