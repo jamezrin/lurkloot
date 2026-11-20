@@ -1283,16 +1283,38 @@ to `authentication_rejected`, as does an empty 401 or 403. A JSON security-polic
 existing classification and safe reference.
 
 When the identity probe receives an HTTP challenge it reports unavailable
-(`request_challenged`). The scheduler records a platform error and applies the usual
-exponential backoff. Scheduled ticks use the deadline from committed state
+(`request_challenged`, a platform-neutral reason). The scheduler records a
+platform error (an `http_error` `SafeFetchError`, so critical health and
+diagnostics keep it as an API failure rather than an auth one) and applies the
+usual exponential backoff. Scheduled ticks use the deadline from committed state
 to defer the identity request until the retry is due. The first probe on a
 fresh controller rechecks immediately. The next successful probe lets
 discovery and farming resume.
 
-For HTTP challenges the extension limits the fallback to existing usable
-page contexts, which prevents repeated opens during a sustained block. The
-in-page fetch crosses the script boundary with a challenge marker and status
-so that a challenged fallback also reports unavailable.
+In the extension the in-page fetch (`pageFetchJson`) returns a challenge
+marker with only the status for a non-empty, non-JSON 401 or 403. The caller
+maps it through `PageFetchOptions.challengeError`; Kick's wiring passes
+`kickHttpChallenge`, so a challenged fallback also reports unavailable. Without
+the option the marker is a plain `http_error`.
+
+`KickPageContextFallback` (`src/core/kickPageDocument.ts`, wired in
+`background.ts`) chooses the fallback's options per request:
+
+- A challenge seen only by the service worker takes the normal fallback. A real
+  kick.com tab runs Cloudflare's challenge, so a user with no Kick tab open
+  recovers: the fallback opens at most one retained page context, later
+  fallbacks reuse it, and the managed-tab churn breaker bounds any reopening.
+- Once the page context itself returns the challenge marker for a host, later
+  challenged fallbacks for that host pass `reusePageContextOrThrow`. They reuse
+  a usable user tab or the retained context and never open a tab. When none is
+  open the fetch rethrows the service-worker challenge, and Kick stays
+  unavailable with no tab opening; this is the intended steady state.
+- A success for that host, from the page or from the service worker, clears the
+  latch. The latch is in memory, so a restarted service worker starts over with
+  the normal fallback.
+
+`authHealth.test.ts` drives three hours of ticks for both cases, and
+`kickPageContextFallback.test.ts` covers the per-host latch.
 
 - Campaign discovery fetches `https://web.kick.com/api/v1/drops/campaigns`.
 - Progress refresh fetches `https://web.kick.com/api/v1/drops/progress`.

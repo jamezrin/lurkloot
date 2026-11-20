@@ -2,16 +2,61 @@ import type { SafeFetchFailure } from "@lurkloot/core/fetchError";
 import { isKickHttpChallenge, kickHttpChallenge } from "@lurkloot/core/transport";
 import type { PageFetchOptions } from "./browserTabs";
 
-export function kickPageContextOptions(backgroundError: unknown): PageFetchOptions {
-  return {
-    retainPageContext: { platform: "kick" },
-    inspectDocument: inspectKickDocument,
-    openReason: "background_rejected",
-    challengeError: kickHttpChallenge,
-    // Repeated HTTP challenges can outlast the tab-churn window. Retry in a
-    // usable context if one exists, without opening another tab on each retry.
-    ...(isKickHttpChallenge(backgroundError) ? { reusePageContextOrThrow: backgroundError } : {}),
-  };
+// Kick's page-context fallback policy for the background fetcher.
+//
+// A challenge seen only by the service worker takes the normal fallback: a
+// real kick.com tab runs Cloudflare's challenge, so the fallback may open one
+// retained context, which later fallbacks reuse and the churn breaker bounds.
+// Once the page context itself answers a host with the challenge marker, a new
+// tab would repeat the blocked request. Challenged fallbacks for that host
+// then only reuse a usable context (a user's kick.com tab or the retained one)
+// until a request to the host succeeds from either side. With none open, Kick
+// stays unavailable and no tab opens.
+export class KickPageContextFallback {
+  private readonly challengedHosts = new Set<string>();
+
+  options(url: string, backgroundError: unknown): PageFetchOptions {
+    const reuseOnly = isKickHttpChallenge(backgroundError) && this.challengedHosts.has(hostOf(url));
+    return {
+      retainPageContext: { platform: "kick" },
+      inspectDocument: inspectKickDocument,
+      openReason: "background_rejected",
+      challengeError: kickHttpChallenge,
+      ...(reuseOnly ? { reusePageContextOrThrow: backgroundError } : {}),
+    };
+  }
+
+  async fetch<T>(
+    url: string,
+    backgroundError: unknown,
+    fetchInPage: (options: PageFetchOptions) => Promise<T>,
+  ): Promise<T> {
+    const options = this.options(url, backgroundError);
+    let result: T;
+    try {
+      result = await fetchInPage(options);
+    } catch (error) {
+      // A normal fallback only throws a challenge when the page answered with
+      // the marker. A reuse-only refusal rethrows the background challenge for
+      // a host that is already latched. Other failures leave the latch as is.
+      if (isKickHttpChallenge(error)) this.challengedHosts.add(hostOf(url));
+      throw error;
+    }
+    this.challengedHosts.delete(hostOf(url));
+    return result;
+  }
+
+  recordBackgroundSuccess(host: string): void {
+    this.challengedHosts.delete(host);
+  }
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
 }
 
 // Kick's PageDocumentInspector: Kick can answer a page request with its

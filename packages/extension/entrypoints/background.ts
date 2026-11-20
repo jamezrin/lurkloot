@@ -20,7 +20,7 @@ import {
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createBrowserTabs, liveBrowserTabApi } from "../src/core/tabs";
 import { createExtensionTabPorts } from "../src/core/tabPorts";
-import { inspectKickDocument, kickPageContextOptions } from "../src/core/kickPageDocument";
+import { inspectKickDocument, KickPageContextFallback } from "../src/core/kickPageDocument";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import {
   createBackgroundAlarmListener,
@@ -129,6 +129,7 @@ const {
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();
+const kickPageContextFallback = new KickPageContextFallback();
 const twitchDiscoveryState = new TwitchDiscoveryState();
 // Kick realtime negotiation from the worker only: no page-context tab
 // fallback, since discovery signals negotiate on every Kick farm (#755).
@@ -280,11 +281,13 @@ function createExtensionAdapter(
             routeState: kickDiscoveryState.routeDiagnostics,
             background: (url, init) => fetchKickInBackground<unknown>(url, init),
             pageFetch: (url, init, backgroundError) =>
-              fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
-                ...kickPageContextOptions(backgroundError),
-                emit,
-              }),
-            onBackgroundSuccess: (host) => kickPageContextRecovery.recordBackgroundSuccess(host),
+              kickPageContextFallback.fetch(url, backgroundError, (options) =>
+                fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, { ...options, emit }),
+              ),
+            onBackgroundSuccess: (host) => {
+              kickPageContextFallback.recordBackgroundSuccess(host);
+              kickPageContextRecovery.recordBackgroundSuccess(host);
+            },
             onPageFallback: (host, operationEmit) => {
               kickPageContextRecovery.recordPageFallback(host);
               recordManagedPageContextFallback(host, operationEmit);
