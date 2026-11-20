@@ -14,7 +14,7 @@ export interface TwitchExtensionAccess {
 }
 
 // Refusals are different from network errors, rate limits, and 5xx responses.
-// Match explicit authorization or query validation failures, and keep the
+// Match explicit authorization failures, and keep the
 // server's response text inside the transport.
 function refused(response: unknown): boolean {
   if (!response || typeof response !== "object") return false;
@@ -24,9 +24,9 @@ function refused(response: unknown): boolean {
     message?: unknown;
     errors?: { message?: unknown; extensions?: { code?: unknown } }[];
   };
-  if (result.__twitchGqlStatus === 401 || result.__twitchGqlStatus === 403) return true;
+  if (result.__twitchGqlStatus !== undefined) return result.__twitchGqlStatus === 403;
   const refusalText =
-    /\b(?:unauthori[sz]ed|forbidden|access denied|not authori[sz]ed|permission denied|cannot query field|client[ -]?id mismatch)\b/i;
+    /\b(?:unauthori[sz]ed|forbidden|access denied|not authori[sz]ed|permission denied|client[ -]?id mismatch)\b/i;
   return (
     [result.error, result.message].some(
       (message) => typeof message === "string" && refusalText.test(message),
@@ -34,11 +34,11 @@ function refused(response: unknown): boolean {
     || (Array.isArray(result.errors)
       && result.errors.some((error) => {
         const code = error?.extensions?.code;
+        if (code === "GRAPHQL_VALIDATION_FAILED") return false;
         return (
           code === "FORBIDDEN"
           || code === "UNAUTHORIZED"
           || code === "UNAUTHENTICATED"
-          || code === "GRAPHQL_VALIDATION_FAILED"
           || (typeof error?.message === "string" && refusalText.test(error.message))
         );
       }))
@@ -91,10 +91,15 @@ export function createTwitchExtensionAccessReader(
       source,
       viewerLogin: async (signal) => {
         const result = (await source.query(CURRENT_USER_LOGIN_QUERY, {}, signal)) as {
-          data?: { currentUser?: { login?: unknown } };
+          data?: { currentUser?: { login?: unknown } | null };
+          errors?: unknown[];
         } | null;
         const login = result?.data?.currentUser?.login;
-        return typeof login === "string" ? login : undefined;
+        if (!result?.errors?.length) {
+          if (typeof login === "string" && /^[a-zA-Z0-9_]{1,25}$/.test(login)) return login;
+          if (result?.data?.currentUser === null) return undefined;
+        }
+        throw new Error("Could not resolve the Twitch viewer login.");
       },
     };
     return access;

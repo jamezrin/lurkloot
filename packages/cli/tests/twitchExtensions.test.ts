@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
+import { TwitchExtensionClientRefusal } from "@lurkloot/core/extensions/host/session";
 import { twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, SchedulerState } from "@lurkloot/shared/models";
@@ -116,6 +117,7 @@ afterEach(async () => {
 
 it("farms a NoPixel lane with chat, publishes a pack, snapshots completion and restores it on restart", async () => {
   let opened = false;
+  let failLoginOnce = false;
   const fetch = vi.fn(async (url: string, init: RequestInit) => {
     if (url === "https://gql.twitch.tv/gql") {
       const headers = new Headers(init.headers);
@@ -123,6 +125,10 @@ it("farms a NoPixel lane with chat, publishes a pack, snapshots completion and r
       expect(headers.get("Authorization")).toBe(`OAuth ${credentials}`);
       switch (JSON.parse(String(init.body)).operationName) {
         case "CurrentUserLogin":
+          if (failLoginOnce) {
+            failLoginOnce = false;
+            return new Response(null, { status: 503 });
+          }
           return Response.json({ data: { currentUser: { login } } });
         case "ExtensionDirectory":
           return Response.json(directory());
@@ -222,6 +228,7 @@ it("farms a NoPixel lane with chat, publishes a pack, snapshots completion and r
     completedUntil: { nopixel: expect.any(Number) },
   });
   const requestCount = fetch.mock.calls.length;
+  failLoginOnce = true;
   const restarted = createCliTwitchExtensionLane({
     transport,
     statePath,
@@ -236,16 +243,79 @@ it("farms a NoPixel lane with chat, publishes a pack, snapshots completion and r
     expect(
       await restarted.select(healthyState(), toEngineSettings(settings), undefined, "nopixel"),
     ).toBeUndefined();
+    expect(await createTwitchExtensionMemory(statePath).load()).toEqual(memory);
+    expect(
+      await restarted.select(healthyState(), toEngineSettings(settings), undefined, "nopixel"),
+    ).toBeUndefined();
     const operations = fetch.mock.calls
       .slice(requestCount)
       .map(([, init]) => JSON.parse(String(init.body)).operationName);
-    expect(operations).toEqual(["CurrentUserLogin"]);
+    expect(operations).toEqual(["CurrentUserLogin", "CurrentUserLogin"]);
   } finally {
     await restarted.close();
   }
 });
 
+it("saves a disabled provider setting without starting the lane", async () => {
+  const transport = { ...idleTransport(), twitchExtensionAccess: vi.fn() };
+  const savePatch = vi.fn(async () => {});
+  const lane = createCliTwitchExtensionLane({
+    transport,
+    statePath,
+    loadSettings: async () => toEngineSettings(farmingSettings()),
+    loadState: async () => healthyState(),
+    savePatch,
+    requestTick: vi.fn(),
+    publish: vi.fn(),
+    onSessionReady: vi.fn(),
+  });
+  try {
+    await expect(lane.setEnabled("nopixel", false)).resolves.toEqual({ enabled: false });
+    expect(savePatch).toHaveBeenCalledOnce();
+    expect(savePatch).toHaveBeenCalledWith({ twitchExtensions: { nopixel: { enabled: false } } });
+    expect(transport.twitchExtensionAccess).not.toHaveBeenCalled();
+  } finally {
+    await lane.close();
+  }
+});
+
 describe("non-web session refusal", () => {
+  it.each([
+    ["HTTP 401", () => new Response("Unauthorized", { status: 401 })],
+    [
+      "GraphQL validation",
+      () =>
+        Response.json({
+          errors: [
+            {
+              message: "Cannot query field installation",
+              extensions: { code: "GRAPHQL_VALIDATION_FAILED" },
+            },
+          ],
+        }),
+    ],
+  ])("passes %s through without a compatibility refusal", async (_label, response) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => response()),
+    );
+    const access = authTransport(TWITCH_ANDROID_CLIENT_ID).twitchExtensionAccess?.();
+    await expect(
+      access?.source.query("query ExtensionInstallations { __typename }", {}),
+    ).resolves.toBeDefined();
+  });
+
+  it("classifies HTTP 403 as a compatibility refusal", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 403 })),
+    );
+    const access = authTransport(TWITCH_ANDROID_CLIENT_ID).twitchExtensionAccess?.();
+    await expect(
+      access?.source.query("query ExtensionInstallations { __typename }", {}),
+    ).rejects.toBeInstanceOf(TwitchExtensionClientRefusal);
+  });
+
   it.each([
     { clientId: TWITCH_ANDROID_CLIENT_ID, operation: "ExtensionInstallations" },
     { clientId: TWITCH_SMARTBOX_CLIENT_ID, operation: "CoordinatorExtensionsForChannel" },

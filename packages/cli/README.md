@@ -262,7 +262,7 @@ the extension on Twitch.
 Live CLI earning is unverified for each sign-in. If Twitch explicitly refuses
 a provider query for a non-web sign-in, the CLI logs one warning for that
 provider and leaves it idle until the credentials change. Other farming
-continues. Provider refreshes use polling until CLI Hermes support lands in #1096.
+continues. Provider refreshes use polling. Hermes broadcast integration is tracked in #1105.
 
 ## Transports
 

@@ -698,17 +698,18 @@ reconciliation, and the loop closes it first on shutdown; `run` passes none and 
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
 messages the CLI host supports; it holds no farming logic. Host messages such as
 `exportDiagnostics` are dispatched by `serve.ts` before forwarding core messages.
-The CLI host handles `setTwitchExtensionEnabled` through the lane;
-the lane submits its settings patch to the controller through the same config store as other
-settings. Snapshot replies attach the lane's transient provider summaries. Core stays free of HTTP.
+The CLI host handles `setTwitchExtensionEnabled` through the lane and submits its settings
+patch to the controller through the same config store as other settings. Snapshot replies attach
+the lane's transient provider summaries. Core stays free of HTTP.
 
 The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
 all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
 necessary. It then waits for any startup reconciliation in progress, which can begin a state save
 after shutdown starts. After shutting down the controller, `runLoop` unsubscribes the Twitch Extensions
 commit hook and closes the lane, including its drivers, sockets and queued writes. It then
-drains background work and tracked state writes. It disposes the transport and flushes the diagnostics sidecar last, after
-disposal reports settle. `--once` and host startup failure use the same farming teardown.
+drains background work and tracked state writes. It disposes the transport and flushes the
+diagnostics sidecar last, after disposal reports settle. `--once` and host startup failure use
+the same farming teardown.
 The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
 event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
 stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
@@ -842,7 +843,7 @@ tested too (#598).
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
 | `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Watchlist changes from the page") |
 | Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
-| Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
+| Supplemental lane: restore completion for the same viewer, including after a transient lookup failure | `twitchExtensionHost.test.ts`; `packages/cli/tests/twitchExtensions.test.ts` |
 | The scheduler tick decides from plain inputs and names its effects; one handler per effect type | `schedulerEffects.test.ts` |
 | A tick's effects run with no lock held; concurrent telemetry is kept, a contradicting writer drops the decision but not the claims or tabs it produced, and an overlapping claim is requested once (#599) | `backgroundController/tickEffects.test.ts`; `tickCommit.test.ts` |
 | No I/O while a lock is held, with no exceptions (#591) | `lockedIo.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
@@ -902,9 +903,9 @@ facade (#583, #591). "Background controller ownership and concurrency" above has
   reward stays reserved until that commit lands. Sign-in loss ends claim work, and a claim the
   provider accepted before an abort is still recorded.
 - **Hosts.** Both hosts construct the controller from the same host ports and run the same jobs and
-  startup reconciliation. The extension declares every capability: browser tabs, Twitch
-  integrity capture and supplemental sources. Both declare supplemental sources, and the CLI
-  always watches tablessly. Jobs that need browser capabilities are inert on the CLI.
+  startup reconciliation and declare supplemental sources. The extension also declares browser
+  tabs and Twitch integrity capture. The CLI always watches tablessly, and jobs that need
+  browser capabilities are inert there.
 
 ### Campaign ranking
 
@@ -1791,12 +1792,15 @@ NoPixelV holds the watch slot. Fortnite uses Node `ws` for its declared
 `backendSocketOrigin` and fixed handler path, with no URL userinfo or redirects. The handshake
 sets only the provider frame's `Origin`. The socket port consumes late errors and waits for
 close with a two-second close timeout on shutdown. The CLI leaves the optional Hermes broadcast
-ports unwired while #1096 is pending. Provider session refreshes continue through polling.
+ports unwired pending #1105. Provider session refreshes continue through polling.
 
 Both CLI transports match GQL Client-ID to the effective credential and resolve the viewer
-login through Twitch's identity query. The lane starts only when requested through settings
-or a provider toggle. An explicit non-web client refusal parks that provider for the lifetime
-of the credential revision. The lane emits one English warning, yields to other watch sources
+login through Twitch's identity query. The lane starts when a configured provider is needed
+or a provider is enabled explicitly. A disable with no active lane saves the setting directly.
+If the viewer lookup fails, the shared host defers provider selection and memory writes and
+retries on a later tick. It keeps previously learned completion until the lookup confirms
+a different account or sign-out. An explicit non-web client refusal parks that provider for the
+lifetime of the credential revision. The lane emits one English warning, yields to other watch sources
 and leaves auth health to the regular probe. Reloading credentials aborts stale provider
 sessions and discovery, then permits a new probe. The CLI's `twitch-extension-lane.json`
 sits beside `state.json` and uses the same atomic writer. Both reads and writes are bounded.

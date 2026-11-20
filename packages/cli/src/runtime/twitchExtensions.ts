@@ -98,8 +98,13 @@ export function createCliTwitchExtensionLane(options: {
       if (!closed && access) return lane.chooseWatchTarget(settings, state, signal, source);
     },
     onCommit: commits.onCommit,
-    setEnabled: (id: keyof EngineSettings["twitchExtensions"], enabled: boolean) =>
-      startHost().setEnabled(id, enabled),
+    async setEnabled(id: keyof EngineSettings["twitchExtensions"], enabled: boolean) {
+      if (!host && !enabled) {
+        await options.savePatch({ twitchExtensions: { [id]: { enabled } } });
+        return { enabled };
+      }
+      return startHost().setEnabled(id, enabled);
+    },
     snapshot: () => host?.snapshot() ?? {},
     async close() {
       closed = true;

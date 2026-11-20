@@ -144,7 +144,8 @@ export interface TwitchExtensionHostOptions {
   // Where completion and cooldowns outlive the process. Without it
   // they live only as long as the host.
   memory?: TwitchExtensionLaneMemoryPort;
-  // The signed-in Twitch login (not a credential), which the memory is tied to.
+  // The signed-in Twitch login, used to scope memory. Return undefined for a
+  // confirmed sign-out and reject when the lookup could not establish identity.
   viewerLogin?(): Promise<string | undefined>;
   // Asks the scheduler to choose again now, rather than at its next poll.
   requestTick?(): void;
@@ -186,62 +187,83 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     providers: new Set<TwitchExtensionProviderId>(),
   };
   let restoreApplied = false;
-  // The login the in-memory deadlines belong to; undefined when unknown.
   let owner: string | undefined;
-  async function currentLogin(): Promise<string | undefined> {
-    try {
-      return normalizedLogin(await options.viewerLogin?.());
-    } catch {
-      return undefined;
+  let identityReady = !options.memory;
+  let identityCheck: Promise<boolean> | undefined;
+
+  function ensureIdentity(): Promise<boolean> {
+    if (closed) return Promise.resolve(false);
+    if (identityReady) return Promise.resolve(true);
+    if (identityCheck) return identityCheck;
+    const revision = credentialGeneration;
+    identityCheck = (async () => {
+      let login: string | undefined;
+      try {
+        login = normalizedLogin(await options.viewerLogin?.());
+      } catch {
+        // The lane yields until a later tick can identify the viewer.
+        return false;
+      }
+      const stored =
+        !restoreApplied && login ? await options.memory?.load().catch(() => undefined) : undefined;
+      if (closed || revision !== credentialGeneration) return false;
+      if (owner && login !== owner) invalidate({ forgetCompletion: true });
+      owner = login;
+      if (!restoreApplied && login) {
+        restoreApplied = true;
+        restoreMemory(stored, login);
+      }
+      identityReady = true;
+      if (savePending) persist();
+      return true;
+    })().finally(() => {
+      if (revision === credentialGeneration) identityCheck = undefined;
+    });
+    return identityCheck;
+  }
+
+  function restoreMemory(stored: unknown, login: string): void {
+    const memory = parseTwitchExtensionLaneMemory(stored, options.source.now());
+    if (!memory || clearedBeforeRestore.all || memory.owner !== login) return;
+    const keep = (id: TwitchExtensionProviderId) => !clearedBeforeRestore.providers.has(id);
+    for (const [id, until] of Object.entries(memory.knownComplete) as [
+      TwitchExtensionProviderId,
+      number,
+    ][]) {
+      if (keep(id) && !knownComplete.has(id)) knownComplete.set(id, until);
+    }
+    if (!clearedBeforeRestore.completedUntil) {
+      for (const [id, until] of Object.entries(memory.completedUntil) as [
+        TwitchExtensionProviderId,
+        number,
+      ][]) {
+        if (keep(id) && !completedUntil.has(id)) completedUntil.set(id, until);
+      }
+      if (keep("nopixel")) lastCompletedNoPixelChannel ??= memory.lastCompletedNoPixelChannel;
+    }
+    for (const [key, until] of Object.entries(memory.unavailableUntil)) {
+      if (keep(key.split(":")[0] as TwitchExtensionProviderId) && !unavailableUntil.has(key))
+        unavailableUntil.set(key, until);
+    }
+    for (const [id, until] of Object.entries(memory.identityRequiredUntil) as [
+      TwitchExtensionProviderId,
+      number,
+    ][]) {
+      if (keep(id) && !identityRequiredUntil.has(id)) identityRequiredUntil.set(id, until);
     }
   }
-  const restored = (async () => {
-    if (!options.memory) return;
-    try {
-      const [stored, login] = await Promise.all([options.memory.load(), currentLogin()]);
-      owner = login;
-      const memory = parseTwitchExtensionLaneMemory(stored, options.source.now());
-      // Memory learned for another account, or for an unknown one, stays behind.
-      if (!memory || clearedBeforeRestore.all || !login || memory.owner !== login) return;
-      const keep = (id: TwitchExtensionProviderId) => !clearedBeforeRestore.providers.has(id);
-      for (const [id, until] of Object.entries(memory.knownComplete) as [
-        TwitchExtensionProviderId,
-        number,
-      ][]) {
-        if (keep(id) && !knownComplete.has(id)) knownComplete.set(id, until);
-      }
-      if (!clearedBeforeRestore.completedUntil) {
-        for (const [id, until] of Object.entries(memory.completedUntil) as [
-          TwitchExtensionProviderId,
-          number,
-        ][]) {
-          if (keep(id) && !completedUntil.has(id)) completedUntil.set(id, until);
-        }
-        if (keep("nopixel")) lastCompletedNoPixelChannel ??= memory.lastCompletedNoPixelChannel;
-      }
-      for (const [key, until] of Object.entries(memory.unavailableUntil)) {
-        if (keep(key.split(":")[0] as TwitchExtensionProviderId) && !unavailableUntil.has(key))
-          unavailableUntil.set(key, until);
-      }
-      for (const [id, until] of Object.entries(memory.identityRequiredUntil) as [
-        TwitchExtensionProviderId,
-        number,
-      ][]) {
-        if (keep(id) && !identityRequiredUntil.has(id)) identityRequiredUntil.set(id, until);
-      }
-    } catch {
-      // Unreadable memory is the same as none: providers are probed again.
-    } finally {
-      restoreApplied = true;
-    }
-  })();
 
   let saving: Promise<void> = Promise.resolve();
+  let savePending = false;
   function persist(): void {
     if (!options.memory) return;
+    savePending = !identityReady;
+    if (savePending || !owner) return;
     const memory = options.memory;
+    const revision = credentialGeneration;
+    const login = owner;
     saving = saving.then(async () => {
-      await restored;
+      if (revision !== credentialGeneration) return;
       const now = options.source.now();
       const live = <K extends string>(entries: Iterable<[K, number]>) =>
         Object.fromEntries([...entries].filter(([, until]) => until > now)) as Partial<
@@ -255,7 +277,7 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
           unavailableUntil: live(unavailableUntil) as Record<string, number>,
           identityRequiredUntil: live(identityRequiredUntil),
           ...(lastCompletedNoPixelChannel ? { lastCompletedNoPixelChannel } : {}),
-          ...(owner ? { owner } : {}),
+          owner: login,
         });
       } catch {
         // The next change saves again; memory keeps working meanwhile.
@@ -435,8 +457,7 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     signal?: AbortSignal,
     source?: WatchSourceId,
   ): Promise<SupplementalWatchTarget | undefined> {
-    await restored;
-    if (closed) return;
+    if (!(await ensureIdentity()) || !identityReady || closed) return;
     const selectedGeneration = generation;
     for (const [key, until] of unavailableUntil)
       if (until <= options.source.now()) unavailableUntil.delete(key);
@@ -557,8 +578,7 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     }
   }
   async function reconcile() {
-    await restored;
-    if (closed) return;
+    if (!(await ensureIdentity()) || !identityReady || closed) return;
     const selectedGeneration = ++generation;
     await permissions.reconcile();
     if (selectedGeneration !== generation) return;
@@ -689,21 +709,16 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
   // when the signed-in login actually changed: Twitch re-sets the cookie on
   // ordinary page loads, and that must not wipe what the lane learned.
   async function credentialsChanged({ clientChanged = false } = {}): Promise<void> {
-    const revision = ++credentialGeneration;
+    credentialGeneration += 1;
+    identityReady = false;
+    identityCheck = undefined;
     if (clientChanged) {
       clientRefused.clear();
       for (const entry of discovery.values()) entry.pending?.abort.abort();
       discovery.clear();
     }
     invalidate({ preserveCompleted: true });
-    await restored;
-    if (closed) return;
-    const login = await currentLogin();
-    if (closed || revision !== credentialGeneration) return;
-    if (login !== undefined && login === owner) return;
-    invalidate({ forgetCompletion: true });
-    owner = login;
-    persist();
+    await ensureIdentity();
   }
 
   // A tabless-only session whose heartbeats keep failing (#586, #594). Its
@@ -716,8 +731,7 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     username: string;
     heartbeatChecks: number;
   }): Promise<void> {
-    await restored;
-    if (closed) return;
+    if (!(await ensureIdentity()) || !identityReady || closed) return;
     const provider = twitchExtensionProviders.find(
       (candidate) => candidate.id === failure.provider,
     );
