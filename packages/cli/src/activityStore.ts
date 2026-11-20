@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import {
   type ActivityHistoryRepository,
   MAX_ACTIVITY_RECORDS_PER_CATEGORY,
@@ -53,9 +53,15 @@ export interface FileActivityHistoryOptions {
   randomId?(): string;
 }
 
-// activity.json sits beside the state file, in the CLI's data directory.
+// The history sits beside the state file, in the CLI's data directory:
+// activity.json for the default state.json, `<name>.activity.json` for any
+// other, so two processes with their own --state files in one directory never
+// rewrite each other's history.
 export function activityPathFor(statePath: string): string {
-  return join(dirname(statePath), ACTIVITY_FILE_NAME);
+  const name = basename(statePath);
+  if (name === "state.json") return join(dirname(statePath), ACTIVITY_FILE_NAME);
+  const stem = name.endsWith(".json") ? name.slice(0, -".json".length) : name;
+  return join(dirname(statePath), `${stem}.${ACTIVITY_FILE_NAME}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

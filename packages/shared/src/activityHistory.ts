@@ -43,8 +43,11 @@ export function activityRetentionCutoff(category: EventCategory, now: number): s
   return new Date(now - activityRetentionMs(category)).toISOString();
 }
 
+// A whole number of records from 1 to the maximum: a page ends when it holds
+// one more than the limit, which a fractional limit would never reach.
 export function activityPageLimit(limit: number | undefined): number {
-  return Math.min(MAX_ACTIVITY_PAGE_LIMIT, Math.max(1, limit ?? DEFAULT_ACTIVITY_PAGE_LIMIT));
+  const requested = Math.floor(limit ?? DEFAULT_ACTIVITY_PAGE_LIMIT);
+  return Math.min(MAX_ACTIVITY_PAGE_LIMIT, Math.max(1, requested));
 }
 
 // A page ends at the last record it returned; the next one starts below it.

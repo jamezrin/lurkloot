@@ -86,6 +86,11 @@ function history(options: { now?: () => number } = {}) {
 describe("CLI activity history", () => {
   it("lives beside the state file", () => {
     expect(activityPathFor("/data/lurkloot/state.json")).toBe("/data/lurkloot/activity.json");
+    // Two --state files in one directory keep two histories.
+    expect(activityPathFor("/data/lurkloot/alt.json")).toBe("/data/lurkloot/alt.activity.json");
+    expect(activityPathFor("/data/lurkloot/alt-state")).toBe(
+      "/data/lurkloot/alt-state.activity.json",
+    );
   });
 
   it("pages activity newest first with a cursor", async () => {
@@ -111,6 +116,18 @@ describe("CLI activity history", () => {
 
     // A record with a platform is shown under its own platform only.
     expect((await store.load({ category: "activity", platform: "kick" })).events).toEqual([]);
+  });
+
+  it("keeps a fractional limit a bounded page", async () => {
+    const store = history();
+    await store.append([
+      claimed("a", at(-3_000)),
+      claimed("b", at(-2_000)),
+      claimed("c", at(-1_000)),
+    ]);
+    const page = await store.load({ category: "activity", limit: 1.5 });
+    expect(page.events).toHaveLength(1);
+    expect(page.nextCursor).toEqual(expect.any(String));
   });
 
   it("refuses a cursor it did not issue", async () => {

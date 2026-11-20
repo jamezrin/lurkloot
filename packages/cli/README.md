@@ -649,7 +649,9 @@ state file also removes any legacy embedded `events` field.
 `run` and `serve` also keep the activity the extension's Activity view shows
 (claims, farming starts and stops, interruptions, obtained rewards and each
 farming session's point and reward totals) in `activity.json`, beside
-`state.json` in the data directory (`--state` moves both). It has the
+`state.json` in the data directory. With `--state <dir>/<name>.json` it is
+`<dir>/<name>.activity.json`, so processes with their own state files keep
+their own histories. It has the
 extension's bounds: 30 days, at most 2,000 entries, and session summaries for
 30 days after they end. Entries are structured codes and values, which the app
 shows in its own language. Diagnostics are never stored there, so the file
