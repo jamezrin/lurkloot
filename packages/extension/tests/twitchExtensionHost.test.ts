@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TwitchExtensionDriverFactory } from "../src/extensions/runtime";
 import {
   createTwitchExtensionHost,
+  type TwitchExtensionDriverFactory,
   type TwitchExtensionLaneMemoryPort,
-} from "../src/extensions/host";
+} from "@lurkloot/core/extensions/host";
 import { DEFAULT_SETTINGS, applySettingsPatch } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import type { SettingsPatch } from "@lurkloot/shared/settings";

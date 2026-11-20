@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createProviderPermissions } from "../src/extensions/permissions";
+import { createProviderPermissions } from "@lurkloot/core/extensions/host/permissions";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 
 const provider = twitchExtensionProviders[0];

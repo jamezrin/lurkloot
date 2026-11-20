@@ -1,4 +1,4 @@
-import type { CommittedChange } from "@lurkloot/core/controller";
+import type { CommittedChange } from "../../background/stateTransaction";
 import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
 
 // What a committed change means for the Twitch Extensions lane (#594). It

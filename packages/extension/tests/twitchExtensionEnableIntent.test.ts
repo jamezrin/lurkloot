@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createTwitchExtensionGrantCompletion,
   requestTwitchExtensionGrant,
-} from "../src/extensions/grantCompletion";
+} from "@lurkloot/core/extensions/host/grantCompletion";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 
 function setup() {

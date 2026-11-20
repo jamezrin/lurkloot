@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
-import type { DriverSession } from "../src/extensions/session";
+import { createNoPixelDriver } from "@lurkloot/core/extensions/nopixel/driver";
+import type { DriverSession } from "@lurkloot/core/extensions/host/session";
 const session: DriverSession = {
   jwt: "private",
   expiresAt: Date.now() + 3_600_000,

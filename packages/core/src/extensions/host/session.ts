@@ -1,4 +1,4 @@
-import type { TwitchExtensionProviderDescriptor } from "@lurkloot/core/extensions/types";
+import type { TwitchExtensionProviderDescriptor } from "../types";
 
 // Reduced from Twitch's shipped CoordinatorExtensionsForChannel query. This is
 // a selected-channel session read, not the public/batched discovery primitive.

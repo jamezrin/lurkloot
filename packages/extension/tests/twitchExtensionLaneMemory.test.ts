@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTwitchExtensionLaneMemory } from "../src/extensions/host";
+import { parseTwitchExtensionLaneMemory } from "@lurkloot/core/extensions/host";
 
 // #594: what the lane keeps across service-worker restarts is validated on load.
 describe("Twitch Extensions lane memory", () => {

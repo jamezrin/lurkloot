@@ -23,7 +23,7 @@ const FORBIDDEN = /\b(?:import|require)\b[^\n]*["'](wxt(?:\/[^"']*)?|webextensio
 const HISTORY_API =
   /\b(?:ActivityPage|DiagnosticsExport|getActivity|exportDiagnostics|clearActivity|activityStorage)\b/;
 const FULL_RUNTIME_MESSAGE = /\bRuntimeMessage\b/;
-const BROWSER_COOKIE_API = /\b(?:browser|chrome)\.cookies\b/;
+const BROWSER_API = /\b(?:browser|chrome)\s*(?:\?\.|\.|\[)/;
 const EXTENSION_IMPORT =
   /\b(?:import|require)\b[^\n]*["'][^"']*packages\/extension|\b(?:import|require)\b[^\n]*["'][^"']*extension\/src/;
 // Diagnostics are the English-only surface a user pastes into a bug report, and
@@ -62,15 +62,15 @@ describe("@lurkloot/core browser-free boundary", () => {
     ).toEqual([]);
   });
 
-  it("keeps browser cookie access and extension modules outside core", () => {
+  it("keeps WebExtension API access and extension modules outside core", () => {
     const offenders = tsFiles(coreSrc).filter((file) => {
       const source = readFileSync(file, "utf8");
       const code = source.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-      return BROWSER_COOKIE_API.test(code) || EXTENSION_IMPORT.test(code);
+      return BROWSER_API.test(code) || EXTENSION_IMPORT.test(code);
     });
     expect(
       offenders,
-      `core must not access browser cookies or extension modules; offending files:\n${offenders.join("\n")}`,
+      `core must not access WebExtension APIs or extension modules; offending files:\n${offenders.join("\n")}`,
     ).toEqual([]);
   });
 

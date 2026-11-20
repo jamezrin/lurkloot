@@ -1,9 +1,6 @@
-import {
-  twitchExtensionProviderOrigins,
-  twitchExtensionProviders,
-} from "@lurkloot/core/extensions/registry";
-import type { TwitchExtensionProviderId } from "@lurkloot/core/extensions/types";
-import type { TwitchExtensionProviderDescriptor } from "@lurkloot/core/extensions/types";
+import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "../registry";
+import type { TwitchExtensionProviderId } from "../types";
+import type { TwitchExtensionProviderDescriptor } from "../types";
 
 export interface ProviderRuntimePort {
   start(provider: TwitchExtensionProviderDescriptor): Promise<void>;

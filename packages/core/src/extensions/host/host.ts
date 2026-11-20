@@ -1,9 +1,6 @@
-import { discoverTwitchExtensionChannels } from "@lurkloot/core/extensions/discovery";
-import { pausedForManualWatch } from "@lurkloot/core/manualWatch";
-import {
-  twitchExtensionProviderOrigins,
-  twitchExtensionProviders,
-} from "@lurkloot/core/extensions/registry";
+import { discoverTwitchExtensionChannels } from "../discovery";
+import { pausedForManualWatch } from "../../core/manualWatch";
+import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "../registry";
 import type {
   ChannelCandidate,
   ExtensionSettings,
@@ -25,8 +22,12 @@ import {
 } from "./runtime";
 import type { SessionSource } from "./session";
 
-// The lane's completion and cooldown deadlines, kept across service-worker
-// restarts (#594). Credential-free and bounded: provider ids, epoch deadlines
+export type { ProviderPermissionPort } from "./permissions";
+export type { TwitchExtensionDriver, TwitchExtensionDriverFactory } from "./runtime";
+export type { DriverSession, SessionSource } from "./session";
+
+// The lane's completion and cooldown deadlines, kept across host restarts
+// (#594). Credential-free and bounded: provider ids, epoch deadlines
 // and channel logins only. Validated on load, expired entries dropped.
 export interface TwitchExtensionLaneMemory {
   readonly version: 1;
@@ -128,7 +129,7 @@ function reportLine(
   return `Twitch extension ${id} ${report.status}${channel ? ` on ${channel.username}` : ""}: ${details.join(", ")}`;
 }
 
-export function createTwitchExtensionHost(options: {
+export interface TwitchExtensionHostOptions {
   source: SessionSource;
   permissions: ProviderPermissionPort;
   drivers: Partial<Record<TwitchExtensionProviderId, TwitchExtensionDriverFactory>>;
@@ -139,7 +140,7 @@ export function createTwitchExtensionHost(options: {
   diagnostic(message: string, level?: "warn" | "debug"): void;
   // Publishes driver activity; the runtime drops it once the session ended.
   publish(events: readonly EngineEvent[]): void;
-  // Where completion and cooldowns outlive the service worker. Without it
+  // Where completion and cooldowns outlive the process. Without it
   // they live only as long as the host.
   memory?: TwitchExtensionLaneMemoryPort;
   // The signed-in Twitch login (not a credential), which the memory is tied to.
@@ -149,7 +150,9 @@ export function createTwitchExtensionHost(options: {
   // A provider session became ready; the Hermes connection can now follow its
   // broadcast topic without waiting for the next tick (#757).
   onSessionReady?(): void;
-}) {
+}
+
+export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
   let generation = 0;
   const allowed = new Set<TwitchExtensionProviderId>();
   const completedUntil = new Map<TwitchExtensionProviderId, number>();

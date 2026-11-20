@@ -12,11 +12,17 @@ validation instructions are in
 
 ## Implemented
 
+- Core exports the channel and session host from `@lurkloot/core/extensions/host` (#1086).
+  Its ports cover permission decisions, settings and state, credential-free lane memory,
+  viewer login, event publication, tick requests and provider drivers. The extension binds
+  them to its existing browser services, including the admitted Fortnite socket and NoPixelV
+  fetch. CLI wiring is tracked in #1087.
 - Browser-free descriptors contain optional backend origins, discovery
   categories and refresh floors. Frame registration/relay/protocol code is removed.
 - The selected-channel session source uses Twitch's shipped
-  `CoordinatorExtensionsForChannel` fields through the existing browser session
-  fetcher. It does not acquire page context or create an integrity tab. Active
+  `CoordinatorExtensionsForChannel` fields through an injected GQL transport and
+  Client-ID. The extension supplies its existing browser session fetcher and web
+  Client-ID. The session read runs tabless. Active
   installation, channel binding, viewer role, linked identity and expiry are
   checked; provider backends still perform cryptographic verification.
 - Credentials stay within the privileged source/driver callback. Only bounded
