@@ -3,7 +3,7 @@ import { pausedForManualWatch } from "../../core/manualWatch";
 import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "../registry";
 import type {
   ChannelCandidate,
-  ExtensionSettings,
+  EngineSettings,
   SchedulerState,
   SupplementalWatchTarget,
   TwitchExtensionProviderId,
@@ -20,7 +20,7 @@ import {
   type TwitchExtensionDriverFactory,
   type TwitchExtensionTarget,
 } from "./runtime";
-import type { SessionSource } from "./session";
+import { TwitchExtensionClientRefusal, type SessionSource } from "./session";
 
 export { createTwitchExtensionDrivers } from "./drivers";
 export type { ProviderPermissionPort } from "./permissions";
@@ -134,7 +134,7 @@ export interface TwitchExtensionHostOptions {
   source: SessionSource;
   permissions: ProviderPermissionPort;
   drivers: Partial<Record<TwitchExtensionProviderId, TwitchExtensionDriverFactory>>;
-  loadSettings(): Promise<ExtensionSettings>;
+  loadSettings(): Promise<EngineSettings>;
   loadState(): Promise<SchedulerState>;
   savePatch(patch: SettingsPatch): Promise<void>;
   // Warn level unless `level` says otherwise.
@@ -155,6 +155,9 @@ export interface TwitchExtensionHostOptions {
 
 export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
   let generation = 0;
+  let closed = false;
+  let credentialGeneration = 0;
+  const clientRefused = new Set<TwitchExtensionProviderId>();
   const allowed = new Set<TwitchExtensionProviderId>();
   const completedUntil = new Map<TwitchExtensionProviderId, number>();
   // Retain completion through ordinary transitions, but allow a bounded
@@ -259,6 +262,23 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
       }
     });
   }
+  function showClientRefusal(id: TwitchExtensionProviderId) {
+    summaries[id] = {
+      status: "idle",
+      reasonCode: "compatibility-error",
+      progress: [],
+      pending: [],
+      updatedAt: new Date(options.source.now()).toISOString(),
+    };
+  }
+  function recordClientRefusal(id: TwitchExtensionProviderId) {
+    if (clientRefused.has(id)) return;
+    clientRefused.add(id);
+    showClientRefusal(id);
+    options.diagnostic(
+      `Twitch refused the ${id} Extension query for this sign-in; use an imported Twitch web sign-in or change credentials to retry.`,
+    );
+  }
   const runtime = createTwitchExtensionRuntime({
     source: options.source,
     contains: (origin) => options.permissions.contains({ origins: [origin] }),
@@ -333,6 +353,10 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
       // hour away; the session would otherwise sit on a provider that stopped.
       if (identityRequired) options.requestTick?.();
     },
+    onClientRefusal: (id) => {
+      recordClientRefusal(id);
+      options.requestTick?.();
+    },
     onViolation: (_id, diagnostic) => options.diagnostic(diagnostic),
     publish: options.publish,
   });
@@ -406,12 +430,13 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     }
   }
   async function chooseWatchTarget(
-    settings: ExtensionSettings,
+    settings: EngineSettings,
     state: SchedulerState,
     signal?: AbortSignal,
     source?: WatchSourceId,
   ): Promise<SupplementalWatchTarget | undefined> {
     await restored;
+    if (closed) return;
     const selectedGeneration = generation;
     for (const [key, until] of unavailableUntil)
       if (until <= options.source.now()) unavailableUntil.delete(key);
@@ -452,7 +477,7 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
       const now = options.source.now();
       if ((knownComplete.get(provider.id) ?? 0) > now) continue;
       if ((completedUntil.get(provider.id) ?? 0) > now) continue;
-      if (identityBlocked(provider.id, now)) continue;
+      if (clientRefused.has(provider.id) || identityBlocked(provider.id, now)) continue;
       completedUntil.delete(provider.id);
       let cache = discovery.get(provider.id);
       if (!cache) {
@@ -485,9 +510,19 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
         shared.promise.catch(() => undefined);
         entry.pending = shared;
       }
-      const candidates = cache.pending
-        ? await awaitSharedDiscovery(cache.pending, signal)
-        : cache.channels;
+      let candidates: ChannelCandidate[];
+      try {
+        candidates = cache.pending
+          ? await awaitSharedDiscovery(cache.pending, signal)
+          : cache.channels;
+      } catch (error) {
+        if (!(error instanceof TwitchExtensionClientRefusal)) throw error;
+        if (!signal?.aborted && selectedGeneration === generation) {
+          runtime.stop(provider.id);
+          recordClientRefusal(provider.id);
+        }
+        continue;
+      }
       signal?.throwIfAborted();
       if (selectedGeneration !== generation) return;
       const excluded = new Set(
@@ -523,6 +558,7 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
   }
   async function reconcile() {
     await restored;
+    if (closed) return;
     const selectedGeneration = ++generation;
     await permissions.reconcile();
     if (selectedGeneration !== generation) return;
@@ -549,6 +585,10 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
       activeReprobes.delete(id);
       if (!settings.twitchExtensions[id].enabled || !allowed.has(id)) {
         delete summaries[id];
+        continue;
+      }
+      if (clientRefused.has(id)) {
+        if (!summaries[id]) showClientRefusal(id);
         continue;
       }
       if (identityBlocked(id, options.source.now())) {
@@ -648,10 +688,18 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
   // may belong to someone else now. Completion and cooldowns are forgotten only
   // when the signed-in login actually changed: Twitch re-sets the cookie on
   // ordinary page loads, and that must not wipe what the lane learned.
-  async function credentialsChanged(): Promise<void> {
+  async function credentialsChanged({ clientChanged = false } = {}): Promise<void> {
+    const revision = ++credentialGeneration;
+    if (clientChanged) {
+      clientRefused.clear();
+      for (const entry of discovery.values()) entry.pending?.abort.abort();
+      discovery.clear();
+    }
     invalidate({ preserveCompleted: true });
     await restored;
+    if (closed) return;
     const login = await currentLogin();
+    if (closed || revision !== credentialGeneration) return;
     if (login !== undefined && login === owner) return;
     invalidate({ forgetCompletion: true });
     owner = login;
@@ -669,12 +717,13 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     heartbeatChecks: number;
   }): Promise<void> {
     await restored;
+    if (closed) return;
     const provider = twitchExtensionProviders.find(
       (candidate) => candidate.id === failure.provider,
     );
     if (!provider) return;
     const settings = await options.loadSettings();
-    if (failure.heartbeatChecks < settings.tablessFallbackFailureLimit) return;
+    if (closed || failure.heartbeatChecks < settings.tablessFallbackFailureLimit) return;
     const now = options.source.now();
     const key = `${provider.id}:${failure.username.toLowerCase()}`;
     if ((unavailableUntil.get(key) ?? 0) > now) return;
@@ -705,7 +754,16 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     const id = twitchExtensionProviders.find((candidate) => candidate.id === provider)?.id;
     return id && allowed.has(id) ? runtime.broadcastToken(id, channelId) : undefined;
   }
+  async function close(): Promise<void> {
+    closed = true;
+    generation += 1;
+    runtime.stop();
+    for (const entry of discovery.values()) entry.pending?.abort.abort();
+    discovery.clear();
+    await saving;
+  }
   return {
+    close,
     reconcile,
     chooseWatchTarget,
     setEnabled,

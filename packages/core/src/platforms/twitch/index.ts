@@ -86,7 +86,7 @@ export type { TwitchInventoryCapability } from "./inventory/types";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
-const CURRENT_USER_LOGIN_QUERY = "query CurrentUserLogin { currentUser { id login } }";
+export const CURRENT_USER_LOGIN_QUERY = "query CurrentUserLogin { currentUser { id login } }";
 // Not yet checked against Twitch's live schema; a drift shows up as a GQL error
 // and the channel is shown by its id (CLAUDE.md, "Manually Reproducing Platform
 // GQL Requests").

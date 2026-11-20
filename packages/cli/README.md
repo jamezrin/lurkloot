@@ -160,8 +160,6 @@ source, including while already watching. Unknown, duplicate and wrong-platform
 entries are discarded; missing sources append in their default order. Idle
 Watchlist keeps its own channel order. Excluded drop channels also apply to
 supplemental providers; explicitly listed Watchlist channels remain allowed.
-The CLI currently has no NoPixelV or Fortnite provider, so those
-sources yield to the next eligible source even when placed first.
 
 The deprecated `idleWatchlistFallbackOnly` field remains accepted for existing
 configs. When a platform has no explicit priority and that field is `false`, it
@@ -230,6 +228,41 @@ lacks the feature. Once logged, it stays quiet for the rest of that run.
 The default config is quiet. `channelPointsPushClaim` is on by default, and
 setting it to `false` disables push claiming, so either value stays quiet.
 `tests/inertSettings.test.ts` checks these gaps per transport and Twitch sign-in.
+
+## Twitch Extensions
+
+NoPixelV and Fortnite are available in `run` and `serve` and disabled by default.
+Enable a provider in the app's Twitch Extensions settings or in `config.json`:
+
+```jsonc
+"twitchExtensions": {
+  "nopixel": { "enabled": true, "autoOpenPacks": false },
+  "fortnite": { "enabled": true, "allowTakeovers": false }
+}
+```
+
+Enabling a provider authorizes the CLI to contact its backend. NoPixelV joins
+the selected channel's Twitch chat for watchtime credit. Enable `autoOpenPacks`
+to open eligible packs when they arrive. Fortnite records confirmed sprite
+captures. `allowTakeovers` opts in to eligible takeover actions. The CLI logs
+confirmed rewards and saves completion and cooldown deadlines to
+`twitch-extension-lane.json` beside `state.json`, keyed to the Twitch login.
+A custom `--state` file gets its own companion file. Lane memory contains no credentials.
+
+Both providers use the Client-ID of the sign-in on file, on either CLI
+transport. Some providers require you to share your Twitch identity with
+the extension on Twitch.
+
+| Twitch sign-in | NoPixelV | Fortnite |
+| --- | --- | --- |
+| Imported web session (`auth import`) | Supported web-client path | Supported web-client path |
+| Android (`auth twitch browser-login`) | Attempted with the Android Client-ID, subject to Twitch accepting the provider queries | Same |
+| Smart TV (`auth twitch device-login`) | Attempted with the Smart TV Client-ID, subject to Twitch accepting the provider queries | Same |
+
+Live CLI earning is unverified for each sign-in. If Twitch explicitly refuses
+a provider query for a non-web sign-in, the CLI logs one warning for that
+provider and leaves it idle until the credentials change. Other farming
+continues. Provider refreshes use polling until CLI Hermes support lands in #1096.
 
 ## Transports
 
@@ -461,8 +494,11 @@ were. Sign-in errors use these codes:
 
 Supported messages: `getSnapshot`, `exportDiagnostics`, `tickNow`, `claimReward`,
 `selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
-settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`
-and `setAutomation`. Live updates come from polling `getSnapshot`.
+settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`,
+`setAutomation` and `setTwitchExtensionEnabled`. The provider toggle takes
+`provider` (`nopixel` or `fortnite`) and a boolean `enabled`. Its result is
+`{ enabled }`. Live updates come from polling `getSnapshot`, including provider
+summaries in `state.twitchExtensions`.
 
 A settings message is applied by the running loop and saved to the config file
 (`--config`, `config.json` by default) at once. Only the values that change are

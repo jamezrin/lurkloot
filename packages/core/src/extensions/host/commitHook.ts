@@ -1,5 +1,5 @@
 import type { CommittedChange } from "../../background/stateTransaction";
-import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { EngineSettings, SchedulerState } from "@lurkloot/shared/models";
 
 // What a committed change means for the Twitch Extensions lane (#594). It
 // replaces the storage.onChanged diff and the reconcile on every alarm: the lane
@@ -19,7 +19,7 @@ export interface TwitchExtensionCommitEffect {
 
 const NONE: TwitchExtensionCommitEffect = { reconcile: false };
 
-function settingsChangeInvalidates(previous: ExtensionSettings, next: ExtensionSettings): boolean {
+function settingsChangeInvalidates(previous: EngineSettings, next: EngineSettings): boolean {
   return (
     previous.pauseOnManualWatch !== next.pauseOnManualWatch
     || previous.platform.twitch.enabled !== next.platform.twitch.enabled
@@ -62,7 +62,7 @@ function failedSupplementalHeartbeat(
 }
 
 export function twitchExtensionCommitEffect(
-  change: CommittedChange<ExtensionSettings>,
+  change: CommittedChange<EngineSettings>,
 ): TwitchExtensionCommitEffect {
   if (change.kind === "settings") {
     // A ranking-only save (#571) changes nothing the providers depend on.
@@ -124,7 +124,7 @@ export function createTwitchExtensionCommitHook(
     return running;
   }
 
-  function onCommit(change: CommittedChange<ExtensionSettings>): void {
+  function onCommit(change: CommittedChange<EngineSettings>): void {
     const effect = twitchExtensionCommitEffect(change);
     if (effect.invalidate) host.invalidate(effect.invalidate);
     if (effect.heartbeatFailure)

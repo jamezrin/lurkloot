@@ -16,13 +16,17 @@ validation instructions are in
   Its ports cover permission decisions, settings and state, credential-free lane memory,
   viewer login, event publication, tick requests and provider drivers. The extension binds
   them to its existing browser services, including the admitted Fortnite socket and NoPixelV
-  fetch. CLI wiring is tracked in #1087.
+  fetch. The CLI binds the same driver factory, supplemental selector and commit hook
+  to its config store, Node transports and account identity query (#1087).
 - Browser-free descriptors contain optional backend origins, discovery
   categories and refresh floors. Frame registration/relay/protocol code is removed.
 - The selected-channel session source uses Twitch's shipped
   `CoordinatorExtensionsForChannel` fields through an injected GQL transport and
   Client-ID. The extension supplies its existing browser session fetcher and web
-  Client-ID. The session read runs tabless. Active
+  Client-ID. The CLI matches Client-ID to its imported web, Android or Smart TV
+  credential. An explicit refusal for a non-web client leaves that provider idle
+  until credentials change, with one warning. It uses polling while CLI Hermes
+  is pending (#1096). The session read runs tabless. Active
   installation, channel binding, viewer role, linked identity and expiry are
   checked; provider backends still perform cryptographic verification.
 - Credentials stay within the privileged source/driver callback. Only bounded
@@ -40,13 +44,14 @@ validation instructions are in
   the popup. Unsolicited grants do not enable providers; disable, revocation and
   reset cancel intents, and reset drains in-flight enable requests.
   Startup verifies grants, revocation stops resources before async cleanup, and
-  stale grants/verification cannot restart disabled resources.
+  stale grants/verification cannot restart disabled resources. On the CLI the
+  enable setting itself is consent to contact the provider backend.
 - Background startup/wake, alarms, settings/scheduler changes, credential
   changes and permission removal reconcile the runtime. Snapshots attach cloned
   transient summaries; no active provider session is restored from storage.
-- Browser-only settings default NoPixelV, Fortnite and takeovers off. CLI config
-  rejects those keys. Required browser grants are unchanged; both vendor
-  backends are optional. Settings places Twitch Extensions immediately after
+- Provider toggles, pack opening and takeovers default off on both hosts.
+  Required browser grants are unchanged; both vendor backends are optional.
+  Settings places Twitch Extensions immediately after
   Twitch, with independent NoPixelV/Fortnite subgroups containing their own
   toggles. Provider enable switches sit in the group headers and remain
   available while collapsed; only provider-specific automation options appear

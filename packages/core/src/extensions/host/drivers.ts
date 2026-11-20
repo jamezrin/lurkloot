@@ -1,4 +1,4 @@
-import type { ExtensionSettings, TwitchExtensionProviderId } from "@lurkloot/shared/models";
+import type { EngineSettings, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { withActivityDiagnostics } from "../../core/activityDiagnostics";
 import { createFortniteDriver } from "../fortnite/driver";
@@ -26,7 +26,7 @@ function publishDriverReward(
 export function createTwitchExtensionDrivers(options: {
   fetch: NoPixelFetch;
   createSocket: FortniteSocketFactory;
-  loadSettings(): Promise<Pick<ExtensionSettings, "twitchExtensions">>;
+  loadSettings(): Promise<EngineSettings>;
 }): Record<TwitchExtensionProviderId, TwitchExtensionDriverFactory> {
   return {
     fortnite: async (session, emit, channel, publish) =>

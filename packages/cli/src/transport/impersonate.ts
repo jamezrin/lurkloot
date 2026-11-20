@@ -53,8 +53,9 @@ export async function createImpersonateTransport(
   let kickRealtime: KickRealtimeConnection | undefined;
   const built = createCliAdapters(creds, {
     twitchIntegrity,
-    twitchFetcher: () => ({
-      fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init),
+    twitchFetcher: (credentials) => ({
+      fetchJson: (url, init) =>
+        fetchTwitchInBackgroundWith(twitchCookieApi(credentials), url, init),
     }),
     twitchHeartbeat: (identity) => ({
       heartbeatFetchText: async (url, init) => {

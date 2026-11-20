@@ -19,6 +19,7 @@ import {
   type TwitchHeartbeatPost,
 } from "@lurkloot/core/twitch/heartbeat";
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
+import { createTwitchExtensionAccessReader, type TwitchExtensionAccess } from "./twitchExtensions";
 import type { PlatformCredentials } from "../authStore";
 import { TWITCH_WEB_CLIENT_ID, twitchClientIdentity, twitchIdentityUsesHermes } from "../twitch";
 import { createNodeTwitchHermesWebSocketFactory } from "./twitchHermes";
@@ -47,6 +48,7 @@ export interface TransportHandle {
   ): {
     adapters: Record<Platform, PlatformAdapter>;
   } & CompatibilityResolution;
+  twitchExtensionAccess?(): TwitchExtensionAccess | undefined;
   dispose(): Promise<void>;
 }
 
@@ -79,7 +81,7 @@ export function createLazyAdapters(
 // transports and lives here once.
 export interface CliTransportDeps {
   twitchIntegrity?: CliTwitchIntegrity;
-  twitchFetcher(): PageFetcher;
+  twitchFetcher(credentials: PlatformCredentials): PageFetcher;
   twitchHeartbeat(identity: ReturnType<typeof twitchClientIdentity>): {
     heartbeatFetchText: TwitchHeartbeatFetchText;
     heartbeatPost: TwitchHeartbeatPost;
@@ -105,7 +107,10 @@ const nodeWebSocketFactory: WebSocketFactory = (url) =>
 export function createCliAdapters(
   creds: PlatformCredentials,
   deps: CliTransportDeps,
-): Pick<TransportHandle, "adapters" | "createAdapter" | "createAdapters"> {
+): Pick<
+  TransportHandle,
+  "adapters" | "createAdapter" | "createAdapters" | "twitchExtensionAccess"
+> {
   const kickClaimState = new KickClaimState();
   const kickDiscoveryState = new KickDiscoveryState();
   const twitchDiscoveryState = new TwitchDiscoveryState();
@@ -139,7 +144,7 @@ export function createCliAdapters(
     const adapter =
       platform === "twitch"
         ? new TwitchAdapter(
-            deps.twitchFetcher(),
+            deps.twitchFetcher(creds),
             (request) => twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
             {
               ...identity,
@@ -213,6 +218,7 @@ export function createCliAdapters(
     adapters: createLazyAdapters((platform) => createAdapter(platform, undefined).adapter),
     createAdapter,
     createAdapters,
+    twitchExtensionAccess: createTwitchExtensionAccessReader(creds, deps.twitchFetcher),
   };
 }
 

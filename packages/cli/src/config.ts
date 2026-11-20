@@ -85,6 +85,18 @@ export function defaultConfigJsonc(): string {
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 
+    // Enabling a provider allows requests to its backend. Each optional action is opt-in.
+    "twitchExtensions": {
+      "nopixel": {
+        "enabled": ${json(defaults.twitchExtensions.nopixel.enabled)},
+        "autoOpenPacks": ${json(defaults.twitchExtensions.nopixel.autoOpenPacks)}
+      },
+      "fortnite": {
+        "enabled": ${json(defaults.twitchExtensions.fortnite.enabled)},
+        "allowTakeovers": ${json(defaults.twitchExtensions.fortnite.allowTakeovers)}
+      }
+    },
+
     // Compatibility identifiers are bundled with this LurkLoot release.
     // "auto" is recommended. Raw destinations and hashes cannot be supplied.
     "compatibility": {

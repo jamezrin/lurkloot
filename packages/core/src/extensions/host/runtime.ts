@@ -36,6 +36,7 @@ export function createTwitchExtensionRuntime(options: {
   drivers: Partial<Record<TwitchExtensionProviderId, TwitchExtensionDriverFactory>>;
   report(provider: TwitchExtensionProviderId, report: TwitchExtensionReport): void;
   onViolation(provider: TwitchExtensionProviderId, diagnostic: string): void;
+  onClientRefusal?(provider: TwitchExtensionProviderId): void;
   publish(events: readonly EngineEvent[]): void;
   // A provider session is ready, so its broadcast token now exists (#757).
   onSessionReady?(provider: TwitchExtensionProviderId, channelId: string): void;
@@ -98,7 +99,7 @@ export function createTwitchExtensionRuntime(options: {
       dispose(entry);
   }
   function outcomeReport(
-    outcome: TwitchExtensionSessionOutcome,
+    outcome: Exclude<TwitchExtensionSessionOutcome, "client-refused">,
   ): TwitchExtensionReport | undefined {
     if (outcome === "ready" || outcome === "cancelled") return;
     const reasonCode =
@@ -275,6 +276,13 @@ export function createTwitchExtensionRuntime(options: {
             },
             next.abort.signal,
           );
+          if (outcome === "client-refused") {
+            if (live(id, next)) {
+              stop(id);
+              options.onClientRefusal?.(id);
+            }
+            return;
+          }
           const report = outcomeReport(outcome);
           if (report) {
             emit(id, next, report);

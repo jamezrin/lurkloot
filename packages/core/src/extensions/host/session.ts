@@ -25,10 +25,14 @@ export type TwitchExtensionSessionOutcome =
   | "compatibility-error"
   | "transport-error"
   | "provider-error"
-  | "cancelled";
+  | "cancelled"
+  | "client-refused";
+
+// A host may recognize an explicit refusal for its authenticated GQL client.
+export class TwitchExtensionClientRefusal extends Error {}
 
 export interface SessionSource {
-  query(query: string, variables: Record<string, string>, signal?: AbortSignal): Promise<unknown>;
+  query(query: string, variables: Record<string, unknown>, signal?: AbortSignal): Promise<unknown>;
   hasSession(): Promise<boolean>;
   now(): number;
 }
@@ -77,8 +81,9 @@ export async function withTwitchExtensionSession(
     if (!(await source.hasSession())) return "auth-required";
     if (signal?.aborted) return "cancelled";
     response = await source.query(TWITCH_EXTENSION_SESSION_QUERY, { channelID: channelId }, signal);
-  } catch {
-    return signal?.aborted ? "cancelled" : "transport-error";
+  } catch (error) {
+    if (signal?.aborted) return "cancelled";
+    return error instanceof TwitchExtensionClientRefusal ? "client-refused" : "transport-error";
   }
   if (signal?.aborted) return "cancelled";
   const envelope = object(response);

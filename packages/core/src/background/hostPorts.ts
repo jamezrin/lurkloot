@@ -57,7 +57,7 @@ export const EXTENSION_CAPABILITIES: HostCapabilities = {
 export const CLI_CAPABILITIES: HostCapabilities = {
   browserTabs: false,
   twitchIntegrityCapture: false,
-  supplementalSources: false,
+  supplementalSources: true,
   chatPresence: true,
 };
 

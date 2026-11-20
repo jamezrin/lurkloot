@@ -6,6 +6,8 @@ type Socket = WebSocketLike & {
     listener: (event: WebSocketMessageEventLike) => void,
   ): void;
 };
+export const FORTNITE_SOCKET_URL = "wss://backend.p-n6412w7dsu.exmggames.com/handler";
+
 export type FortniteSocketFactory = (url: string) => Socket;
 
 export class FortniteSocketFailure extends Error {
@@ -40,7 +42,7 @@ export async function connectFortniteSocket(options: {
     throw new FortniteSocketFailure("transport-error", "Fortnite connection closed.");
   let socket: Socket;
   try {
-    socket = options.createSocket("wss://backend.p-n6412w7dsu.exmggames.com/handler");
+    socket = options.createSocket(FORTNITE_SOCKET_URL);
   } catch {
     throw new FortniteSocketFailure("transport-error", "Fortnite connection failed.");
   }

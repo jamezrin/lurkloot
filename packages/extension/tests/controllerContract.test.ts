@@ -791,7 +791,9 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
           status: "watching",
           watchMode: "tabless",
         });
-        expect(host.deps.openWatchTab).not.toHaveBeenCalled();
+        if (capabilities.declared.browserTabs)
+          expect(host.deps.openWatchTab).not.toHaveBeenCalled();
+        else expect(host.deps.openWatchTab).toBeUndefined();
         expect(
           host.reported.some(
             (event) =>
@@ -1087,7 +1089,11 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
           }),
           "A settings save",
         );
-        expect(host.storage.settings.pollIntervalMinutes).toBe(7);
+        expect(host.deps.saveSettings).toHaveBeenCalledWith(
+          expect.objectContaining({ pollIntervalMinutes: 7 }),
+        );
+        if (capabilities.persistsSettings)
+          expect(host.storage.settings.pollIntervalMinutes).toBe(7);
 
         host.controller.shutdown();
         await within(

@@ -62,16 +62,18 @@ describe("overlaySettingsPatch", () => {
     expect(merged.platform.twitch).toEqual(DEFAULT_ENGINE_SETTINGS.platform.twitch);
   });
 
-  it("adds twitchExtensions only when either side has it", () => {
-    expect("twitchExtensions" in overlaySettingsPatch(DEFAULT_ENGINE_SETTINGS, {})).toBe(false);
+  it("preserves the shared Twitch Extension defaults around a partial patch", () => {
+    expect(overlaySettingsPatch(DEFAULT_ENGINE_SETTINGS, {}).twitchExtensions).toEqual(
+      DEFAULT_ENGINE_SETTINGS.twitchExtensions,
+    );
     expect(
       overlaySettingsPatch(DEFAULT_ENGINE_SETTINGS, {
         twitchExtensions: { nopixel: { enabled: true } },
-      }).twitchExtensions?.nopixel,
-    ).toEqual({ enabled: true });
-    expect(overlaySettingsPatch(DEFAULT_SETTINGS, {}).twitchExtensions).toEqual(
-      DEFAULT_SETTINGS.twitchExtensions,
-    );
+      }).twitchExtensions,
+    ).toEqual({
+      nopixel: { enabled: true, autoOpenPacks: false },
+      fortnite: DEFAULT_ENGINE_SETTINGS.twitchExtensions.fortnite,
+    });
   });
 
   it("is what applySettingsPatch normalizes", () => {

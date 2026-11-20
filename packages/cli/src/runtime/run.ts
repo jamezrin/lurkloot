@@ -1,5 +1,7 @@
 import type { DiagnosticSecrets } from "@lurkloot/shared/diagnostics";
 import { createDiagnosticsHistory } from "./diagnostics";
+import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
+import { createCliTwitchExtensionLane } from "./twitchExtensions";
 import {
   CLI_CAPABILITIES,
   createBackgroundController,
@@ -20,7 +22,11 @@ import { createNodeJobScheduler } from "./jobs";
 import { errorMessage } from "@lurkloot/shared/errors";
 
 // The controller the loop builds, as handed to a host started beside it.
-export type FarmingController = ReturnType<typeof createBackgroundController<EngineSettings>>;
+type EngineController = ReturnType<typeof createBackgroundController<EngineSettings>>;
+type ExtensionToggle = Extract<RuntimeMessage, { type: "setTwitchExtensionEnabled" }>;
+export type FarmingController = Omit<EngineController, "handleMessage"> & {
+  handleMessage(message: CoreRuntimeMessage | ExtensionToggle): Promise<unknown>;
+};
 
 // Something long-lived that runs beside the farming loop, such as the `serve`
 // control plane. The loop starts it before the first tick and closes it first
@@ -139,7 +145,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
   let dispatchJob: (name: string) => void = () => undefined;
   const jobs = createNodeJobScheduler((name) => dispatchJob(name));
   const controller = createBackgroundController({
-    // No browser tabs, integrity capture or supplemental sources.
+    // No browser tabs or integrity capture.
     capabilities: CLI_CAPABILITIES,
     storage: {
       loadSettings: () => settingsStore.load(),
@@ -166,8 +172,51 @@ export async function runLoop(options: RunOptions): Promise<void> {
     ...(options.checkCredentialAvailability
       ? { credentials: { checkAvailability: options.checkCredentialAvailability } }
       : {}),
-    twitch: {},
+    twitch: {
+      supplementalSources: {
+        select: (state, settings, signal, source) =>
+          extensionLane.select(state, settings, signal, source),
+      },
+    },
   });
+
+  const extensionLane = createCliTwitchExtensionLane({
+    statePath,
+    transport,
+    loadSettings: () => settingsStore.load(),
+    loadState: loadRuntimeState,
+    savePatch: async (settingsPatch) => {
+      await controller.handleMessage({ type: "saveSettings", settingsPatch });
+    },
+    publish: (events) => {
+      void controller.reportEvents(events);
+    },
+    requestTick: () => {
+      void controller.tick(["twitch"], "tabless_fallback").catch(() => undefined);
+    },
+    onSessionReady: () => {
+      void controller.reconcileTwitchObservers().catch(() => undefined);
+    },
+  });
+  const stopExtensionCommits = controller.onCommit(extensionLane.onCommit);
+  const farmingController: FarmingController = {
+    ...controller,
+    async handleMessage(message) {
+      if (message.type === "setTwitchExtensionEnabled") {
+        const result = await extensionLane.setEnabled(message.provider, message.enabled);
+        void controller.tick(["twitch"], "manual_tick").catch(() => undefined);
+        return result;
+      }
+      const result = await controller.handleMessage(message);
+      if (result && "settings" in result && "state" in result) {
+        return {
+          ...result,
+          state: { ...result.state, twitchExtensions: extensionLane.snapshot() },
+        };
+      }
+      return result;
+    },
+  };
 
   let startupReconciliation: Promise<EngineSettings | void> | undefined;
   // Reconciliation can start a save after a stop arrives. Drain it, the
@@ -176,6 +225,8 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const stopFarming = async () => {
     if (startupReconciliation) await startupReconciliation;
     await controller.shutdown();
+    stopExtensionCommits();
+    await extensionLane.close();
     await controller.settleBackgroundWork();
     await settleStateWrites();
     try {
@@ -285,7 +336,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
         // Record the promise before running host code, with signal handlers
         // already installed while the sidecar loads.
         startingHost = restoreDiagnostics().then((history) => {
-          if (!stopped) return options.startHost?.(controller, history);
+          if (!stopped) return options.startHost?.(farmingController, history);
         });
         started = await startingHost;
       } catch (error) {

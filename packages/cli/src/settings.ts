@@ -81,6 +81,7 @@ export interface CliSettings {
   notifyNoDropsLeft: boolean;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
+  twitchExtensions: EngineSettings["twitchExtensions"];
 }
 
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
@@ -111,6 +112,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
     twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
     kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
   },
+  twitchExtensions: structuredClone(DEFAULT_SETTINGS.twitchExtensions),
   compatibility: {
     twitch: { ...DEFAULT_SETTINGS.compatibility.twitch },
     kick: { ...DEFAULT_SETTINGS.compatibility.kick },
@@ -137,6 +139,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "notifyNoDropsLeft",
   "platform",
   "compatibility",
+  "twitchExtensions",
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
@@ -190,13 +193,16 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
 // The `platform` and `compatibility` containers are expanded into their keys.
 export function cliAcceptedSettingPaths(): string[] {
   const paths = [...CLI_SETTING_KEYS].filter(
-    (key) => key !== "platform" && key !== "compatibility",
+    (key) => key !== "platform" && key !== "compatibility" && key !== "twitchExtensions",
   );
   for (const platform of PLATFORMS) {
     for (const key of CLI_PLATFORM_KEYS[platform]) paths.push(`platform.${platform}.${key}`);
     for (const key of CLI_COMPATIBILITY_KEYS[platform]) {
       paths.push(`compatibility.${platform}.${key}`);
     }
+  }
+  for (const [provider, settings] of Object.entries(DEFAULT_CLI_SETTINGS.twitchExtensions)) {
+    for (const key of Object.keys(settings)) paths.push(`twitchExtensions.${provider}.${key}`);
   }
   return paths;
 }
@@ -208,7 +214,6 @@ export function cliAcceptedSettingPaths(): string[] {
 // strips it (with a diagnostic) before this scan ever sees it. So is
 // `tablessMode`, which the CLI accepts and ignores (see withoutTablessMode).
 const EXTENSION_ONLY_KEYS = new Set<string>([
-  "twitchExtensions",
   "muteFarmingTabs",
   "keepFarmingVideosUnmuted",
   "pauseOnManualWatch",
@@ -390,6 +395,29 @@ function rewardFilterOffenders(platform: string, raw: unknown): CliSettingsOffen
   return offenders;
 }
 
+function twitchExtensionOffenders(raw: unknown): CliSettingsOffender[] {
+  const defaults = DEFAULT_CLI_SETTINGS.twitchExtensions;
+  const offenders: CliSettingsOffender[] = [];
+  const check = (value: unknown, fields: object, path: string, providerBlock = false) => {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      offenders.push({ path, message: `"${path}" must be a JSON object` });
+      return;
+    }
+    for (const [key, entry] of Object.entries(value)) {
+      const child = `${path}.${key}`;
+      if (!Object.hasOwn(fields, key)) {
+        offenders.push({ path: child, message: `unknown setting "${child}"` });
+      } else if (providerBlock) {
+        check(entry, defaults[key as keyof typeof defaults], child);
+      } else if (typeof entry !== "boolean") {
+        offenders.push({ path: child, message: `"${child}" must be a boolean` });
+      }
+    }
+  };
+  check(raw, defaults, "twitchExtensions", true);
+  return offenders;
+}
+
 // Validates and normalizes an already-migrated settings payload. See
 // parseCliSettingsWithDiagnostics for the full contract; `diagnostics` is passed
 // through so a renamed-away key can be named by its original path in errors, and
@@ -501,6 +529,9 @@ function parseMigratedCliSettings(
     }
   }
 
+  if (value.twitchExtensions !== undefined)
+    offenders.push(...twitchExtensionOffenders(value.twitchExtensions));
+
   if (offenders.length > 0) throw new CliSettingsValidationError(offenders);
 
   const v = value as Partial<EngineSettings>;
@@ -557,6 +588,13 @@ function parseMigratedCliSettings(
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly, diagnostics),
     compatibility: normalizeCompatibility(v.compatibility),
+    twitchExtensions: {
+      nopixel: { ...DEFAULT_CLI_SETTINGS.twitchExtensions.nopixel, ...v.twitchExtensions?.nopixel },
+      fortnite: {
+        ...DEFAULT_CLI_SETTINGS.twitchExtensions.fortnite,
+        ...v.twitchExtensions?.fortnite,
+      },
+    },
   };
 }
 

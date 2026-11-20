@@ -25,14 +25,10 @@ const SUPPORTED = new Set([
   "searchCategories",
   "tickNow",
   "dismissCriticalFailure",
+  "setTwitchExtensionEnabled",
 ]);
 // A few of the settings the CLI config cannot hold, so a refusal can be seen.
-const EXTENSION_ONLY = [
-  "languageOverride",
-  "muteFarmingTabs",
-  "diagnosticLogging",
-  "twitchExtensions",
-];
+const EXTENSION_ONLY = ["languageOverride", "muteFarmingTabs", "diagnosticLogging"];
 
 let settings: ExtensionSettings | undefined;
 const signedIn: Record<Platform, boolean> = { twitch: true, kick: false };
@@ -101,6 +97,11 @@ async function handleMessage(message: RuntimeMessage): Promise<Answer> {
       settings = applySettingsPatch(current.settings, message.settingsPatch);
       return { status: 200, body: { result: await snapshot() } };
     }
+    case "setTwitchExtensionEnabled":
+      settings = applySettingsPatch(current.settings, {
+        twitchExtensions: { [message.provider]: { enabled: message.enabled } },
+      });
+      return { status: 200, body: { result: { enabled: message.enabled } } };
     case "setAutomation":
     case "setPlatformEnabled":
       settings = applySettingsPatch(current.settings, {

@@ -134,6 +134,10 @@ const BACKING: Record<string, Backing> = {
   },
   notifyRewardEarned: engine("controller notifications, logged by the CLI"),
   notifyNoDropsLeft: engine("controller notifications, logged by the CLI"),
+  "twitchExtensions.nopixel.enabled": engine("supplemental source selection and driver admission"),
+  "twitchExtensions.nopixel.autoOpenPacks": engine("NoPixel driver pack opening"),
+  "twitchExtensions.fortnite.enabled": engine("supplemental source selection and driver admission"),
+  "twitchExtensions.fortnite.allowTakeovers": engine("Fortnite driver takeover commands"),
   ...Object.fromEntries(
     (["twitch", "kick"] as const).flatMap((platform) =>
       Object.entries(PER_PLATFORM).map(([key, backing]) => [
