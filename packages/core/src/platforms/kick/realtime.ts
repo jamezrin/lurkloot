@@ -12,6 +12,10 @@ import { asRecord } from "@lurkloot/shared/records";
 
 export const KICK_REALTIME_CONNECTION_URL = "https://web.kick.com/api/v1/realtime/connection";
 export const KICK_REALTIME_AUTH_URL = "https://web.kick.com/api/v1/realtime/auth/connection";
+export const KICK_CENTRIFUGO_SOCKET_URL =
+  /^wss:\/\/realtime\.[a-z0-9-]+\.platform\.kick\.com\/connection\/websocket$/i;
+export const KICK_PUSHER_SOCKET_URL =
+  /^wss:\/\/ws-[a-z0-9-]+\.pusher\.com\/app\/[a-z0-9]+\?[^#\s]*$/i;
 
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 60_000;
@@ -338,6 +342,9 @@ export class KickRealtimeConnection {
       if (endpoint.provider === "centrifugo") this.handleCentrifugo(event.data);
       else this.handlePusher(event.data);
     });
+    // Node ws emits an error on failed handshakes, including close while connecting.
+    // Consume it here and let the following close handle retries.
+    ws.addEventListener("error", () => {});
     ws.addEventListener("close", (event) => {
       if (this.closedByUs.delete(ws) || !this.isCurrent(ws, generation)) return;
       this.ws = undefined;

@@ -82,6 +82,9 @@ export interface KickAdapterOptions {
   // origin (the extension's socket host, #792); only then is chat presence
   // offered, since Kick's realtime server refuses an extension origin (#754).
   realtime?: { connection: KickRealtimeConnection; kickOrigin: boolean };
+  // A host may give chat its own connection while discovery keeps Pusher.
+  // The observer asks for it only when it creates the chat presence client.
+  createChatPresenceConnection?: () => KickRealtimeConnection;
   // Kick realtime negotiation goes through this when given. It must never
   // fall back to a page-context tab: discovery signals negotiate on every
   // Kick farm (#755). Without it, the adapter's own fetcher is used, which is
@@ -522,11 +525,14 @@ export class KickAdapter implements PlatformAdapter {
           ...(shared ? { connection: shared.connection } : {}),
         });
     }
-    if (shared?.kickOrigin) {
+    const createChatConnection =
+      options.createChatPresenceConnection
+      ?? (shared?.kickOrigin ? () => shared.connection : undefined);
+    if (createChatConnection) {
       const getJson = (url: string) =>
         realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
       this.createChatPresenceClient = () =>
-        new KickChatPresenceClient({ connection: shared.connection, postJson, getJson });
+        new KickChatPresenceClient({ connection: createChatConnection(), postJson, getJson });
     }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,

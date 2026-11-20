@@ -580,8 +580,9 @@ never switches a feature off silently. A setting that needs a capability the hos
 controller as an English diagnostic, with no platform, and changes nothing else.
 
 Host-wide flags cannot see a gap in one platform's adapter (the CLI declares `chatPresence`,
-but its Kick adapter has no presence client), so per-platform settings are also checked against
-the adapter the tick built (#1090). `packages/core/src/background/adapterSettings.ts` owns the
+but its Kick adapter on the `http` transport has no presence client), so per-platform settings
+are also checked against the adapter the tick built (#1090).
+`packages/core/src/background/adapterSettings.ts` owns the
 table: `ADAPTER_BACKED_SETTINGS` names each per-platform field whose effect needs an adapter
 feature some host lacks (`alwaysEnterChat` → chat presence; `channelPointsPushClaim`,
 `watchlistStreakChannels` and the `watchStreak*` tuning → the push connection). Every
@@ -605,8 +606,8 @@ Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus K
 each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
 where it is missing. Narrow a row's cases when support lands for some combinations,
 and remove the row when all its cases gain support. For #1096, keep only Android and
-Smart TV in the Hermes row. For #1092, remove the `kick/impersonate` chat row and keep
-`kick/http`. The guard fails for unexpected gaps and stale exceptions. It also checks
+Smart TV in the Hermes row. The Kick chat gap applies to `kick/http` (#1099).
+The guard fails for unexpected gaps and stale exceptions. It also checks
 that changed values requesting a missing feature produce a warning.
 
 Without `browserTabs`, the watch surface is derived rather than configured: the tick passes
@@ -660,8 +661,9 @@ all run it. Shutdown stops timers and closes the host first, waiting for it to f
 necessary. It then waits for any startup reconciliation in progress, which can begin a state save
 after shutdown starts. After shutting down the controller, `runLoop` drains tracked state writes
 before disposing the transport and resolving. A host that fails to start uses the same farming
-teardown. The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
-event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
+teardown. `run --once` uses the same farming teardown and waits for the controller's
+background cleanup. The host's `ready` hook runs once the loop has taken the host and yielded
+to I/O for two event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
 stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
 including on Windows or when the launcher crashes. An already-ended or destroyed input or
 file-backed stdin such as `/dev/null` stops the loop before binding. For pipes, the yield gives
@@ -1168,7 +1170,10 @@ The extension never presents its own `chrome-extension://` or `moz-extension://`
 
 - **Twitch Extension providers (#798).** A provider with its own socket backend declares `backendSocketOrigin` in `packages/core/src/extensions/registry.ts` (Fortnite today). It is optional, requested in the same prompt as `backendOrigin` and required with it (`twitchExtensionProviderOrigins`). Its socket opens in the socket host like the platforms' sockets, under a websocket-only rule (ids from 9105) that presents the provider's extension frame origin, `https://<extension-id>.ext-twitch.tv`. On Firefox the same `webRequest` listener covers it. The Fortnite profile forwards every frame, because its driver reads them all.
 
-Core is unchanged by any of this: it asks a `WebSocketFactory` for a URL. The CLI passes plain Node sockets.
+Core asks a `WebSocketFactory` to open a URL. The CLI's Kick chat socket uses the
+same realtime endpoint allow-list as the extension and sets only
+`Origin: https://kick.com` in the handshake options. The viewer and Pusher
+discovery sockets retain their existing handshake.
 
 ## Twitch Integration
 
@@ -1366,7 +1371,17 @@ semantics adds its own shape instead of bending a common one.
 
 Some rewards need the account in the watched channel's chat: NoPixelV credits daily watch time from the channel's chatter list (#683). `background/chatPresence.ts` keeps one `ChatPresenceClient` per platform in an `ObserverSlot` and reconciles it after each tick commit and settings save, against the committed session only (`chatPresenceDecision` in `core/chatPresence.ts`). Presence is wanted while a platform watches **tablessly** with healthy auth and no manual pause, and either `platform.<p>.alwaysEnterChat` is on or the watching Twitch Extension provider declares `needsChatPresence`. Tab watches never use it: the page joins chat itself. A commit that leaves auth unhealthy or ends the watch stops it before any await. Presence never affects heartbeat health, rotation or tab fallback; its status is attached to snapshots as `state.chatPresence` and never persisted.
 
-The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat without starting Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect, from the tick's unsupported-settings report (`adapterSettings.ts`, #1090) rather than the chat-presence service; Kick on the CLI is one, because it has no realtime connection there (#1085). See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
+The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat without starting Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect, from the tick's unsupported-settings report (`adapterSettings.ts`, #1090) including Kick on the CLI's `http` transport (#1099). See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
+
+On the CLI's `impersonate` transport, the Kick adapter offers
+`createChatPresenceClient` and asks for the transport-owned realtime connection
+only when the controller starts chat presence. The connection is reused across
+adapters and negotiates and authenticates through the existing `PageFetcher`.
+Drop discovery keeps its own Pusher-only connection pending a live check that
+discovery signals arrive over the negotiated realtime connection. The presence
+observer releases its subscription on shutdown, and transport disposal also
+stops the realtime connection before releasing CycleTLS. The CLI tests cover
+socket cleanup on SIGTERM, stdin EOF and `run --once`.
 
 ## Playback Telemetry and Control
 

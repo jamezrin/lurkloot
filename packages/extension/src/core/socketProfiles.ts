@@ -1,3 +1,4 @@
+import { KICK_CENTRIFUGO_SOCKET_URL, KICK_PUSHER_SOCKET_URL } from "@lurkloot/core/kick/realtime";
 import { TWITCH_IRC_CLIENT_COMMANDS } from "@lurkloot/core/twitch/chatPresence";
 import { twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
 import type { Platform } from "@lurkloot/shared/models";
@@ -38,13 +39,13 @@ const PROFILES: Array<SocketProfile & { url: RegExp }> = [
     name: "kick-realtime",
     platform: "kick",
     permission: KICK_SOCKET_ORIGIN,
-    url: /^wss:\/\/realtime\.[a-z0-9-]+\.platform\.kick\.com\/connection\/websocket$/i,
+    url: KICK_CENTRIFUGO_SOCKET_URL,
   },
   {
     name: "kick-pusher",
     platform: "kick",
     permission: PUSHER_SOCKET_ORIGIN,
-    url: /^wss:\/\/ws-[a-z0-9-]+\.pusher\.com\/app\/[a-z0-9]+\?[^#\s]*$/i,
+    url: KICK_PUSHER_SOCKET_URL,
   },
   {
     name: "kick-viewer",

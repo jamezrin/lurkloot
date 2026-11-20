@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ADAPTER_BACKED_SETTINGS,
   adapterOffers,
@@ -18,8 +18,6 @@ import {
 import { cliAcceptedSettingPaths, DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createHttpTransport } from "../src/transport/http";
 import { createImpersonateTransport } from "../src/transport/impersonate";
-import { createCliAdapters } from "../src/transport/common";
-import type { TransportHandle } from "../src/transport";
 import { runLoop } from "../src/runtime/run";
 import type { Logger } from "../src/logger";
 
@@ -51,8 +49,7 @@ const ADAPTER_CASES = [...TWITCH_CASES, ...KICK_CASES];
 type AdapterCaseName = (typeof ADAPTER_CASES)[number]["name"];
 
 // List only the combinations missing each feature. Narrow the Twitch cases
-// when web sign-ins gain Hermes (#1096). Delete the Kick impersonate row
-// when that transport gains chat (#1092).
+// when web sign-ins gain Hermes (#1096).
 const KNOWN_GAPS: ReadonlyArray<{
   feature: AdapterFeature;
   cases: readonly AdapterCaseName[];
@@ -63,8 +60,7 @@ const KNOWN_GAPS: ReadonlyArray<{
     cases: TWITCH_CASES.map(({ name }) => name),
     issue: issueUrl(1084),
   },
-  { feature: "chatPresence", cases: ["kick/http"], issue: issueUrl(1085) },
-  { feature: "chatPresence", cases: ["kick/impersonate"], issue: issueUrl(1085) },
+  { feature: "chatPresence", cases: ["kick/http"], issue: issueUrl(1099) },
 ];
 
 // Values that request adapter features and differ from the defaults.
@@ -301,11 +297,10 @@ describe("CLI settings guard (#1090)", () => {
   });
 });
 
-describe("CLI run with inert settings (#1090)", () => {
-  const optedInWarnings = [
-    ...warningPaths("twitch/impersonate/smart-tv"),
-    ...warningPaths("kick/impersonate"),
-  ];
+describe("CLI run with inert settings on http (#1090)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const optedInWarnings = [...warningPaths("twitch/http/smart-tv"), ...warningPaths("kick/http")];
 
   it.each([
     { name: "defaults", settings: DEFAULT_CLI_SETTINGS, expected: [] },
@@ -326,23 +321,17 @@ describe("CLI run with inert settings (#1090)", () => {
       expected: optedInWarnings,
     },
   ])("logs only the requested inert settings once with $name", async ({ settings, expected }) => {
-    // Offline adapters with the CLI's own wiring.
-    const built = createCliAdapters(credentials(TWITCH_SMARTBOX_CLIENT_ID), {
-      twitchFetcher: () => ({
-        fetchJson: async <T>() => ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T,
-      }),
-      twitchHeartbeat: () => ({
-        heartbeatFetchText: async () => "",
-        heartbeatPost: async () => ({ status: 200 }),
-        heartbeatExchange: async () => ({ status: 200, body: "" }),
-      }),
-      kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
-      kickWebSocketFactory: () => () => {
-        throw new Error("offline");
-      },
-      twitchChatWebSocketFactory: () => () => {
-        throw new Error("offline");
-      },
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        new URL(url).hostname === "gql.twitch.tv"
+          ? Response.json({ data: { currentUser: { id: "1", login: "viewer" } } })
+          : Response.json({ message: "Request blocked" }, { status: 403 }),
+      ),
+    );
+    const transport = createHttpTransport(credentials(TWITCH_SMARTBOX_CLIENT_ID), {
+      twitch: true,
+      kick: true,
     });
     const warnings: string[] = [];
     const logger: Logger = {
@@ -356,7 +345,6 @@ describe("CLI run with inert settings (#1090)", () => {
       warn: (message) => warnings.push(message),
       error: () => {},
     };
-    const transport: TransportHandle = { ...built, dispose: async () => {} };
     let state: SchedulerState = structuredClone(DEFAULT_STATE);
     const stateStore = {
       load: async () => state,

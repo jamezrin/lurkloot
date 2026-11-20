@@ -7,6 +7,7 @@ import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
 import {
   createKickFetcher,
   KickAdapter,
+  type KickAdapterOptions,
   KickClaimState,
   KickDiscoveryState,
 } from "@lurkloot/core/kick";
@@ -87,6 +88,7 @@ export interface CliTransportDeps {
   // Absent for the http transport: it never opens the viewer WebSocket itself
   // (Kick's WAF blocks it from a pure-Node origin anyway).
   kickWebSocketFactory?(): WebSocketFactory;
+  createKickChatPresenceConnection?: KickAdapterOptions["createChatPresenceConnection"];
   // The Twitch chat presence socket. Defaults to a plain Node WebSocket: Twitch's
   // IRC endpoint needs no browser headers, so both transports share it.
   twitchChatWebSocketFactory?(): WebSocketFactory;
@@ -157,6 +159,7 @@ export function createCliAdapters(
               compatibility: resolution.compatibility.kick,
               claimState: kickClaimState,
               discoveryState: kickDiscoveryState,
+              createChatPresenceConnection: deps.createKickChatPresenceConnection,
             },
             emit,
           );
