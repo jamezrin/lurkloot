@@ -50,7 +50,9 @@ import type {
 // ExtensionSettings. It only exposes settings that actually do something in the
 // headless, tabless watch path (direct HTTP heartbeats / Kick WebSocket; no
 // browser, no tabs). Anything that only matters with a real browser running is
-// rejected (see EXTENSION_ONLY_KEYS) so the config never carries inert knobs.
+// rejected (see EXTENSION_ONLY_KEYS). Every key it accepts must have an effect,
+// or be a known gap that warns at runtime and links its issue: the guard test
+// (tests/inertSettings.test.ts) fails for an accepted key with neither.
 // Per-platform settings reuse the extension's split platform types; the
 // top-level schema is deliberately not shared.
 export interface CliSettings {
@@ -183,6 +185,21 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
   kick: new Set(["profile", "claimLinkHandling"]),
 };
+
+// Every settings path the CLI accepts, dotted (`platform.kick.alwaysEnterChat`).
+// The `platform` and `compatibility` containers are expanded into their keys.
+export function cliAcceptedSettingPaths(): string[] {
+  const paths = [...CLI_SETTING_KEYS].filter(
+    (key) => key !== "platform" && key !== "compatibility",
+  );
+  for (const platform of PLATFORMS) {
+    for (const key of CLI_PLATFORM_KEYS[platform]) paths.push(`platform.${platform}.${key}`);
+    for (const key of CLI_COMPATIBILITY_KEYS[platform]) {
+      paths.push(`compatibility.${platform}.${key}`);
+    }
+  }
+  return paths;
+}
 
 // Settings that exist in the extension but are inert in the CLI's tabless path.
 // Called out by name so a config copy-pasted from the extension gets an
