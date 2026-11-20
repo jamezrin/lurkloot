@@ -7,12 +7,26 @@ import type {
   StoredEngineEvent,
   StoredLegacyEvent,
 } from "@lurkloot/shared/events";
+import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import {
-  type FarmingSessionSummary,
-  foldSessionEvent,
-  tallyKey,
-} from "@lurkloot/shared/farmingSessions";
+  MAX_ACTIVITY_RECORDS_PER_CATEGORY,
+  MAX_ACTIVITY_SESSIONS,
+  activityBatchSessionIds,
+  activityBatchSessionStarts,
+  activityPageLimit,
+  activityQueryMatcher,
+  activityRetentionCutoff,
+  activitySessionRetained,
+  decodeActivityCursor,
+  encodeActivityCursor,
+  foldActivityBatch,
+  toStoredActivityEvents,
+} from "@lurkloot/shared/activityHistory";
 
+// The extension's activity history backend. Retention, the record format, the
+// session fold and page selection are the shared ones
+// (@lurkloot/shared/activityHistory); this module only maps them onto
+// IndexedDB stores and indexes.
 const DATABASE_NAME = "lurkloot-activity";
 const DATABASE_VERSION = 3;
 const EVENT_STORE = "events";
@@ -21,36 +35,12 @@ const META_STORE = "meta";
 // counters folded from the session's events.
 const SESSION_STORE = "sessions";
 const SESSION_PLATFORM_INDEX = "platform_startedAt";
-const MAX_SESSIONS = 200;
 const CATEGORY_INDEX = "category_at_id";
 const PLATFORM_CATEGORY_INDEX = "platform_category_at_id";
 const LAST_PRUNED_AT = "lastPrunedAt";
-const MAX_RECORDS_PER_CATEGORY = 2_000;
-const ACTIVITY_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
-const DIAGNOSTIC_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 const PRUNE_INTERVAL_MS = 24 * 60 * 60 * 1_000;
-const DEFAULT_LIMIT = 80;
-const MAX_LIMIT = 100;
 
-type ActivityCursor = [at: string, id: string];
 type MetaRecord = { key: string; value: string };
-
-function encodeCursor([at, id]: ActivityCursor): string {
-  return encodeURIComponent(JSON.stringify([at, id]));
-}
-
-function decodeCursor(value: string): ActivityCursor {
-  const decoded = JSON.parse(decodeURIComponent(value)) as unknown;
-  if (
-    !Array.isArray(decoded)
-    || decoded.length !== 2
-    || typeof decoded[0] !== "string"
-    || typeof decoded[1] !== "string"
-  ) {
-    throw new Error("Invalid activity cursor");
-  }
-  return [decoded[0], decoded[1]];
-}
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -71,10 +61,6 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
 
 function categoryRange(category: EventCategory): IDBKeyRange {
   return IDBKeyRange.bound([category], [category, []]);
-}
-
-function retentionMs(category: EventCategory): number {
-  return category === "activity" ? ACTIVITY_RETENTION_MS : DIAGNOSTIC_RETENTION_MS;
 }
 
 export interface ActivityRepository {
@@ -173,21 +159,9 @@ class IndexedDbActivityRepository implements ActivityRepository {
 
   async append(events: readonly EngineEvent[]): Promise<void> {
     if (events.length === 0) return;
-    const writtenAt = new Date().toISOString();
-    const stored: StoredEngineEvent[] = events.map((event, index) => {
-      // Prefer when the event was emitted; the batch write time is only a
-      // fallback for events that reach storage without one.
-      const { emittedAt, ...rest } = event;
-      const at = emittedAt ?? writtenAt;
-      return {
-        ...rest,
-        // The index keeps events that share a timestamp sorting by emission
-        // order, since load() falls back to comparing ids when `at` ties.
-        id: `${at}-${String(index).padStart(6, "0")}-${crypto.randomUUID()}`,
-        at,
-        ...(event.data ? { data: { ...event.data } } : {}),
-      };
-    }) as StoredEngineEvent[];
+    const stored = toStoredActivityEvents(events, new Date().toISOString(), () =>
+      crypto.randomUUID(),
+    );
     await this.putAllFolding(stored);
     await this.pruneIfDue();
   }
@@ -202,48 +176,36 @@ class IndexedDbActivityRepository implements ActivityRepository {
     const sessionStore = transaction.objectStore(SESSION_STORE);
     const done = transactionDone(transaction);
     try {
-      const sessionIds = [
-        ...new Set(
-          events.flatMap((event) =>
-            event.category === "activity" && typeof event.sessionId === "string"
-              ? [event.sessionId]
-              : [],
-          ),
-        ),
-      ];
-      const summaries = new Map<string, FarmingSessionSummary | undefined>();
+      // The fold is synchronous, so what it reads of the stored sessions is
+      // loaded first, inside this same transaction.
+      const known = new Map<string, FarmingSessionSummary | undefined>();
       await Promise.all(
-        sessionIds.map(async (id) => {
-          summaries.set(
+        activityBatchSessionIds(events).map(async (id) => {
+          known.set(
             id,
             (await requestResult(sessionStore.get(id))) as FarmingSessionSummary | undefined,
           );
         }),
       );
-      // A session whose session_ended was never stored (reporting is best
-      // effort) would otherwise stay "current" and unprunable forever: the
-      // platform's next session start ends it.
-      for (const event of events) {
-        if (event.category !== "activity" || event.code !== "session_started") continue;
-        const started = event.data.startedAt;
-        const stale = (await requestResult(
-          sessionStore
-            .index(SESSION_PLATFORM_INDEX)
-            .getAll(IDBKeyRange.bound([event.platform], [event.platform, started], false, true)),
-        )) as FarmingSessionSummary[];
-        for (const summary of stale) {
-          const current = summaries.get(summary.id) ?? summary;
-          if (current.id !== event.data.sessionId && !current.endedAt)
-            summaries.set(summary.id, { ...current, endedAt: started });
-        }
+      const startedBefore = new Map<string, FarmingSessionSummary[]>();
+      const startKey = (platform: Platform, startedAt: string) => `${platform}\u0000${startedAt}`;
+      for (const { platform, startedAt } of activityBatchSessionStarts(events)) {
+        startedBefore.set(
+          startKey(platform, startedAt),
+          (await requestResult(
+            sessionStore
+              .index(SESSION_PLATFORM_INDEX)
+              .getAll(IDBKeyRange.bound([platform], [platform, startedAt], false, true)),
+          )) as FarmingSessionSummary[],
+        );
       }
-      for (const event of events) {
-        if (event.category === "activity" && typeof event.sessionId === "string") {
-          summaries.set(event.sessionId, foldSessionEvent(summaries.get(event.sessionId), event));
-        }
-        if (event.category !== "activity" || tallyKey(event) === undefined) eventStore.put(event);
-      }
-      for (const summary of summaries.values()) if (summary) sessionStore.put(summary);
+      const { records, sessions } = foldActivityBatch(events, {
+        get: (id) => known.get(id),
+        startedBefore: (platform, startedAt) =>
+          startedBefore.get(startKey(platform, startedAt)) ?? [],
+      });
+      for (const record of records) eventStore.put(record);
+      for (const summary of sessions) sessionStore.put(summary);
     } catch (error) {
       try {
         transaction.abort();
@@ -260,19 +222,19 @@ class IndexedDbActivityRepository implements ActivityRepository {
     const database = await this.open();
     const transaction = database.transaction(SESSION_STORE, "readonly");
     const index = transaction.objectStore(SESSION_STORE).index(SESSION_PLATFORM_INDEX);
-    const cutoff = new Date(Date.now() - ACTIVITY_RETENTION_MS).toISOString();
+    const now = Date.now();
     const request = index.openCursor(IDBKeyRange.bound([platform], [platform, []]), "prev");
     const sessions: FarmingSessionSummary[] = [];
     await new Promise<void>((resolve, reject) => {
       request.onerror = () => reject(request.error ?? new Error("Could not read sessions"));
       request.onsuccess = () => {
         const cursor = request.result;
-        if (!cursor || sessions.length >= MAX_SESSIONS) {
+        if (!cursor || sessions.length >= MAX_ACTIVITY_SESSIONS) {
           resolve();
           return;
         }
         const session = cursor.value as FarmingSessionSummary;
-        if (!session.endedAt || session.endedAt >= cutoff) sessions.push(session);
+        if (activitySessionRetained(session, now)) sessions.push(session);
         cursor.continue();
       };
     });
@@ -309,14 +271,19 @@ class IndexedDbActivityRepository implements ActivityRepository {
     const database = await this.open();
     const transaction = database.transaction(EVENT_STORE, "readonly");
     const index = transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX);
-    const cutoff = new Date(Date.now() - retentionMs(query.category)).toISOString();
+    const cutoff = activityRetentionCutoff(query.category, Date.now());
     const lower: [EventCategory, string, string] = [query.category, cutoff, ""];
     const range = query.cursor
-      ? IDBKeyRange.bound(lower, [query.category, ...decodeCursor(query.cursor)], false, true)
+      ? IDBKeyRange.bound(
+          lower,
+          [query.category, ...decodeActivityCursor(query.cursor)],
+          false,
+          true,
+        )
       : IDBKeyRange.bound(lower, [query.category, []]);
     const request = index.openCursor(range, "prev");
-    const limit = Math.min(MAX_LIMIT, Math.max(1, query.limit ?? DEFAULT_LIMIT));
-    const normalizedQuery = query.query?.trim().toLowerCase();
+    const limit = activityPageLimit(query.limit);
+    const matches = activityQueryMatcher(query);
     const events: ActivityHistoryRecord[] = [];
 
     await new Promise<void>((resolve, reject) => {
@@ -328,11 +295,7 @@ class IndexedDbActivityRepository implements ActivityRepository {
           return;
         }
         const event = cursor.value as ActivityHistoryRecord;
-        const matchesPlatform =
-          !query.platform || !event.platform || event.platform === query.platform;
-        const matchesQuery =
-          !normalizedQuery || event.message?.toLowerCase().includes(normalizedQuery) === true;
-        if (matchesPlatform && matchesQuery) {
+        if (matches(event)) {
           events.push(event);
           if (events.length === limit + 1) {
             resolve();
@@ -349,7 +312,7 @@ class IndexedDbActivityRepository implements ActivityRepository {
     const last = events.at(-1);
     return {
       events,
-      ...(hasMore && last ? { nextCursor: encodeCursor([last.at, last.id]) } : {}),
+      ...(hasMore && last ? { nextCursor: encodeActivityCursor([last.at, last.id]) } : {}),
     };
   }
 
@@ -357,7 +320,7 @@ class IndexedDbActivityRepository implements ActivityRepository {
     const database = await this.open();
     const transaction = database.transaction(EVENT_STORE, "readonly");
     const index = transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX);
-    const cutoff = new Date(Date.now() - retentionMs("diagnostic")).toISOString();
+    const cutoff = activityRetentionCutoff("diagnostic", Date.now());
     const range = IDBKeyRange.bound(["diagnostic", cutoff, ""], ["diagnostic", []]);
     const request = index.openCursor(range, "prev");
     const events: ActivityHistoryRecord[] = [];
@@ -422,11 +385,11 @@ class IndexedDbActivityRepository implements ActivityRepository {
 
   private async pruneNow(): Promise<void> {
     for (const category of ["activity", "diagnostic"] as const) {
-      const cutoff = new Date(Date.now() - retentionMs(category)).toISOString();
+      const cutoff = activityRetentionCutoff(category, Date.now());
       await this.deleteExpired(category, cutoff);
       await this.deleteExcess(category);
     }
-    await this.deleteEndedSessions(new Date(Date.now() - ACTIVITY_RETENTION_MS).toISOString());
+    await this.deleteEndedSessions(activityRetentionCutoff("activity", Date.now()));
     const database = await this.open();
     const transaction = database.transaction(META_STORE, "readwrite");
     transaction
@@ -476,7 +439,7 @@ class IndexedDbActivityRepository implements ActivityRepository {
         .count(categoryRange(category)),
     );
     await transactionDone(countTransaction);
-    let excess = count - MAX_RECORDS_PER_CATEGORY;
+    let excess = count - MAX_ACTIVITY_RECORDS_PER_CATEGORY;
     if (excess <= 0) return;
 
     const deleteTransaction = database.transaction(EVENT_STORE, "readwrite");

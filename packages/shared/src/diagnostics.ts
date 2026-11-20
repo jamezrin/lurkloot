@@ -32,6 +32,10 @@ function safeText(value: string, secrets: DiagnosticSecrets): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+export function redactDiagnosticText(value: string, secrets: DiagnosticSecrets = []): string {
+  return safeText(value, secrets).slice(0, MESSAGE_LIMIT);
+}
+
 // Project before sharing or persisting. Diagnostic data and other arbitrary
 // metadata are never exported, even if a producer adds fields in the future.
 export function toDiagnosticRecord(
@@ -56,7 +60,7 @@ export function toDiagnosticRecord(
     category: "diagnostic",
     level: value.level as LogLevel,
     ...(value.platform ? { platform: value.platform } : {}),
-    message: safeText(value.message, secrets).slice(0, MESSAGE_LIMIT),
+    message: redactDiagnosticText(value.message, secrets),
   };
 }
 

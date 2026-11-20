@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import type { SchedulerState } from "@lurkloot/shared/models";
 import { mergeSchedulerState } from "@lurkloot/core/defaults";
@@ -20,14 +21,45 @@ export async function loadState(path: string): Promise<SchedulerState> {
   }
 }
 
-// Atomic: the state is written to a temporary file in the same directory and
-// renamed over state.json, so a crash or a full disk mid-write leaves the
-// previous state intact instead of a truncated file. Each save uses its own
-// temporary file, so concurrent saves never interleave; the last rename wins.
-export function saveState(path: string, state: SchedulerState): Promise<void> {
-  return writeJsonAtomically(path, state);
+// Append the sidecar suffix to the full state path for both histories.
+export function stateSidecarPath(statePath: string, kind: "activity" | "diagnostics"): string {
+  return `${statePath}.${kind}.json`;
 }
 
+// Room for JSON escaping and older, indented sidecar snapshots.
+const MAX_SIDECAR_BYTES = 4 * 1024 * 1024;
+
+export async function readJsonSidecar(path: string): Promise<{ value: unknown; savedAt: string }> {
+  // Inspect the same snapshot we read. A writer publishes changes by rename.
+  const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
+  try {
+    const stat = await file.stat();
+    if (!stat.isFile()) throw new Error("The sidecar is not a regular file");
+    if (stat.size > MAX_SIDECAR_BYTES) throw new Error("The sidecar exceeds 4 MiB");
+
+    // Read at most the snapshot size plus a byte to detect concurrent growth.
+    const buffer = Buffer.alloc(stat.size + 1);
+    let offset = 0;
+    while (offset < buffer.length) {
+      const { bytesRead } = await file.read(buffer, offset, buffer.length - offset, offset);
+      if (bytesRead === 0) {
+        return {
+          value: JSON.parse(buffer.toString("utf8", 0, offset)) as unknown,
+          savedAt: stat.mtime.toISOString(),
+        };
+      }
+      offset += bytesRead;
+    }
+    throw new Error("The sidecar grew while being read");
+  } finally {
+    await file.close();
+  }
+}
+
+// Atomic: the text is written to a temporary file in the same directory and
+// renamed over the target, so a crash or a full disk mid-write leaves the
+// previous file intact instead of a truncated one. Each write uses its own
+// temporary file, so concurrent writes never interleave; the last rename wins.
 export async function writeJsonAtomically(
   path: string,
   value: unknown,
@@ -44,4 +76,8 @@ export async function writeJsonAtomically(
     await rm(temporary, { force: true });
     throw error;
   }
+}
+
+export function saveState(path: string, state: SchedulerState): Promise<void> {
+  return writeJsonAtomically(path, state);
 }

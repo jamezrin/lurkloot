@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { KICK_REALTIME_AUTH_URL, KICK_REALTIME_CONNECTION_URL } from "@lurkloot/core/kick/realtime";
@@ -51,8 +54,15 @@ const CAMPAIGN: DropCampaign = {
   ],
 };
 
-beforeEach(() => createSocket.mockReset());
-afterEach(() => vi.unstubAllGlobals());
+let dir: string;
+beforeEach(async () => {
+  createSocket.mockReset();
+  dir = await mkdtemp(join(tmpdir(), "lurkloot-chat-presence-"));
+});
+afterEach(async () => {
+  vi.unstubAllGlobals();
+  await rm(dir, { recursive: true, force: true });
+});
 
 function runOptions() {
   const settings = structuredClone(DEFAULT_CLI_SETTINGS);
@@ -62,7 +72,7 @@ function runOptions() {
   let state = structuredClone(DEFAULT_STATE);
   return {
     settings,
-    statePath: "unused",
+    statePath: join(dir, "state.json"),
     stateStore: {
       load: async () => state,
       save: async (next: typeof state) => {

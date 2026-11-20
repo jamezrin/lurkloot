@@ -19,6 +19,7 @@
     "./rewards": "./src/rewards.ts",
     "./rewardEvents": "./src/rewardEvents.ts",
     "./farmingSessions": "./src/farmingSessions.ts",
+    "./activityHistory": "./src/activityHistory.ts",
     "./rewardFilter": "./src/rewardFilter.ts",
     "./unlinkedCampaigns": "./src/unlinkedCampaigns.ts",
     "./events": "./src/events.ts",

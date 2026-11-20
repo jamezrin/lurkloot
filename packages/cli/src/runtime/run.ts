@@ -1,3 +1,5 @@
+import { withTimeout } from "@lurkloot/core/abort";
+import type { ActivityHistoryRepository } from "@lurkloot/shared/activityHistory";
 import type { DiagnosticSecrets } from "@lurkloot/shared/diagnostics";
 import { createDiagnosticsHistory } from "./diagnostics";
 import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
@@ -12,11 +14,12 @@ import {
 } from "@lurkloot/core/controller";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { loadState, saveState } from "../storage";
+import { loadState, saveState, stateSidecarPath } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
 import { reportCliEvents } from "../events";
+import { createFileActivityHistory, type CliActivityHistory } from "../activityStore";
 import { subscriptionWaitKeys } from "./status";
 import { createNodeJobScheduler } from "./jobs";
 import { errorMessage } from "@lurkloot/shared/errors";
@@ -67,11 +70,15 @@ export interface RunOptions {
     save(state: SchedulerState): Promise<void>;
   };
   settingsStore?: SettingsStore;
+  // Where reported activity is kept (#1088). Defaults to the state file's
+  // .activity.json sidecar. The loop passes the same history to the host.
+  activityHistory?: CliActivityHistory;
   // Started once the controller exists, before startup reconciliation and the
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
   startHost?: (
     controller: FarmingController,
     diagnostics: Pick<Awaited<ReturnType<typeof createDiagnosticsHistory>>, "recent">,
+    activityHistory: ActivityHistoryRepository,
   ) => Promise<FarmingHost>;
   diagnosticSecrets?: () => DiagnosticSecrets;
   // Aborting it stops the loop through the same shutdown as SIGINT/SIGTERM.
@@ -79,7 +86,19 @@ export interface RunOptions {
   stopSignal?: AbortSignal;
 }
 
+const SHUTDOWN_DRAIN_MS = 5_000;
+
 const nextTurn = () => new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+
+// The file-backed activity history, with its failures reported to the log:
+// farming goes on without it.
+function createCliActivityHistory(path: string, logger: Logger): CliActivityHistory {
+  return createFileActivityHistory(path, {
+    onLoadError: () => logger.warn("Could not load the saved activity history", "activity"),
+    onSaveError: (error) =>
+      logger.warn(`Could not save the activity history: ${errorMessage(error)}`, "activity"),
+  });
+}
 
 // Logs each campaign reward newly waiting on a subscription once, and forgets
 // the ones that stopped waiting, so a reward that waits again is logged again.
@@ -141,6 +160,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
     while (stateWrites.size > 0) await Promise.allSettled([...stateWrites]);
   };
 
+  const activityHistory =
+    options.activityHistory
+    ?? createCliActivityHistory(stateSidecarPath(statePath, "activity"), logger);
+
   // Timers fire into the controller once it exists.
   let dispatchJob: (name: string) => void = () => undefined;
   const jobs = createNodeJobScheduler((name) => dispatchJob(name));
@@ -157,9 +180,9 @@ export async function runLoop(options: RunOptions): Promise<void> {
       saveState: saveRuntimeState,
     },
     events: {
-      report: (events) => {
+      report: async (events) => {
         diagnostics?.append(events);
-        return reportCliEvents(events, logger);
+        await Promise.all([activityHistory.append(events), reportCliEvents(events, logger)]);
       },
       notify: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
     },
@@ -218,22 +241,37 @@ export async function runLoop(options: RunOptions): Promise<void> {
     },
   };
 
+  const runningJobs = new Set<Promise<void>>();
   let startupReconciliation: Promise<EngineSettings | void> | undefined;
-  // Reconciliation can start a save after a stop arrives. Drain it, the
-  // controller's shutdown work (including watcher stops), and state saves
-  // before disposing the transport.
+  // Reconciliation can still start a save after a stop arrives. Join it before
+  // shutting down the controller and draining writes, then dispose the transport.
   const stopFarming = async () => {
     if (startupReconciliation) await startupReconciliation;
-    await controller.shutdown();
-    stopExtensionCommits();
-    await extensionLane.close();
-    await controller.settleBackgroundWork();
-    await settleStateWrites();
     try {
+      await controller.shutdown();
+      stopExtensionCommits();
+      await extensionLane.close();
+      // A job can report a successful claim after its state commit, even
+      // after the controller aborts its tick. Keep the activity sink open
+      // through that report, but do not wait indefinitely on an adapter.
+      const settled = await withTimeout(
+        (async () => {
+          await Promise.allSettled(runningJobs);
+          await controller.settleBackgroundWork();
+          return true;
+        })(),
+        SHUTDOWN_DRAIN_MS,
+      );
+      if (!settled) logger.warn("Timed out waiting for farming work to settle", "run");
+      await settleStateWrites();
       await transport.dispose();
     } finally {
       // Disposal can emit transport diagnostics that are still being reported.
-      await controller.settleBackgroundWork().finally(() => diagnostics?.close());
+      try {
+        await withTimeout(controller.settleBackgroundWork(), SHUTDOWN_DRAIN_MS);
+      } finally {
+        await activityHistory.close().finally(() => diagnostics?.close());
+      }
     }
   };
 
@@ -244,7 +282,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     if (change.kind === "state") reportSubscriptionWaits(change.state);
   });
 
-  const runJob = async (name: string) => {
+  const executeJob = async (name: string) => {
     try {
       await controller.runJob(name);
     } catch (error) {
@@ -256,6 +294,15 @@ export async function runLoop(options: RunOptions): Promise<void> {
             : "job";
       logger.error(errorMessage(error), scope);
     }
+  };
+  const runJob = (name: string): Promise<void> => {
+    const run = executeJob(name);
+    const forget = () => {
+      runningJobs.delete(run);
+    };
+    run.then(forget, forget);
+    runningJobs.add(run);
+    return run;
   };
   // The engine's jobs, fired by the Node scheduler: the same jobs the
   // extension's alarms fire, tick jobs included (#591).
@@ -313,9 +360,6 @@ export async function runLoop(options: RunOptions): Promise<void> {
           logger.error(errorMessage(error), "run");
         }
       }
-      // Before disposing the transport: a post-claim handoff started by the last
-      // tick would otherwise keep refreshing against disposed resources, and its
-      // pending delay would hold the process open until the handoff's deadline.
       try {
         await stopFarming();
         resolveLoop();
@@ -336,7 +380,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
         // Record the promise before running host code, with signal handlers
         // already installed while the sidecar loads.
         startingHost = restoreDiagnostics().then((history) => {
-          if (!stopped) return options.startHost?.(farmingController, history);
+          if (!stopped) return options.startHost?.(farmingController, history, activityHistory);
         });
         started = await startingHost;
       } catch (error) {

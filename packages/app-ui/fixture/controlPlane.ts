@@ -14,6 +14,8 @@ import { applySettingsPatch } from "@lurkloot/shared/settings";
 type Answer = { status: number; body: unknown };
 
 const demo = createDemoPopupAdapter({ version: "2.0.0-fixture" });
+// The tour's activity and sessions, so the Activity view has rows to show.
+const activityDemo = createDemoPopupAdapter({ version: "2.0.0-fixture", scenario: "tour" });
 const SUPPORTED = new Set([
   "getSnapshot",
   "setPlatformEnabled",
@@ -26,11 +28,15 @@ const SUPPORTED = new Set([
   "tickNow",
   "dismissCriticalFailure",
   "setTwitchExtensionEnabled",
+  "getActivity",
+  "getActivitySessions",
+  "clearActivity",
 ]);
 // A few of the settings the CLI config cannot hold, so a refusal can be seen.
 const EXTENSION_ONLY = ["languageOverride", "muteFarmingTabs", "diagnosticLogging"];
 
 let settings: ExtensionSettings | undefined;
+let activityCleared = false;
 const signedIn: Record<Platform, boolean> = { twitch: true, kick: false };
 interface FixtureDeviceLogin {
   platform: Platform;
@@ -46,6 +52,7 @@ const deviceLogins: Partial<Record<Platform, FixtureDeviceLogin>> = {};
 /** Back to the starting state: Twitch signed in, Kick not, demo settings. */
 export function resetFixture(): void {
   settings = undefined;
+  activityCleared = false;
   signedIn.twitch = true;
   signedIn.kick = false;
   delete deviceLogins.twitch;
@@ -59,8 +66,11 @@ function error(status: number, code: string, message: string, paths?: string[]):
 async function snapshot(): Promise<RuntimeSnapshot> {
   const base = await demo.send<RuntimeSnapshot>({ type: "getSnapshot" });
   settings ??= base.settings;
+  // The CLI's engine settings have no diagnostic logging setting, and the
+  // Activity view offers a diagnostics stream only when it is on.
+  const { diagnosticLogging: _diagnosticLogging, ...cliSettings } = settings;
   return {
-    settings,
+    settings: cliSettings as ExtensionSettings,
     state: {
       ...base.state,
       lastTickAt: new Date(Date.now() - 42_000).toISOString(),
@@ -110,6 +120,25 @@ async function handleMessage(message: RuntimeMessage): Promise<Answer> {
       return { status: 200, body: { result: await snapshot() } };
     case "searchCategories":
       return { status: 200, body: { result: await demo.send(message) } };
+    // The CLI keeps activity only: there is no diagnostic history to page.
+    case "getActivity":
+      return {
+        status: 200,
+        body: {
+          result:
+            activityCleared || message.category !== "activity"
+              ? { events: [] }
+              : await activityDemo.send(message),
+        },
+      };
+    case "getActivitySessions":
+      return {
+        status: 200,
+        body: { result: activityCleared ? { sessions: [] } : await activityDemo.send(message) },
+      };
+    case "clearActivity":
+      activityCleared = true;
+      return { status: 200, body: { result: null } };
     default:
       return { status: 200, body: { result: current } };
   }

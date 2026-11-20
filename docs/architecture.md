@@ -582,7 +582,7 @@ of optional hooks:
 | Port | Extension | CLI |
 | --- | --- | --- |
 | `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings through an injectable `SettingsStore`: under `run` the config file's, never written; under `serve` the config-file store (`src/settingsStore.ts`, #1000), which saves them to `config.json` |
-| `events` | Activity store, OS notifications, locale catalogs | The logger and bounded diagnostics history |
+| `events` | Activity store (IndexedDB), OS notifications, locale catalogs | The logger and bounded activity and diagnostics histories |
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
 | `credentials` | Cookie observation | The file/env credential store |
@@ -696,20 +696,22 @@ let heartbeat recovery resume the previous watch from its persisted cadence.
 reconciliation, and the loop closes it first on shutdown; `run` passes none and starts no server
 (`packages/cli/tests/runNoServer.test.ts`). The control plane only forwards the popup's
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
-messages the CLI host supports; it holds no farming logic. Host messages such as
-`exportDiagnostics` are dispatched by `serve.ts` before forwarding core messages.
-The CLI host handles `setTwitchExtensionEnabled` through the lane and submits its settings
-patch to the controller through the same config store as other settings. Snapshot replies attach
-the lane's transient provider summaries. Core stays free of HTTP.
+messages the CLI host supports. `serve.ts` handles activity through the shared history handler
+and answers `exportDiagnostics` from the CLI diagnostics ring before forwarding core messages.
+The CLI host handles `setTwitchExtensionEnabled` through the lane and submits its settings patch
+to the controller through the same config store as other settings. Snapshot replies attach the
+lane's transient provider summaries. Core stays free of HTTP.
 
 The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
 all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
 necessary. It then waits for any startup reconciliation in progress, which can begin a state save
-after shutdown starts. After shutting down the controller, `runLoop` unsubscribes the Twitch Extensions
-commit hook and closes the lane, including its drivers, sockets and queued writes. It then
-drains background work and tracked state writes. It disposes the transport and flushes the
-diagnostics sidecar last, after disposal reports settle. `--once` and host startup failure use
-the same farming teardown.
+after shutdown starts. Once the controller shuts down, including closing the Hermes socket,
+`runLoop` unsubscribes the Twitch Extensions commit hook and closes the lane, including its
+drivers, sockets and queued writes. It gives in-flight jobs and detached background work a shared
+five-second window to report commits, then settles tracked state writes and disposes the transport.
+The teardown finally block gives disposal reports up to five seconds to settle, then closes the
+activity history followed by the diagnostics history even if disposal fails. `--once` and host
+startup failure use the same farming teardown.
 The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
 event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
 stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
@@ -839,6 +841,7 @@ tested too (#598).
 | Without browser tabs every watch is tabless and heartbeat failures never fall back to a tab | `controllerContract.test.ts` ("watch surface") |
 | Only a user close of the watch tab pauses; the extension's own closes (finished campaign, restart) do not, and late playback from a closed tab is ignored | `controllerContract.test.ts` ("browser tabs", extension host) |
 | The CLI's `state.json` save is atomic | `packages/cli/tests/storage.test.ts` |
+| The CLI's activity history is bounded, survives a restart, clears, keeps no diagnostics, and is answered over `serve` | `packages/cli/tests/activityStore.test.ts`, `packages/cli/tests/serveActivity.test.ts`, `packages/cli/tests/serve.test.ts` ("control plane message allow-list") |
 | The popup reads the stored settings and state verbatim | `controllerContract.test.ts` ("runtime snapshot") |
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
 | `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Watchlist changes from the page") |
@@ -1541,15 +1544,17 @@ declares `language` and `twitchExtensions` (`CLI_HOST_CAPABILITIES` in
   settings section, and their rows in the watch order and its "place" text.
 - `credentialExport`: Settings → Export credentials.
 - `extensionPreferences`: start on browser launch, the Queue's tips banner and
-  its setting, the in-page panel, diagnostic logging, and the rate and GitHub star nudges.
+  its setting, the in-page panel, diagnostic logging (and with it the Activity
+  log's diagnostics stream, which a host without the preference never shows,
+  whatever the merged settings default to), and the rate and GitHub star nudges.
 - `language`: the language setting. Split from `extensionPreferences` because
   the app UI keeps a language of its own (in `localStorage`, since the CLI
   config cannot hold `languageOverride`) without the extension's preferences.
 - `activityHistory`: the Activity log's fetches, sessions, clear and export,
-  and the critical-failure report's activity prefetch. The CLI writes its
-  events to its log and keeps no history, so without it the Activity view is
-  `ActivityHostSummary` (`activitySummary.tsx`): a note saying so, the last
-  check and each platform's status from the snapshot.
+  and the critical-failure report's activity prefetch. Both hosts keep a
+  history (the CLI since #1088). A host without one gets
+  `ActivityHostSummary` (`activitySummary.tsx`) instead: a note saying so, the
+  last check and each platform's status from the snapshot.
 
 A control that depends on a missing capability is left out, not disabled.
 Settings entries name their capability as `requires` in
@@ -1699,11 +1704,38 @@ Activity records are structured (`code` plus `data`) and localized by the host a
 
 Every activity event therefore also emits a diagnostic mirror. `packages/core/src/core/activityDiagnostics.ts` wraps the controller's event collector — the one choke point all engine emitters funnel through — and restates each activity event in English with the context the localized sentence drops: campaign and reward ids, raw reason codes, claim method, session detail. Emit sites do not hand-write a matching diagnostic.
 
-The extension stores activity in a bounded IndexedDB database owned by the background and queries it from the popup through runtime messages. Normal activity is always retained. The extension persists diagnostics and their mirrors only when diagnostic logging is enabled. Each category has its own record budget, so mirrors never evict activity history. Activity database failures are isolated from farming state mutations.
+Each host keeps activity in a bounded store it owns and answers the popup's `getActivity`, `getActivitySessions` and `clearActivity` from it. What a history is lives once, in `packages/shared/src/activityHistory.ts`: the retention (30 days of activity, 7 of diagnostics), the per-category record budget, the stored record format, `foldActivityBatch` (the session fold, including ending a session left open when the platform starts its next one), page selection and its cursor, the message handler and the reporter that filters a batch. The backends only map that onto their storage: IndexedDB in the extension (`packages/extension/src/core/activityStorage.ts`), one JSON file in the CLI. Core never owns the history (`coreBoundary.test.ts`). Normal activity is always retained. The extension stores diagnostics and their mirrors in IndexedDB when diagnostic logging is enabled. The CLI retains diagnostic rows in a separate ring for export. Each category has its own record budget, so mirrors never evict activity history. Activity store failures are isolated from farming state mutations.
 
 The popup shows one category at a time. The activity/diagnostics switch selects a view rather than interleaving both, since the mirror means a merged list would state everything twice.
 
-The CLI has no activity store. Its output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Long-term stderr retention belongs to Docker, systemd, Loki, or another external collector. `state.json` never contains new event data, and legacy event fields disappear after the state is loaded and saved.
+The CLI's output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Log retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains event data, and legacy event fields disappear after the state is loaded and saved.
+
+The CLI reporter queues each batch for the activity store and sends the batch to the logger.
+Both `run` and `serve` use `packages/cli/src/activityStore.ts`. The default file is
+`state.json.activity.json` beside `state.json`. The store retains structured timeline
+events and session summaries.
+Both backends use the shared batch filter and stored event conversion. Stored timeline
+rows keep stable interruption reasons and details. The shared diagnostic redactor
+replaces credential-shaped detail text and caps details at 1,024 characters. HTTPS activity
+links keep their query parameters and anchors with embedded credentials removed. Activity
+follows the shared 30-day and 2,000-record limits. Session
+summaries keep open sessions and recent ended sessions within the 200-per-platform
+response limit.
+
+The CLI serializes in-memory mutations and writes compact snapshots through the same
+atomic file helper as `state.json`. Batches coalesce within a 30-second write interval.
+A failed write keeps the live history available. Both histories resolve sidecar paths through
+`stateSidecarPath` in `packages/cli/src/storage.ts`, appending `.activity.json` or
+`.diagnostics.json` to the full state filename. Both use `readJsonSidecar` with a 4 MiB
+limit and the same atomic JSON writer. An unsupported activity file version leaves the
+disk snapshot intact and keeps new history in memory.
+The same store answers the three activity messages in `serve`. Clear joins the initial
+load and any previous write, then atomically saves an empty history before acknowledging
+the request. Clear fails if the disk snapshot uses an unsupported version.
+`activityStore.test.ts` exercises the shared limits, coalescing, sanitization and atomic
+clearing. `serveActivity.test.ts` covers restart, claims over HTTP, a claim whose state
+write finishes after controller shutdown starts, and both sidecars flushing on SIGTERM
+and stdin EOF when disposal fails.
 
 ### Diagnostics export (#1089)
 

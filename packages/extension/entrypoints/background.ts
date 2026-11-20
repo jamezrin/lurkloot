@@ -54,8 +54,8 @@ import {
   loadActivityEvents,
   loadActivitySessions,
 } from "../src/core/activityStorage";
+import { createActivityEventReporter } from "@lurkloot/shared/activityHistory";
 import {
-  createActivityEventReporter,
   createActivityMessageHandler,
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";

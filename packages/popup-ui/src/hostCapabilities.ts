@@ -18,16 +18,18 @@ export interface PopupHostCapabilities {
    * credentials action. */
   credentialExport: boolean;
   /** Keeps the extension's own preferences: start on browser launch, the tips
-   * banner and its setting, the in-page panel, diagnostic logging, and the
-   * rate and star nudges, which record their answer there. */
+   * banner and its setting, the in-page panel, diagnostic logging (and with it
+   * the Activity log's diagnostics stream), and the rate and star nudges,
+   * which record their answer there. */
   extensionPreferences: boolean;
   /** Lets the user pick the interface language. Guards the language setting.
    * Separate from extensionPreferences: a host without the extension's
    * preferences (the CLI app) can still keep the language on its own. */
   language: boolean;
-  /** Keeps an activity history the popup can page through. Guards the
-   * Activity log's fetches, its sessions, clear and export; a host without it
-   * gets a summary of what the snapshot carries instead. */
+  /** Keeps an activity history the popup can page through (the extension's
+   * IndexedDB, the CLI's activity sidecar). Guards the Activity log's fetches,
+   * its sessions, clear and export; a host without it gets a summary of what
+   * the snapshot carries instead. */
   activityHistory: boolean;
 }
 

@@ -1,27 +1,26 @@
+import {
+  createActivityMessageHandler as createHistoryMessageHandler,
+  type ActivityHistoryRepository,
+} from "@lurkloot/shared/activityHistory";
 import { selectDiagnosticRecords } from "@lurkloot/shared/diagnostics";
-import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
-import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
-import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
+import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { Platform } from "@lurkloot/shared/models";
-import type {
-  ActivityPage,
-  ActivitySessionsPage,
-  ActivityQuery,
-  CoreRuntimeMessage,
-  DiagnosticsExport,
-  RuntimeMessage,
-} from "@lurkloot/shared/messages";
+import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
 
-interface ActivityMessageRepository {
-  load(query: ActivityQuery): Promise<ActivityPage>;
-  loadSessions(platform: Platform): Promise<FarmingSessionSummary[]>;
-  exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]>;
-  clear(): Promise<void>;
-}
-
-interface ActivityEventReporterDeps {
-  loadDiagnosticLogging(): Promise<boolean>;
-  append(events: readonly EngineEvent[]): Promise<void>;
+// The extension projects diagnostic rows from its own IndexedDB store.
+export function createActivityMessageHandler(
+  repository: ActivityHistoryRepository & {
+    exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]>;
+  },
+) {
+  const handleHistoryMessage = createHistoryMessageHandler(repository);
+  return async (message: RuntimeMessage) => {
+    if (message.type === "exportDiagnostics") {
+      const events = await repository.exportDiagnostics(message.platform);
+      return { events: selectDiagnosticRecords(events, message.platform) };
+    }
+    return handleHistoryMessage(message);
+  };
 }
 
 interface RuntimeMessageSender {
@@ -36,46 +35,6 @@ interface RuntimeMessageDispatcherDeps {
     message: Extract<RuntimeMessage, { type: "setTwitchExtensionEnabled" }>,
   ): Promise<unknown>;
   handleCoreMessage(message: CoreRuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown>;
-}
-
-export function createActivityMessageHandler(repository: ActivityMessageRepository) {
-  return async (
-    message: RuntimeMessage,
-  ): Promise<ActivityPage | ActivitySessionsPage | DiagnosticsExport | void | undefined> => {
-    if (message.type === "getActivity") {
-      const { type: _type, ...query } = message;
-      return repository.load(query);
-    }
-    if (message.type === "getActivitySessions") {
-      return { sessions: await repository.loadSessions(message.platform) };
-    }
-    if (message.type === "exportDiagnostics") {
-      const events = await repository.exportDiagnostics(message.platform);
-      return { events: selectDiagnosticRecords(events, message.platform) };
-    }
-    if (message.type === "clearActivity") {
-      await repository.clear();
-    }
-    return undefined;
-  };
-}
-
-export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
-  return async (events: readonly EngineEvent[]): Promise<void> => {
-    let diagnosticLogging = false;
-    try {
-      diagnosticLogging = await deps.loadDiagnosticLogging();
-    } catch {
-      // A settings read must not prevent durable activity history. Treat a
-      // missing setting as diagnostics disabled and retain normal activity.
-    }
-    // Activity that is not part of the user-facing timeline (tab open/close)
-    // is kept only through its diagnostic mirror.
-    const accepted = events.filter((event) =>
-      event.category === "activity" ? isActivityTimelineEvent(event) : diagnosticLogging,
-    );
-    if (accepted.length > 0) await deps.append(accepted);
-  };
 }
 
 export function createRuntimeMessageDispatcher(deps: RuntimeMessageDispatcherDeps) {

@@ -1,8 +1,8 @@
 import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import { describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
+import { createActivityEventReporter } from "@lurkloot/shared/activityHistory";
 import {
-  createActivityEventReporter,
   createActivityMessageHandler,
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
