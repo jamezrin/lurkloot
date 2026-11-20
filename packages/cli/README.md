@@ -493,12 +493,21 @@ were. Sign-in errors use these codes:
 | 502 | `upstream_unavailable` | Twitch or Kick could not be reached to start a flow or check a token. |
 
 Supported messages: `getSnapshot`, `exportDiagnostics`, `tickNow`, `claimReward`,
-`selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
-settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`,
-`setAutomation` and `setTwitchExtensionEnabled`. The provider toggle takes
+`selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, the settings
+messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`, `setAutomation`
+and `setTwitchExtensionEnabled`, and the activity messages `getActivity`,
+`getActivitySessions` and `clearActivity`. The provider toggle takes
 `provider` (`nopixel` or `fortnite`) and a boolean `enabled`. Its result is
 `{ enabled }`. Live updates come from polling `getSnapshot`, including provider
 summaries in `state.twitchExtensions`.
+
+The activity messages read the [activity history](#activity-history):
+
+| Message | Answer |
+| --- | --- |
+| `{ "type": "getActivity", "category": "activity", "platform"?, "limit"?, "cursor"? }` | `{ events, nextCursor? }`, newest first, at most 100 per page (80 by default). Pass `nextCursor` back as `cursor` for the next page. `category: "diagnostic"` is accepted and always empty: the CLI keeps diagnostics in its log only. |
+| `{ "type": "getActivitySessions", "platform": "twitch" }` | `{ sessions }`: the platform's farming sessions with their point tallies and reward counts, newest first. |
+| `{ "type": "clearActivity" }` | `null`, once the history and its sessions are emptied. |
 
 A settings message is applied by the running loop and saved to the config file
 (`--config`, `config.json` by default) at once. Only the values that change are
@@ -520,7 +529,7 @@ also carries `paths`, the dotted settings paths it is about (for example
 
 | Status | `code` | When |
 | --- | --- | --- |
-| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, a missing/unknown `platform`, or a settings message without its fields (`settingsPatch` object, boolean `enabled`, string `channel`). |
+| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, a missing/unknown `platform`, a settings message without its fields (`settingsPatch` object, boolean `enabled`, string `channel`), or a `getActivity` with no `category`, a wrong field type, or a `cursor` this server did not issue. |
 | 400 | `settings_unrepresentable` | The change sets something the CLI config cannot hold, or changes a value the CLI pins. Nothing is written. |
 | 400 | `settings_invalid` | The change has a value the CLI settings rules reject. Nothing is written. |
 | 401 | `unauthorized` | A token is configured and the request lacks `Authorization: Bearer <token>`. |
@@ -529,7 +538,7 @@ also carries `paths`, the dotted settings paths it is about (for example
 | 409 | `settings_read_only` | A settings message to a host started without a settings store that saves (not `lurkloot serve`). |
 | 413 | `payload_too_large` | Body over 64 KiB. |
 | 415 | `unsupported_media_type` | A POST that is not `application/json`. |
-| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, activity and reset messages). |
+| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, `resetExtension`, `setTwitchExtensionEnabled`) and `exportDiagnostics`. |
 | 500 | `internal_error` | The controller failed; the details go to the log only. |
 | 500 | `settings_not_saved` | The edited config would not load back as the new settings; nothing was written. Details in the log. |
 | 503 | `settings_unavailable` | The config file cannot be read or parsed (fix it, then retry); nothing was written. Details in the log. |
@@ -634,6 +643,20 @@ go to stderr and are filtered only by `--log`; `state.json` contains scheduler
 state. Use Docker logs, systemd/journald, Loki, or another external collector
 when long-term retention is needed. Loading and saving an old
 state file also removes any legacy embedded `events` field.
+
+### Activity history
+
+`run` and `serve` also keep the activity the extension's Activity view shows
+(claims, farming starts and stops, interruptions, obtained rewards and each
+farming session's point and reward totals) in `activity.json`, beside
+`state.json` in the data directory (`--state` moves both). It has the
+extension's bounds: 30 days, at most 2,000 entries, and session summaries for
+30 days after they end. Entries are structured codes and values, which the app
+shows in its own language. Diagnostics are never stored there, so the file
+holds no log text, tokens or cookies. The file is rewritten through a
+temporary file and a rename, so a crash leaves the previous one. Delete it, or
+send `clearActivity`, to start over; an unreadable one is reported in the log
+and replaced.
 
 Subscription requirements are reported separately from watch progress. The CLI
 never tries to satisfy them by opening or farming a stream, and it reports

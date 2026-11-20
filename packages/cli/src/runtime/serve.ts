@@ -9,14 +9,26 @@ import { createCliSettingsStore } from "../settingsStore";
 import { CLI_VERSION } from "../version";
 import { errorMessage } from "@lurkloot/shared/errors";
 import {
+  createActivityMessageHandler,
+  type ActivityHistoryRepository,
+} from "@lurkloot/shared/activityHistory";
+import { activityPathFor } from "../activityStore";
+import {
   buildSessionView,
+  isActivityHistoryMessage,
   startControlPlane,
   type ControlPlane,
   type ServeBinding,
 } from "./controlPlane";
 import { defaultAppRoot } from "./appAssets";
 import { createAuthFlows, createAuthRoutes, type AuthFlowsOptions } from "./controlPlaneAuth";
-import { runLoop, type FarmingController, type FarmingHost, type RunOptions } from "./run";
+import {
+  createCliActivityHistory,
+  runLoop,
+  type FarmingController,
+  type FarmingHost,
+  type RunOptions,
+} from "./run";
 
 export interface ServeOptions extends Omit<RunOptions, "once" | "startHost"> {
   binding: ServeBinding;
@@ -96,6 +108,9 @@ export async function startControllerControlPlane(
     settingsWritable?: boolean;
     recentDiagnostics?: () => readonly DiagnosticRecord[];
     diagnosticSecrets?: RunOptions["diagnosticSecrets"];
+    // Answers getActivity, getActivitySessions and clearActivity. Without one
+    // they are refused as unsupported.
+    activityHistory?: ActivityHistoryRepository;
   },
 ): Promise<FarmingHost & Omit<ControlPlane, "close">> {
   const readSnapshot = async () =>
@@ -120,11 +135,15 @@ export async function startControllerControlPlane(
       })
     : undefined;
   const appRoot = options.appRoot === undefined ? defaultAppRoot() : options.appRoot;
+  const handleActivityMessage = options.activityHistory
+    ? createActivityMessageHandler(options.activityHistory)
+    : undefined;
   let plane: Awaited<ReturnType<typeof startControlPlane>>;
   try {
     plane = await startControlPlane({
       ...options.binding,
       settingsWritable: options.settingsWritable ?? false,
+      activityHistory: handleActivityMessage !== undefined,
       logger: options.logger,
       handleMessage: async (message) => {
         if (message.type === "exportDiagnostics") {
@@ -137,7 +156,10 @@ export async function startControllerControlPlane(
             history: { source: "live buffer" },
           });
         }
-        return controller.handleMessage(message);
+        if (!isActivityHistoryMessage(message)) return controller.handleMessage(message);
+        // parseControlPlaneMessage refuses these without a history.
+        if (!handleActivityMessage) throw new Error("No activity history to answer from");
+        return handleActivityMessage(message);
       },
       describeSession,
       ...(flows ? { routes: createAuthRoutes(flows, describeSession) } : {}),
@@ -203,7 +225,10 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
             ),
         })
       : undefined);
-  const runOptions = { ...rest, ...(settingsStore ? { settingsStore } : {}) };
+  // One history: the loop's reporter writes it, the control plane reads it.
+  const activityHistory =
+    rest.activityHistory ?? createCliActivityHistory(activityPathFor(rest.statePath), rest.logger);
+  const runOptions = { ...rest, activityHistory, ...(settingsStore ? { settingsStore } : {}) };
   const diagnosticSecrets = () => [binding.token, ...(rest.diagnosticSecrets?.() ?? [])];
   const stop = exitWithInput ? new AbortController() : undefined;
   const release = exitWithInput
@@ -227,6 +252,7 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
           describeCredentials,
           logger: runOptions.logger,
           settingsWritable: Boolean(runOptions.settingsStore?.applyPatch),
+          activityHistory,
           recentDiagnostics: diagnostics.recent,
           diagnosticSecrets,
           ...(auth ? { auth } : {}),

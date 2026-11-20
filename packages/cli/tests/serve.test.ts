@@ -6,7 +6,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
-import type { RuntimeMessage } from "@lurkloot/shared/messages";
+import {
+  type ActivityHistoryRepository,
+  InvalidActivityCursorError,
+} from "@lurkloot/shared/activityHistory";
+import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
 import type { EngineSettings } from "@lurkloot/shared/models";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import {
@@ -26,7 +30,7 @@ import { createLogger } from "../src/logger";
 import { createCliSettingsStore, type CliSettingsStoreOptions } from "../src/settingsStore";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { CLI_VERSION } from "../src/version";
-import { idleTransport, memoryStateStore } from "./helpers/fakeFarming";
+import { discardingActivityHistory, idleTransport, memoryStateStore } from "./helpers/fakeFarming";
 
 const TOKEN = "serve-token-sentinel-0123456789";
 const TWITCH_SECRET = "twitch-secret-sentinel-abcdef";
@@ -118,7 +122,14 @@ afterEach(async () => {
   tempDir = undefined;
 });
 
-async function start(options: { token?: string; host?: string; settingsWritable?: boolean } = {}) {
+async function start(
+  options: {
+    token?: string;
+    host?: string;
+    settingsWritable?: boolean;
+    activityHistory?: ActivityHistoryRepository;
+  } = {},
+) {
   const handleMessage = vi.fn(async (message: ControlPlaneMessage) =>
     message.type === "getSnapshot" ? snapshot() : undefined,
   );
@@ -132,6 +143,7 @@ async function start(options: { token?: string; host?: string; settingsWritable?
       },
       logger: quiet,
       settingsWritable: options.settingsWritable ?? false,
+      ...(options.activityHistory ? { activityHistory: options.activityHistory } : {}),
       describeCredentials: () =>
         describeCredentialHealth("/nonexistent-lurkloot-auth", {
           SA_TWITCH_AUTH_TOKEN: TWITCH_SECRET,
@@ -191,6 +203,9 @@ describe("control plane message allow-list", () => {
   it("lists only messages the CLI host supports", () => {
     expect([...SUPPORTED_MESSAGE_TYPES].sort()).toEqual(
       [
+        "clearActivity",
+        "getActivity",
+        "getActivitySessions",
         "claimReward",
         "dismissCriticalFailure",
         "exportDiagnostics",
@@ -257,7 +272,6 @@ describe("control plane message allow-list", () => {
     },
     { type: "resumeAfterManualClose", platform: "twitch" },
     { type: "resetExtension" },
-    { type: "clearActivity" },
   ];
 
   it.each(refused)("refuses $type with a typed 422", async (message) => {
@@ -266,6 +280,96 @@ describe("control plane message allow-list", () => {
     expect(reply.status).toBe(422);
     expect(errorCode(reply)).toBe("unsupported_message");
     expect(handleMessage).not.toHaveBeenCalled();
+  });
+
+  function memoryHistory(): ActivityHistoryRepository & {
+    load: ReturnType<typeof vi.fn>;
+    loadSessions: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+  } {
+    return {
+      load: vi.fn(async () => ({ events: [], nextCursor: "next" })),
+      loadSessions: vi.fn(async () => []),
+      clear: vi.fn(async () => undefined),
+    };
+  }
+
+  it("answers the activity messages from the history, not the controller", async () => {
+    const activityHistory = memoryHistory();
+    const { port, handleMessage } = await start({ activityHistory });
+
+    const page = await postMessage(port, {
+      type: "getActivity",
+      category: "activity",
+      platform: "twitch",
+      limit: 80,
+    });
+    expect(page.status).toBe(200);
+    expect(page.json).toEqual({ result: { events: [], nextCursor: "next" } });
+    expect(activityHistory.load).toHaveBeenCalledWith({
+      category: "activity",
+      platform: "twitch",
+      limit: 80,
+    });
+
+    const sessions = await postMessage(port, { type: "getActivitySessions", platform: "kick" });
+    expect(sessions.json).toEqual({ result: { sessions: [] } });
+    expect(activityHistory.loadSessions).toHaveBeenCalledWith("kick");
+
+    const cleared = await postMessage(port, { type: "clearActivity" });
+    expect(cleared.json).toEqual({ result: null });
+    expect(activityHistory.clear).toHaveBeenCalledOnce();
+
+    expect(handleMessage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { type: "getActivity", category: "activity" },
+    { type: "getActivitySessions", platform: "twitch" },
+    { type: "clearActivity" },
+  ])("refuses $type without a history", async (message) => {
+    const { port, handleMessage } = await start();
+    const reply = await postMessage(port, message);
+    expect(reply.status).toBe(422);
+    expect(errorCode(reply)).toBe("unsupported_message");
+    expect(handleMessage).not.toHaveBeenCalled();
+  });
+
+  it("refuses malformed activity messages before the history", async () => {
+    const activityHistory = memoryHistory();
+    const { port } = await start({ activityHistory });
+    for (const message of [
+      { type: "getActivity" },
+      { type: "getActivity", category: "everything" },
+      { type: "getActivity", category: "activity", platform: "youtube" },
+      { type: "getActivity", category: "activity", limit: "80" },
+      { type: "getActivity", category: "activity", cursor: 7 },
+      { type: "getActivity", category: "activity", query: ["x"] },
+      { type: "getActivitySessions" },
+      { type: "getActivitySessions", platform: "youtube" },
+    ]) {
+      const reply = await postMessage(port, message);
+      expect([JSON.stringify(message), reply.status, errorCode(reply)]).toEqual([
+        JSON.stringify(message),
+        400,
+        "invalid_message",
+      ]);
+    }
+    expect(activityHistory.load).not.toHaveBeenCalled();
+    expect(activityHistory.loadSessions).not.toHaveBeenCalled();
+  });
+
+  it("answers a cursor the history did not issue with a 400", async () => {
+    const activityHistory = memoryHistory();
+    activityHistory.load.mockRejectedValueOnce(new InvalidActivityCursorError());
+    const { port } = await start({ activityHistory });
+    const reply = await postMessage(port, {
+      type: "getActivity",
+      category: "activity",
+      cursor: "forged",
+    });
+    expect(reply.status).toBe(400);
+    expect(errorCode(reply)).toBe("invalid_message");
   });
 
   it("refuses unknown and prototype-named types", async () => {
@@ -549,6 +653,7 @@ describe("serveLoop", () => {
       binding: { host: "127.0.0.1", port: 0 },
       settings: DEFAULT_CLI_SETTINGS,
       statePath: join(tempDir, "state.json"),
+      activityHistory: discardingActivityHistory(),
       stateStore: memoryStateStore(),
       settingsStore: {
         load: async () => stored,
@@ -590,6 +695,7 @@ describe("serveLoop", () => {
           binding: { host: "127.0.0.1", port: taken },
           settings: DEFAULT_CLI_SETTINGS,
           statePath: "/nonexistent-lurkloot-state.json",
+          activityHistory: discardingActivityHistory(),
           stateStore: memoryStateStore(),
           transport,
           logger: quiet,
