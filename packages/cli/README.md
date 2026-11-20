@@ -190,6 +190,20 @@ Rejected (extension-only, no effect headlessly): `muteFarmingTabs`, `keepFarming
 The retired `dropsListFilter` is no longer rejected: it is migrated away for
 every host, with a deprecation warning.
 
+```jsonc
+{
+  "transport": "impersonate",   // default; use "http" for Twitch-only setups
+  "authDir": "auth",            // resolved relative to this file
+  "settings": {                 // CLI settings schema, merged over defaults
+    "pollIntervalMinutes": 5,
+    "platform": {
+      "twitch": { "enabled": true },
+      "kick":   { "enabled": true }
+    }
+  }
+}
+```
+
 ### Accepted but not working yet
 
 These keys are accepted so a config can be shared with the extension, but the
@@ -207,20 +221,6 @@ lacks the feature. Once logged, it stays quiet for the rest of that run.
 The default config is quiet. `channelPointsPushClaim` is on by default, and
 setting it to `false` disables push claiming, so either value stays quiet.
 `tests/inertSettings.test.ts` checks these gaps per transport and Twitch sign-in.
-
-```jsonc
-{
-  "transport": "impersonate",   // default; use "http" for Twitch-only setups
-  "authDir": "auth",            // resolved relative to this file
-  "settings": {                 // CLI settings schema, merged over defaults
-    "pollIntervalMinutes": 5,
-    "platform": {
-      "twitch": { "enabled": true },
-      "kick":   { "enabled": true }
-    }
-  }
-}
-```
 
 ## Transports
 

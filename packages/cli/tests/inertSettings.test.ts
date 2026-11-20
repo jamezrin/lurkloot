@@ -78,6 +78,12 @@ const WARNING_SAMPLES = {
   "platform.kick.alwaysEnterChat": true,
 };
 
+// Gapped adapter-backed keys that cannot have a warning sample, with why.
+const NO_WARNING_SAMPLE: Record<string, string> = {
+  "platform.twitch.channelPointsPushClaim":
+    "defaults to true and false turns push claiming off, so no value requests the gap",
+};
+
 function issueUrl(number: number): string {
   return `https://github.com/jamezrin/lurkloot/issues/${number}`;
 }
@@ -212,6 +218,22 @@ describe("CLI settings guard (#1090)", () => {
     const accepted = new Set(cliAcceptedSettingPaths());
     expect(Object.keys(BACKING).filter((path) => !accepted.has(path))).toEqual([]);
     expect(Object.keys(WARNING_SAMPLES).filter((path) => !CORE_BACKED.has(path))).toEqual([]);
+  });
+
+  it("samples a warning for every adapter-backed key with a known gap", () => {
+    const gapped = [...CORE_BACKED].filter(([, backing]) =>
+      KNOWN_GAPS.some(
+        (gap) =>
+          gap.feature === backing.feature
+          && gap.cases.some((name) => name.startsWith(`${backing.platform}/`)),
+      ),
+    );
+    const unsampled = gapped
+      .map(([path]) => path)
+      .filter((path) => !(path in WARNING_SAMPLES) && !(path in NO_WARNING_SAMPLE));
+    expect(unsampled).toEqual([]);
+    const gappedPaths = new Set(gapped.map(([path]) => path));
+    expect(Object.keys(NO_WARNING_SAMPLE).filter((path) => !gappedPaths.has(path))).toEqual([]);
   });
 
   it.each(ADAPTER_CASES)("checks adapter backing and warnings for $name", async (entry) => {
