@@ -25,7 +25,7 @@ function currentRuntime(): ExecutableRuntime {
   return { isSea, execPath: process.execPath, platform: process.platform };
 }
 
-// The directory holding the running executable, when this is one.
+/** Locates the running standalone executable's directory when running as a SEA. */
 export function standaloneDir(runtime: ExecutableRuntime = currentRuntime()): string | undefined {
   return runtime.isSea() ? dirname(runtime.execPath) : undefined;
 }
@@ -33,11 +33,12 @@ export function standaloneDir(runtime: ExecutableRuntime = currentRuntime()): st
 // The cycletls package folder beside the executable.
 export const CYCLETLS_DIR = "cycletls";
 
-// What the executable archives name the cycletls binary they ship.
+/** Gives the shipped CycleTLS helper its platform-specific filename. */
 export function cycleTlsBinaryName(platform: NodeJS.Platform): string {
   return platform === "win32" ? "cycletls.exe" : "cycletls";
 }
 
+/** Locates the CycleTLS package directory in a standalone install. */
 export function standaloneCycleTlsDir(
   runtime: ExecutableRuntime = currentRuntime(),
 ): string | undefined {
@@ -45,7 +46,7 @@ export function standaloneCycleTlsDir(
   return dir === undefined ? undefined : join(dir, CYCLETLS_DIR);
 }
 
-// The Go binary in that folder, for cycletls's executablePath.
+/** Locates the Go helper to pass to CycleTLS as its executablePath. */
 export function standaloneCycleTlsPath(
   runtime: ExecutableRuntime = currentRuntime(),
 ): string | undefined {
@@ -55,6 +56,7 @@ export function standaloneCycleTlsPath(
 
 export class MissingCycleTlsError extends Error {}
 
+/** Tests whether an absolute path refers to the root or a path beneath it. */
 function isInside(root: string, path: string): boolean {
   const rel = relative(root, path);
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
@@ -70,13 +72,11 @@ interface ModuleResolver {
 
 const confinedRoots = new Set<string>();
 
-// Keeps every require made from code inside `root` inside `root`. Node looks
-// for a package in each node_modules up the directory tree, so a dependency
-// missing from the shipped folder (ws's optional bufferutil, say) would
-// otherwise be loaded from whatever node_modules sits above the install, such
-// as ~/Downloads/node_modules. A resolution from inside the folder to a file
-// outside it fails as MODULE_NOT_FOUND, as if the package were absent, which
-// an optional require already handles. Built-in modules are unaffected.
+/**
+ * Keeps requires from inside the shipped folder confined to that folder.
+ * Node can still resolve built-ins. An external file resolves as MODULE_NOT_FOUND
+ * so optional dependencies can use their existing fallback.
+ */
 export function confineRequires(
   root: string,
   resolver: ModuleResolver = Module as unknown as ModuleResolver,
@@ -102,10 +102,7 @@ export function confineRequires(
   confinedRoots.add(root);
 }
 
-// Loads the cycletls package from its folder beside the executable. A
-// single-executable application's own require reaches built-in modules only;
-// a require made with createRequire reads files from disk, and resolves the
-// package's own dependencies from its node_modules.
+/** Loads the adjacent CycleTLS package and its dependencies from disk in a SEA. */
 export function loadStandaloneCycleTls(
   dir: string | undefined = standaloneCycleTlsDir(),
   requireFrom: (path: string) => NodeJS.Require = createRequire,
@@ -137,6 +134,7 @@ export function loadStandaloneCycleTls(
 // Letters outside ASCII are fine; whitespace and shell syntax are not.
 const SHELL_UNSAFE = /[\s`$&;|<>()*?[\]{}!'"\\]/;
 
+/** Refuses paths the CycleTLS wrapper would split or expand when starting its helper. */
 export function assertCycleTlsPathStartable(path: string, platform: NodeJS.Platform): void {
   if (platform === "win32" || !SHELL_UNSAFE.test(path)) return;
   throw new Error(
@@ -144,7 +142,7 @@ export function assertCycleTlsPathStartable(path: string, platform: NodeJS.Platf
   );
 }
 
-// The app UI beside the executable.
+/** Locates the app UI assets beside the running standalone executable. */
 export function standaloneAppRoot(
   runtime: ExecutableRuntime = currentRuntime(),
 ): string | undefined {

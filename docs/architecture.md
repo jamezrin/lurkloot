@@ -698,8 +698,10 @@ binary in that folder as cycletls's `executablePath`, and `defaultAppRoot`
 machine's paths never reach the binary. cycletls starts its binary through `sh -c` outside
 Windows, so a standalone path with spaces or shell characters is refused up front rather than
 left to hang. `packages/cli/tests/standalone.test.ts` guards the resolution in both modes, and
-`scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI, including once
-with `cycletls/` moved away. #1031 replaces the cycletls wrapper with a client of our own.
+`scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI. It extracts
+archives and copies directory inputs into scratch space so the missing-`cycletls/` probe can
+rename the folder without changing the supplied build. #1031 replaces the cycletls wrapper with a
+client of our own.
 
 ### Characterization coverage
 

@@ -14,8 +14,7 @@ import { standaloneAppRoot } from "./standalone";
 
 export const APP_INDEX = "index.html";
 
-// The bundle beside the running CLI, when the build put one there. A CLI built
-// without it (a bare esbuild run) serves the control plane alone.
+/** Locates the app bundle when present, leaving a bare CLI to serve the control plane alone. */
 export function defaultAppRoot(
   moduleUrl?: string,
   standaloneRoot: string | undefined = standaloneAppRoot(),

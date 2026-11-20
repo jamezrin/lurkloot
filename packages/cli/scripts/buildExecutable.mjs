@@ -56,6 +56,7 @@ const target = cliExecutableTarget(platform, arch);
 const version = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")).version;
 const cycleTlsFile = platform === "win32" ? "cycletls.exe" : "cycletls";
 
+/** Reads the optional value following a named build flag. */
 function argument(name) {
   const index = process.argv.indexOf(`--${name}`);
   return index === -1 ? undefined : process.argv[index + 1];

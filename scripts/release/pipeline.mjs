@@ -86,6 +86,7 @@ export const cliExecutableTargets = [
   { id: "windows-x64", platform: "win32", arch: "x64", archive: "zip" },
 ];
 
+/** Selects the archive target matching the build runner. */
 export function cliExecutableTarget(platform, arch) {
   const target = cliExecutableTargets.find(
     (candidate) => candidate.platform === platform && candidate.arch === arch,
@@ -94,12 +95,13 @@ export function cliExecutableTarget(platform, arch) {
   return target;
 }
 
-// The archive's top-level directory, and with the extension added, its file name.
+/** Names the archive's top-level directory. */
 export function cliArchiveBase(version, target) {
   parseManifestVersion(version);
   return `lurkloot-cli-${version}-${target.id}`;
 }
 
+/** Adds the target's archive extension to the release asset name. */
 export function cliArchiveName(version, target) {
   return `${cliArchiveBase(version, target)}.${target.archive}`;
 }

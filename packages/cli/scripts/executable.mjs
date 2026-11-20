@@ -19,19 +19,19 @@ const CYCLETLS_UPSTREAM = {
   "win32-x64": "index.exe",
 };
 
+/** Maps a release target to the helper name in the upstream npm package. */
 export function cycleTlsUpstreamName(platform, arch) {
   const name = CYCLETLS_UPSTREAM[`${platform}-${arch}`];
   if (!name) throw new Error(`cycletls ships no binary for ${platform}-${arch}`);
   return name;
 }
 
+/** Gives the executable its platform-specific filename in the archive. */
 export function executableName(platform) {
   return platform === "win32" ? "lurkloot.exe" : "lurkloot";
 }
 
-// The package directory of a node_modules path, or undefined for a workspace
-// source file. Handles scoped packages and pnpm's nested store layout by
-// taking the last node_modules segment.
+/** Finds the owning npm package by taking the last node_modules segment in a bundle input. */
 export function packageDirOf(file) {
   const parts = file.split(/[\\/]/);
   const index = parts.lastIndexOf("node_modules");
@@ -43,6 +43,7 @@ export function packageDirOf(file) {
 
 const LICENSE_FILES = ["LICENSE", "LICENSE.md", "LICENSE.txt", "LICENCE", "license", "license.md"];
 
+/** Reads the first available license file, allowing for common spellings. */
 function readLicense(dir, read) {
   for (const name of LICENSE_FILES) {
     try {
@@ -66,8 +67,7 @@ function describePackage(absolute, read) {
 
 const byName = (a, b) => a.name.localeCompare(b.name);
 
-// The npm packages esbuild put into the bundle, from its metafile's inputs,
-// with each one's license text.
+/** Collects the license and version of each npm package esbuild put into the bundle. */
 export function bundledPackages(inputs, { root, read = (path) => readFileSync(path, "utf8") }) {
   const dirs = new Set();
   for (const input of inputs) {
@@ -77,12 +77,13 @@ export function bundledPackages(inputs, { root, read = (path) => readFileSync(pa
   return [...dirs].map((dir) => describePackage(join(root, dir), read)).sort(byName);
 }
 
-// The runtime dependency closure of the package in `dir`: what has to sit in
-// its node_modules for it to load. Type-only @types packages are left out.
-// `resolve(fromDir, name)` answers the dependency's package directory. The
-// closure ships flat, so two versions of one package are refused.
+/**
+ * Collects the runtime packages shipped alongside the executable. The closure
+ * excludes type-only packages and requires one version per name for a flat layout.
+ */
 export function dependencyClosure(dir, { resolve, read = (path) => readFileSync(path, "utf8") }) {
   const found = new Map();
+  /** Walks the dependencies from their importing package so pnpm can resolve them. */
   const visit = (from) => {
     const manifest = JSON.parse(read(join(from, "package.json")));
     for (const name of Object.keys(manifest.dependencies ?? {})) {
@@ -103,8 +104,7 @@ export function dependencyClosure(dir, { resolve, read = (path) => readFileSync(
   return [...found.values()].sort(byName);
 }
 
-// The archive's NOTICE: what the executable contains besides Lurkloot itself,
-// and the license each part comes under, in full.
+/** Lists the shipped third-party components and reproduces their license texts. */
 export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, packages }) {
   const cycleTlsDependencies = cycleTls.dependencies ?? [];
   const lines = [
@@ -148,8 +148,7 @@ export function renderNotice({ version, nodeVersion, nodeLicense, cycleTls, pack
   return `${lines.join("\n")}\n`;
 }
 
-// The env for a child that must not find Node: PATH without any directory
-// that holds a node executable. Windows spells the key `Path`.
+/** Removes every directory containing Node from the child's PATH, including Windows Path. */
 export function envWithoutNode(env, { platform = process.platform, hasNode }) {
   const result = { ...env };
   const nodeName = platform === "win32" ? "node.exe" : "node";

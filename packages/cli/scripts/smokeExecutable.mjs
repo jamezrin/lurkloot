@@ -1,6 +1,6 @@
-// Smoke-tests a standalone `lurkloot` archive or directory (#1022): unpacks
-// it into a fresh directory, then runs the executable with no Node on its PATH
-// and no node_modules anywhere near it.
+// Smoke-tests a standalone `lurkloot` archive or directory (#1022): extracts
+// or copies it into scratch space, then runs the executable with no Node on its PATH
+// and away from the workspace's node_modules.
 //
 //   node scripts/smokeExecutable.mjs <archive or directory> [--require-kick]
 //
@@ -14,6 +14,7 @@
 //   not hang or fall back to a copy elsewhere.
 import { spawn } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdtempSync,
   readdirSync,
@@ -25,6 +26,7 @@ import {
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { envWithoutNode, executableName } from "./executable.mjs";
 
 const [source, ...flags] = process.argv.slice(2);
@@ -40,6 +42,7 @@ function fail(message) {
   process.exitCode = 1;
 }
 
+/** Runs the archive extractor and reports its exit status on failure. */
 function runCommand(command, args) {
   return new Promise((resolveExit, rejectExit) => {
     const child = spawn(command, args, { stdio: "inherit" });
@@ -50,10 +53,13 @@ function runCommand(command, args) {
   });
 }
 
-// The directory holding the executable: the archive's single top-level
-// directory, or the given directory itself.
+/** Stages the executable in scratch space so the missing-folder probe can rename its files. */
 async function unpack(path, into) {
-  if (statSync(path).isDirectory()) return resolve(path);
+  if (statSync(path).isDirectory()) {
+    const staged = join(into, "executable");
+    cpSync(path, staged, { recursive: true });
+    return staged;
+  }
   const tar = windows
     ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
     : "tar";
@@ -63,6 +69,7 @@ async function unpack(path, into) {
   return join(into, top);
 }
 
+/** Asks the OS for an available loopback port for the next serve process. */
 function freePort() {
   return new Promise((resolvePort, rejectPort) => {
     const server = createServer();
@@ -74,6 +81,7 @@ function freePort() {
   });
 }
 
+/** Streams the executable's output and captures it for the smoke assertions. */
 function start(executable, args, cwd, env) {
   const child = spawn(executable, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
   let output = "";
@@ -85,7 +93,10 @@ function start(executable, args, cwd, env) {
     output += chunk;
     process.stderr.write(chunk);
   });
-  const exited = new Promise((resolveExit) => child.on("exit", (code) => resolveExit(code)));
+  const exited = new Promise((resolveExit) => {
+    child.once("error", (error) => fail(`could not run ${executable}: ${error.message}`));
+    child.once("close", resolveExit);
+  });
   return { child, exited, output: () => output };
 }
 
@@ -94,6 +105,7 @@ async function get(url) {
   return { status: response.status, type: response.headers.get("content-type") ?? "" };
 }
 
+/** Waits for the session endpoint until the server exits or startup times out. */
 async function waitFor(check, { timeoutMs, exited }) {
   const deadline = Date.now() + timeoutMs;
   let stopped = false;
@@ -107,17 +119,16 @@ async function waitFor(check, { timeoutMs, exited }) {
     } catch (error) {
       last = error;
     }
-    await new Promise((wait) => setTimeout(wait, 500));
+    await delay(500);
   }
   throw new Error(stopped ? "the executable exited early" : `timed out: ${last?.message ?? last}`);
 }
 
+/** Stops serve before the next command uses CycleTLS's default port. */
 async function stop(run) {
-  if (run.child.exitCode !== null) return;
+  if (run.child.exitCode !== null || run.child.signalCode !== null) return;
   run.child.kill(windows ? undefined : "SIGTERM");
-  const timeout = new Promise((resolveTimeout) =>
-    setTimeout(() => resolveTimeout("timeout"), 15_000),
-  );
+  const timeout = delay(15_000, "timeout", { ref: false });
   if ((await Promise.race([run.exited, timeout])) === "timeout") {
     run.child.kill("SIGKILL");
     fail("serve did not stop within 15 s of SIGTERM");
@@ -182,10 +193,7 @@ try {
     work,
     env,
   );
-  const code = await Promise.race([
-    discover.exited,
-    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout("timeout"), 90_000)),
-  ]);
+  const code = await Promise.race([discover.exited, delay(90_000, "timeout", { ref: false })]);
   if (code === "timeout") discover.child.kill("SIGKILL");
   if (/Kick fetch \S+ → background transport OK/.test(discover.output())) {
     process.stdout.write("smoke: a Kick request through cycletls succeeded\n");
@@ -206,7 +214,7 @@ try {
   );
   const missingCode = await Promise.race([
     missing.exited,
-    new Promise((resolveTimeout) => setTimeout(() => resolveTimeout("timeout"), 30_000)),
+    delay(30_000, "timeout", { ref: false }),
   ]);
   if (missingCode === "timeout") missing.child.kill("SIGKILL");
   if (missingCode === 0 || missingCode === "timeout") {

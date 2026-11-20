@@ -20,9 +20,7 @@ export type { CycleTLSClient } from "cycletls";
 // engine's own callers of needsKickSessionBearer never reach wss.
 const KICK_BEARER_PROTOCOLS = ["https:", "wss:"];
 
-// cycletls starts its Go binary from its own package directory. The standalone
-// executable has no node_modules, so it ships the binary beside itself and
-// names it here (runtime/standalone.ts); everywhere else cycletls finds its own.
+/** Starts CycleTLS using the shipped helper in a standalone install or the package default. */
 export async function initCycle(
   executablePath = standaloneCycleTlsPath(),
 ): Promise<CycleTLSClient> {
