@@ -1,5 +1,7 @@
 import { Socket } from "node:net";
 import type { Readable } from "node:stream";
+import type { DiagnosticRecord } from "@lurkloot/shared/diagnostics";
+import { exportCliDiagnostics } from "./diagnostics";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { LocalCredentialHealth } from "../authStore";
@@ -92,14 +94,16 @@ export async function startControllerControlPlane(
     | "readyOutput"
   > & {
     settingsWritable?: boolean;
+    recentDiagnostics?: () => readonly DiagnosticRecord[];
+    diagnosticSecrets?: RunOptions["diagnosticSecrets"];
   },
 ): Promise<FarmingHost & Omit<ControlPlane, "close">> {
+  const readSnapshot = async () =>
+    (await controller.handleMessage({ type: "getSnapshot" })) as RuntimeSnapshot<EngineSettings>;
   const describeSession = async () =>
     buildSessionView({
       version: CLI_VERSION,
-      snapshot: (await controller.handleMessage({
-        type: "getSnapshot",
-      })) as RuntimeSnapshot<EngineSettings>,
+      snapshot: await readSnapshot(),
       credentials: options.describeCredentials(),
     });
   // A changed credential reaches the next adapter built; a tick right away
@@ -122,7 +126,18 @@ export async function startControllerControlPlane(
       ...options.binding,
       settingsWritable: options.settingsWritable ?? false,
       logger: options.logger,
-      handleMessage: (message) => controller.handleMessage(message),
+      handleMessage: async (message) => {
+        if (message.type === "exportDiagnostics") {
+          const snapshot = await readSnapshot();
+          return exportCliDiagnostics({
+            snapshot,
+            events: options.recentDiagnostics?.() ?? [],
+            platform: message.platform,
+            secrets: options.diagnosticSecrets?.(),
+          });
+        }
+        return controller.handleMessage(message);
+      },
       describeSession,
       ...(flows ? { routes: createAuthRoutes(flows, describeSession) } : {}),
       ...(appRoot ? { appRoot } : {}),
@@ -188,6 +203,7 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
         })
       : undefined);
   const runOptions = { ...rest, ...(settingsStore ? { settingsStore } : {}) };
+  const diagnosticSecrets = () => [binding.token, ...(rest.diagnosticSecrets?.() ?? [])];
   const stop = exitWithInput ? new AbortController() : undefined;
   const release = exitWithInput
     ? watchStreamEnd(exitWithInput, () => stop?.abort("Input closed (--exit-with-stdin)"))
@@ -195,6 +211,7 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
   try {
     await runLoop({
       ...runOptions,
+      diagnosticSecrets,
       // A caller's own stop signal still stops the loop alongside the input one.
       ...(stop
         ? {
@@ -203,12 +220,14 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
               : stop.signal,
           }
         : {}),
-      startHost: (controller) =>
+      startHost: (controller, diagnostics) =>
         startControllerControlPlane(controller, {
           binding,
           describeCredentials,
           logger: runOptions.logger,
           settingsWritable: Boolean(runOptions.settingsStore?.applyPatch),
+          recentDiagnostics: diagnostics.recent,
+          diagnosticSecrets,
           ...(auth ? { auth } : {}),
           ...(onListening ? { onListening } : {}),
           ...(appRoot !== undefined ? { appRoot } : {}),

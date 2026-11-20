@@ -188,11 +188,12 @@ describe("serve binding", () => {
 });
 
 describe("control plane message allow-list", () => {
-  it("lists only core messages the CLI host supports", () => {
+  it("lists only messages the CLI host supports", () => {
     expect([...SUPPORTED_MESSAGE_TYPES].sort()).toEqual(
       [
         "claimReward",
         "dismissCriticalFailure",
+        "exportDiagnostics",
         "getSnapshot",
         "saveSettings",
         "searchCategories",
@@ -469,9 +470,19 @@ describe("serveLoop", () => {
   it("farms with the shared loop and answers the API until SIGTERM", async () => {
     tempDir = await mkdtemp(join(tmpdir(), "serve-test-"));
     const transport = idleTransport();
+    const createAdapter = transport.createAdapter;
+    transport.createAdapter = (platform, emit, settings) => {
+      emit?.({
+        category: "diagnostic",
+        level: "debug",
+        platform,
+        message: `Unexpected value ${TOKEN}`,
+      });
+      return createAdapter(platform, emit, settings);
+    };
     let port = 0;
     const running = serveLoop({
-      binding: { host: "127.0.0.1", port: 0 },
+      binding: { host: "127.0.0.1", port: 0, token: TOKEN },
       settings: DEFAULT_CLI_SETTINGS,
       statePath: join(tempDir, "state.json"),
       stateStore: memoryStateStore(),
@@ -486,17 +497,33 @@ describe("serveLoop", () => {
     });
     try {
       await vi.waitFor(() => expect(port).not.toBe(0));
-      const session = await send(port, { path: "/v1/session" });
+      const headers = { authorization: `Bearer ${TOKEN}` };
+      const session = await send(port, { path: "/v1/session", headers });
       expect(session.status).toBe(200);
       expect((session.json as { version: string }).version).toBe(CLI_VERSION);
-      const snap = await postMessage(port, { type: "getSnapshot" });
+      const snap = await postMessage(port, { type: "getSnapshot" }, headers);
       expect(snap.status).toBe(200);
       expect((snap.json as { result: { state: unknown } }).result.state).toBeDefined();
       await vi.waitFor(async () => {
-        const reply = await send(port, { path: "/v1/session" });
+        const reply = await send(port, { path: "/v1/session", headers });
         const auth = (reply.json as { platforms: { twitch: { auth: { status: string } } } })
           .platforms.twitch.auth;
         expect(auth.status).toBe("healthy");
+      });
+      const message = { type: "exportDiagnostics", platform: "twitch" };
+      expect((await postMessage(port, message)).status).toBe(401);
+      expect((await postMessage(port, { ...message, platform: "other" }, headers)).status).toBe(
+        400,
+      );
+      await vi.waitFor(async () => {
+        const reply = await postMessage(port, message, headers);
+        expect(reply.status).toBe(200);
+        expect(reply.text).not.toContain(TOKEN);
+        const { result } = reply.json as { result: { events: unknown[]; report: string } };
+        expect(result.events.length).toBeGreaterThan(0);
+        expect(result.report).toContain("Lurkloot diagnostics log");
+        expect(result.report).toContain("auth status: healthy");
+        expect(result.report).toContain("[redacted]");
       });
     } finally {
       process.emit("SIGTERM");
@@ -508,6 +535,7 @@ describe("serveLoop", () => {
   });
 
   it("reads and writes settings through an injected settings store", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "serve-test-"));
     let stored = toEngineSettings(DEFAULT_CLI_SETTINGS);
     const save = vi.fn(async (next: EngineSettings) => {
       stored = next;
@@ -516,7 +544,7 @@ describe("serveLoop", () => {
     const running = serveLoop({
       binding: { host: "127.0.0.1", port: 0 },
       settings: DEFAULT_CLI_SETTINGS,
-      statePath: "/nonexistent-lurkloot-state.json",
+      statePath: join(tempDir, "state.json"),
       stateStore: memoryStateStore(),
       settingsStore: {
         load: async () => stored,

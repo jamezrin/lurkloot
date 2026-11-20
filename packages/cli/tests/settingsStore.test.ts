@@ -696,6 +696,6 @@ describe("store boundaries", () => {
       await running;
     }
     expect(readFileSync(configPath, "utf8")).toBe(before);
-    expect(readdirSync(dir).sort()).toEqual(["config.json"]);
+    expect(readdirSync(dir).sort()).toEqual(["config.json", "state.json.diagnostics.json"]);
   });
 });

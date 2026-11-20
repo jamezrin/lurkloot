@@ -582,7 +582,7 @@ of optional hooks:
 | Port | Extension | CLI |
 | --- | --- | --- |
 | `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings through an injectable `SettingsStore`: under `run` the config file's, never written; under `serve` the config-file store (`src/settingsStore.ts`, #1000), which saves them to `config.json` |
-| `events` | Activity store, OS notifications, locale catalogs | The logger |
+| `events` | Activity store, OS notifications, locale catalogs | The logger and bounded diagnostics history |
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
 | `credentials` | Cookie observation | The file/env credential store |
@@ -696,7 +696,9 @@ let heartbeat recovery resume the previous watch from its persisted cadence.
 reconciliation, and the loop closes it first on shutdown; `run` passes none and starts no server
 (`packages/cli/tests/runNoServer.test.ts`). The control plane only forwards the popup's
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
-messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
+messages the CLI host supports; it holds no farming logic. Host messages such as
+`exportDiagnostics` are dispatched by `serve.ts` before forwarding core messages. Core stays
+free of HTTP.
 
 The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
 all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
@@ -1679,11 +1681,35 @@ Activity records are structured (`code` plus `data`) and localized by the host a
 
 Every activity event therefore also emits a diagnostic mirror. `packages/core/src/core/activityDiagnostics.ts` wraps the controller's event collector — the one choke point all engine emitters funnel through — and restates each activity event in English with the context the localized sentence drops: campaign and reward ids, raw reason codes, claim method, session detail. Emit sites do not hand-write a matching diagnostic.
 
-The extension stores activity in a bounded IndexedDB database owned by the background and queries it from the popup through runtime messages. Normal activity is always retained; diagnostic persistence is extension-only and opt-in, so hosts with diagnostics disabled drop the mirrors when they filter by category. Each category has its own record budget, so mirrors never evict activity history. Activity database failures are isolated from farming state mutations.
+The extension stores activity in a bounded IndexedDB database owned by the background and queries it from the popup through runtime messages. Normal activity is always retained. The extension persists diagnostics and their mirrors only when diagnostic logging is enabled. Each category has its own record budget, so mirrors never evict activity history. Activity database failures are isolated from farming state mutations.
 
 The popup shows one category at a time. The activity/diagnostics switch selects a view rather than interleaving both, since the mirror means a merged list would state everything twice.
 
-The CLI has no activity store. Its output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains new event data, and legacy event fields disappear after the state is loaded and saved.
+The CLI has no activity store. Its output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Long-term stderr retention belongs to Docker, systemd, Loki, or another external collector. `state.json` never contains new event data, and legacy event fields disappear after the state is loaded and saved.
+
+### Diagnostics export (#1089)
+
+`@lurkloot/shared/diagnostics` builds the text report for the extension download and both
+CLI export paths. It reuses the critical-failure report's named settings and health fields,
+selects diagnostic rows, and redacts credential-shaped text and (when supplied by the CLI)
+known secret values. Reports carry session status and start time, without raw session
+objects, auth payloads, user lists or event metadata. The extension's activity message
+handler projects the IndexedDB rows before returning them, and the popup supplies the
+environment and snapshot for the file.
+
+The CLI reporter also sends diagnostics to the host-owned ring in `runtime/diagnostics.ts`
+before stderr filtering. It projects and redacts rows before retention, caps the ring at
+500 entries and caps the length of each message. One writer serializes and coalesces atomic
+snapshots beside the chosen state file, outside the controller's locks and without awaiting
+disk writes at the reporter boundary. A failed snapshot leaves the previous file intact
+and does not affect farming. Clean shutdown drains pending writes.
+
+The `serve` host answers `exportDiagnostics` with the live ring and the controller's snapshot,
+under the same HTTP authorization as other messages. The standalone command reads the
+redacted sidecar plus the existing config and persisted state, including when no server
+is running. There is no added engine message or state writer. CLI diagnostics tests guard
+the ring, file bounds, and redaction. The serve tests exercise export dispatch and access
+control over HTTP.
 
 ### Activity sessions and reward kinds
 

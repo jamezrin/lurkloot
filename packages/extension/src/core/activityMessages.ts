@@ -1,3 +1,4 @@
+import { selectDiagnosticRecords } from "@lurkloot/shared/diagnostics";
 import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
@@ -49,7 +50,8 @@ export function createActivityMessageHandler(repository: ActivityMessageReposito
       return { sessions: await repository.loadSessions(message.platform) };
     }
     if (message.type === "exportDiagnostics") {
-      return { events: await repository.exportDiagnostics(message.platform) };
+      const events = await repository.exportDiagnostics(message.platform);
+      return { events: selectDiagnosticRecords(events, message.platform) };
     }
     if (message.type === "clearActivity") {
       await repository.clear();

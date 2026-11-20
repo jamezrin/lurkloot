@@ -1,3 +1,4 @@
+import { buildDiagnosticsExport } from "@lurkloot/shared/diagnostics";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
@@ -93,7 +94,6 @@ import {
   applyActivityMutationForRequest,
   beginActivityMutation,
   beginDiagnosticsExport,
-  buildActivityExport,
   buildDiagnosticsExportFilename,
   createActivityMutationSequence,
   createActivityRequestScope,
@@ -1004,24 +1004,25 @@ export function PopupFrame({
       platform: request.platform,
     });
     if (!isDiagnosticsExportCurrent(request, diagnosticsExportRequestRef.current)) return undefined;
+    const { events, report } = buildDiagnosticsExport({
+      events: result.events,
+      platform: request.platform,
+      coverage: "full",
+      version: adapter.version,
+      environment: {
+        label: "browser",
+        value: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+      },
+      locale,
+      at: exportedAt.toISOString(),
+      snapshot,
+    });
     downloadFile(
       buildDiagnosticsExportFilename(request.platform, exportedAt),
-      buildActivityExport(
-        {
-          events: result.events,
-          platform: request.platform,
-          diagnostics: true,
-          coverage: "full",
-          version: adapter.version,
-          userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
-          locale,
-          at: exportedAt.toISOString(),
-        },
-        t,
-      ),
+      report,
       "text/plain",
     );
-    return result.events.length;
+    return events.length;
   }
 
   // The provider views drive the same handler the settings list does, with a

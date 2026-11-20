@@ -386,7 +386,7 @@ server. On SIGINT/SIGTERM the server closes first, then the loop shuts down as
 | --- | --- |
 | `GET /v1/health` | `{ "status": "ok" }`, for liveness checks. |
 | `GET /v1/session` | `{ id, version, platforms }`. `id` is `"default"` (one process serves one account; the id exists so more can follow). Each platform has `enabled` and `auth`: the engine's last live `status` with its `reasonCode`/`checkedAt`, plus `credential: { present, source, status }`, the same network-free reading as `auth status`. Never a token, cookie or account id. |
-| `POST /v1/session/messages` | Body: one `RuntimeMessage` (`@lurkloot/shared/messages`), the popup's own contract, with `Content-Type: application/json`. Answers `{ "result": … }`: the controller's `handleMessage` result (a snapshot for most messages), or `null`. |
+| `POST /v1/session/messages` | Body: one `RuntimeMessage` (`@lurkloot/shared/messages`), the popup's own contract, with `Content-Type: application/json`. Answers `{ "result": … }`: the CLI host or controller result (a snapshot for most messages), or `null`. |
 
 ### Signing in over the control plane
 
@@ -423,7 +423,7 @@ were. Sign-in errors use these codes:
 | 422 | `login_rejected` | Twitch rejected the token, or it was not issued to the sign-in link's client. |
 | 502 | `upstream_unavailable` | Twitch or Kick could not be reached to start a flow or check a token. |
 
-Supported messages: `getSnapshot`, `tickNow`, `claimReward`,
+Supported messages: `getSnapshot`, `exportDiagnostics`, `tickNow`, `claimReward`,
 `selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
 settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`
 and `setAutomation`. Live updates come from polling `getSnapshot`.
@@ -559,8 +559,8 @@ The farming engine reports typed activity and diagnostic batches directly to
 the CLI. The CLI preserves their causal order, formats activity records into
 human-readable lines, and passes diagnostic messages through unchanged. Lines
 go to stderr and are filtered only by `--log`; `state.json` contains scheduler
-state, never new event history. Use Docker logs, systemd/journald, Loki, or
-another external collector when retention is needed. Loading and saving an old
+state. Use Docker logs, systemd/journald, Loki, or another external collector
+when long-term retention is needed. Loading and saving an old
 state file also removes any legacy embedded `events` field.
 
 Subscription requirements are reported separately from watch progress. The CLI
@@ -571,6 +571,41 @@ waiting requirement is logged only when it first appears; once Twitch confirms
 the reward, the next poll detects and claims it, with the existing reward-claimed
 engine event providing the notification. Run `pnpm cli run --once` whenever an
 immediate non-interactive refresh is needed.
+
+## Diagnostics export
+
+Run this after reproducing a problem with `run` or `serve`:
+
+```sh
+lurkloot diagnostics export --out diagnostics.log
+# For a container named lurkloot, save the report on the host:
+docker exec lurkloot node /app/dist/index.mjs diagnostics export --config /data/config.json > diagnostics.log
+```
+
+Attach the resulting text file to your bug report. Omit `--out` (or pass
+`--out -`) for stdout. A file specified with `--out` must be new. Use
+the same `--config` and, if set, `--state` as the farming process. For Compose,
+use `docker compose exec -T lurkloot` in place of `docker exec lurkloot`.
+
+The command works while farming or after shutdown. It reads the local config,
+last saved scheduler state, and up to 500 recent engine diagnostics from the
+current or last process. Each process starts a fresh history and replaces the
+previous snapshot on its first diagnostic batch. The loop keeps these
+records regardless of `--log` and writes a private atomic snapshot beside the
+state file (`state.json.diagnostics.json` by default). Missing or unreadable
+history yields a report with no events. A disk write failure leaves the
+in-memory history available to `serve`. Run one farming process per state file.
+
+The report includes Lurkloot and runtime versions, selected farming settings,
+auth health codes, session status and recent English diagnostic lines for both
+platforms. Credential values are used only to redact text. Raw settings,
+account IDs, headers, credential fields and diagnostic metadata are excluded.
+
+For a live, platform-scoped export, post
+`{"type":"exportDiagnostics","platform":"twitch"}` (or `"kick"`) to
+`/v1/session/messages` on `serve` using its usual authentication. The response's
+`result.report` is the attachable text and `result.events` contains the redacted
+diagnostic rows for that platform plus unscoped diagnostics.
 
 ## Docker
 

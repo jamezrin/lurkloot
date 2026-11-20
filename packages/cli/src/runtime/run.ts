@@ -1,3 +1,5 @@
+import type { DiagnosticSecrets } from "@lurkloot/shared/diagnostics";
+import { createDiagnosticsHistory } from "./diagnostics";
 import {
   CLI_CAPABILITIES,
   createBackgroundController,
@@ -61,7 +63,11 @@ export interface RunOptions {
   settingsStore?: SettingsStore;
   // Started once the controller exists, before startup reconciliation and the
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
-  startHost?: (controller: FarmingController) => Promise<FarmingHost>;
+  startHost?: (
+    controller: FarmingController,
+    diagnostics: Pick<ReturnType<typeof createDiagnosticsHistory>, "recent">,
+  ) => Promise<FarmingHost>;
+  diagnosticSecrets?: () => DiagnosticSecrets;
   // Aborting it stops the loop through the same shutdown as SIGINT/SIGTERM.
   // `serve --exit-with-stdin` aborts it when stdin ends. Ignored with `once`.
   stopSignal?: AbortSignal;
@@ -93,6 +99,7 @@ export function createSubscriptionWaitReporter(logger: Logger): (state: Schedule
 // SIGINT/SIGTERM, disposing the transport.
 export async function runLoop(options: RunOptions): Promise<void> {
   const { settings, statePath, transport, logger } = options;
+  const diagnostics = createDiagnosticsHistory(statePath, logger, options.diagnosticSecrets);
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
@@ -140,7 +147,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
       saveState: saveRuntimeState,
     },
     events: {
-      report: (events) => reportCliEvents(events, logger),
+      report: (events) => {
+        diagnostics.append(events);
+        return reportCliEvents(events, logger);
+      },
       notify: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
     },
     jobs,
@@ -165,7 +175,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     // cleanup before disposing the transport so --once leaves no watch running.
     if (options.once) await controller.settleBackgroundWork();
     await settleStateWrites();
-    await transport.dispose();
+    await disposeRuntime();
   };
 
   // The CLI's own view of committed state: subscription waits it has not
@@ -193,6 +203,15 @@ export async function runLoop(options: RunOptions): Promise<void> {
   dispatchJob = (name) => {
     void runJob(name);
   };
+
+  async function disposeRuntime(): Promise<void> {
+    const diagnosticWrites = diagnostics.close();
+    try {
+      await transport.dispose();
+    } finally {
+      await diagnosticWrites;
+    }
+  }
 
   logger.info("Starting farming loop", "run");
   if (options.once) {
@@ -265,7 +284,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
           // Recorded before any host code runs, so a stop that lands while the
           // host starts (even synchronously) still waits for it and closes it.
           const startHost = options.startHost;
-          startingHost = Promise.resolve().then(() => startHost(controller));
+          startingHost = Promise.resolve().then(() => startHost(controller, diagnostics));
           started = await startingHost;
         } catch (error) {
           // A host that cannot start (a port in use) stops the loop the way a

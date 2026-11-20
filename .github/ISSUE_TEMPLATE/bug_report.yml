@@ -88,7 +88,11 @@ body:
     id: logs
     attributes:
       label: Relevant logs
-      description: Paste a short relevant log excerpt. Remove all credentials and private account information first.
+      description: |
+        Paste a short relevant log excerpt or attach a diagnostics report.
+        For the CLI, run `lurkloot diagnostics export --out diagnostics.log`.
+        For Docker, run `docker exec lurkloot node /app/dist/index.mjs diagnostics export --config /data/config.json > diagnostics.log` (replace `lurkloot` with your container name).
+        Remove all credentials and private account information before sharing.
       render: shell
 
   - type: textarea
