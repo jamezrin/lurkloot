@@ -113,7 +113,9 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
   # The extension is not rebuilt here. Publication promotes the candidate prerelease in place, so the
-  # signed artifacts it already carries are the ones that ship; publish downloads them back.
+  # signed artifacts it already carries are the ones that ship; publish downloads them back. The
+  # CLI executable archives ride along the same way: the candidate published them, SHA256SUMS
+  # covers them and assert-assets requires them.
 
   # The CLI image follows the same rule: the approved job retags the verified candidate manifest by
   # digest. This rebuild runs only when that candidate is gone, which is a recovery path.
@@ -227,6 +229,10 @@ jobs:
             echo "## Install the Chrome zip"
             echo
             echo "To load this pre-release in Chrome from the zip, see [Installing a pre-release build]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/docs/install-prerelease.md)."
+            echo
+            echo "## Run the CLI without Node"
+            echo
+            echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Standalone executables]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/cli/README.md#standalone-executables)."
           } >> notes.md
           # Promotion strips the candidate marker, so a recovery checkout of the merged
           # SHA cannot satisfy promote-release's ownership check. Skip when already stable.

@@ -1,6 +1,39 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+
+function styleLicenses(): Plugin {
+  return {
+    name: "lurkloot-app-style-licenses",
+    apply: "build",
+    generateBundle() {
+      // Vite's license report walks JavaScript chunks. These packages enter via
+      // the popup's styles.css and fonts.css and ship as CSS or font assets.
+      const require = createRequire(import.meta.url);
+      const fromPopup = createRequire(require.resolve("@lurkloot/popup-ui/fonts.css"));
+      const packages = [
+        "@fontsource-variable/archivo",
+        "@fontsource-variable/geist",
+        "@fontsource-variable/geist-mono",
+        "tailwindcss",
+      ];
+      const licenses = packages.map((name) => {
+        const manifest = fromPopup.resolve(`${name}/package.json`);
+        const { version, license } = JSON.parse(readFileSync(manifest, "utf8"));
+        const text = readFileSync(join(dirname(manifest), "LICENSE"), "utf8").trimEnd();
+        return `## ${name} - ${version} (${license})\n\n${text}`;
+      });
+      this.emitFile({
+        type: "asset",
+        fileName: "THIRD-PARTY-CSS.md",
+        source: `# CSS and font licenses\n\n${licenses.join("\n\n")}\n`,
+      });
+    },
+  };
+}
 
 // `pnpm dev` proxies /v1 to a running `lurkloot serve`, so the app and the API
 // share one origin, as they will once serve hosts the app itself (#980).
@@ -42,11 +75,17 @@ function fixtureControlPlane(): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), ...(mode === "fixture" ? [fixtureControlPlane()] : [])],
+  plugins: [
+    react(),
+    tailwindcss(),
+    styleLicenses(),
+    ...(mode === "fixture" ? [fixtureControlPlane()] : []),
+  ],
   // Relative asset URLs, so serve can host the bundle under any path (#980).
   base: "./",
   build: {
     outDir: "dist",
+    license: { fileName: "THIRD-PARTY-JS.md" },
     emptyOutDir: true,
     target: "es2022",
     // One bundle served from the user's own machine (#980), not a page on

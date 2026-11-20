@@ -89,6 +89,8 @@ docker run --rm -it -v "$PWD/data:/data" \
 
 That login sees every drop campaign. `auth twitch device-login` needs no browser, but Twitch only lets it see campaigns you have already started, so it finds the rest only on live channels of your chosen games. Kick login on the same image is `auth kick device-login`. Authentication, configuration, and the command that keeps farming in the background are in the [CLI guide](packages/cli/README.md).
 
+Without Docker, each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) also has the CLI as a standalone `lurkloot` executable for Linux (x64, arm64), macOS (Apple Silicon, Intel) and Windows (x64), which needs no Node installed. Unpack the `lurkloot-cli-*` archive for your system and run `lurkloot` from it; the [CLI guide](packages/cli/README.md#standalone-executables) covers the first run.
+
 Fortnite and NoPixel run in the extension. The CLI farms Twitch and Kick.
 
 ### The app
