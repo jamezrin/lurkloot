@@ -343,8 +343,15 @@ export class KickRealtimeConnection {
       else this.handlePusher(event.data);
     });
     // Node ws emits an error on failed handshakes, including close while connecting.
-    // Consume it here and let the following close handle retries.
-    ws.addEventListener("error", () => {});
+    // Consume it here and let the following close handle retries. Node's error
+    // carries the reason (a refused upgrade, a timeout); a browser's carries none.
+    ws.addEventListener("error", (event) => {
+      if (!this.isCurrent(ws, generation)) return;
+      const reason = (event as { message?: unknown }).message;
+      if (typeof reason === "string" && reason) {
+        this.log("debug", `Kick realtime socket error: ${reason.slice(0, 200)}`);
+      }
+    });
     ws.addEventListener("close", (event) => {
       if (this.closedByUs.delete(ws) || !this.isCurrent(ws, generation)) return;
       this.ws = undefined;
