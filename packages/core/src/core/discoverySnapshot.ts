@@ -160,7 +160,6 @@ export async function collectDiscoverySnapshot(
   let skippedBeforeChannelWork = 0;
   let uniqueBatchChannelChecks = 0;
   const checkedLogins = new Set<string>();
-  const bestEffortLogins = new Set<string>();
   let knownChecks: KnownChannelChecks | undefined;
   const precheckedStreams = new Map<string, ChannelCheck>();
   const recordSelection = (selection: CandidateChannelSelection): ChannelCheck[] => {
@@ -235,12 +234,13 @@ export async function collectDiscoverySnapshot(
         batchRequestsToCheck.push({
           channel: candidate,
           campaign: watchCampaign,
-          ...(includeKnown && knownChannels.has(login) ? { alwaysCheck: true } : {}),
+          ...(includeKnown && knownChannels.has(login)
+            ? { alwaysCheck: true, bestEffort: true }
+            : {}),
         });
         batchRecorders.push((check) => observed.push(observe(check, watchCampaign)));
       }
-      for (const [login, candidate] of knownOnly) {
-        bestEffortLogins.add(login);
+      for (const [, candidate] of knownOnly) {
         batchRequestsToCheck.push({
           channel: candidate,
           campaign: watchCampaign,
@@ -289,10 +289,7 @@ export async function collectDiscoverySnapshot(
   const observedIdleCandidates: DiscoveryCandidateObservation[] = [];
   if (adapter.checkChannels) {
     for (const candidate of idleCandidates) {
-      batchRequestsToCheck.push({
-        channel: candidate,
-        ...(bestEffortLogins.has(candidate.username.toLowerCase()) ? { bestEffort: true } : {}),
-      });
+      batchRequestsToCheck.push({ channel: candidate });
       batchRecorders.push((check) => observedIdleCandidates.push(observe(check)));
     }
     const batch = await adapter.checkChannels(batchRequestsToCheck, {
@@ -324,15 +321,7 @@ export async function collectDiscoverySnapshot(
       batchRecorders[index]!(check);
     }
   } else if (adapter.selectCandidateChannel) {
-    // Failed optional probes have no idle evidence either. Do not retry them
-    // through the ordinary path just because a login also occurs in the Watchlist.
-    const idleToCheck = knownChecks
-      ? idleCandidates.filter((candidate) => {
-          const login = candidate.username.toLowerCase();
-          return !knownChannels.has(login) || precheckedStreams.has(login);
-        })
-      : idleCandidates;
-    const selection = await adapter.selectCandidateChannel(idleToCheck, undefined, {
+    const selection = await adapter.selectCandidateChannel(idleCandidates, undefined, {
       signal,
       precheckedStreams,
     });

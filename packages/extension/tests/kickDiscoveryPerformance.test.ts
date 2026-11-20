@@ -600,7 +600,7 @@ describe("Kick discovery request budgets and selection", () => {
         jsonFetcher((url) => {
           const login = new URL(url).pathname.split("/").at(-1)!;
           probes.push(login);
-          if (login === "watchlist") {
+          if (login === "first") {
             if (failure === "rate-limited")
               throw new SafeFetchError({ kind: "http_error", status: 429 });
             return {};
@@ -626,10 +626,99 @@ describe("Kick discovery request budgets and selection", () => {
       );
       const found = result.campaigns[0]?.candidates.map(({ candidate }) => candidate.username);
       expect(found).toContain("directory");
-      expect(found).not.toContain("watchlist");
-      expect(result.idleCandidates).toEqual([]);
+      expect(found).not.toContain("first");
+      expect(result.idleCandidates).toMatchObject([
+        { candidate: { username: "watchlist" }, live: true },
+      ]);
       if (failure === "rate-limited") expect(probes).not.toContain("fourth");
       else expect(found).toContain("fourth");
+    },
+  );
+
+  it.each(["missing", "rate-limited"])(
+    "keeps the first Kick directory match when a later preferred directory check is %s",
+    async (failure) => {
+      const adapter = kickAdapter(
+        jsonFetcher((url) => {
+          if (url.endsWith("/followed")) {
+            if (failure === "rate-limited")
+              throw new SafeFetchError({ kind: "http_error", status: 429 });
+            return {};
+          }
+          return liveResponse;
+        }),
+      );
+      vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
+      vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([
+        candidate("directory"),
+        candidate("followed"),
+      ]);
+      vi.spyOn(adapter, "listFollowedChannels").mockResolvedValue(["followed"]);
+      const result = await collectDiscoverySnapshot(
+        adapter,
+        undefined,
+        new AbortController().signal,
+        () => NOW,
+      );
+      expect(result.campaigns[0]?.candidates.map(({ candidate }) => candidate.username)).toEqual([
+        "directory",
+      ]);
+    },
+  );
+
+  it.each(["missing", "rate-limited"])(
+    "keeps a live Kick idle watch when its campaign probe and required idle check are %s",
+    async (failure) => {
+      let failProbe = false;
+      const adapter = kickAdapter(
+        jsonFetcher((url) => {
+          if (failProbe && url.endsWith("/watchlist")) {
+            if (failure === "rate-limited")
+              throw new SafeFetchError({ kind: "http_error", status: 429 });
+            return {};
+          }
+          return liveResponse;
+        }),
+      );
+      vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
+      vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([candidate("directory")]);
+      vi.spyOn(adapter, "listFollowedChannels").mockResolvedValue([]);
+      const watched = candidate("watchlist");
+      const settings = mergeSettings({
+        preferKnownChannels: true,
+        offlineRetryLimit: 2,
+      });
+      settings.platform.kick.watchlistChannels = [watched.username];
+      settings.platform.kick.watchSourcePriority = ["watchlist", "drops"];
+      const previous: WatchSession = {
+        platform: "kick",
+        status: "watching",
+        watchMode: "tabless",
+        channel: watched,
+        offlineChecks: 0,
+      };
+      const lane = new DiscoverySnapshotLane("kick", ({ signal }) =>
+        collectDiscoverySnapshot(adapter, previous, signal, () => NOW, true, [watched]),
+      );
+      await lane.requestAndWait();
+      const goodSnapshot = lane.current().snapshot!;
+      expect(goodSnapshot.idleCandidates).toMatchObject([{ candidate: watched, live: true }]);
+
+      failProbe = true;
+      for (let attempt = 0; attempt <= settings.offlineRetryLimit; attempt++) {
+        await lane.requestAndWait();
+        expect(lane.current().lastAttempt?.complete).toBe(false);
+        const snapshot = lane.current().snapshot!;
+        expect(snapshot).toBe(goodSnapshot);
+        const selection = await selectWatchTargetFromSnapshot({
+          snapshot,
+          previous,
+          previousCampaigns: [],
+          settings,
+        });
+        expect(selection.decision).toMatchObject({ action: "fallback", channel: watched });
+        expect(selection.retention).toMatchObject({ keep: true, offlineChecks: 0 });
+      }
     },
   );
 

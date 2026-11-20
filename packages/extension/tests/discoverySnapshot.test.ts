@@ -14,7 +14,6 @@ import type {
   SchedulerState,
 } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
-import type { ChannelCheckRequest } from "@lurkloot/core/adapter";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { runSchedulerTick } from "./helpers/schedulerTick";
@@ -198,7 +197,10 @@ describe("DiscoverySnapshotLane", () => {
 describe("collectDiscoverySnapshot", () => {
   describe.each(["kick", "twitch"] as const)("%s campaign channel preference", (platform) => {
     const cases = [
-      { name: "follows a channel outside the directory", expected: "friend" },
+      {
+        name: "prefers a followed channel outside the directory over its higher-viewer result (#1076)",
+        expected: "friend",
+      },
       {
         name: "ranks an outside Watchlist channel first",
         watchlist: ["watched"],
@@ -716,7 +718,7 @@ describe("collectDiscoverySnapshot", () => {
   });
 
   it.each([false, true])(
-    "bounds Twitch known-channel checks and skips single retries on batch failure (429=%s)",
+    "bounds Twitch known-channel checks and retries failed Watchlist probes as idle checks (429=%s)",
     async (rateLimited) => {
       const follows = Array.from({ length: 100 }, (_, i) => `follow-${i}`);
       const { adapter, streamRequests } = twitchKnownChannels({
@@ -746,21 +748,26 @@ describe("collectDiscoverySnapshot", () => {
         true,
         watchlist,
       );
-      expect(streamRequests).toHaveLength(rateLimited ? 1 : 5);
-      expect(streamRequests.every(({ batch }) => batch)).toBe(true);
-      expect(streamRequests.flatMap(({ logins }) => logins)).toEqual([
+      const probeRequests = rateLimited ? 1 : 5;
+      expect(streamRequests.slice(0, probeRequests).flatMap(({ logins }) => logins)).toEqual([
         "watchlist",
         ...follows.slice(0, rateLimited ? 19 : 99),
+      ]);
+      expect(streamRequests.slice(probeRequests)).toEqual([
+        { batch: true, logins: ["watchlist"] },
+        { batch: false, logins: ["watchlist"] },
       ]);
       expect(result.campaigns[0]?.candidates.map(({ candidate }) => candidate.username)).toEqual([
         "directory",
       ]);
-      expect(result.idleCandidates).toEqual([]);
+      expect(result.idleCandidates).toMatchObject([
+        { candidate: { username: "watchlist" }, live: true },
+      ]);
       expect(result.metrics).toMatchObject({
         uniqueChannelChecks: rateLimited ? 21 : 101,
-        candidates: 1,
-        batchRequests: rateLimited ? 1 : 5,
-        singleFallbacks: 0,
+        candidates: 2,
+        batchRequests: probeRequests + 1,
+        singleFallbacks: 1,
       });
     },
   );
@@ -802,34 +809,6 @@ describe("collectDiscoverySnapshot", () => {
       });
     },
   );
-
-  it("rejects a batch that skips a preferred candidate after a successful check", async () => {
-    const source = preferenceCampaign("kick", "general", "13");
-    const first = { platform: "kick" as const, username: "first", url: "https://kick.com/first" };
-    const second = {
-      platform: "kick" as const,
-      username: "second",
-      url: "https://kick.com/second",
-    };
-    const adapter = {
-      platform: "kick" as const,
-      refreshCampaigns: async () => [source],
-      listFollowedChannels: async () => ["second"],
-      listCandidateChannels: async () => [first, second],
-      checkChannel: vi.fn(),
-      checkChannels: vi.fn(async (requests: ChannelCheckRequest[]) => ({
-        checks: requests.map(({ channel }) =>
-          channel.username === "first"
-            ? { candidate: first, live: true, categoryMatches: true }
-            : undefined,
-        ),
-        uniqueChannelChecks: 1,
-      })),
-    };
-    await expect(
-      collectDiscoverySnapshot(adapter, undefined, new AbortController().signal),
-    ).rejects.toThrow("Channel discovery batch was incomplete");
-  });
 
   it("retains a backed-off campaign observation without candidate provider calls", async () => {
     const campaign = {

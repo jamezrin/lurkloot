@@ -75,12 +75,15 @@ streak checks remain available.
 
 Kick's `checkChannels` batch runs ordinary candidates in directory order and
 stops that chain at the first valid match. Known directory candidates receive
-their own observations so selection can rank them. Outside channels must be
-live in the campaign's category. Three workers process the batch and share raw
-API and page responses by URL within the revision, including across Drops and
-idle checks. Missing evidence for an outside channel drops that observation.
-An HTTP 429 stops new optional requests for the rest of the revision. Started
-checks drain and the ordinary directory path keeps its required-evidence rules.
+their own best-effort observations so selection can rank them. Outside channels
+must be live in the campaign's category. Three workers process the batch and
+share raw API and page responses by URL within the revision, including across
+Drops and idle checks. Missing evidence for a known campaign candidate drops
+that observation. An HTTP 429 stops new optional requests for the rest of the
+revision. Started checks drain and the ordinary directory path keeps its
+required-evidence rules. Every idle Watchlist entry requires an observation
+even when it is also probed for a campaign. If the idle check cannot obtain
+evidence from the shared response or its usual lookup, the refresh fails.
 
 Twitch batches public stream checks for the known pool once per revision and
 reuses them for category checks and idle Watchlist selection. For a regular
@@ -90,7 +93,9 @@ even with strict availability turned off. The Drops-enabled directory remains
 the ordinary source. For a sitewide campaign, a stream in an allowed campaign
 category is sufficient because those campaigns are absent from AvailableDrops.
 Optional Twitch batches run sequentially, skip unusable results and single
-retries, and stop admitting optional requests after a 429. An uncached
+retries, and stop admitting optional requests after a 429. Idle entries without
+usable probe evidence still run through ordinary idle selection, including its
+single-channel and page fallbacks. An uncached
 AvailableDrops probe runs at most once per channel per revision. Snapshots
 keep candidates scoped to their campaign, even when campaigns share a category.
 
@@ -104,8 +109,12 @@ consumed. This adds the followed lookup's latency once per five-minute cache
 expiry, while fresh-cache reads remain immediate. Kick never retries an HTTP 429
 through a different execution context. Discovery diagnostics report duration, inventory count,
 campaigns skipped before channel work, candidate checks, and distinct channel
-logins checked. Twitch counts the shared stream pass once and includes its actual
-batch requests. Failed attempts without counters report that work metrics are unavailable
+logins checked. Kick's candidate count includes each returned batch check,
+including best-effort checks with usable evidence. Twitch's candidate count
+includes ordinary selection inputs and known channels admitted to campaigns.
+The distinct-login count includes attempted known-channel probes on both
+platforms. Twitch reports the shared probe's actual batch requests once per
+refresh. Failed attempts without counters report that work metrics are unavailable
 rather than reporting zero work. The attribution fields contain only counts;
 strict missing-evidence failures use fixed messages. Both extension and CLI run
 this collector and the same Kick adapter.
