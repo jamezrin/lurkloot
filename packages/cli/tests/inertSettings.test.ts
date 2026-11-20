@@ -59,7 +59,7 @@ const KNOWN_GAPS: ReadonlyArray<{
     cases: TWITCH_CASES.filter(({ clientId }) => clientId !== TWITCH_WEB_CLIENT_ID).map(
       ({ name }) => name,
     ),
-    issue: issueUrl(1084),
+    issue: issueUrl(1101),
   },
   { feature: "chatPresence", cases: ["kick/http"], issue: issueUrl(1099) },
 ];

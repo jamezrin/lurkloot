@@ -213,7 +213,7 @@ every host, with a deprecation warning.
 }
 ```
 
-### Accepted but not working yet
+### Settings with limited CLI support
 
 These settings can be shared with the extension. Their CLI support depends on
 the platform, transport and sign-in. A per-platform setting that asks for an unavailable
@@ -223,8 +223,8 @@ lacks the feature. Once logged, it stays quiet for the rest of that run.
 
 | Setting | Why | Tracked in |
 |---|---|---|
-| `platform.twitch.channelPointsPushClaim` (with `autoClaimChannelPoints` on) | Web sign-ins support push; Android and Smart TV sign-ins claim points through the one-minute check | [#1084](https://github.com/jamezrin/lurkloot/issues/1084) |
-| `platform.twitch.watchlistStreakChannels`, `watchStreakBudgetMinutes`, `watchStreakRetryCooldownMinutes`, `watchStreakMaxRounds` | Web sign-ins support streaks; Android and Smart TV sign-ins watch these as ordinary Watchlist channels | [#1084](https://github.com/jamezrin/lurkloot/issues/1084) |
+| `platform.twitch.channelPointsPushClaim` (with `autoClaimChannelPoints` on) | Web sign-ins support push; Android and Smart TV sign-ins claim points through the one-minute check | [#1101](https://github.com/jamezrin/lurkloot/issues/1101) |
+| `platform.twitch.watchlistStreakChannels`, `watchStreakBudgetMinutes`, `watchStreakRetryCooldownMinutes`, `watchStreakMaxRounds` | Web sign-ins support streaks; Android and Smart TV sign-ins watch these as ordinary Watchlist channels | [#1101](https://github.com/jamezrin/lurkloot/issues/1101) |
 | `platform.kick.alwaysEnterChat` on `http` | The HTTP transport cannot reach Kick realtime through the WAF | [#1099](https://github.com/jamezrin/lurkloot/issues/1099) |
 
 The default config is quiet. `channelPointsPushClaim` is on by default, and

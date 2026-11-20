@@ -648,7 +648,7 @@ Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus K
 each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
 where it is missing. Narrow a row's cases when support lands for some combinations,
 and remove the row when all its cases gain support. The Hermes gap applies to Android and
-Smart TV sign-ins. The Kick chat gap applies to `kick/http` (#1099).
+Smart TV sign-ins (#1101). The Kick chat gap applies to `kick/http` (#1099).
 The guard fails for unexpected gaps and stale exceptions. It also checks
 that changed values requesting a missing feature produce a warning.
 
