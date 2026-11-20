@@ -309,6 +309,39 @@ Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_KICK_SESSION_TOKEN`. The rotating Kasada cookie is loaded only from the
 private auth store, so a stale environment value cannot override a refresh.
 
+### Twitch push (Hermes)
+
+Twitch's web client gets live notices over one push connection, Hermes. With
+a **web sign-in** (`auth import`), the CLI opens that connection too, as the
+extension does. The socket presents Twitch's web `Origin`
+(`https://www.twitch.tv`) and no other identity header: no User-Agent, Referer,
+cookie or client hint. Over it the CLI:
+
+- claims channel-point bonuses as Twitch announces them
+  (`channelPointsPushClaim`), with the one-minute claim job as the fallback;
+- sees watch-streak payouts, so `watchlistStreakChannels` rows are maintained
+  the way the extension maintains them, tuned by `watchStreakBudgetMinutes`,
+  `watchStreakRetryCooldownMinutes` and `watchStreakMaxRounds`;
+- hears when the watched stream ends, checks it 60 s later and switches
+  channel without waiting for the next discovery.
+
+The **Android** (`auth twitch browser-login`) and **Smart TV**
+(`auth twitch device-login`) sign-ins do not open Hermes. Hermes is the web
+client's service, and whether it accepts a token issued to those clients has
+not been checked live. These sign-ins keep polling instead: channel points are
+claimed by the one-minute job, `channelPointsPushClaim` has no effect,
+`watchlistStreakChannels` rows are watched as ordinary Watchlist rows, and an
+ended stream is noticed at the next check. When a setting asks for push (the
+push claim with `autoClaimChannelPoints` on, both on by default, or a
+maintained watch streak), the run logs one warning saying so. Setting
+`channelPointsPushClaim` to `false` and leaving `watchlistStreakChannels` empty
+silences it. Chat presence (`alwaysEnterChat`) does not use Hermes and works
+with every sign-in.
+
+`run --once` and a SIGINT or SIGTERM close the Hermes socket as part of the
+controller's shutdown. A closing socket waits at most 2 s for Hermes to answer
+before it is dropped, so it never holds the process open longer.
+
 ## Commands
 
 - `validate-config` — load + normalize the config; print the effective settings.
