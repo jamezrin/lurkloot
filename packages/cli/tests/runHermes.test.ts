@@ -71,17 +71,22 @@ class FakeHermesSocket implements WebSocketLike {
     });
   }
 
-  confirm(topicPrefix: string): void {
-    const frame = this.sent.find((message) => {
+  requestedSubscription(topicPrefix: string): Record<string, unknown> | undefined {
+    return this.sent.find((message) => {
       const subscription = message.subscribe as { pubsub?: { topic: string } } | undefined;
       return subscription?.pubsub?.topic.startsWith(topicPrefix);
     });
+  }
+
+  respondToSubscription(topicPrefix: string, result: "ok" | "denied" = "ok"): void {
+    const frame = this.requestedSubscription(topicPrefix);
     expect(frame).toBeDefined();
     const subscription = frame!.subscribe as { id: string };
     this.message({
       type: "subscribeResponse",
       parentId: frame!.id,
-      subscribeResponse: { result: "ok", subscription: { id: subscription.id } },
+      subscribeResponse:
+        result === "ok" ? { result, subscription: { id: subscription.id } } : { result },
     });
   }
 }
@@ -308,7 +313,7 @@ describe("runLoop and the Twitch Hermes socket", () => {
         expect(sockets).toHaveLength(wasWeb ? 1 : 0);
         const original = sockets[0];
         original?.authenticate();
-        original?.confirm("community-points-user-v1.");
+        original?.respondToSubscription("community-points-user-v1.");
         await controller.tick(["twitch"]);
         expect(sockets).toHaveLength(wasWeb ? 1 : 0);
         saveCredentials(dir, { twitch: { ...WEB.twitch, authToken: "new-web-token" } });
@@ -337,12 +342,13 @@ describe("runLoop and the Twitch Hermes socket", () => {
     },
   );
 
-  it.each(["upgrade", "authenticate"])(
+  it.each(["upgrade", "authenticate", "points subscription"])(
     "suspends streaks across hours of %s refusals and recovers on confirmation",
     async (failure) => {
       vi.useFakeTimers();
       let refused = true;
       let live = false;
+      let playbackConfirmations = 0;
       const sockets: FakeHermesSocket[] = [];
       const { transport } = hermesTransport(
         WEB,
@@ -351,8 +357,19 @@ describe("runLoop and the Twitch Hermes socket", () => {
           sockets.push(socket);
           setTimeout(() => {
             if (socket.readyState === WebSocket.CLOSED) return;
-            if (refused && failure === "upgrade") socket.close();
-            else socket.authenticate(refused ? "denied" : "ok");
+            if (refused && failure === "upgrade") {
+              socket.close();
+              return;
+            }
+            socket.authenticate(refused && failure === "authenticate" ? "denied" : "ok");
+            if (refused && failure === "points subscription") {
+              // There is no playback topic until the ordinary Watchlist channel starts.
+              if (socket.requestedSubscription("video-playback-by-id.")) {
+                socket.respondToSubscription("video-playback-by-id.");
+                playbackConfirmations += 1;
+              }
+              socket.respondToSubscription("community-points-user-v1.", "denied");
+            }
           }, 0);
           return socket;
         },
@@ -373,6 +390,7 @@ describe("runLoop and the Twitch Hermes socket", () => {
         }
         expect(sockets.length).toBeGreaterThanOrEqual(3);
         expect(sockets.length).toBeLessThanOrEqual(13);
+        if (failure === "points subscription") expect(playbackConfirmations).toBeGreaterThan(0);
         expect(streaks()?.observerAvailable).toBe(false);
         expect(state().sessions.twitch.channel?.username).toBe("ordinary");
         const warnings = events.filter(
@@ -394,10 +412,10 @@ describe("runLoop and the Twitch Hermes socket", () => {
         }
         expect(sockets).toHaveLength(attemptsBeforeRecovery + 1);
         const recovered = sockets.at(-1)!;
-        recovered.confirm("video-playback-by-id.");
+        recovered.respondToSubscription("video-playback-by-id.");
         await controller.tick(["twitch"]);
         expect(streaks()?.observerAvailable).toBe(false);
-        recovered.confirm("community-points-user-v1.");
+        recovered.respondToSubscription("community-points-user-v1.");
         await controller.tick(["twitch"]);
         expect(streaks()?.observerAvailable).toBe(true);
         expect(streaks()?.attempts).toHaveLength(1);

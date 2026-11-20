@@ -131,6 +131,35 @@ describe("ObserverSlot", () => {
     expect(replacement).not.toHaveBeenCalled();
   });
 
+  it("keeps a second reconcile from creating an observer during credential teardown", async () => {
+    const slot = new ObserverSlot<FakeObserver>("twitch", "test observer", "retain");
+    const closing = deferred();
+    const original = new FakeObserver();
+    original.stop = () => closing.promise;
+    const request = { wanted: true, start: async () => {}, open, emit };
+    await slot.reconcile({
+      ...request,
+      factory: () => original,
+      revision: Symbol(),
+      since: slot.epoch,
+    });
+
+    const replacement = new FakeObserver();
+    const factory = vi.fn(() => replacement);
+    const next = { ...request, factory, revision: Symbol() };
+    const first = slot.reconcile({ ...next, since: slot.epoch });
+    const second = slot.reconcile({ ...next, since: slot.epoch });
+    try {
+      await Promise.resolve();
+      expect(factory).not.toHaveBeenCalled();
+    } finally {
+      closing.resolve();
+      await Promise.all([first, second]);
+    }
+    expect(factory).toHaveBeenCalledOnce();
+    expect(slot.current).toBe(replacement);
+  });
+
   it("creates nothing when a stop landed after the caller read its state", async () => {
     const slot = new ObserverSlot<FakeObserver>("kick", "test observer", "retain");
     const since = slot.epoch;
