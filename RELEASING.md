@@ -175,11 +175,18 @@ macOS and unsigned on Windows.
 
 `publish` adds only the archives that the trusted ref's `expectedReleaseAssets` lists. A label-time
 candidate built against a `main` from before the archives existed therefore publishes without them,
-with a warning, instead of failing as an unexpected asset. The release branch's candidate is built
-against the merged `main`, which knows them, so the release itself carries all five.
+with a warning if the archives were built. Its release branch candidate uses the merged `main`,
+which expects all five once standalone CLI support has landed there.
 
-The same workflow runs on pull requests that touch `packages/cli`, the lockfile, the asset list or
-the workflow itself, so a change that breaks one target shows up before release.
+A hotfix based on `main` can use the newer workflow from the default branch while its checkout
+still predates `packages/cli/scripts/buildExecutable.mjs`. In that case the `cli` job succeeds
+without building or uploading archives, and `attest` and `publish` skip their CLI downloads. The
+candidate and the prepared release branch can publish as long as the trusted asset list expects no
+CLI archives. If it expects any, missing archives still fail publication.
+
+The same workflow runs on pull requests that touch `packages/cli`, `packages/core`,
+`packages/shared`, `packages/locales`, `packages/app-ui`, `packages/popup-ui`, the lockfile, the
+asset list or the workflow itself, so a change that breaks one target shows up before release.
 
 ## Branch model
 

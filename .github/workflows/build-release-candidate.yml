@@ -141,11 +141,13 @@ jobs:
         with:
           subject-path: release-assets/lurkloot-*
       - uses: actions/download-artifact@v8
+        if: needs.cli.outputs.has_archives == 'true'
         with:
           pattern: candidate-cli-${{ inputs.version }}-*
           path: cli-assets
           merge-multiple: true
       - name: Attest the CLI executable archives
+        if: needs.cli.outputs.has_archives == 'true'
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: cli-assets/lurkloot-cli-*
@@ -187,6 +189,7 @@ jobs:
           name: candidate-extension-${{ inputs.version }}
           path: release-assets
       - uses: actions/download-artifact@v8
+        if: needs.cli.outputs.has_archives == 'true'
         with:
           pattern: candidate-cli-${{ inputs.version }}-*
           path: cli-assets
