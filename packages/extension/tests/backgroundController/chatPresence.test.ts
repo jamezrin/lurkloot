@@ -517,6 +517,29 @@ describe("chat presence service", () => {
     expect(warnings[0]).toMatchObject({ level: "warn", platform: "kick" });
   });
 
+  it("warns when a later tick loses adapter support, once per controller", async () => {
+    const env = harness(chatSettings(true));
+    const createClient = env.twitch.createChatPresenceClient;
+    const warnings = () =>
+      allDiagnostics(env).filter((event) =>
+        event.message.includes("platform.twitch.alwaysEnterChat has no effect"),
+      );
+    const tick = () => env.controller.tickAndHandOff(["twitch"], "alarm");
+
+    await tick();
+    expect(warnings()).toHaveLength(0);
+
+    env.twitch.createChatPresenceClient = undefined;
+    await tick();
+    expect(warnings()).toHaveLength(1);
+
+    env.twitch.createChatPresenceClient = createClient;
+    await tick();
+    env.twitch.createChatPresenceClient = undefined;
+    await tick();
+    expect(warnings()).toHaveLength(1);
+  });
+
   it("says nothing about alwaysEnterChat when a provider wants presence a platform cannot give", async () => {
     const env = harness(chatSettings(false), { initialState: NOPIXEL_WATCH });
     env.twitch.createChatPresenceClient = undefined;

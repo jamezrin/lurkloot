@@ -14,7 +14,7 @@ import type {
 import { isWatchReward } from "@lurkloot/shared/rewards";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
-import { inertAdapterSettings, requestedAdapterSettings } from "./adapterSettings";
+import { inertAdapterSettings } from "./adapterSettings";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { platformLabel } from "./helpers";
@@ -427,9 +427,6 @@ export function createReporting<S extends EngineSettings>(
   // reported once per controller and changes nothing else. Host-wide gaps carry
   // no platform; adapter gaps carry theirs.
   const reportedUnsupportedSettings = new Set<string>();
-  // Adapter-backed keys already checked against a built adapter, reported or
-  // not, so a supported key does not build an adapter on every tick.
-  const checkedAdapterSettings = new Set<string>();
   async function reportUnsupportedSettings(
     settings: EngineSettings,
     tickContext?: TickDiagnosticContext,
@@ -459,12 +456,8 @@ export function createReporting<S extends EngineSettings>(
     }
     for (const platform of PLATFORMS) {
       if (!adapterFor || !settings.platform[platform].enabled) continue;
-      // Only a key not yet checked against a built adapter can be news.
-      const requested = requestedAdapterSettings(platform, settings, ports.capabilities);
-      if (requested.every(({ key }) => checkedAdapterSettings.has(key))) continue;
       const adapter = adapterFor(platform);
       if (!adapter) continue;
-      for (const { key } of requested) checkedAdapterSettings.add(key);
       for (const inert of inertAdapterSettings(platform, settings, adapter, ports.capabilities)) {
         unsupported.push([inert.key, inert.message, inert.platform]);
       }

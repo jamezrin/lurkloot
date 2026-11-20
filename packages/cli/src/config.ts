@@ -109,7 +109,8 @@ export function defaultConfigJsonc(): string {
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
         "watchlistChannels": ${json(twitch.watchlistChannels)},
         // Watchlist channels whose watch streak to maintain. The CLI has no
-        // Twitch push connection to see the payout, so it skips these rows.
+        // Twitch push connection to see the payout. These channels still
+        // qualify as ordinary Watchlist channels.
         "watchlistStreakChannels": ${json(twitch.watchlistStreakChannels ?? [])},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories

@@ -6,11 +6,15 @@ import {
   inertAdapterSettings,
   type AdapterFeature,
 } from "@lurkloot/core/controller";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { CycleTLSClient } from "cycletls";
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { parseConfig, type Transport } from "../src/config";
+import {
+  TWITCH_ANDROID_CLIENT_ID,
+  TWITCH_SMARTBOX_CLIENT_ID,
+  TWITCH_WEB_CLIENT_ID,
+} from "../src/twitch";
 import { cliAcceptedSettingPaths, DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createHttpTransport } from "../src/transport/http";
 import { createImpersonateTransport } from "../src/transport/impersonate";
@@ -23,18 +27,55 @@ import type { Logger } from "../src/logger";
 // something on the CLI, or is a known gap the runtime warns about and that
 // names the issue fixing it. Adding an accepted key with no mapping fails here.
 
-// Settings the CLI accepts that need a feature its adapters do not offer yet.
-// Each one warns once at runtime (adapterSettings.ts). When the issue lands,
-// the "is still a gap" test fails: delete that key's line.
-const KNOWN_GAPS: Record<string, { issue: string; sample: unknown }> = {
-  // Twitch Hermes push on the CLI.
-  "platform.twitch.channelPointsPushClaim": { issue: issueUrl(1084), sample: true },
-  "platform.twitch.watchlistStreakChannels": { issue: issueUrl(1084), sample: ["streamer"] },
-  "platform.twitch.watchStreakBudgetMinutes": { issue: issueUrl(1084), sample: 20 },
-  "platform.twitch.watchStreakRetryCooldownMinutes": { issue: issueUrl(1084), sample: 60 },
-  "platform.twitch.watchStreakMaxRounds": { issue: issueUrl(1084), sample: 4 },
-  // Kick chat presence on the CLI.
-  "platform.kick.alwaysEnterChat": { issue: issueUrl(1085), sample: true },
+const TRANSPORTS = ["http", "impersonate"] as const satisfies readonly Transport[];
+const TWITCH_SIGN_INS = [
+  { signIn: "web", clientId: TWITCH_WEB_CLIENT_ID },
+  { signIn: "android", clientId: TWITCH_ANDROID_CLIENT_ID },
+  { signIn: "smart-tv", clientId: TWITCH_SMARTBOX_CLIENT_ID },
+] as const;
+const TWITCH_CASES = TRANSPORTS.flatMap((transport) =>
+  TWITCH_SIGN_INS.map(({ signIn, clientId }) => ({
+    name: `twitch/${transport}/${signIn}` as const,
+    platform: "twitch" as const,
+    transport,
+    clientId,
+  })),
+);
+const KICK_CASES = TRANSPORTS.map((transport) => ({
+  name: `kick/${transport}` as const,
+  platform: "kick" as const,
+  transport,
+  clientId: TWITCH_SMARTBOX_CLIENT_ID,
+}));
+const ADAPTER_CASES = [...TWITCH_CASES, ...KICK_CASES];
+type AdapterCaseName = (typeof ADAPTER_CASES)[number]["name"];
+
+// List only the combinations missing each feature. Narrow the Twitch cases
+// when web sign-ins gain Hermes (#1096). Delete the Kick impersonate row
+// when that transport gains chat (#1092).
+const KNOWN_GAPS: ReadonlyArray<{
+  feature: AdapterFeature;
+  cases: readonly AdapterCaseName[];
+  issue: string;
+}> = [
+  {
+    feature: "channelPointsPush",
+    cases: TWITCH_CASES.map(({ name }) => name),
+    issue: issueUrl(1084),
+  },
+  { feature: "chatPresence", cases: ["kick/http"], issue: issueUrl(1085) },
+  { feature: "chatPresence", cases: ["kick/impersonate"], issue: issueUrl(1085) },
+];
+
+// Values that request adapter features and differ from the defaults.
+// channelPointsPushClaim has no such value: it defaults to true and false
+// turns the feature off. The guard still checks its backing in every case.
+const WARNING_SAMPLES = {
+  "platform.twitch.watchlistStreakChannels": ["streamer"],
+  "platform.twitch.watchStreakBudgetMinutes": 20,
+  "platform.twitch.watchStreakRetryCooldownMinutes": 60,
+  "platform.twitch.watchStreakMaxRounds": 4,
+  "platform.kick.alwaysEnterChat": true,
 };
 
 function issueUrl(number: number): string {
@@ -122,69 +163,41 @@ const CORE_BACKED = new Map<string, { feature: AdapterFeature; platform: Platfor
   ),
 );
 
-// The transports that farm each platform. `http` is for Twitch-only setups:
-// it never opens Kick's viewer socket, so Kick features are checked on
-// `impersonate` only.
-const PLATFORM_TRANSPORTS: Record<Platform, readonly Transport[]> = {
-  twitch: ["http", "impersonate"],
-  kick: ["impersonate"],
-};
-
 function fakeCycleClient(): CycleTLSClient {
   const client = vi.fn(async () => ({ status: 200, data: {} })) as unknown as CycleTLSClient;
   Object.assign(client, { exit: vi.fn(async () => undefined) });
   return client;
 }
 
-const CREDENTIALS = {
-  twitch: { authToken: "token", clientId: "ue6666qo983tsx6so1t0vnawi233wa" },
-  kick: { sessionToken: "session" },
-};
-
-// The adapters each production transport builds, from the production wiring.
-async function builtAdapters(): Promise<
-  Record<Transport, { handle: TransportHandle; adapters: Record<Platform, PlatformAdapter> }>
-> {
-  const settings = toEngineSettings(DEFAULT_CLI_SETTINGS);
-  const http = createHttpTransport(CREDENTIALS, { twitch: true, kick: true });
-  const impersonate = await createImpersonateTransport(
-    CREDENTIALS,
-    { twitch: true, kick: true },
-    { initClient: async () => fakeCycleClient() },
-  );
-  return {
-    http: { handle: http, adapters: http.createAdapters(() => {}, settings).adapters },
-    impersonate: {
-      handle: impersonate,
-      adapters: impersonate.createAdapters(() => {}, settings).adapters,
-    },
-  };
+function credentials(clientId: string) {
+  return { twitch: { authToken: "token", clientId }, kick: { sessionToken: "session" } };
 }
 
-function offeredEverywhere(
-  built: Awaited<ReturnType<typeof builtAdapters>>,
-  feature: AdapterFeature,
-  platform: Platform,
-): boolean {
-  return PLATFORM_TRANSPORTS[platform].every((transport) =>
-    adapterOffers(built[transport].adapters[platform], feature),
+function gapsFor(name: AdapterCaseName) {
+  return KNOWN_GAPS.filter((gap) => gap.cases.includes(name));
+}
+
+function warningPaths(name: AdapterCaseName): string[] {
+  const gaps = gapsFor(name);
+  return Object.keys(WARNING_SAMPLES).filter(
+    (path) =>
+      gaps.some((gap) => gap.feature === CORE_BACKED.get(path)?.feature)
+      && path.startsWith(`platform.${name.split("/")[0]}.`),
   );
 }
 
-function withValue(path: string, value: unknown): EngineSettings {
-  const settings = structuredClone(toEngineSettings(DEFAULT_CLI_SETTINGS)) as unknown as Record<
-    string,
-    unknown
-  >;
-  const parts = path.split(".");
-  let target = settings;
-  for (const part of parts.slice(0, -1)) target = target[part] as Record<string, unknown>;
-  target[parts.at(-1)!] = value;
-  return settings as unknown as EngineSettings;
-}
-
-function platformOf(path: string): Platform {
-  return path.split(".")[1] as Platform;
+function settingsWithSamples(paths: readonly string[]) {
+  const settings = structuredClone(DEFAULT_CLI_SETTINGS);
+  for (const [path, value] of Object.entries(WARNING_SAMPLES)) {
+    if (!paths.includes(path)) continue;
+    const [, platform, field] = path.split(".") as [string, Platform, string];
+    const values = settings.platform[platform] as unknown as Record<string, unknown>;
+    values[field] = value;
+  }
+  settings.platform.twitch.watchlistChannels = [
+    ...WARNING_SAMPLES["platform.twitch.watchlistStreakChannels"],
+  ];
+  return settings;
 }
 
 describe("CLI settings guard (#1090)", () => {
@@ -198,74 +211,64 @@ describe("CLI settings guard (#1090)", () => {
   it("maps no key the CLI does not accept", () => {
     const accepted = new Set(cliAcceptedSettingPaths());
     expect(Object.keys(BACKING).filter((path) => !accepted.has(path))).toEqual([]);
-    expect(Object.keys(KNOWN_GAPS).filter((path) => !accepted.has(path))).toEqual([]);
+    expect(Object.keys(WARNING_SAMPLES).filter((path) => !CORE_BACKED.has(path))).toEqual([]);
   });
 
-  it("backs every feature-backed key with the CLI's adapters, unless it is a known gap", async () => {
-    const built = await builtAdapters();
+  it.each(ADAPTER_CASES)("checks adapter backing and warnings for $name", async (entry) => {
+    const { name, platform, transport, clientId } = entry;
+    const enabled = { twitch: true, kick: true };
+    const creds = credentials(clientId);
+    const handle =
+      transport === "http"
+        ? createHttpTransport(creds, enabled)
+        : await createImpersonateTransport(creds, enabled, {
+            initClient: async () => fakeCycleClient(),
+          });
     try {
-      const missing: string[] = [];
-      for (const [path, { feature, platform }] of CORE_BACKED) {
-        if (!offeredEverywhere(built, feature, platform) && !(path in KNOWN_GAPS)) {
-          missing.push(`${path} needs ${feature}`);
-        }
+      const settings = toEngineSettings(settingsWithSamples(Object.keys(WARNING_SAMPLES)));
+      const { adapters } = handle.createAdapters(() => {}, settings);
+      const adapter = adapters[platform];
+      const gaps = gapsFor(name);
+      const coreFeatures = [...CORE_BACKED.values()]
+        .filter((backing) => backing.platform === platform)
+        .map((backing) => backing.feature);
+      for (const gap of gaps) {
+        expect(gap.issue).toMatch(/^https:\/\/github\.com\/jamezrin\/lurkloot\/issues\/\d+$/);
+        expect(
+          coreFeatures,
+          `${name} ${gap.feature} must back a setting the runtime can warn about`,
+        ).toContain(gap.feature);
+        expect(
+          adapterOffers(adapter, gap.feature),
+          `${name} now offers ${gap.feature} (${gap.issue}); narrow or remove the gap in KNOWN_GAPS`,
+        ).toBe(false);
+      }
+      for (const [path, backing] of CORE_BACKED) {
+        if (backing.platform !== platform) continue;
+        expect(
+          adapterOffers(adapter, backing.feature)
+            || gaps.some((gap) => gap.feature === backing.feature),
+          `${path} needs ${backing.feature} on ${name}`,
+        ).toBe(true);
       }
       for (const [path, backing] of Object.entries(BACKING)) {
         if (!("feature" in backing)) continue;
-        // A top-level key needs the feature on at least one platform.
-        const offered = backing.platforms.some((platform) =>
-          offeredEverywhere(built, backing.feature, platform),
-        );
-        if (!offered && !(path in KNOWN_GAPS)) missing.push(`${path} needs ${backing.feature}`);
-      }
-      expect(missing).toEqual([]);
-    } finally {
-      await built.http.handle.dispose();
-      await built.impersonate.handle.dispose();
-    }
-  });
-
-  it("keeps each known gap a real gap that links its issue", async () => {
-    const built = await builtAdapters();
-    try {
-      for (const [path, gap] of Object.entries(KNOWN_GAPS)) {
-        expect(gap.issue).toMatch(/^https:\/\/github\.com\/jamezrin\/lurkloot\/issues\/\d+$/);
-        const backing = CORE_BACKED.get(path);
-        // A gap must be an adapter-backed key, so the runtime can warn about it.
-        expect(backing, `${path} is not an adapter-backed setting`).toBeDefined();
+        if (backing.platforms.length === 1 && !backing.platforms.includes(platform)) continue;
+        // Top-level settings need at least one platform on this transport.
+        // Check them with every Twitch sign-in, alongside its Kick adapter.
+        if (backing.platforms.length > 1 && platform !== "twitch") continue;
         expect(
-          offeredEverywhere(built, backing!.feature, backing!.platform),
-          `${path} now works on the CLI (${gap.issue}); remove it from KNOWN_GAPS`,
-        ).toBe(false);
+          backing.platforms.some((target) => adapterOffers(adapters[target], backing.feature)),
+          `${path} needs ${backing.feature} on ${name}`,
+        ).toBe(true);
       }
+      expect(
+        inertAdapterSettings(platform, settings, adapter, CLI_CAPABILITIES)
+          .map(({ key }) => key)
+          .sort(),
+      ).toEqual(warningPaths(name).sort());
     } finally {
-      await built.http.handle.dispose();
-      await built.impersonate.handle.dispose();
-    }
-  });
-
-  it("warns about each known gap with the CLI's own adapters", async () => {
-    const built = await builtAdapters();
-    try {
-      for (const [path, gap] of Object.entries(KNOWN_GAPS)) {
-        const platform = platformOf(path);
-        const settings = withValue(path, gap.sample);
-        for (const transport of PLATFORM_TRANSPORTS[platform]) {
-          const inert = inertAdapterSettings(
-            platform,
-            settings,
-            built[transport].adapters[platform],
-            CLI_CAPABILITIES,
-          );
-          expect(
-            inert.map((setting) => setting.key),
-            `${path} on ${transport}`,
-          ).toContain(path);
-        }
-      }
-    } finally {
-      await built.http.handle.dispose();
-      await built.impersonate.handle.dispose();
+      await handle.dispose();
     }
   });
 
@@ -277,20 +280,32 @@ describe("CLI settings guard (#1090)", () => {
 });
 
 describe("CLI run with inert settings (#1090)", () => {
-  it("logs one warning per known gap", async () => {
-    const settings = structuredClone(DEFAULT_CLI_SETTINGS);
-    for (const [path, gap] of Object.entries(KNOWN_GAPS)) {
-      const parts = path.split(".");
-      const platformSettings = settings.platform[parts[1] as Platform] as unknown as Record<
-        string,
-        unknown
-      >;
-      platformSettings[parts[2]!] = gap.sample;
-    }
-    settings.platform.twitch.watchlistChannels = ["streamer"];
-    // Offline adapters with the CLI's own wiring: Twitch has a chat socket
-    // factory and no Hermes, Kick has no realtime connection.
-    const built = createCliAdapters(CREDENTIALS, {
+  const optedInWarnings = [
+    ...warningPaths("twitch/impersonate/smart-tv"),
+    ...warningPaths("kick/impersonate"),
+  ];
+
+  it.each([
+    { name: "defaults", settings: DEFAULT_CLI_SETTINGS, expected: [] },
+    {
+      name: "push claim disabled",
+      settings: {
+        ...DEFAULT_CLI_SETTINGS,
+        platform: {
+          ...DEFAULT_CLI_SETTINGS.platform,
+          twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, channelPointsPushClaim: false },
+        },
+      },
+      expected: [],
+    },
+    {
+      name: "changed settings",
+      settings: settingsWithSamples(optedInWarnings),
+      expected: optedInWarnings,
+    },
+  ])("logs only the requested inert settings once with $name", async ({ settings, expected }) => {
+    // Offline adapters with the CLI's own wiring.
+    const built = createCliAdapters(credentials(TWITCH_SMARTBOX_CLIENT_ID), {
       twitchFetcher: () => ({
         fetchJson: async <T>() => ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T,
       }),
@@ -336,8 +351,11 @@ describe("CLI run with inert settings (#1090)", () => {
       stateStore,
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
-    for (const path of Object.keys(KNOWN_GAPS)) {
-      const lines = warnings.filter((message) => message.includes(`${path} has no effect`));
+    expect(warnings.filter((message) => message.endsWith("has no effect"))).toHaveLength(
+      expected.length,
+    );
+    for (const path of expected) {
+      const lines = warnings.filter((message) => message.endsWith(`${path} has no effect`));
       expect(lines, path).toHaveLength(1);
     }
   });

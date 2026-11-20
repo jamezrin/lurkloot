@@ -193,9 +193,10 @@ every host, with a deprecation warning.
 ### Accepted but not working yet
 
 These keys are accepted so a config can be shared with the extension, but the
-CLI cannot honour them yet. Each one logs a single warning per run when it asks
-for something (a switch on, a non-empty list, a tuning value changed from its
-default), and otherwise changes nothing:
+CLI cannot honour them yet. A per-platform setting that asks for an unavailable
+feature and differs from its default logs one warning per run. If the signed-in
+identity changes during a run, the warning can first appear when the new adapter
+lacks the feature. Once logged, it stays quiet for the rest of that run.
 
 | Setting | Why | Tracked in |
 |---|---|---|
@@ -203,10 +204,9 @@ default), and otherwise changes nothing:
 | `platform.twitch.watchlistStreakChannels`, `watchStreakBudgetMinutes`, `watchStreakRetryCooldownMinutes`, `watchStreakMaxRounds` | No Twitch push connection, so watch streaks cannot be observed; the channels are watched as ordinary Watchlist channels | [#1084](https://github.com/jamezrin/lurkloot/issues/1084) |
 | `platform.kick.alwaysEnterChat` | No Kick chat connection | [#1085](https://github.com/jamezrin/lurkloot/issues/1085) |
 
-`channelPointsPushClaim` defaults to on, so a default config logs its warning
-once at startup. Set it to `false` to silence it.
-`tests/inertSettings.test.ts` fails for any key the CLI accepts that has no
-effect and is not in this list.
+The default config is quiet. `channelPointsPushClaim` is on by default, and
+setting it to `false` disables push claiming, so either value stays quiet.
+`tests/inertSettings.test.ts` checks these gaps per transport and Twitch sign-in.
 
 ```jsonc
 {

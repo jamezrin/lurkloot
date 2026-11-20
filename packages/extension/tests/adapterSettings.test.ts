@@ -90,12 +90,6 @@ describe("adapter-backed settings (#1090)", () => {
         message:
           "Twitch on this host cannot join channel chat, so platform.twitch.alwaysEnterChat has no effect",
       },
-      {
-        key: "platform.twitch.channelPointsPushClaim",
-        platform: "twitch",
-        message:
-          "Twitch on this host has no live push connection, so platform.twitch.channelPointsPushClaim has no effect",
-      },
       expect.objectContaining({ key: "platform.twitch.watchlistStreakChannels" }),
       expect.objectContaining({ key: "platform.twitch.watchStreakBudgetMinutes" }),
       expect.objectContaining({ key: "platform.twitch.watchStreakRetryCooldownMinutes" }),
@@ -109,21 +103,15 @@ describe("adapter-backed settings (#1090)", () => {
     ).toEqual(["platform.kick.alwaysEnterChat"]);
   });
 
-  it("asks nothing of values that request no feature", () => {
-    // Defaults: chat off, no streak channels, untouched tuning. Push claiming
-    // is on by default, but only matters while channel points are auto-claimed.
-    expect(
-      requestedAdapterSettings(
-        "twitch",
-        settingsWith({ autoClaimChannelPoints: false }),
-        CLI_CAPABILITIES,
-      ),
-    ).toEqual([]);
-    expect(
-      requestedAdapterSettings("twitch", settingsWith(), CLI_CAPABILITIES).map(({ key }) => key),
-    ).toEqual(["platform.twitch.channelPointsPushClaim"]);
-    expect(requestedAdapterSettings("kick", settingsWith(), CLI_CAPABILITIES)).toEqual([]);
-  });
+  it.each([{}, { autoClaimChannelPoints: false }, { channelPointsPushClaim: false }])(
+    "requests no adapter features for defaults or disabled claiming (%j)",
+    (twitch) => {
+      expect(requestedAdapterSettings("twitch", settingsWith(twitch), CLI_CAPABILITIES)).toEqual(
+        [],
+      );
+      expect(requestedAdapterSettings("kick", settingsWith(), CLI_CAPABILITIES)).toEqual([]);
+    },
+  );
 
   it("leaves a setting whose host capability is missing to the host-wide report", () => {
     const settings = settingsWith({ alwaysEnterChat: true }, { alwaysEnterChat: true });

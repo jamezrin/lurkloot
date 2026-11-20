@@ -52,19 +52,12 @@ export interface AdapterBackedSetting {
   readonly field: string;
   readonly feature: AdapterFeature;
   readonly hostCapability?: keyof HostCapabilities;
-  // Whether this value asks for the feature. A value that asks for nothing (a
-  // switch left off, an untouched tuning value) is never reported.
-  readonly requested: (
-    value: unknown,
-    platformSettings: PlatformSettingsRecord,
-    defaultValue: unknown,
-  ) => boolean;
+  // Further restrict which changed values ask for the feature.
+  readonly requested?: (value: unknown, platformSettings: PlatformSettingsRecord) => boolean;
 }
 
 const isTrue = (value: unknown): boolean => value === true;
 const isNonEmptyList = (value: unknown): boolean => Array.isArray(value) && value.length > 0;
-const differsFromDefault = (value: unknown, _settings: unknown, defaultValue: unknown): boolean =>
-  JSON.stringify(value) !== JSON.stringify(defaultValue);
 
 // The per-platform settings whose effect depends on a feature some host's
 // adapter lacks, so the tick warns about them. `autoClaimChannelPoints` and
@@ -88,17 +81,9 @@ export const ADAPTER_BACKED_SETTINGS: readonly AdapterBackedSetting[] = [
     requested: (value, settings) => value === true && settings.autoClaimChannelPoints === true,
   },
   { field: "watchlistStreakChannels", feature: "channelPointsPush", requested: isNonEmptyList },
-  {
-    field: "watchStreakBudgetMinutes",
-    feature: "channelPointsPush",
-    requested: differsFromDefault,
-  },
-  {
-    field: "watchStreakRetryCooldownMinutes",
-    feature: "channelPointsPush",
-    requested: differsFromDefault,
-  },
-  { field: "watchStreakMaxRounds", feature: "channelPointsPush", requested: differsFromDefault },
+  { field: "watchStreakBudgetMinutes", feature: "channelPointsPush" },
+  { field: "watchStreakRetryCooldownMinutes", feature: "channelPointsPush" },
+  { field: "watchStreakMaxRounds", feature: "channelPointsPush" },
 ];
 
 const FEATURE_GAP: Record<AdapterFeature, string> = {
@@ -133,8 +118,7 @@ export function inertAdapterSettings(
     }));
 }
 
-// The adapter-backed settings `platform` asks for, so a caller can skip
-// building an adapter when nothing could be inert.
+// Only changed values that ask for the feature are candidates for a warning.
 export function requestedAdapterSettings(
   platform: Platform,
   settings: EngineSettings,
@@ -146,6 +130,7 @@ export function requestedAdapterSettings(
     (entry) =>
       Object.hasOwn(values, entry.field)
       && (entry.hostCapability === undefined || capabilities[entry.hostCapability])
-      && entry.requested(values[entry.field], values, defaults[entry.field]),
+      && JSON.stringify(values[entry.field]) !== JSON.stringify(defaults[entry.field])
+      && (entry.requested?.(values[entry.field], values) ?? true),
   ).map((entry) => ({ key: `platform.${platform}.${entry.field}`, entry }));
 }

@@ -583,23 +583,31 @@ Host-wide flags cannot see a gap in one platform's adapter (the CLI declares `ch
 but its Kick adapter has no presence client), so per-platform settings are also checked against
 the adapter the tick built (#1090). `packages/core/src/background/adapterSettings.ts` owns the
 table: `ADAPTER_BACKED_SETTINGS` names each per-platform field whose effect needs an adapter
-feature some host lacks (`alwaysEnterChat` → chat presence; `channelPointsPushClaim`, `watchlistStreakChannels`
-and the `watchStreak*` tuning → the push connection), when a value asks for it (a switch on, a
-non-empty list, a tuning value off its default), and `adapterOffers` reads each feature from the
-built adapter (`createChatPresenceClient`, `createChannelPointsPushController`, …), never from
-the platform name. `autoClaimChannelPoints` and `autoClaimChallenges` also need adapter
-features, but every real adapter offers them, so they stay out of the runtime table
-(controller-test fakes lack them) and the CLI guard maps them itself. `tickCapabilities` reads
-the same helper. After the auth probe,
-`reportUnsupportedSettings` reads the adapters the tick already built (`TickAdapterHandle.built`,
-which builds none) and warns once per key, with its platform: "Kick on this host cannot join
-channel chat, so platform.kick.alwaysEnterChat has no effect". It is the only place that warns
-about such a setting; the chat-presence service no longer does. `packages/cli/tests/inertSettings.test.ts`
-guards the CLI side: every key the CLI accepts is mapped to how it takes effect, the
-feature-backed ones are checked against the adapters `createHttpTransport` and
-`createImpersonateTransport` build (Kick on `impersonate` only), and the rest sit in a
-`KNOWN_GAPS` list that links each gap's issue and must still be a gap that warns. A new accepted
-key with no mapping fails the test, and an issue that closes a gap deletes its line there.
+feature some host lacks (`alwaysEnterChat` → chat presence; `channelPointsPushClaim`,
+`watchlistStreakChannels` and the `watchStreak*` tuning → the push connection). Every
+candidate must differ from the platform's shared default and still request the feature.
+`adapterOffers` reads the feature from the built adapter (`createChatPresenceClient`,
+`createChannelPointsPushController`, …). `autoClaimChannelPoints` and `autoClaimChallenges`
+also need adapter features, but every real adapter offers them, so they stay out of the
+runtime table (controller-test fakes lack them) and the CLI guard maps them itself.
+`tickCapabilities` reads the same helper.
+
+After the auth probe, `reportUnsupportedSettings` checks the current tick's built adapters via
+`TickAdapterHandle.built`, which constructs none. It remembers only warnings it emitted.
+A key supported in an earlier tick can warn when a subsequent adapter lacks its feature.
+It warns once per key per controller lifetime, even if support returns and is lost again.
+The diagnostic carries its platform, as in “Kick on this host cannot join channel chat, so
+platform.kick.alwaysEnterChat has no effect”. The tick owns this warning.
+
+`packages/cli/tests/inertSettings.test.ts` maps every CLI setting to how it takes effect.
+For adapter-backed settings the guard uses the production transports and checks every
+Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus Kick on
+each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
+where it is missing. Narrow a row's cases when support lands for some combinations,
+and remove the row when all its cases gain support. For #1096, keep only Android and
+Smart TV in the Hermes row. For #1092, remove the `kick/impersonate` chat row and keep
+`kick/http`. The guard fails for unexpected gaps and stale exceptions. It also checks
+that changed values requesting a missing feature produce a warning.
 
 Without `browserTabs`, the watch surface is derived rather than configured: the tick passes
 `watchTabs: false` in each platform's `PlatformTickCapabilities`, so the scheduler always watches
@@ -777,7 +785,7 @@ tested too (#598).
 | Duplicate and late job fires coalesce; no job runs after shutdown | `controllerContract.test.ts` ("jobs") |
 | Job scheduler semantics on each host | `hostPorts.test.ts` (`browser.alarms`); `packages/cli/tests/jobs.test.ts` (Node timers) |
 | Declared capabilities match the ports; unsupported settings are reported once | `hostPorts.test.ts`; `controllerContract.test.ts` ("capabilities") |
-| A per-platform setting the built adapter cannot honour warns once per key; every key the CLI accepts has an effect or is a known gap that links its issue (#1090) | `adapterSettings.test.ts`; `backgroundController/chatPresence.test.ts` ("warns once when a platform has no chat client…"); `packages/cli/tests/inertSettings.test.ts` |
+| A changed per-platform setting that requests a missing adapter feature warns once per key, including after support is lost; the CLI guard checks effects and known gaps per transport and sign-in (#1090) | `adapterSettings.test.ts`; `backgroundController/chatPresence.test.ts`; `packages/cli/tests/inertSettings.test.ts` |
 | Without browser tabs every watch is tabless and heartbeat failures never fall back to a tab | `controllerContract.test.ts` ("watch surface") |
 | Only a user close of the watch tab pauses; the extension's own closes (finished campaign, restart) do not, and late playback from a closed tab is ignored | `controllerContract.test.ts` ("browser tabs", extension host) |
 | The CLI's `state.json` save is atomic | `packages/cli/tests/storage.test.ts` |
