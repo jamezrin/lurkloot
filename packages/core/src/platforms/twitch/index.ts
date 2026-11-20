@@ -11,7 +11,7 @@ import type {
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { safeHttpsUrl } from "@lurkloot/shared/rewardEvents";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
+import { authHealthFromError, isSafeFetchError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabRegistry";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import {
@@ -20,7 +20,7 @@ import {
   type TablessWatchController,
   type WatchContext,
 } from "../../core/tablessWatch";
-import { StaleWhileRevalidateCache } from "../../core/staleCache";
+import { FollowedChannelsCache, followedChannelFailureCause } from "../followedChannels";
 import type { WebSocketFactory } from "../../core/webSocket";
 import type { ChatPresenceClient } from "../../core/chatPresence";
 import { TwitchChatPresenceClient } from "./chatPresence";
@@ -109,9 +109,6 @@ const PROGRESS_CONFIRMED_AVAILABILITY_TTL_MS = 5 * 60_000;
 // second recency structure, and re-fetching an evicted-but-still-hot channel
 // costs one extra request, not a correctness problem.
 const CHANNEL_CAMPAIGN_CACHE_MAX_ENTRIES = 128;
-// The follow list only breaks ties between eligible channels, so a stale minute
-// costs nothing while a fresh read on every tick would be a wasted request.
-const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 // How long a stream-down push vouches for an offline check (#759). A tick
 // follows the push within a minute; anything older is from another session.
 const STREAM_DOWN_HINT_TTL_MS = 10 * 60_000;
@@ -418,6 +415,7 @@ class TwitchGqlFailure extends Error {
   constructor(
     readonly kind: TwitchGqlFailureKind,
     message: string,
+    readonly status?: number,
   ) {
     super(message);
     this.name = "TwitchGqlFailure";
@@ -716,7 +714,7 @@ export class TwitchDiscoveryState {
   // unlike the other caches on this class: it is already a small, fully
   // self-contained value object. Not readonly only so setAuthenticatedUser can
   // swap it wholesale — see there for why replacing beats clearing in place.
-  followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
+  followedChannels = new FollowedChannelsCache("twitch", "Twitch");
   // Reward campaigns (#904): replaced whole on an account switch, like the
   // follow list, so a read in flight for the old account cannot write into it.
   rewardCampaigns = new TwitchRewardCampaignCache();
@@ -772,9 +770,7 @@ export class TwitchDiscoveryState {
       // pending fetch write the old user's logins back into the live cache
       // moments later. The orphaned instance still settles, but into an object
       // nothing reads any more.
-      this.followedChannels = new StaleWhileRevalidateCache<string[]>(
-        FOLLOWED_CHANNELS_CACHE_TTL_MS,
-      );
+      this.followedChannels = new FollowedChannelsCache("twitch", "Twitch");
       this.rewardCampaigns = new TwitchRewardCampaignCache();
     }
     // Bumped on any identity value change, including the initial transition
@@ -1161,7 +1157,8 @@ export function createTwitchGqlTransport(
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         const message = error instanceof Error ? error.message : `${operationName} request failed`;
-        throw stamp(new TwitchGqlFailure("network", message));
+        const status = isSafeFetchError(error) ? error.failure.status : undefined;
+        throw stamp(new TwitchGqlFailure("network", message, status));
       }
       const pageError = twitchPageFetchError(raw);
       if (pageError?.kind === "credentials") {
@@ -2545,20 +2542,25 @@ export class TwitchAdapter implements PlatformAdapter {
   // TwitchAdapter fresh every scheduler tick, so a per-instance cache would
   // never survive to the next tick and this would hit the network every time —
   // exactly the tick latency this cache exists to avoid. A cached value (even a
-  // stale one) is served immediately and refreshed in the background, never
-  // blocking the caller; only the very first call ever (nothing cached yet)
-  // blocks once, so the first campaign decision after startup can still prefer
-  // a followed channel instead of being stuck on a stranger for the rest of the
-  // session (shouldKeepWatching never switches mid-session for the same
-  // campaign).
-  async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
+  // stale one) is served immediately to standalone callers. Snapshot discovery
+  // waits for stale refreshes so lookup warnings reach its event collector.
+  async listFollowedChannels({
+    signal,
+    requireComplete,
+  }: AdapterOperationOptions = {}): Promise<string[]> {
     const cache = this.discoveryState.followedChannels;
     const cached = cache.get();
     if (cached) {
-      if (cache.isStale()) void cache.refreshOnce(() => this.fetchFollowedChannels());
+      if (cache.isStale()) {
+        const refresh = cache.refreshOnce(() => this.fetchFollowedChannels(cache));
+        if (requireComplete) {
+          await refresh;
+          signal?.throwIfAborted();
+        }
+      }
       return cached;
     }
-    await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
+    await cache.refreshOnce(() => this.fetchFollowedChannels(cache, signal));
     return cache.get() ?? [];
   }
 
@@ -2568,7 +2570,10 @@ export class TwitchAdapter implements PlatformAdapter {
   // an empty list instead — the tick that owns `signal` still notices its own
   // cancellation through the scheduler's other throwIfAborted() checks moments
   // later.
-  private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
+  private async fetchFollowedChannels(
+    cache: FollowedChannelsCache,
+    signal?: AbortSignal,
+  ): Promise<string[]> {
     try {
       // A single plain attempt, not gqlWithIntegrityRetry: an integrity
       // rejection there forces a token refresh (and potentially a page context)
@@ -2588,16 +2593,20 @@ export class TwitchAdapter implements PlatformAdapter {
       // A GQL errors body (the shape schema drift arrives in) is raised by the
       // transport, so it lands in the catch below rather than passing for a
       // signed-out account with no live follows.
-      return (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
+      const logins = (response.data?.currentUser?.followedLiveUsers?.edges ?? [])
         .map((edge) => edge.node?.login?.toLowerCase())
         .filter((login): login is string => Boolean(login));
+      cache.recordSuccess();
+      return logins;
     } catch (error) {
-      diagnostic(
-        this.emit,
-        "debug",
-        `Twitch followed-channel lookup failed (${errorMessage(error)}); channel preference falls back to viewer count`,
-        "twitch",
-      );
+      if (!signal?.aborted && cache === this.discoveryState.followedChannels) {
+        cache.reportFailure(
+          this.emit,
+          error instanceof TwitchGqlFailure && error.kind === "network" && (error.status ?? 0) < 500
+            ? "network"
+            : followedChannelFailureCause(error),
+        );
+      }
       return [];
     }
   }

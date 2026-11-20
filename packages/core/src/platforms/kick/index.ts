@@ -13,7 +13,6 @@ import type { TablessWatchController } from "../../core/tablessWatch";
 import type { DiscoverySignalController } from "../../core/discoverySignals";
 import { KickWafBlockedError } from "../../core/transport";
 import { authHealthFromError } from "../../core/fetchError";
-import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
 import {
   diagnostic,
@@ -46,14 +45,11 @@ import type { KickClaimState } from "./claim/v2";
 import { isSafeFetchError } from "../../core/fetchError";
 import { KickRouteCounts, KickRouteState, safeKickRouteHost } from "./routeDiagnostics";
 import { errorMessage } from "@lurkloot/shared/errors";
+import { FollowedChannelsCache, followedChannelFailureCause } from "../followedChannels";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
 export { KickClaimState } from "./claim/v2";
-
-// The follow list only breaks ties between eligible channels, so a stale minute
-// costs nothing while a fresh read on every tick would be a wasted request.
-const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 
 // Cross-tick cache for listFollowedChannels. A field on KickAdapter itself would
 // not do: every host reconstructs KickAdapter fresh each scheduler tick (see
@@ -62,9 +58,7 @@ const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 // The route announcement state also shares this lifetime so unchanged routes
 // are not announced again when the next tick constructs an adapter.
 export class KickDiscoveryState {
-  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(
-    FOLLOWED_CHANNELS_CACHE_TTL_MS,
-  );
+  readonly followedChannels = new FollowedChannelsCache("kick", "Kick");
   readonly routeDiagnostics = new KickRouteState();
 }
 
@@ -689,15 +683,15 @@ export class KickAdapter implements PlatformAdapter {
         this.emit,
       );
       const streams = Array.isArray(response) ? response : (response?.data ?? []);
-      return streams
+      const channels = streams
         .map((stream) => (stream.channel?.slug ?? stream.channel?.username)?.toLowerCase())
         .filter((username): username is string => Boolean(username));
+      this.discoveryState.followedChannels.recordSuccess();
+      return channels;
     } catch (error) {
-      diagnostic(
+      this.discoveryState.followedChannels.reportFailure(
         this.emit,
-        "debug",
-        `Kick followed-channel lookup failed (${errorMessage(error)}); channel preference falls back to viewer count`,
-        "kick",
+        followedChannelFailureCause(error),
       );
       return [];
     }

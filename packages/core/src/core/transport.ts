@@ -186,9 +186,14 @@ export function needsKickSessionBearer(
 // (fall back to the page-context tab) from a genuine error. Thrown by
 // fetchKickInBackground so the adapter wrapper can log and fall back cleanly.
 export class KickWafBlockedError extends SafeFetchError {
+  readonly challenge: boolean;
+
   constructor(candidate: string | SafeFetchFailure) {
     super(typeof candidate === "string" ? { kind: "network_error", reason: candidate } : candidate);
     this.name = "KickWafBlockedError";
+    // Transports pass a plain message for a suspected challenge body. The
+    // structured network failure also allows fallback after a fetch rejection.
+    this.challenge = typeof candidate === "string";
   }
 }
 
