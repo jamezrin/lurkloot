@@ -66,6 +66,6 @@ export function discardingActivityHistory(): CliActivityHistory {
     load: async () => ({ events: [] }),
     loadSessions: async () => [],
     clear: async () => undefined,
-    flush: async () => undefined,
+    close: async () => undefined,
   };
 }

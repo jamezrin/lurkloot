@@ -12,7 +12,6 @@ import {
   createActivityMessageHandler,
   type ActivityHistoryRepository,
 } from "@lurkloot/shared/activityHistory";
-import { activityPathFor } from "../activityStore";
 import {
   buildSessionView,
   isActivityHistoryMessage,
@@ -22,13 +21,7 @@ import {
 } from "./controlPlane";
 import { defaultAppRoot } from "./appAssets";
 import { createAuthFlows, createAuthRoutes, type AuthFlowsOptions } from "./controlPlaneAuth";
-import {
-  createCliActivityHistory,
-  runLoop,
-  type FarmingController,
-  type FarmingHost,
-  type RunOptions,
-} from "./run";
+import { runLoop, type FarmingController, type FarmingHost, type RunOptions } from "./run";
 
 export interface ServeOptions extends Omit<RunOptions, "once" | "startHost"> {
   binding: ServeBinding;
@@ -225,10 +218,7 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
             ),
         })
       : undefined);
-  // One history: the loop's reporter writes it, the control plane reads it.
-  const activityHistory =
-    rest.activityHistory ?? createCliActivityHistory(activityPathFor(rest.statePath), rest.logger);
-  const runOptions = { ...rest, activityHistory, ...(settingsStore ? { settingsStore } : {}) };
+  const runOptions = { ...rest, ...(settingsStore ? { settingsStore } : {}) };
   const diagnosticSecrets = () => [binding.token, ...(rest.diagnosticSecrets?.() ?? [])];
   const stop = exitWithInput ? new AbortController() : undefined;
   const release = exitWithInput
@@ -246,7 +236,7 @@ export async function serveLoop(options: ServeOptions): Promise<void> {
               : stop.signal,
           }
         : {}),
-      startHost: (controller, diagnostics) =>
+      startHost: (controller, diagnostics, activityHistory) =>
         startControllerControlPlane(controller, {
           binding,
           describeCredentials,

@@ -696,20 +696,22 @@ let heartbeat recovery resume the previous watch from its persisted cadence.
 reconciliation, and the loop closes it first on shutdown; `run` passes none and starts no server
 (`packages/cli/tests/runNoServer.test.ts`). The control plane only forwards the popup's
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
-messages the CLI host supports; it holds no farming logic. Host messages such as
-`exportDiagnostics` are dispatched by `serve.ts` before forwarding core messages.
-The CLI host handles `setTwitchExtensionEnabled` through the lane and submits its settings
-patch to the controller through the same config store as other settings. Snapshot replies attach
-the lane's transient provider summaries. Core stays free of HTTP.
+messages the CLI host supports. `serve.ts` handles activity through the shared history handler
+and answers `exportDiagnostics` from the CLI diagnostics ring before forwarding core messages.
+The CLI host handles `setTwitchExtensionEnabled` through the lane and submits its settings patch
+to the controller through the same config store as other settings. Snapshot replies attach the
+lane's transient provider summaries. Core stays free of HTTP.
 
 The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
 all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
 necessary. It then waits for any startup reconciliation in progress, which can begin a state save
-after shutdown starts. After shutting down the controller, `runLoop` unsubscribes the Twitch Extensions
-commit hook and closes the lane, including its drivers, sockets and queued writes. It then
-drains background work and tracked state writes. It disposes the transport and flushes the
-diagnostics sidecar last, after disposal reports settle. `--once` and host startup failure use
-the same farming teardown.
+after shutdown starts. Once the controller shuts down, including closing the Hermes socket,
+`runLoop` unsubscribes the Twitch Extensions commit hook and closes the lane, including its
+drivers, sockets and queued writes. It gives in-flight jobs and detached background work a shared
+five-second window to report commits, then settles tracked state writes and disposes the transport.
+The teardown finally block gives disposal reports up to five seconds to settle, then closes the
+activity history followed by the diagnostics history even if disposal fails. `--once` and host
+startup failure use the same farming teardown.
 The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
 event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
 stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
@@ -1702,7 +1704,7 @@ Activity records are structured (`code` plus `data`) and localized by the host a
 
 Every activity event therefore also emits a diagnostic mirror. `packages/core/src/core/activityDiagnostics.ts` wraps the controller's event collector — the one choke point all engine emitters funnel through — and restates each activity event in English with the context the localized sentence drops: campaign and reward ids, raw reason codes, claim method, session detail. Emit sites do not hand-write a matching diagnostic.
 
-Each host keeps activity in a bounded store it owns and answers the popup's `getActivity`, `getActivitySessions` and `clearActivity` from it. What a history is lives once, in `packages/shared/src/activityHistory.ts`: the retention (30 days of activity, 7 of diagnostics), the per-category record budget, the stored record format, `foldActivityBatch` (the session fold, including ending a session left open when the platform starts its next one), page selection and its cursor, the message handler and the reporter that filters a batch. The backends only map that onto their storage: IndexedDB in the extension (`packages/extension/src/core/activityStorage.ts`), one JSON file in the CLI. Core never owns the history (`coreBoundary.test.ts`). Normal activity is always retained; diagnostic persistence is extension-only and opt-in, so hosts with diagnostics disabled drop the mirrors when they filter by category. Each category has its own record budget, so mirrors never evict activity history. Activity store failures are isolated from farming state mutations.
+Each host keeps activity in a bounded store it owns and answers the popup's `getActivity`, `getActivitySessions` and `clearActivity` from it. What a history is lives once, in `packages/shared/src/activityHistory.ts`: the retention (30 days of activity, 7 of diagnostics), the per-category record budget, the stored record format, `foldActivityBatch` (the session fold, including ending a session left open when the platform starts its next one), page selection and its cursor, the message handler and the reporter that filters a batch. The backends only map that onto their storage: IndexedDB in the extension (`packages/extension/src/core/activityStorage.ts`), one JSON file in the CLI. Core never owns the history (`coreBoundary.test.ts`). Normal activity is always retained. The extension stores diagnostics and their mirrors in IndexedDB when diagnostic logging is enabled. The CLI retains diagnostic rows in a separate ring for export. Each category has its own record budget, so mirrors never evict activity history. Activity store failures are isolated from farming state mutations.
 
 The popup shows one category at a time. The activity/diagnostics switch selects a view rather than interleaving both, since the mirror means a merged list would state everything twice.
 
@@ -1714,24 +1716,25 @@ Both `run` and `serve` use `packages/cli/src/activityStore.ts`. The default file
 to its full name. The store retains structured timeline events and session summaries.
 Both backends use the shared batch filter and stored event conversion. Stored timeline
 rows keep stable interruption reasons and omit raw exception details. HTTPS activity links
-keep their query parameters and anchors with embedded credentials removed. CLI diagnostics
-stay in the log. Activity follows the shared 30-day and 2,000-record limits. Session
+keep their query parameters and anchors with embedded credentials removed. Activity follows the shared 30-day and 2,000-record limits. Session
 summaries keep open sessions and recent ended sessions within the 200-per-platform
 response limit.
 
 The CLI serializes in-memory mutations and writes compact snapshots through the same
 atomic file helper as `state.json`. Batches coalesce within a 30-second write interval.
-The run loop closes the store through `stopFarming`. After controller shutdown it gives
-in-flight jobs and detached controller work a shared five-second window to report commits,
-then drains state writes and flushes activity in teardown. A failed write keeps the live
-history available. Sidecar reads use `readJsonSidecar` with a 4 MiB limit. An unsupported
+A failed write keeps the live history available. Both histories resolve sidecar paths through
+`stateSidecarPath` in `packages/cli/src/storage.ts`. It keeps the established default
+`activity.json` filename. The diagnostics sidecar always appends `.diagnostics.json` to the
+full state filename. Both use `readJsonSidecar` with a 4 MiB limit and the same atomic
+JSON writer. An unsupported
 activity file version leaves the disk snapshot intact and keeps new history in memory.
 The same store answers the three activity messages in `serve`. Clear joins the initial
 load and any previous write, then atomically saves an empty history before acknowledging
 the request. Clear fails if the disk snapshot uses an unsupported version.
 `activityStore.test.ts` exercises the shared limits, coalescing, sanitization and atomic
-clearing. `serveActivity.test.ts` covers restart, claims over HTTP, and a claim that commits
-during signal shutdown.
+clearing. `serveActivity.test.ts` covers restart, claims over HTTP, a claim that commits
+during signal shutdown, and both sidecars flushing on SIGTERM and stdin EOF when disposal
+fails.
 
 ### Diagnostics export (#1089)
 

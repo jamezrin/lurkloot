@@ -54,11 +54,11 @@ import {
   loadActivityEvents,
   loadActivitySessions,
 } from "../src/core/activityStorage";
+import { createActivityEventReporter } from "@lurkloot/shared/activityHistory";
 import {
-  createActivityEventReporter,
   createActivityMessageHandler,
-} from "@lurkloot/shared/activityHistory";
-import { createRuntimeMessageDispatcher } from "../src/core/activityMessages";
+  createRuntimeMessageDispatcher,
+} from "../src/core/activityMessages";
 import {
   twitchHeartbeatExchange,
   twitchHeartbeatFetchText,

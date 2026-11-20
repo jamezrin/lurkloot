@@ -1,3 +1,4 @@
+import { stateSidecarPath } from "../src/storage";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,7 +13,6 @@ import {
   DIAGNOSTICS_LIMIT,
   DIAGNOSTICS_WRITE_INTERVAL_MS,
   diagnosticCredentialValues,
-  diagnosticsPath,
   exportCliDiagnostics,
   loadDiagnostics,
 } from "../src/runtime/diagnostics";
@@ -61,7 +61,7 @@ describe("CLI diagnostics", () => {
     expect(persisted[0].message).toBe("newest");
     expect(persisted.at(-1)?.message).toBe("record 2");
     if (process.platform !== "win32") {
-      expect((await stat(diagnosticsPath(statePath))).mode & 0o777).toBe(0o600);
+      expect((await stat(stateSidecarPath(statePath, "diagnostics"))).mode & 0o777).toBe(0o600);
     }
   });
 
@@ -92,7 +92,9 @@ describe("CLI diagnostics", () => {
       await vi.waitFor(async () =>
         expect(await messagesOnDisk()).toEqual(["third", "second", "first"]),
       );
-      expect((await readFile(diagnosticsPath(statePath), "utf8")).trimEnd()).not.toContain("\n");
+      expect(
+        (await readFile(stateSidecarPath(statePath, "diagnostics"), "utf8")).trimEnd(),
+      ).not.toContain("\n");
       history.append([diagnostic("last")]);
       expect(await messagesOnDisk()).not.toContain("last");
       await history.close();
@@ -158,12 +160,12 @@ describe("CLI diagnostics", () => {
 
   it("uses a readable report when the diagnostics file is missing or corrupt", async () => {
     expect(await loadDiagnostics(statePath)).toEqual({ events: [] });
-    await writeFile(diagnosticsPath(statePath), "{broken");
+    await writeFile(stateSidecarPath(statePath, "diagnostics"), "{broken");
     expect(await loadDiagnostics(statePath)).toEqual({ events: [] });
   });
 
   it("retries a failed snapshot on close without another append", async () => {
-    const path = diagnosticsPath(statePath);
+    const path = stateSidecarPath(statePath, "diagnostics");
     await mkdir(path);
     const onWarn = vi.fn();
     const history = await createDiagnosticsHistory(statePath, { ...logger, warn: onWarn });
@@ -244,7 +246,7 @@ describe("CLI diagnostics", () => {
       platform: "twitch",
       history: { source: "live buffer" },
     });
-    const persisted = await readFile(diagnosticsPath(statePath), "utf8");
+    const persisted = await readFile(stateSidecarPath(statePath, "diagnostics"), "utf8");
     for (const payload of [persisted, JSON.stringify(result)]) {
       for (const forbidden of [
         ...secrets,

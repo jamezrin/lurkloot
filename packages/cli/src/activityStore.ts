@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { basename, dirname, join } from "node:path";
 import {
   type ActivityHistoryRepository,
   MAX_ACTIVITY_RECORDS_PER_CATEGORY,
@@ -29,7 +28,6 @@ import { readJsonSidecar, writeJsonAtomically } from "./storage";
 // (@lurkloot/shared/activityHistory). The whole history is held in memory;
 // every change is pruned to the shared bounds and written back atomically.
 
-export const ACTIVITY_FILE_NAME = "activity.json";
 export const ACTIVITY_WRITE_INTERVAL_MS = 30_000;
 const FILE_VERSION = 1;
 
@@ -56,16 +54,6 @@ export interface FileActivityHistoryOptions {
   onLoadError?(error: unknown): void;
   now?(): number;
   randomId?(): string;
-}
-
-// The history sits beside the state file, in the CLI's data directory:
-// activity.json for the default state.json, `<state file>.activity.json` for any
-// other, so two processes with their own --state files in one directory never
-// rewrite each other's history.
-export function activityPathFor(statePath: string): string {
-  const name = basename(statePath);
-  if (name === "state.json") return join(dirname(statePath), ACTIVITY_FILE_NAME);
-  return join(dirname(statePath), `${name}.${ACTIVITY_FILE_NAME}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -163,7 +151,7 @@ export function createFileActivityHistory(
     if (file) return Promise.resolve(file);
     loading ??= (async () => {
       try {
-        file = prune(parseActivityFile(await readJsonSidecar(path)), now());
+        file = prune(parseActivityFile((await readJsonSidecar(path)).value), now());
       } catch (error) {
         if (error instanceof UnsupportedActivityVersionError) unsupportedVersion = error;
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") options.onLoadError?.(error);

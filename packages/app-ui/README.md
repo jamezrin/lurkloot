@@ -25,7 +25,7 @@ Every request goes to the same origin, under `/v1`
 The app shows CLI farming settings, including controls and live status for
 NoPixelV and Fortnite. Activity pages through the CLI's history kept by
 `run` and `serve`, groups events by farming session, and can clear the history.
-The CLI keeps diagnostics in its log.
+The CLI offers recent diagnostics through its separate export.
 
 What stays in the browser:
 

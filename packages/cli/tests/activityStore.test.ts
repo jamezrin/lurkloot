@@ -1,3 +1,4 @@
+import { stateSidecarPath } from "../src/storage";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -10,7 +11,6 @@ import {
 } from "@lurkloot/shared/activityHistory";
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import {
-  activityPathFor,
   ACTIVITY_WRITE_INTERVAL_MS,
   type CliActivityHistory,
   createFileActivityHistory,
@@ -86,12 +86,20 @@ function history(options: { now?: () => number } = {}) {
 
 describe("CLI activity history", () => {
   it("lives beside the state file", () => {
-    expect(activityPathFor("/data/lurkloot/state.json")).toBe("/data/lurkloot/activity.json");
+    expect(stateSidecarPath("/data/lurkloot/state.json", "activity")).toBe(
+      "/data/lurkloot/activity.json",
+    );
     // Two --state files in one directory keep two histories.
-    expect(activityPathFor("/data/lurkloot/alt.json")).toBe(
+    expect(stateSidecarPath("/data/lurkloot/alt.json", "activity")).toBe(
       "/data/lurkloot/alt.json.activity.json",
     );
-    expect(activityPathFor("/data/lurkloot/alt-state")).toBe(
+    expect(stateSidecarPath("/data/lurkloot/state.json", "diagnostics")).toBe(
+      "/data/lurkloot/state.json.diagnostics.json",
+    );
+    expect(stateSidecarPath("/data/lurkloot/alt.json", "diagnostics")).toBe(
+      "/data/lurkloot/alt.json.diagnostics.json",
+    );
+    expect(stateSidecarPath("/data/lurkloot/alt-state", "activity")).toBe(
       "/data/lurkloot/alt-state.activity.json",
     );
   });

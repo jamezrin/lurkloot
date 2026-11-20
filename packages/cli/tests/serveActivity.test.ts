@@ -7,13 +7,13 @@ import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { ActivityHistoryRecord, EventEmitter } from "@lurkloot/shared/events";
 import type { ActivityPage, ActivitySessionsPage } from "@lurkloot/shared/messages";
 import type { DropCampaign } from "@lurkloot/shared/models";
-import { activityPathFor, createFileActivityHistory } from "../src/activityStore";
+import { createFileActivityHistory } from "../src/activityStore";
 import { describeCredentialHealth } from "../src/authStore";
 import { createLogger } from "../src/logger";
 import { runLoop } from "../src/runtime/run";
 import { serveLoop } from "../src/runtime/serve";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
-import { loadState, saveState } from "../src/storage";
+import { loadState, saveState, stateSidecarPath } from "../src/storage";
 import type { TransportHandle } from "../src/transport";
 import { deferred } from "./helpers/deferred";
 import { idleAdapter, idleTransport, memoryStateStore } from "./helpers/fakeFarming";
@@ -60,7 +60,7 @@ function claimableCampaign(): DropCampaign {
 }
 
 // Twitch has one claimable reward and claims it; Kick idles. Every refresh
-// also reports a diagnostic carrying a planted secret, which must not be kept.
+// also reports a diagnostic that must stay out of the activity file.
 function claimingTransport(beforeClaim?: () => Promise<void>): TransportHandle {
   const base = idleTransport();
   let claimed = false;
@@ -174,7 +174,7 @@ describe("serve activity history", () => {
       await first.stop();
     }
 
-    // The diagnostic was reported, and went to the log only.
+    // The diagnostic was logged and stays out of activity history.
     expect(logged).toContain(PLANTED_SECRET);
     const onDisk = await readFile(join(dir, "activity.json"), "utf8");
     expect(onDisk).toContain("reward_claimed");
@@ -263,56 +263,68 @@ describe("serve activity history", () => {
     finishCommit();
     await running;
 
-    const onDisk = await readFile(activityPathFor(statePath), "utf8");
+    const onDisk = await readFile(stateSidecarPath(statePath, "activity"), "utf8");
     expect(onDisk).toContain("reward_claimed");
     expect(await readFile(statePath, "utf8")).toContain('"status": "claimed"');
   });
 
-  it("flushes buffered claims when launcher input closes, even if disposal fails", async () => {
-    dir = await mkdtemp(join(tmpdir(), "serve-activity-stop-"));
-    const statePath = join(dir, "state.json");
-    const path = activityPathFor(statePath);
-    const history = createFileActivityHistory(path);
-    await history.clear(); // Put subsequent appends inside the write interval.
-    const input = new PassThrough();
-    let port = 0;
-    const running = serveLoop({
-      binding: { host: "127.0.0.1", port: 0 },
-      settings: DEFAULT_CLI_SETTINGS,
-      statePath,
-      stateStore: memoryStateStore(),
-      activityHistory: history,
-      transport: {
-        ...claimingTransport(),
-        dispose: async () => {
-          throw new Error("Transport disposal failed");
+  it.each(["SIGTERM", "stdin EOF"] as const)(
+    "flushes both sidecars on %s even if disposal fails",
+    async (trigger) => {
+      dir = await mkdtemp(join(tmpdir(), "serve-activity-stop-"));
+      const statePath = join(dir, "state.json");
+      const path = stateSidecarPath(statePath, "activity");
+      const history = createFileActivityHistory(path);
+      await history.clear(); // Put subsequent appends inside the write interval.
+      const diagnostics = join(dir, "state.json.diagnostics.json");
+      const { promise: pendingClaim, resolve: finishClaim } = deferred<void>();
+      const input = new PassThrough();
+      let port = 0;
+      const running = serveLoop({
+        binding: { host: "127.0.0.1", port: 0 },
+        settings: DEFAULT_CLI_SETTINGS,
+        statePath,
+        stateStore: memoryStateStore(),
+        activityHistory: history,
+        transport: {
+          ...claimingTransport(() => pendingClaim),
+          dispose: async () => {
+            throw new Error("Transport disposal failed");
+          },
         },
-      },
-      logger: quiet,
-      appRoot: null,
-      exitWithInput: input,
-      describeCredentials: () => describeCredentialHealth("/nonexistent-lurkloot-auth", {}),
-      checkCredentialAvailability: async () => ({ status: "available" }),
-      onListening: (address) => {
-        port = address.port;
-      },
-    });
-    const stopped = expect(running).rejects.toThrow("Transport disposal failed");
-    try {
-      await vi.waitFor(() => expect(port).not.toBe(0));
-      await vi.waitFor(
-        async () => {
-          expect((await activity(port)).some((event) => event.code === "reward_claimed")).toBe(
-            true,
-          );
+        logger: quiet,
+        appRoot: null,
+        exitWithInput: input,
+        describeCredentials: () => describeCredentialHealth("/nonexistent-lurkloot-auth", {}),
+        checkCredentialAvailability: async () => ({ status: "available" }),
+        onListening: (address) => {
+          port = address.port;
         },
-        { timeout: 5_000 },
-      );
-      expect(await readFile(path, "utf8")).not.toContain("reward_claimed");
-    } finally {
-      input.end();
-      await stopped;
-    }
-    expect(await readFile(path, "utf8")).toContain("reward_claimed");
-  });
+      });
+      const stopped = expect(running).rejects.toThrow("Transport disposal failed");
+      try {
+        await vi.waitFor(() => expect(port).not.toBe(0));
+        // A first diagnostics write puts the later claim mirror inside its write interval.
+        await vi.waitFor(async () => expect(await readFile(diagnostics, "utf8")).toBeTruthy());
+        finishClaim();
+        await vi.waitFor(
+          async () => {
+            expect((await activity(port)).some((event) => event.code === "reward_claimed")).toBe(
+              true,
+            );
+          },
+          { timeout: 5_000 },
+        );
+        expect(await readFile(path, "utf8")).not.toContain("reward_claimed");
+        expect(await readFile(diagnostics, "utf8")).not.toContain("Claimed ");
+      } finally {
+        finishClaim();
+        if (trigger === "SIGTERM") process.emit("SIGTERM");
+        else input.end();
+        await stopped;
+      }
+      expect(await readFile(path, "utf8")).toContain("reward_claimed");
+      expect(await readFile(diagnostics, "utf8")).toContain("Claimed ");
+    },
+  );
 });

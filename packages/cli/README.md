@@ -505,7 +505,7 @@ The activity messages read the [activity history](#activity-history):
 
 | Message | Answer |
 | --- | --- |
-| `{ "type": "getActivity", "category": "activity", "platform"?, "limit"?, "cursor"? }` | `{ events, nextCursor? }`, newest first, at most 100 per page (80 by default). Pass `nextCursor` back as `cursor` for the next page. `category: "diagnostic"` is accepted and always empty: the CLI keeps diagnostics in its log only. |
+| `{ "type": "getActivity", "category": "activity", "platform"?, "limit"?, "cursor"? }` | `{ events, nextCursor? }`, newest first, at most 100 per page (80 by default). Pass `nextCursor` back as `cursor` for the next page. `category: "diagnostic"` returns an empty activity page. Use `exportDiagnostics` for recent diagnostics. |
 | `{ "type": "getActivitySessions", "platform": "twitch" }` | `{ sessions }`: the platform's farming sessions with their point tallies and reward counts, newest first. |
 | `{ "type": "clearActivity" }` | `null`, once the history and its sessions are emptied. |
 
@@ -538,7 +538,7 @@ also carries `paths`, the dotted settings paths it is about (for example
 | 409 | `settings_read_only` | A settings message to a host started without a settings store that saves (not `lurkloot serve`). |
 | 413 | `payload_too_large` | Body over 64 KiB. |
 | 415 | `unsupported_media_type` | A POST that is not `application/json`. |
-| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, `resetExtension`, `setTwitchExtensionEnabled`) and `exportDiagnostics`. |
+| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, `resetExtension`, `setTwitchExtensionEnabled`). |
 | 500 | `internal_error` | The controller failed; the details go to the log only. |
 | 500 | `settings_not_saved` | The edited config would not load back as the new settings; nothing was written. Details in the log. |
 | 503 | `settings_unavailable` | The config file cannot be read or parsed (fix it, then retry); nothing was written. Details in the log. |
@@ -659,8 +659,9 @@ Publisher query parameters and anchors are preserved.
 
 The CLI saves activity atomically and combines batches into at most one
 scheduled write every 30 seconds. On shutdown it gives in-flight farming jobs
-and background work up to five seconds to finish before flushing pending
-activity. The app's Clear activity action saves the empty history before
+and background work up to five seconds to finish. SIGINT, SIGTERM and stdin EOF
+with `serve --exit-with-stdin` all drain state writes, dispose the transport
+and flush both histories. The app's Clear activity action saves the empty history before
 returning success.
 
 The CLI reads activity snapshots up to 4 MiB. If an activity file is unreadable
@@ -701,10 +702,12 @@ last saved scheduler state, and up to 500 recent engine diagnostics from the
 saved sidecar. The report identifies its source and includes the sidecar's last
 write time when available. The loop keeps diagnostics across restarts regardless
 of `--log`. It writes a private atomic snapshot beside the state file
-(`state.json.diagnostics.json` by default) at most once every five seconds
+(the full state filename with `.diagnostics.json` appended, so
+`state.json.diagnostics.json` by default) at most once every five seconds
 during farming. It publishes pending rows when the interval ends, even if
 no new diagnostics arrive. Clean shutdown flushes any remaining rows.
-Missing or unreadable history yields a report with no events. A disk write
+Missing, unreadable or oversized history yields a report with no events.
+Both history sidecars share a 4 MiB read limit. A disk write
 failure leaves the in-memory history available to `serve` and is retried.
 Run one farming process per state file.
 

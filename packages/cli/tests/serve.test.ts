@@ -246,6 +246,16 @@ describe("control plane message allow-list", () => {
     });
   });
 
+  it("answers exportDiagnostics in the host using the controller snapshot", async () => {
+    const { port, handleMessage } = await start();
+    const reply = await postMessage(port, { type: "exportDiagnostics", platform: "twitch" });
+    expect(reply.status).toBe(200);
+    expect(reply.json).toMatchObject({
+      result: { events: [], report: expect.stringContaining("Lurkloot diagnostics log") },
+    });
+    expect(handleMessage.mock.calls).toEqual([[{ type: "getSnapshot" }]]);
+  });
+
   it.each([
     "saveSettings",
     "updateIdleWatchlist",

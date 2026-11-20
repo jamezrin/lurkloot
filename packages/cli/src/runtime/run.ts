@@ -1,4 +1,5 @@
 import { withTimeout } from "@lurkloot/core/abort";
+import type { ActivityHistoryRepository } from "@lurkloot/shared/activityHistory";
 import type { DiagnosticSecrets } from "@lurkloot/shared/diagnostics";
 import { createDiagnosticsHistory } from "./diagnostics";
 import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
@@ -13,17 +14,12 @@ import {
 } from "@lurkloot/core/controller";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { loadState, saveState } from "../storage";
+import { loadState, saveState, stateSidecarPath } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
 import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
 import { reportCliEvents } from "../events";
-import {
-  activityPathFor,
-  createFileActivityHistory,
-  type CliActivityHistory,
-} from "../activityStore";
-import { createActivityEventReporter } from "@lurkloot/shared/activityHistory";
+import { createFileActivityHistory, type CliActivityHistory } from "../activityStore";
 import { subscriptionWaitKeys } from "./status";
 import { createNodeJobScheduler } from "./jobs";
 import { errorMessage } from "@lurkloot/shared/errors";
@@ -75,13 +71,14 @@ export interface RunOptions {
   };
   settingsStore?: SettingsStore;
   // Where reported activity is kept (#1088). Defaults to activity.json beside
-  // the state file; `serve` passes the one its control plane answers from.
+  // the default state file; `serve` passes the one its control plane answers from.
   activityHistory?: CliActivityHistory;
   // Started once the controller exists, before startup reconciliation and the
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
   startHost?: (
     controller: FarmingController,
     diagnostics: Pick<Awaited<ReturnType<typeof createDiagnosticsHistory>>, "recent">,
+    activityHistory: ActivityHistoryRepository,
   ) => Promise<FarmingHost>;
   diagnosticSecrets?: () => DiagnosticSecrets;
   // Aborting it stops the loop through the same shutdown as SIGINT/SIGTERM.
@@ -95,7 +92,7 @@ const nextTurn = () => new Promise<void>((resolveTurn) => setImmediate(resolveTu
 
 // The file-backed activity history, with its failures reported to the log:
 // farming goes on without it.
-export function createCliActivityHistory(path: string, logger: Logger): CliActivityHistory {
+function createCliActivityHistory(path: string, logger: Logger): CliActivityHistory {
   return createFileActivityHistory(path, {
     onLoadError: () => logger.warn("Could not load the saved activity history", "activity"),
     onSaveError: (error) =>
@@ -164,14 +161,8 @@ export async function runLoop(options: RunOptions): Promise<void> {
   };
 
   const activityHistory =
-    options.activityHistory ?? createCliActivityHistory(activityPathFor(statePath), logger);
-  // The extension's reporter: the timeline's activity is kept, and diagnostics
-  // are not, since the CLI has no diagnostic logging setting. They go to the
-  // log, which is where a diagnostic's English text and ids are for.
-  const recordActivity = createActivityEventReporter({
-    loadDiagnosticLogging: async () => false,
-    append: (events) => activityHistory.append(events),
-  });
+    options.activityHistory
+    ?? createCliActivityHistory(stateSidecarPath(statePath, "activity"), logger);
 
   // Timers fire into the controller once it exists.
   let dispatchJob: (name: string) => void = () => undefined;
@@ -191,9 +182,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     events: {
       report: async (events) => {
         diagnostics?.append(events);
-        const stored = activityHistory.append(events);
-        await reportCliEvents(events, logger);
-        await stored;
+        await Promise.all([activityHistory.append(events), reportCliEvents(events, logger)]);
       },
       notify: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
     },
@@ -278,7 +267,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
       await transport.dispose();
     } finally {
       // Disposal can emit transport diagnostics that are still being reported.
-      await controller.settleBackgroundWork().finally(() => diagnostics?.close());
+      try {
+        await withTimeout(controller.settleBackgroundWork(), SHUTDOWN_DRAIN_MS);
+      } finally {
+        await activityHistory.close().finally(() => diagnostics?.close());
+      }
     }
   };
 
@@ -387,7 +380,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
         // Record the promise before running host code, with signal handlers
         // already installed while the sidecar loads.
         startingHost = restoreDiagnostics().then((history) => {
-          if (!stopped) return options.startHost?.(farmingController, history);
+          if (!stopped) return options.startHost?.(farmingController, history, activityHistory);
         });
         started = await startingHost;
       } catch (error) {

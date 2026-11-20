@@ -1,11 +1,11 @@
 import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import { describe, expect, it, vi } from "vitest";
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
+import { createActivityEventReporter } from "@lurkloot/shared/activityHistory";
 import {
-  createActivityEventReporter,
   createActivityMessageHandler,
-} from "@lurkloot/shared/activityHistory";
-import { createRuntimeMessageDispatcher } from "../src/core/activityMessages";
+  createRuntimeMessageDispatcher,
+} from "../src/core/activityMessages";
 
 describe("activity message routing", () => {
   it("handles history messages through the extension repository", async () => {

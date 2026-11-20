@@ -11,13 +11,7 @@ import {
   isActivityTimelineEvent,
   tallyKey,
 } from "./farmingSessions";
-import type {
-  ActivityPage,
-  ActivityQuery,
-  ActivitySessionsPage,
-  DiagnosticsExport,
-  RuntimeMessage,
-} from "./messages";
+import type { ActivityPage, ActivityQuery, ActivitySessionsPage, RuntimeMessage } from "./messages";
 import type { Platform } from "./models";
 import { safeHttpsUrl } from "./rewardEvents";
 
@@ -226,30 +220,17 @@ export function activitySessionRetained(session: FarmingSessionSummary, now: num
 export interface ActivityHistoryRepository {
   load(query: ActivityQuery): Promise<ActivityPage>;
   loadSessions(platform: Platform): Promise<FarmingSessionSummary[]>;
-  // A host that does not export diagnostics leaves it out and answers none.
-  exportDiagnostics?(platform: Platform): Promise<ActivityHistoryRecord[]>;
   clear(): Promise<void>;
 }
 
-export type ActivityHistoryMessage = Extract<
-  RuntimeMessage,
-  { type: "getActivity" | "getActivitySessions" | "exportDiagnostics" | "clearActivity" }
->;
-
 export function createActivityMessageHandler(repository: ActivityHistoryRepository) {
-  return async (
-    message: RuntimeMessage,
-  ): Promise<ActivityPage | ActivitySessionsPage | DiagnosticsExport | void | undefined> => {
+  return async (message: RuntimeMessage): Promise<ActivityPage | ActivitySessionsPage | void> => {
     if (message.type === "getActivity") {
       const { type: _type, ...query } = message;
       return repository.load(query);
     }
     if (message.type === "getActivitySessions") {
       return { sessions: await repository.loadSessions(message.platform) };
-    }
-    if (message.type === "exportDiagnostics") {
-      if (!repository.exportDiagnostics) return undefined;
-      return { events: await repository.exportDiagnostics(message.platform) };
     }
     if (message.type === "clearActivity") {
       await repository.clear();

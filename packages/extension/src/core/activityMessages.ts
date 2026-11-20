@@ -1,8 +1,28 @@
+import {
+  createActivityMessageHandler as createHistoryMessageHandler,
+  type ActivityHistoryRepository,
+} from "@lurkloot/shared/activityHistory";
+import { selectDiagnosticRecords } from "@lurkloot/shared/diagnostics";
+import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
+import type { Platform } from "@lurkloot/shared/models";
 import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
 
-// The activity message handler and event reporter are shared with the CLI
-// host (@lurkloot/shared/activityHistory); this routes the extension's own
-// runtime messages to them and to the controller.
+// The extension projects diagnostic rows from its own IndexedDB store.
+export function createActivityMessageHandler(
+  repository: ActivityHistoryRepository & {
+    exportDiagnostics(platform: Platform): Promise<ActivityHistoryRecord[]>;
+  },
+) {
+  const handleHistoryMessage = createHistoryMessageHandler(repository);
+  return async (message: RuntimeMessage) => {
+    if (message.type === "exportDiagnostics") {
+      const events = await repository.exportDiagnostics(message.platform);
+      return { events: selectDiagnosticRecords(events, message.platform) };
+    }
+    return handleHistoryMessage(message);
+  };
+}
+
 interface RuntimeMessageSender {
   tab?: { id?: number; url?: string };
 }

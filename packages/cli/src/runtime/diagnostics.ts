@@ -1,5 +1,3 @@
-import { constants } from "node:fs";
-import { open } from "node:fs/promises";
 import {
   buildDiagnosticsExport,
   selectDiagnosticRecords,
@@ -13,18 +11,11 @@ import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { PlatformCredentials } from "../authStore";
 import type { Logger } from "../logger";
-import { writeJsonAtomically } from "../storage";
+import { readJsonSidecar, stateSidecarPath, writeJsonAtomically } from "../storage";
 import { CLI_VERSION } from "../version";
 
 export const DIAGNOSTICS_LIMIT = 500;
 export const DIAGNOSTICS_WRITE_INTERVAL_MS = 5_000;
-// Room for JSON escaping and for older, indented snapshots.
-const MAX_FILE_BYTES = 4 * 1024 * 1024;
-
-export function diagnosticsPath(statePath: string): string {
-  return `${statePath}.diagnostics.json`;
-}
-
 export function diagnosticCredentialValues(credentials: PlatformCredentials): DiagnosticSecrets {
   const kickToken = credentials.kick?.sessionToken;
   const values = [
@@ -74,7 +65,7 @@ export async function createDiagnosticsHistory(
     dirty = false;
     nextWriteAt = performance.now() + DIAGNOSTICS_WRITE_INTERVAL_MS;
     try {
-      await writeJsonAtomically(diagnosticsPath(statePath), recent(), 0o600, 0);
+      await writeJsonAtomically(stateSidecarPath(statePath, "diagnostics"), recent(), 0o600, 0);
       warned = false;
     } catch {
       dirty = true;
@@ -143,19 +134,12 @@ export async function loadDiagnostics(
   secrets?: DiagnosticSecrets,
 ): Promise<{ events: DiagnosticRecord[]; savedAt?: string }> {
   try {
-    const file = await open(diagnosticsPath(statePath), constants.O_RDONLY | constants.O_NONBLOCK);
-    try {
-      const stat = await file.stat();
-      if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return { events: [] };
-      const raw: unknown = JSON.parse(await file.readFile("utf8"));
-      if (!Array.isArray(raw)) return { events: [] };
-      return {
-        events: selectDiagnosticRecords(raw.slice(0, DIAGNOSTICS_LIMIT), undefined, secrets),
-        savedAt: stat.mtime.toISOString(),
-      };
-    } finally {
-      await file.close();
-    }
+    const { value, savedAt } = await readJsonSidecar(stateSidecarPath(statePath, "diagnostics"));
+    if (!Array.isArray(value)) return { events: [] };
+    return {
+      events: selectDiagnosticRecords(value.slice(0, DIAGNOSTICS_LIMIT), undefined, secrets),
+      savedAt,
+    };
   } catch {
     // Missing, unreadable or corrupt history still permits a state report.
     return { events: [] };

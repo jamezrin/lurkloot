@@ -21,10 +21,18 @@ export async function loadState(path: string): Promise<SchedulerState> {
   }
 }
 
+// Keep the default activity file name so existing histories still open.
+export function stateSidecarPath(statePath: string, kind: "activity" | "diagnostics"): string {
+  if (kind === "activity" && basename(statePath) === "state.json") {
+    return join(dirname(statePath), "activity.json");
+  }
+  return `${statePath}.${kind}.json`;
+}
+
 // Room for JSON escaping and older, indented sidecar snapshots.
 const MAX_SIDECAR_BYTES = 4 * 1024 * 1024;
 
-export async function readJsonSidecar(path: string): Promise<unknown> {
+export async function readJsonSidecar(path: string): Promise<{ value: unknown; savedAt: string }> {
   // Inspect the same snapshot we read. A writer publishes changes by rename.
   const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
@@ -37,7 +45,12 @@ export async function readJsonSidecar(path: string): Promise<unknown> {
     let offset = 0;
     while (offset < buffer.length) {
       const { bytesRead } = await file.read(buffer, offset, buffer.length - offset, offset);
-      if (bytesRead === 0) return JSON.parse(buffer.toString("utf8", 0, offset)) as unknown;
+      if (bytesRead === 0) {
+        return {
+          value: JSON.parse(buffer.toString("utf8", 0, offset)) as unknown,
+          savedAt: stat.mtime.toISOString(),
+        };
+      }
       offset += bytesRead;
     }
     throw new Error("The sidecar grew while being read");
