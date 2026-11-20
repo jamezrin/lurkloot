@@ -58,7 +58,7 @@ export { KickClaimState } from "./claim/v2";
 // The route announcement state also shares this lifetime so unchanged routes
 // are not announced again when the next tick constructs an adapter.
 export class KickDiscoveryState {
-  readonly followedChannels = new FollowedChannelsCache("kick");
+  readonly followedChannels = new FollowedChannelsCache("kick", "Kick");
   readonly routeDiagnostics = new KickRouteState();
 }
 

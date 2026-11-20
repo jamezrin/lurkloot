@@ -11,7 +11,7 @@ import type {
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { safeHttpsUrl } from "@lurkloot/shared/rewardEvents";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
+import { authHealthFromError, isSafeFetchError, SafeFetchError } from "../../core/fetchError";
 import type { TwitchIntegrityRequest } from "../../core/tabRegistry";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import {
@@ -415,6 +415,7 @@ class TwitchGqlFailure extends Error {
   constructor(
     readonly kind: TwitchGqlFailureKind,
     message: string,
+    readonly status?: number,
   ) {
     super(message);
     this.name = "TwitchGqlFailure";
@@ -713,7 +714,7 @@ export class TwitchDiscoveryState {
   // unlike the other caches on this class: it is already a small, fully
   // self-contained value object. Not readonly only so setAuthenticatedUser can
   // swap it wholesale — see there for why replacing beats clearing in place.
-  followedChannels = new FollowedChannelsCache("twitch");
+  followedChannels = new FollowedChannelsCache("twitch", "Twitch");
   // Reward campaigns (#904): replaced whole on an account switch, like the
   // follow list, so a read in flight for the old account cannot write into it.
   rewardCampaigns = new TwitchRewardCampaignCache();
@@ -769,7 +770,7 @@ export class TwitchDiscoveryState {
       // pending fetch write the old user's logins back into the live cache
       // moments later. The orphaned instance still settles, but into an object
       // nothing reads any more.
-      this.followedChannels = new FollowedChannelsCache("twitch");
+      this.followedChannels = new FollowedChannelsCache("twitch", "Twitch");
       this.rewardCampaigns = new TwitchRewardCampaignCache();
     }
     // Bumped on any identity value change, including the initial transition
@@ -1156,7 +1157,8 @@ export function createTwitchGqlTransport(
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         const message = error instanceof Error ? error.message : `${operationName} request failed`;
-        throw stamp(new TwitchGqlFailure("network", message));
+        const status = isSafeFetchError(error) ? error.failure.status : undefined;
+        throw stamp(new TwitchGqlFailure("network", message, status));
       }
       const pageError = twitchPageFetchError(raw);
       if (pageError?.kind === "credentials") {
@@ -2600,7 +2602,7 @@ export class TwitchAdapter implements PlatformAdapter {
       if (!signal?.aborted && cache === this.discoveryState.followedChannels) {
         cache.reportFailure(
           this.emit,
-          error instanceof TwitchGqlFailure && error.kind === "network"
+          error instanceof TwitchGqlFailure && error.kind === "network" && (error.status ?? 0) < 500
             ? "network"
             : followedChannelFailureCause(error),
         );

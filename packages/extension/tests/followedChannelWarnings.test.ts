@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { KickDiscoveryState } from "@lurkloot/core/kick";
+import { KickWafBlockedError, safeKickFailure } from "@lurkloot/core/transport";
 import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { jsonFetcher, kickAdapter, twitchAdapter } from "./helpers/adapters";
@@ -27,8 +28,24 @@ describe.each([
       throw new SafeFetchError({ kind: "invalid_response", reason: sensitiveDetail });
     },
     networkFailure: () => {
-      throw new SafeFetchError({ kind: "network_error", reason: sensitiveDetail });
+      throw new KickWafBlockedError({ kind: "network_error", reason: sensitiveDetail });
     },
+    extraFailures: [
+      [
+        "WAF block",
+        () => {
+          throw new KickWafBlockedError(
+            `Non-JSON API response (likely a challenge page): ${sensitiveDetail}`,
+          );
+        },
+      ],
+      [
+        "auth",
+        () => {
+          throw new SafeFetchError(safeKickFailure(403, `<html>${sensitiveDetail}</html>`));
+        },
+      ],
+    ] as const,
   },
   {
     platform: "twitch",
@@ -42,10 +59,11 @@ describe.each([
       __twitchGqlError: sensitiveDetail,
       __twitchGqlFailureKind: "network",
     }),
+    extraFailures: [],
   },
 ])(
   "$platform followed-channel warnings",
-  ({ platform, createLookup, success, otherFailure, networkFailure }) => {
+  ({ platform, createLookup, success, otherFailure, networkFailure, extraFailures }) => {
     const authFailure = () => {
       throw new SafeFetchError({
         kind: "authentication_rejected",
@@ -67,6 +85,13 @@ describe.each([
       ["auth", authFailure],
       ["network", networkFailure],
       ["other", otherFailure],
+      [
+        "other",
+        () => {
+          throw new SafeFetchError({ kind: "http_error", status: 503, reason: sensitiveDetail });
+        },
+      ],
+      ...extraFailures,
     ] as const)("warns with the %s cause without including error details", async (cause, fail) => {
       const events: EngineEvent[] = [];
       const adapter = createLookup(jsonFetcher(fail), (event) => events.push(event))();

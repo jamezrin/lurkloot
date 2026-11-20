@@ -93,7 +93,10 @@ Failed followed-channel lookups on either platform remain best effort and cache
 an empty list for the existing five-minute window. The followed-list cache in
 each platform's discovery state also records whether it has warned for the
 current failure streak. Only the first failure emits a warning, with a fixed
-cause class (WAF block, auth, network, or other). A successful lookup, including
+cause class (WAF block, auth, network, or other). The warning treats recognized
+Kick challenge responses as WAF blocks and HTTP server errors as other. This
+classification only applies to the warning; auth probes still interpret the
+original transport failure kinds. A successful lookup, including
 an empty list, resets the streak. Twitch replaces its cache and streak on an
 account switch. Strict Twitch discovery also waits for stale refreshes so the
 refresh's warning reaches the discovery event collector.

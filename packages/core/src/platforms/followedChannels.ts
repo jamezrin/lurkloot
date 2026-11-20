@@ -1,11 +1,14 @@
 import type { EventEmitter } from "@lurkloot/shared/events";
+import type { Platform } from "@lurkloot/shared/models";
 import { isSafeFetchError } from "../core/fetchError";
 import { StaleWhileRevalidateCache } from "../core/staleCache";
+import { KickWafBlockedError } from "../core/transport";
 import { diagnostic } from "./adapter";
 
 type LookupFailureCause = "WAF block" | "auth" | "network" | "other";
 
 export function followedChannelFailureCause(error: unknown): LookupFailureCause {
+  if (error instanceof KickWafBlockedError && error.challenge) return "WAF block";
   if (!isSafeFetchError(error)) return "other";
   switch (error.failure.kind) {
     case "security_policy_blocked":
@@ -24,7 +27,10 @@ export function followedChannelFailureCause(error: unknown): LookupFailureCause 
 export class FollowedChannelsCache extends StaleWhileRevalidateCache<string[]> {
   private failureReported = false;
 
-  constructor(private readonly platform: "kick" | "twitch") {
+  constructor(
+    private readonly platform: Platform,
+    private readonly displayName: string,
+  ) {
     super(5 * 60_000);
   }
 
@@ -35,7 +41,11 @@ export class FollowedChannelsCache extends StaleWhileRevalidateCache<string[]> {
   reportFailure(emit: EventEmitter, cause: LookupFailureCause): void {
     if (this.failureReported) return;
     this.failureReported = true;
-    const name = this.platform === "kick" ? "Kick" : "Twitch";
-    diagnostic(emit, "warn", `${name} followed-channel lookup failed (${cause})`, this.platform);
+    diagnostic(
+      emit,
+      "warn",
+      `${this.displayName} followed-channel lookup failed (${cause})`,
+      this.platform,
+    );
   }
 }
