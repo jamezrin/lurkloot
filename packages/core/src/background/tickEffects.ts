@@ -17,6 +17,7 @@ import {
   type TabRegistry,
 } from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
+import { adapterOffers } from "./adapterSettings";
 import { PLATFORMS } from "./constants";
 
 // What an effect handler may use to perform a scheduler effect. It is built per
@@ -51,10 +52,10 @@ export function tickCapabilities(
   return {
     supportsTabless: Boolean(adapter.supportsTabless),
     watchTabs,
-    claimChallenges: typeof adapter.claimChallenges === "function",
-    claimChannelPoints: typeof adapter.claimChannelPoints === "function",
+    claimChallenges: adapterOffers(adapter, "claimChallenges"),
+    claimChannelPoints: adapterOffers(adapter, "claimChannelPoints"),
     // A streak payout arrives only over the platform's push connection.
-    observeWatchStreaks: typeof adapter.createChannelPointsPushController === "function",
+    observeWatchStreaks: adapterOffers(adapter, "channelPointsPush"),
   };
 }
 

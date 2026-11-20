@@ -485,6 +485,8 @@ describe("chat presence service", () => {
     expect((await settingsLoads(true)) - (await settingsLoads(false))).toBe(1);
   });
 
+  // The tick's unsupported-settings report owns this warning (#1090); the chat
+  // presence service itself stays quiet, so the key is reported only once.
   it("warns once when a platform has no chat client for alwaysEnterChat", async () => {
     const settings = farming({ ...DEFAULT_SETTINGS, tablessMode: true });
     const env = harness(
@@ -499,12 +501,18 @@ describe("chat presence service", () => {
       { initialState: runningWatch("kick") },
     );
     await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    await env.controller.tickAndHandOff(["kick"], "alarm");
+    await env.controller.tickAndHandOff(["kick"], "alarm");
     await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
-    const warnings = allDiagnostics(env).filter(
+    const noEffect = allDiagnostics(env).filter((event) =>
+      event.message.includes("platform.kick.alwaysEnterChat has no effect"),
+    );
+    const warnings = noEffect.filter(
       (event) =>
         event.message
-        === "Chat presence is not available for Kick, so platform.kick.alwaysEnterChat has no effect",
+        === "Kick on this host cannot join channel chat, so platform.kick.alwaysEnterChat has no effect",
     );
+    expect(noEffect).toHaveLength(1);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toMatchObject({ level: "warn", platform: "kick" });
   });

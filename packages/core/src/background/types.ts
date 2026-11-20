@@ -214,6 +214,8 @@ export interface SettingsCommitOptions {
 export interface TickAdapterHandle<S extends EngineSettings> {
   readonly platform: Platform;
   adapter(settings: S, emit: EventEmitter, reportCompatibility?: boolean): PlatformAdapter;
+  // The adapter this tick already built for `settings`, without building one.
+  built(settings: S): PlatformAdapter | undefined;
   drain(emit: EventEmitter): void;
   close(): void;
   settleRouteReports(): Promise<void>;
@@ -310,6 +312,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   reportUnsupportedSettings(
     settings: EngineSettings,
     tickContext?: TickDiagnosticContext,
+    adapterFor?: (platform: Platform) => PlatformAdapter | undefined,
   ): Promise<void>;
   emitNotifications(
     settings: EngineSettings,

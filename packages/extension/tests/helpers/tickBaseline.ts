@@ -342,7 +342,13 @@ async function runExtensionHeartbeatOverlapCell(
     ...DEFAULT_SETTINGS,
     tablessMode: true,
     platform: {
-      twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: platform === "twitch" },
+      // The counting adapter has no push connection, so push claiming is off:
+      // left on, the first tick would also publish its no-effect warning.
+      twitch: {
+        ...DEFAULT_SETTINGS.platform.twitch,
+        enabled: platform === "twitch",
+        channelPointsPushClaim: false,
+      },
       kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: platform === "kick" },
     },
   };
@@ -508,6 +514,8 @@ export async function runExtensionBaselineCell(
       twitch: {
         ...DEFAULT_SETTINGS.platform.twitch,
         enabled: platform === "twitch",
+        // No push connection on the counting adapter (see above).
+        channelPointsPushClaim: false,
         campaignPins: scenario === "higherPriorityUnavailable" ? ["twitch-urgent"] : [],
       },
       kick: {

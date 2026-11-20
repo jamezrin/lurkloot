@@ -14,6 +14,7 @@ import type {
 import { isWatchReward } from "@lurkloot/shared/rewards";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
+import { inertAdapterSettings, requestedAdapterSettings } from "./adapterSettings";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { platformLabel } from "./helpers";
@@ -236,6 +237,9 @@ export function createReporting<S extends EngineSettings>(
         this.drain(emit);
         return adapter;
       },
+      built(settings) {
+        return adapter && settingsFingerprint === JSON.stringify(settings) ? adapter : undefined;
+      },
       drain(emit) {
         for (const event of pendingEvents?.splice(0) ?? []) emit(event);
         adapter?.flushRouteDiagnostics?.(routeDiagnosticEmitter(emit, routeReports, tickContext));
@@ -418,14 +422,20 @@ export function createReporting<S extends EngineSettings>(
     }
   }
 
-  // Settings that need a capability this host does not declare (#593). Each is
-  // reported once per controller, with no platform, and changes nothing else.
+  // Settings that need a capability this host does not declare (#593), or a
+  // feature the platform's built adapter does not offer (#1090). Each key is
+  // reported once per controller and changes nothing else. Host-wide gaps carry
+  // no platform; adapter gaps carry theirs.
   const reportedUnsupportedSettings = new Set<string>();
+  // Adapter-backed keys already checked against a built adapter, reported or
+  // not, so a supported key does not build an adapter on every tick.
+  const checkedAdapterSettings = new Set<string>();
   async function reportUnsupportedSettings(
     settings: EngineSettings,
     tickContext?: TickDiagnosticContext,
+    adapterFor?: (platform: Platform) => PlatformAdapter | undefined,
   ): Promise<void> {
-    const unsupported: Array<readonly [string, string]> = [];
+    const unsupported: Array<readonly [string, string, Platform?]> = [];
     if (!ports.capabilities.browserTabs) {
       if (!settings.tablessMode) {
         unsupported.push([
@@ -447,11 +457,29 @@ export function createReporting<S extends EngineSettings>(
         unsupported.push([key, `This host cannot join channel chat, so ${key} has no effect`]);
       }
     }
+    for (const platform of PLATFORMS) {
+      if (!adapterFor || !settings.platform[platform].enabled) continue;
+      // Only a key not yet checked against a built adapter can be news.
+      const requested = requestedAdapterSettings(platform, settings, ports.capabilities);
+      if (requested.every(({ key }) => checkedAdapterSettings.has(key))) continue;
+      const adapter = adapterFor(platform);
+      if (!adapter) continue;
+      for (const { key } of requested) checkedAdapterSettings.add(key);
+      for (const inert of inertAdapterSettings(platform, settings, adapter, ports.capabilities)) {
+        unsupported.push([inert.key, inert.message, inert.platform]);
+      }
+    }
     const events = unsupported
       .filter(([key]) => !reportedUnsupportedSettings.has(key))
-      .map(([key, message]): EngineEvent => {
+      .map(([key, message, platform]): EngineEvent => {
         reportedUnsupportedSettings.add(key);
-        return { category: "diagnostic", level: "warn", message, ...tickContext };
+        return {
+          category: "diagnostic",
+          level: "warn",
+          message,
+          ...(platform ? { platform } : {}),
+          ...tickContext,
+        };
       });
     await reportBestEffort(events);
   }
