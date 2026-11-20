@@ -60,7 +60,7 @@ describe("HTTP popup adapter", () => {
       credentialExport: false,
       extensionPreferences: false,
       language: true,
-      activityHistory: false,
+      activityHistory: true,
     });
     // Nothing that only the extension can do.
     expect(adapter.exportCredentials).toBeUndefined();
@@ -198,8 +198,33 @@ describe("app over the control plane", () => {
     // The language is the app's own, so its picker stays.
     expect(settings).toContain(text("settingsLanguageTitle"));
 
+    // The CLI keeps an activity history (#1088), so Activity is the log, with
+    // no diagnostics stream: the CLI keeps diagnostics in its log only.
     await click(container.querySelector('button[data-view="activity"]'));
-    expect(container.querySelector("[data-activity-summary]")).not.toBeNull();
+    expect(container.querySelector("[data-activity-summary]")).toBeNull();
+    expect(container.querySelector("[data-activity-view-tab]")).toBeNull();
+    expect(container.textContent).not.toContain(text("exportAllDiagnostics"));
+  });
+
+  it("pages and clears the CLI's activity history over HTTP", async () => {
+    const { container, client } = await mountApp();
+    const sent = () =>
+      client.calls.map((call) => (call.body as { type?: string } | undefined)?.type);
+
+    await click(container.querySelector('button[data-view="activity"]'));
+    await vi.waitFor(() => {
+      expect(sent()).toContain("getActivity");
+      expect(sent()).toContain("getActivitySessions");
+    });
+    const clear = () =>
+      [...container.querySelectorAll("button")].find((button) =>
+        [text("clearActivityHistory"), text("confirmClearActivityHistory")].includes(
+          button.textContent ?? "",
+        ),
+      );
+    await click(clear());
+    await click(clear());
+    await vi.waitFor(() => expect(sent()).toContain("clearActivity"));
   });
 
   it("enables Fortnite from its provider view through the control plane", async () => {

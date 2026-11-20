@@ -23,8 +23,9 @@ Every request goes to the same origin, under `/v1`
   code, Kick TV link (a QR code to scan in the Kick phone app), sign-out.
 
 The app shows CLI farming settings, including controls and live status for
-NoPixelV and Fortnite. Activity shows the last check and each platform’s status.
-The CLI logs farming activity.
+NoPixelV and Fortnite. Activity pages through the CLI's history kept by
+`run` and `serve`, groups events by farming session, and can clear the history.
+The CLI keeps diagnostics in its log.
 
 What stays in the browser:
 

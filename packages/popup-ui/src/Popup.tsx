@@ -443,6 +443,11 @@ export function PopupFrame({
   const [extensionPending, setExtensionPending] = useState(false);
   const activityOpen = view === "activity" && !hostView;
   const activityHistory = hostCapabilities.activityHistory;
+  // Diagnostic logging is one of the extension's own preferences. A host
+  // without them (the CLI app) keeps no diagnostic history, whatever the
+  // merged settings default to, so its Activity view has no diagnostics stream.
+  const diagnosticLogging =
+    hostCapabilities.extensionPreferences && Boolean(snapshot?.settings.diagnosticLogging);
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
   const [activitySessions, setActivitySessions] = useState<FarmingSessionSummary[]>([]);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
@@ -679,8 +684,8 @@ export function PopupFrame({
   }, [platform, trimmedDiagnosticSearchQuery]);
 
   useEffect(() => {
-    if (!snapshot?.settings.diagnosticLogging) handleShowDiagnosticsChange(false);
-  }, [snapshot?.settings.diagnosticLogging]);
+    if (!diagnosticLogging) handleShowDiagnosticsChange(false);
+  }, [diagnosticLogging]);
 
   // The failure report needs recent activity, but the Activity view's stream is
   // only populated once the user opens that tab — and the panel lives on the
@@ -709,7 +714,7 @@ export function PopupFrame({
       || preview
       || clearingActivity
       || !showDiagnostics
-      || !snapshot?.settings.diagnosticLogging
+      || !diagnosticLogging
     )
       return;
     let cancelled = false;
@@ -760,7 +765,7 @@ export function PopupFrame({
     clearingActivity,
     preview,
     showDiagnostics,
-    snapshot?.settings.diagnosticLogging,
+    diagnosticLogging,
   ]);
 
   function loadMoreActivity(): void {
@@ -796,7 +801,7 @@ export function PopupFrame({
           }),
       );
     }
-    if (showDiagnostics && snapshot?.settings.diagnosticLogging && diagnosticStream.nextCursor) {
+    if (showDiagnostics && diagnosticLogging && diagnosticStream.nextCursor) {
       const cursor = diagnosticStream.nextCursor;
       const pageRequest = beginActivityMutation(diagnosticMutationSequenceRef.current);
       requests.push(
@@ -1913,7 +1918,7 @@ export function PopupFrame({
                                     diagnosticEvents={diagnosticStream.events}
                                     platform={platform}
                                     lastTickAt={snapshot.state.lastTickAt}
-                                    diagnosticLogging={settings.diagnosticLogging}
+                                    diagnosticLogging={diagnosticLogging}
                                     showDiagnostics={showDiagnostics}
                                     hasMore={Boolean(
                                       showDiagnostics
