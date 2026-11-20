@@ -24,12 +24,21 @@ export async function loadState(path: string): Promise<SchedulerState> {
 // renamed over state.json, so a crash or a full disk mid-write leaves the
 // previous state intact instead of a truncated file. Each save uses its own
 // temporary file, so concurrent saves never interleave; the last rename wins.
-export async function saveState(path: string, state: SchedulerState): Promise<void> {
+export function saveState(path: string, state: SchedulerState): Promise<void> {
+  return writeJsonAtomically(path, state);
+}
+
+export async function writeJsonAtomically(
+  path: string,
+  value: unknown,
+  mode?: number,
+  indent = 2,
+): Promise<void> {
   const directory = dirname(path);
   await mkdir(directory, { recursive: true });
   const temporary = join(directory, `.${basename(path)}.${randomUUID()}.tmp`);
   try {
-    await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`);
+    await writeFile(temporary, `${JSON.stringify(value, null, indent)}\n`, { mode, flag: "wx" });
     await rename(temporary, path);
   } catch (error) {
     await rm(temporary, { force: true });

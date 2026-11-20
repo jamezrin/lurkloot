@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -29,11 +30,18 @@ import {
   type EnabledPlatforms,
 } from "./transport";
 import { runLoop } from "./runtime/run";
+import {
+  diagnosticCredentialValues,
+  exportCliDiagnostics,
+  loadDiagnostics,
+} from "./runtime/diagnostics";
+import { loadState } from "./storage";
 import { serveLoop } from "./runtime/serve";
 import {
   DEFAULT_SERVE_HOST,
   DEFAULT_SERVE_PORT,
   resolveServeBinding,
+  SERVE_TOKEN_ENV,
   ServeConfigError,
 } from "./runtime/controlPlane";
 import { formatDiscoveredCampaign } from "./runtime/status";
@@ -162,6 +170,64 @@ const configCommand: CommandModule = {
   },
 };
 
+const diagnosticsCommand: CommandModule = {
+  command: "diagnostics",
+  describe: "Export recent farming diagnostics",
+  builder: (y) =>
+    y
+      .command({
+        command: "export",
+        describe: "Generate a diagnostics report for a bug report",
+        builder: (yy) =>
+          yy
+            .option("out", {
+              type: "string",
+              default: "-",
+              describe: 'New output file, or "-" for stdout',
+            })
+            .option("state", {
+              type: "string",
+              describe: "State file used by run or serve (default: <configDir>/state.json)",
+            }),
+        handler: async (argv) => {
+          const config = configOf(argv, loggerOf(argv));
+          const path = statePath(argv.state, config);
+          const secrets = [
+            process.env[SERVE_TOKEN_ENV]?.trim(),
+            ...diagnosticCredentialValues(loadCredentials(config.authDir)),
+          ];
+          const [state, { events, savedAt }] = await Promise.all([
+            loadState(path),
+            loadDiagnostics(path, secrets),
+          ]);
+          const { report } = exportCliDiagnostics({
+            snapshot: { state, settings: toEngineSettings(config.settings) },
+            events,
+            secrets,
+            history: { source: "saved sidecar", savedAt },
+          });
+          if (argv.out === "-") {
+            process.stdout.write(report);
+          } else {
+            try {
+              await writeFile(resolve(argv.out), report, { flag: "wx", mode: 0o600 });
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+              process.stderr.write(
+                "Diagnostics output file already exists. Choose a new --out path.\n",
+              );
+              process.exitCode = 1;
+            }
+          }
+        },
+      })
+      .demandCommand(1, "Specify the diagnostics export subcommand")
+      .strict(),
+  handler: () => {
+    /* a subcommand always runs; see demandCommand above */
+  },
+};
+
 const discoverCommand: CommandModule = {
   command: "discover",
   describe: "Run one discovery pass per enabled platform",
@@ -239,6 +305,10 @@ const runCommand: CommandModule = {
       transport: handle,
       logger,
       once: Boolean(argv.once),
+      diagnosticSecrets: () => [
+        process.env[SERVE_TOKEN_ENV]?.trim(),
+        ...diagnosticCredentialValues(creds),
+      ],
       checkCredentialAvailability: async (platform) =>
         runCredentialAvailability(config.authDir, platform),
     });
@@ -317,6 +387,7 @@ const serveCommand: CommandModule = {
       logger,
       checkCredentialAvailability: async (platform) =>
         runCredentialAvailability(config.authDir, platform),
+      diagnosticSecrets: () => diagnosticCredentialValues(creds),
       describeCredentials: () => describeCredentialHealth(config.authDir),
       auth: { authDir: config.authDir },
       ...(argv.readyJson ? { readyOutput: process.stdout } : {}),
@@ -517,6 +588,7 @@ function buildCli(argv: string[]): Argv {
     })
     .command(validateConfigCommand)
     .command(configCommand)
+    .command(diagnosticsCommand)
     .command(discoverCommand)
     .command(runCommand)
     .command(serveCommand)

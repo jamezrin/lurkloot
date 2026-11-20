@@ -70,8 +70,8 @@ function recentEvents(entries: readonly ActivityHistoryRecord[]): string {
 // Farming-relevant settings only, all booleans and enums. Channel lists and
 // anything free-form are deliberately excluded. tablessMode is here because the
 // motivating user report could not be diagnosed without knowing it.
-function settingsSummary(settings: EngineSettings, platform: Platform): string {
-  return bullets([
+export function farmingSettingsEntries(settings: EngineSettings, platform: Platform) {
+  return [
     ["farming active", isFarmingActive(settings)],
     ["tablessMode", settings.tablessMode],
     ["autoClaim", settings.autoClaim],
@@ -82,7 +82,7 @@ function settingsSummary(settings: EngineSettings, platform: Platform): string {
     ["categoryMode", settings.platform[platform].categoryMode],
     ["compatibility profile", settings.compatibility[platform].profile],
     ["criticalFailurePromptEnabled", settings.criticalFailurePromptEnabled],
-  ]);
+  ] as const;
 }
 
 function rewardFilterSummary(filter: RewardFilter): string {
@@ -94,10 +94,30 @@ function rewardFilterSummary(filter: RewardFilter): string {
   ].join(" · ");
 }
 
+// Watch and auth health only. Raw channel, account, message and heartbeat context
+// objects can carry private or transport data.
+export function watchSessionEntries(state: SchedulerState, platform: Platform) {
+  const session = state.sessions[platform];
+  const auth = state.authHealth[platform];
+  return [
+    ["status", session.status],
+    ["reason code", session.reasonCode],
+    ["watch mode", session.watchMode],
+    ["tabless fallback", session.tablessFallback],
+    ["tabless fallback at", session.tablessFallbackAt],
+    ["tabless fallback attempts", session.tablessFallbackAttempts],
+    ["last heartbeat ok", session.lastHeartbeatOk],
+    ["heartbeat checks", session.heartbeatChecks],
+    ["offline checks", session.offlineChecks],
+    ["error checks", session.errorChecks],
+    ["retry after", session.retryAfter],
+    ["auth status", auth.status],
+    ["auth reason", auth.reasonCode],
+  ] as const;
+}
+
 export function buildFailureReport(input: FailureReportInput): string {
   const health = input.state.criticalHealth?.[input.platform];
-  const session = input.state.sessions[input.platform];
-  const auth = input.state.authHealth[input.platform];
 
   return [
     "# Lurkloot critical failure report",
@@ -113,25 +133,8 @@ export function buildFailureReport(input: FailureReportInput): string {
       ]),
     ),
     section("Detector", detector(health)),
-    section(
-      "Session",
-      bullets([
-        ["status", session.status],
-        ["reason code", session.reasonCode],
-        ["watch mode", session.watchMode],
-        ["tabless fallback", session.tablessFallback],
-        ["tabless fallback at", session.tablessFallbackAt],
-        ["tabless fallback attempts", session.tablessFallbackAttempts],
-        ["last heartbeat ok", session.lastHeartbeatOk],
-        ["heartbeat checks", session.heartbeatChecks],
-        ["offline checks", session.offlineChecks],
-        ["error checks", session.errorChecks],
-        ["retry after", session.retryAfter],
-        ["auth status", auth.status],
-        ["auth reason", auth.reasonCode],
-      ]),
-    ),
-    section("Settings", settingsSummary(input.settings, input.platform)),
+    section("Session", bullets(watchSessionEntries(input.state, input.platform))),
+    section("Settings", bullets(farmingSettingsEntries(input.settings, input.platform))),
     section("Failure records", records(health)),
     section("Recent events", recentEvents(input.events)),
   ].join("\n");

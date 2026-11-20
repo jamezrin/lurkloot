@@ -137,14 +137,14 @@ describe("serve launcher options", () => {
       exitWithInput: input,
       onListening: (address) => {
         port = address.port;
+        input.end();
       },
     });
-    input.end();
     await running;
     expect(transport.dispose).toHaveBeenCalledTimes(1);
     expect(written.text()).toBe("");
-    // The input ends before the bind completes: the server came up while the
-    // loop stopped, and was closed before the loop ended.
+    // Input ends as the server binds, before the ready hook. Shutdown closes
+    // the server before the loop ends.
     expect(port).not.toBe(0);
     await expect(getStatus(`http://127.0.0.1:${port}/`)).rejects.toThrow();
   });

@@ -23,6 +23,7 @@
     "./unlinkedCampaigns": "./src/unlinkedCampaigns.ts",
     "./events": "./src/events.ts",
     "./criticalHealth": "./src/criticalHealth.ts",
+    "./diagnostics": "./src/diagnostics.ts",
     "./failureReport": "./src/failureReport.ts",
     "./compatibility": "./src/compatibility.ts",
     "./errors": "./src/errors.ts",

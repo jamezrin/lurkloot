@@ -73,6 +73,14 @@ describe("activity message routing", () => {
         category: "diagnostic",
         level: "info",
         message: "hello",
+        data: { cookie: "private-cookie-value" },
+      },
+      {
+        id: "d2",
+        at: "2026-08-16T00:00:01.000Z",
+        category: "diagnostic",
+        level: "debug",
+        message: 'Received {"Authorization": "Bearer private-header-value"}',
       },
     ];
     const exportDiagnostics = vi.fn(async () => events);
@@ -84,7 +92,10 @@ describe("activity message routing", () => {
     });
 
     await expect(handler({ type: "exportDiagnostics", platform: "kick" })).resolves.toEqual({
-      events,
+      events: [
+        { ...events[0], data: undefined },
+        { ...events[1], message: "[redacted]" },
+      ],
     });
     expect(exportDiagnostics).toHaveBeenCalledWith("kick");
   });

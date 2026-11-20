@@ -1028,28 +1028,26 @@ describe("runLoop heartbeat driver", () => {
   it("clears both recurring drivers before transport disposal on SIGTERM", async () => {
     const disposeStarted = deferred<void>();
     const finishDispose = deferred<void>();
-    const timerCountsAtDispose: number[] = [];
     const { running, twitch, watcher } = await startHeartbeatDriver({
       dispose: async () => {
-        timerCountsAtDispose.push(vi.getTimerCount());
         disposeStarted.resolve();
         await finishDispose.promise;
       },
     });
 
-    // The Twitch and Kick tick jobs, the heartbeat job, (since #590) the
-    // one-minute channel-points job and the one-minute account-progress job.
-    expect(vi.getTimerCount()).toBe(5);
     process.emit("SIGTERM");
     await disposeStarted.promise;
-    expect(timerCountsAtDispose).toEqual([0]);
-
-    await vi.advanceTimersByTimeAsync(7 * 60_000);
-    expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
-    expect(watcher.tick).not.toHaveBeenCalled();
-
-    finishDispose.resolve();
-    await running;
+    try {
+      // The diagnostics writer may have one pending flush during disposal.
+      expect(vi.getTimerCount()).toBeLessThanOrEqual(1);
+      await vi.advanceTimersByTimeAsync(7 * 60_000);
+      expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(1);
+      expect(watcher.tick).not.toHaveBeenCalled();
+    } finally {
+      finishDispose.resolve();
+      await running;
+    }
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("removes only its own SIGINT and SIGTERM listeners after shutdown", async () => {
@@ -1091,7 +1089,6 @@ describe("runLoop heartbeat driver", () => {
     process.on("SIGTERM", existingSigterm);
     const sigintListenersBefore = process.listeners("SIGINT");
     const sigtermListenersBefore = process.listeners("SIGTERM");
-    const disposeStarted = deferred<void>();
     const removeRunListeners = () => {
       for (const listener of process.listeners("SIGINT")) {
         if (!sigintListenersBefore.includes(listener)) process.removeListener("SIGINT", listener);
@@ -1104,27 +1101,13 @@ describe("runLoop heartbeat driver", () => {
     try {
       const { running } = await startHeartbeatDriver({
         dispose: async () => {
-          disposeStarted.resolve();
           throw new Error("transport disposal failed");
         },
       });
-      const settlement = running.then(
-        () => ({ status: "resolved" as const }),
-        (error: unknown) => ({ status: "rejected" as const, error }),
-      );
+      const rejected = expect(running).rejects.toThrow("transport disposal failed");
 
       process.emit("SIGTERM");
-      await disposeStarted.promise;
-      // Timers are fake here; a few microtask turns let the rejection travel
-      // through the shutdown's awaits without counting them exactly.
-      for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
-
-      expect(
-        await Promise.race([settlement, Promise.resolve({ status: "pending" as const })]),
-      ).toEqual({
-        status: "rejected",
-        error: expect.objectContaining({ message: "transport disposal failed" }),
-      });
+      await rejected;
       expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
       expect(process.listeners("SIGTERM")).toEqual(sigtermListenersBefore);
       expect(existingSigterm).toHaveBeenCalledOnce();

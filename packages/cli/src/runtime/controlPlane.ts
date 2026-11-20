@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isIPv4, isIPv6, type AddressInfo } from "node:net";
-import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type {
   EngineSettings,
   Platform,
@@ -37,6 +37,7 @@ const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 // resumeAfterManualClose), is refused before it reaches the controller.
 const SUPPORTED_MESSAGES = {
   getSnapshot: { platform: false, writesSettings: false },
+  exportDiagnostics: { platform: true, writesSettings: false },
   setPlatformEnabled: { platform: true, writesSettings: true },
   setAutomation: { platform: true, writesSettings: true },
   saveSettings: { platform: false, writesSettings: true },
@@ -47,11 +48,11 @@ const SUPPORTED_MESSAGES = {
   tickNow: { platform: false, writesSettings: false },
   dismissCriticalFailure: { platform: true, writesSettings: false },
 } as const satisfies Partial<
-  Record<CoreRuntimeMessage["type"], { platform: boolean; writesSettings: boolean }>
+  Record<RuntimeMessage["type"], { platform: boolean; writesSettings: boolean }>
 >;
 
 export type ControlPlaneMessageType = keyof typeof SUPPORTED_MESSAGES;
-export type ControlPlaneMessage = Extract<CoreRuntimeMessage, { type: ControlPlaneMessageType }>;
+export type ControlPlaneMessage = Extract<RuntimeMessage, { type: ControlPlaneMessageType }>;
 export const SUPPORTED_MESSAGE_TYPES = Object.keys(
   SUPPORTED_MESSAGES,
 ) as readonly ControlPlaneMessageType[];

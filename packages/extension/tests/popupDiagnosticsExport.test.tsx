@@ -134,6 +134,7 @@ describe("popup diagnostics export", () => {
     expect(filename).toMatch(/^lurkloot-diagnostics-twitch-\d{8}T\d{6}Z\.log$/);
     expect(contents).toContain("coverage: full");
     expect(contents).toContain("full history line");
+    expect(contents).toContain("[twitch settings and runtime state]");
     expect(mimeType).toBe("text/plain");
   });
 
