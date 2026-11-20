@@ -12,6 +12,7 @@ import {
   channelCandidateForLogin,
   type CandidateChannelSelection,
   type ChannelCheckRequest,
+  type KnownChannelChecks,
   type PlatformAdapter,
 } from "../platforms/adapter";
 import { errorMessage } from "@lurkloot/shared/errors";
@@ -103,6 +104,8 @@ export async function collectDiscoverySnapshot(
     | "checkChannels"
     | "selectCandidateChannel"
     | "listFollowedChannels"
+    | "knownChannelLimit"
+    | "prepareKnownChannelChecks"
   >,
   session: Parameters<PlatformAdapter["refreshCampaigns"]>[0],
   signal: AbortSignal,
@@ -132,15 +135,18 @@ export async function collectDiscoverySnapshot(
   const excluded = new Set(settings?.platform[adapter.platform].excludedChannels);
   const knownChannels = new Map<string, ChannelCandidate>();
   if (preferKnownChannels) {
-    for (const username of followedChannels) {
-      const login = username.trim().toLowerCase();
-      if (login && !excluded.has(login)) {
-        knownChannels.set(login, channelCandidateForLogin(adapter.platform, login));
-      }
-    }
+    const limit = adapter.knownChannelLimit ?? 100;
     for (const candidate of idleCandidates) {
+      if (knownChannels.size >= limit) break;
       const login = candidate.username.toLowerCase();
       if (!excluded.has(login)) knownChannels.set(login, candidate);
+    }
+    for (const username of followedChannels) {
+      if (knownChannels.size >= limit) break;
+      const login = username.trim().toLowerCase();
+      if (login && !excluded.has(login) && !knownChannels.has(login)) {
+        knownChannels.set(login, channelCandidateForLogin(adapter.platform, login));
+      }
     }
   }
   const observations: DiscoveryCampaignObservation[] = [];
@@ -152,8 +158,11 @@ export async function collectDiscoverySnapshot(
   let batchRequests = 0;
   let singleFallbacks = 0;
   let skippedBeforeChannelWork = 0;
-  let uniqueChannelChecks = 0;
-  let precheckedStreams: Map<string, ChannelCheck> | undefined;
+  let uniqueBatchChannelChecks = 0;
+  const checkedLogins = new Set<string>();
+  const bestEffortLogins = new Set<string>();
+  let knownChecks: KnownChannelChecks | undefined;
+  const precheckedStreams = new Map<string, ChannelCheck>();
   const recordSelection = (selection: CandidateChannelSelection): ChannelCheck[] => {
     cacheHits += selection.metrics?.cacheHits ?? 0;
     cacheMisses += selection.metrics?.cacheMisses ?? 0;
@@ -165,6 +174,12 @@ export async function collectDiscoverySnapshot(
         ? [{ live: true, categoryMatches: true, candidate: selection.channel }]
         : [])
     );
+  };
+  const recordChecks = (selection: CandidateChannelSelection): ChannelCheck[] => {
+    candidatesChecked += selection.checked;
+    const checks = recordSelection(selection);
+    for (const check of checks) checkedLogins.add(check.candidate.username.toLowerCase());
+    return checks;
   };
   const observe = (
     check: ChannelCheck,
@@ -205,70 +220,68 @@ export async function collectDiscoverySnapshot(
       requireComplete: true,
     });
     const includeKnown = !campaign.allowedChannels?.length && knownChannels.size > 0;
-    const candidatesByLogin = new Map(includeKnown ? knownChannels : undefined);
-    const listedLogins = new Set<string>();
+    const listed = new Map<string, ChannelCandidate>();
     const current = session?.campaignId === campaign.id ? session.channel : undefined;
     for (const candidate of current ? [current, ...listedCandidates] : listedCandidates) {
       const login = candidate.username.toLowerCase();
-      if (excluded.has(login)) continue;
-      listedLogins.add(login);
-      candidatesByLogin.set(login, candidate);
+      if (!excluded.has(login)) listed.set(login, candidate);
     }
-    const candidates = [...candidatesByLogin.values()];
+    const knownOnly = includeKnown
+      ? [...knownChannels].filter(([login]) => !listed.has(login))
+      : [];
     const observed: DiscoveryCandidateObservation[] = [];
-    const record = (check: ChannelCheck) => {
-      // Keep negative evidence for directory/current candidates. A known
-      // channel trying a different category adds no campaign observation.
-      if (
-        !includeKnown
-        || listedLogins.has(check.candidate.username.toLowerCase())
-        || passes(check)
-      )
-        observed.push(observe(check, watchCampaign));
-    };
     if (adapter.checkChannels) {
-      for (const candidate of candidates) {
+      for (const [login, candidate] of listed) {
         batchRequestsToCheck.push({
           channel: candidate,
           campaign: watchCampaign,
-          ...(includeKnown && knownChannels.has(candidate.username.toLowerCase())
-            ? { alwaysCheck: true }
-            : {}),
+          ...(includeKnown && knownChannels.has(login) ? { alwaysCheck: true } : {}),
         });
-        batchRecorders.push(record);
+        batchRecorders.push((check) => observed.push(observe(check, watchCampaign)));
+      }
+      for (const [login, candidate] of knownOnly) {
+        bestEffortLogins.add(login);
+        batchRequestsToCheck.push({
+          channel: candidate,
+          campaign: watchCampaign,
+          alwaysCheck: true,
+          bestEffort: true,
+        });
+        batchRecorders.push((check) => {
+          if (passes(check)) observed.push(observe(check, watchCampaign));
+        });
       }
     } else if (adapter.selectCandidateChannel) {
-      if (includeKnown && !precheckedStreams) {
-        // Batch public stream evidence once, including the idle Watchlist, then
-        // let each campaign apply its own category and availability checks.
-        const streams = new Map(knownChannels);
-        for (const candidate of idleCandidates) {
-          streams.set(candidate.username.toLowerCase(), candidate);
+      if (knownOnly.length && !knownChecks && adapter.prepareKnownChannelChecks) {
+        const candidates = [...knownChannels.values()];
+        knownChecks = await adapter.prepareKnownChannelChecks(candidates, { signal });
+        // The one-off stream pass counts actual attempted logins, including
+        // failed entries. Reusing its evidence adds no unique checks.
+        for (const candidate of candidates.slice(0, knownChecks.streams.checked)) {
+          checkedLogins.add(candidate.username.toLowerCase());
         }
-        const selection = await adapter.selectCandidateChannel([...streams.values()], undefined, {
-          signal,
-        });
-        precheckedStreams = new Map(
-          recordSelection(selection).map((check) => [
-            check.candidate.username.toLowerCase(),
-            check,
-          ]),
-        );
+        for (const check of recordSelection(knownChecks.streams)) {
+          precheckedStreams.set(check.candidate.username.toLowerCase(), check);
+        }
       }
-      const selection = await adapter.selectCandidateChannel(candidates, watchCampaign, {
+      if (knownChecks && knownOnly.length) {
+        const streams = knownOnly.flatMap(([login]) => precheckedStreams.get(login) ?? []);
+        const selection = await knownChecks.checkCampaign(watchCampaign, streams);
+        for (const check of recordChecks(selection)) observed.push(observe(check, watchCampaign));
+      }
+      const selection = await adapter.selectCandidateChannel([...listed.values()], watchCampaign, {
         signal,
-        precheckedStreams: includeKnown ? precheckedStreams : undefined,
+        precheckedStreams,
       });
-      candidatesChecked += selection.checked;
-      recordSelection(selection).forEach(record);
+      for (const check of recordChecks(selection)) observed.push(observe(check, watchCampaign));
     } else {
-      for (const candidate of candidates) {
+      for (const [login, candidate] of listed) {
         signal.throwIfAborted();
         const check = await adapter.checkChannel(candidate, { campaign: watchCampaign, signal });
         candidatesChecked += 1;
-        record(check);
-        if (!(includeKnown && knownChannels.has(candidate.username.toLowerCase())) && passes(check))
-          break;
+        checkedLogins.add(login);
+        observed.push(observe(check, watchCampaign));
+        if (!(includeKnown && knownChannels.has(login)) && passes(check)) break;
       }
     }
     observations.push({ campaign, candidates: observed });
@@ -276,7 +289,10 @@ export async function collectDiscoverySnapshot(
   const observedIdleCandidates: DiscoveryCandidateObservation[] = [];
   if (adapter.checkChannels) {
     for (const candidate of idleCandidates) {
-      batchRequestsToCheck.push({ channel: candidate });
+      batchRequestsToCheck.push({
+        channel: candidate,
+        ...(bestEffortLogins.has(candidate.username.toLowerCase()) ? { bestEffort: true } : {}),
+      });
       batchRecorders.push((check) => observedIdleCandidates.push(observe(check)));
     }
     const batch = await adapter.checkChannels(batchRequestsToCheck, {
@@ -286,11 +302,12 @@ export async function collectDiscoverySnapshot(
     signal.throwIfAborted();
     if (batch.checks.length !== batchRequestsToCheck.length)
       throw new Error("Channel discovery batch was incomplete");
-    uniqueChannelChecks = batch.uniqueChannelChecks;
+    uniqueBatchChannelChecks = batch.uniqueChannelChecks;
     const satisfiedCampaigns = new Set<string>();
     for (const [index, request] of batchRequestsToCheck.entries()) {
       const check = batch.checks[index];
       if (!check) {
+        if (request.bestEffort) continue;
         if (
           request.alwaysCheck
           || !request.campaign
@@ -307,20 +324,29 @@ export async function collectDiscoverySnapshot(
       batchRecorders[index]!(check);
     }
   } else if (adapter.selectCandidateChannel) {
-    const selection = await adapter.selectCandidateChannel(idleCandidates, undefined, {
+    // Failed optional probes have no idle evidence either. Do not retry them
+    // through the ordinary path just because a login also occurs in the Watchlist.
+    const idleToCheck = knownChecks
+      ? idleCandidates.filter((candidate) => {
+          const login = candidate.username.toLowerCase();
+          return !knownChannels.has(login) || precheckedStreams.has(login);
+        })
+      : idleCandidates;
+    const selection = await adapter.selectCandidateChannel(idleToCheck, undefined, {
       signal,
       precheckedStreams,
     });
-    candidatesChecked += selection.checked;
-    observedIdleCandidates.push(...recordSelection(selection).map((check) => observe(check)));
+    observedIdleCandidates.push(...recordChecks(selection).map((check) => observe(check)));
   } else {
     for (const candidate of idleCandidates) {
       signal.throwIfAborted();
       const check = await adapter.checkChannel(candidate, { signal });
       candidatesChecked += 1;
+      checkedLogins.add(candidate.username.toLowerCase());
       observedIdleCandidates.push(observe(check));
     }
   }
+  signal.throwIfAborted();
   return {
     campaigns: observations,
     idleCandidates: observedIdleCandidates,
@@ -329,7 +355,7 @@ export async function collectDiscoverySnapshot(
     metrics: {
       campaigns: campaigns.length,
       skippedBeforeChannelWork,
-      uniqueChannelChecks: adapter.checkChannels ? uniqueChannelChecks : candidatesChecked,
+      uniqueChannelChecks: adapter.checkChannels ? uniqueBatchChannelChecks : checkedLogins.size,
       candidates: candidatesChecked,
       cacheHits,
       cacheMisses,

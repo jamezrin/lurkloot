@@ -7,8 +7,17 @@ import {
   type DiscoveryRefreshResult,
 } from "@lurkloot/core/discoverySnapshot";
 import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
-import type { DropCampaign, Platform } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  Platform,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
+import type { ChannelCheckRequest } from "@lurkloot/core/adapter";
+import { SafeFetchError } from "@lurkloot/core/fetchError";
+import { createTabRegistry } from "@lurkloot/core/tabRegistry";
+import { runSchedulerTick } from "./helpers/schedulerTick";
 import { jsonFetcher, kickAdapter, twitchAdapter } from "./helpers/adapters";
 
 const metrics: DiscoveryRefreshMetrics = {
@@ -317,7 +326,11 @@ describe("collectDiscoverySnapshot", () => {
                         data: {
                           channel: {
                             id,
-                            viewerDropCampaigns: id === "friend-id" ? [{ id: other.id }] : [],
+                            viewerDropCampaigns: strictAvailability
+                              ? id === "friend-id"
+                                ? [{ id: other.id }]
+                                : []
+                              : [{ id: source.id }, { id: other.id }],
                           },
                         },
                       };
@@ -453,27 +466,363 @@ describe("collectDiscoverySnapshot", () => {
     );
   });
 
+  function twitchKnownChannels({
+    follows = ["friend"],
+    categoryFor = () => "13",
+    directory = () => false,
+    availability = () => [] as Array<{ id: string }>,
+    streamFailure,
+    availabilityFailure,
+  }: {
+    follows?: string[];
+    categoryFor?: (login: string) => string;
+    directory?: (slug: string) => boolean;
+    availability?: () => Array<{ id: string }>;
+    streamFailure?: () => unknown;
+    availabilityFailure?: () => unknown;
+  } = {}) {
+    type Operation = {
+      operationName: string;
+      variables: { channel: string; channelID: string; slug: string };
+    };
+    const streamRequests: Array<{ batch: boolean; logins: string[] }> = [];
+    const directorySlugs: string[] = [];
+    const availabilityRequests: string[][] = [];
+    const adapter = twitchAdapter(
+      jsonFetcher((_url, init) => {
+        const body = JSON.parse(String(init?.body)) as Operation | Operation[];
+        const entries = Array.isArray(body) ? body : [body];
+        if (entries[0]?.operationName === "StreamInfo") {
+          streamRequests.push({
+            batch: Array.isArray(body),
+            logins: entries.map(({ variables }) => variables.channel),
+          });
+          if (Array.isArray(body) && streamFailure) return streamFailure();
+        }
+        if (entries[0]?.operationName === "DropsHighlightService_AvailableDrops") {
+          availabilityRequests.push(entries.map(({ variables }) => variables.channelID));
+          if (availabilityFailure) return availabilityFailure();
+        }
+        const respond = ({ operationName, variables }: Operation) => {
+          switch (operationName) {
+            case "FollowedLiveChannels":
+              return {
+                data: {
+                  currentUser: {
+                    followedLiveUsers: {
+                      edges: follows.map((login) => ({ node: { login } })),
+                    },
+                  },
+                },
+              };
+            case "StreamInfo":
+              return {
+                data: {
+                  user: {
+                    id: `${variables.channel}-id`,
+                    stream: {
+                      id: `${variables.channel}-stream`,
+                      game: { id: categoryFor(variables.channel) },
+                    },
+                  },
+                },
+              };
+            case "DropsHighlightService_AvailableDrops":
+              return {
+                data: { channel: { id: variables.channelID, viewerDropCampaigns: availability() } },
+              };
+            case "GameSlugs":
+              return { data: { g0: { id: "13", slug: "allowed" } } };
+            case "DirectoryPage_Game":
+              directorySlugs.push(variables.slug);
+              return {
+                data: {
+                  game: {
+                    streams: {
+                      edges: directory(variables.slug)
+                        ? [
+                            {
+                              node: {
+                                id: "directory-stream",
+                                broadcaster: { id: "directory-id", login: "directory" },
+                              },
+                            },
+                          ]
+                        : [],
+                    },
+                  },
+                },
+              };
+            default:
+              throw new Error(`Unexpected Twitch operation ${operationName}`);
+          }
+        };
+        return Array.isArray(body) ? entries.map(respond) : respond(body as Operation);
+      }),
+      undefined,
+      { strictCampaignAvailability: false },
+    );
+    return { adapter, streamRequests, directorySlugs, availabilityRequests };
+  }
+
+  it.each([false, true])(
+    "farms the lower Twitch campaign when the pinned one lacks Drops evidence (hours=%s)",
+    async (overHours) => {
+      const top = preferenceCampaign("twitch", "pinned", "13");
+      const lower = preferenceCampaign("twitch", "lower", "99");
+      lower.rewards[0]!.requiredMinutes = 300;
+      const { adapter } = twitchKnownChannels({ directory: (slug) => slug === "lower" });
+      const settings = mergeSettings(undefined);
+      settings.platform.twitch.enabled = true;
+      settings.tablessMode = false;
+      settings.platform.twitch.campaignPins = [top.id];
+      const initialTime = new Date("2026-01-01T12:00:00Z").getTime();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const open = vi.fn(async (channel: ChannelCandidate) => ({
+        tabId: 1,
+        managedByExtension: true,
+        managedTab: {
+          platform: channel.platform,
+          tabId: 1,
+          channelUrl: channel.url,
+          ownedByExtension: true as const,
+        },
+      }));
+      const stop = vi.fn();
+      const tabRegistry = createTabRegistry();
+      const health = { status: "healthy", checkedAt: new Date(initialTime).toISOString() } as const;
+      let state: SchedulerState = {
+        authHealth: { twitch: health, kick: health },
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      };
+      let minutesFarmed = 0;
+      const lane = new DiscoverySnapshotLane("twitch", ({ signal }) =>
+        collectDiscoverySnapshot(
+          adapter,
+          state.sessions.twitch,
+          signal,
+          Date.now,
+          true,
+          [],
+          undefined,
+          settings,
+        ),
+      );
+      vi.spyOn(adapter, "refreshCampaigns").mockImplementation(async () => [
+        top,
+        { ...lower, rewards: [{ ...lower.rewards[0]!, watchedMinutes: minutesFarmed }] },
+      ]);
+      try {
+        for (let minute = 0; minute < (overHours ? 180 : 1); minute++) {
+          vi.setSystemTime(initialTime + minute * 60_000);
+          if (state.sessions.twitch.channel?.username === "directory") minutesFarmed++;
+          if (state.sessions.twitch.channel) {
+            state.sessions.twitch.playback = {
+              platform: "twitch",
+              checkedAt: new Date().toISOString(),
+              videoCount: 1,
+              playingVideoCount: 1,
+              mutedVideoCount: 1,
+              unmutedVideoCount: 0,
+              blockedPlaybackCount: 0,
+              documentHidden: true,
+            };
+          }
+          await lane.requestAndWait();
+          expect(lane.current().lastAttempt?.complete).toBe(true);
+          const snapshot = lane.current().snapshot!;
+          const selection = await selectWatchTargetFromSnapshot({
+            snapshot,
+            previous: state.sessions.twitch,
+            previousCampaigns: state.campaigns.twitch,
+            settings,
+          });
+          if (minute === 0 && !overHours)
+            expect(selection.decision.channel?.username).toBe("directory");
+          const twitch = Object.assign(
+            adapterFromDiscoverySnapshot(adapter, snapshot, state.sessions.twitch),
+            { prepareWatchTab: open, stopWatchTab: stop },
+          );
+          state = (
+            await runSchedulerTick(
+              state,
+              settings,
+              { twitch, kick: kickAdapter(jsonFetcher(() => null)) },
+              {
+                platforms: ["twitch"],
+                tabRegistry,
+                selections: { twitch: selection },
+                discovery: {
+                  twitch: {
+                    campaigns: snapshot.campaigns.map(({ campaign }) => campaign),
+                    complete: true,
+                  },
+                },
+              },
+            )
+          ).state;
+        }
+        expect(state.sessions.twitch).toMatchObject({
+          status: "watching",
+          campaignId: "lower",
+          channel: { username: "directory" },
+        });
+        expect(minutesFarmed).toBe(overHours ? 179 : 0);
+        expect(open).toHaveBeenCalled();
+        expect(open.mock.calls.map(([channel]) => channel.username)).not.toContain("friend");
+        expect(stop).not.toHaveBeenCalled();
+        expect(state.criticalHealth?.twitch?.managedTabOpens.length ?? 0).toBeLessThanOrEqual(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it("checks followed channels only against allowed categories of a sitewide Twitch campaign", async () => {
+    const { adapter, directorySlugs, availabilityRequests } = twitchKnownChannels({
+      follows: ["allowed", "blocked"],
+      categoryFor: (login) => (login === "allowed" ? "13" : "99"),
+    });
+    const campaign: DropCampaign = {
+      ...preferenceCampaign("twitch", "sitewide", "13"),
+      sitewide: true,
+      categories: [
+        { id: "13", name: "Allowed" },
+        { id: "99", name: "Blocked" },
+      ],
+    };
+    vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign]);
+    const settings = mergeSettings(undefined);
+    settings.platform.twitch.blockedCategories = [{ id: "99", name: "Blocked" }];
+    const result = await collectDiscoverySnapshot(
+      adapter,
+      undefined,
+      new AbortController().signal,
+      Date.now,
+      true,
+      [],
+      undefined,
+      settings,
+    );
+    expect(result.campaigns[0]?.candidates.map(({ candidate }) => candidate.username)).toEqual([
+      "allowed",
+    ]);
+    expect(directorySlugs).toEqual(["allowed"]);
+    expect(availabilityRequests).toEqual([]);
+  });
+
+  it.each([false, true])(
+    "bounds Twitch known-channel checks and skips single retries on batch failure (429=%s)",
+    async (rateLimited) => {
+      const follows = Array.from({ length: 100 }, (_, i) => `follow-${i}`);
+      const { adapter, streamRequests } = twitchKnownChannels({
+        follows,
+        directory: () => true,
+        streamFailure: () => {
+          if (rateLimited)
+            return { __twitchGqlError: "Twitch GQL HTTP 429", __twitchGqlStatus: 429 };
+          throw new Error("StreamInfo batch failed");
+        },
+      });
+      vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([
+        preferenceCampaign("twitch", "first", "13"),
+      ]);
+      const watchlist = [
+        {
+          platform: "twitch" as const,
+          username: "watchlist",
+          url: "https://www.twitch.tv/watchlist",
+        },
+      ];
+      const result = await collectDiscoverySnapshot(
+        adapter,
+        undefined,
+        new AbortController().signal,
+        Date.now,
+        true,
+        watchlist,
+      );
+      expect(streamRequests).toHaveLength(rateLimited ? 1 : 5);
+      expect(streamRequests.every(({ batch }) => batch)).toBe(true);
+      expect(streamRequests.flatMap(({ logins }) => logins)).toEqual([
+        "watchlist",
+        ...follows.slice(0, rateLimited ? 19 : 99),
+      ]);
+      expect(result.campaigns[0]?.candidates.map(({ candidate }) => candidate.username)).toEqual([
+        "directory",
+      ]);
+      expect(result.idleCandidates).toEqual([]);
+      expect(result.metrics).toMatchObject({
+        uniqueChannelChecks: rateLimited ? 21 : 101,
+        candidates: 1,
+        batchRequests: rateLimited ? 1 : 5,
+        singleFallbacks: 0,
+      });
+    },
+  );
+
+  it.each([false, true])(
+    "drops Twitch candidates without availability evidence and keeps ordinary discovery (429=%s)",
+    async (rateLimited) => {
+      const { adapter, availabilityRequests } = twitchKnownChannels({
+        directory: () => true,
+        availabilityFailure: () => {
+          if (rateLimited) throw new SafeFetchError({ kind: "http_error", status: 429 });
+          return { data: { channel: { id: "other-id", viewerDropCampaigns: [{ id: "first" }] } } };
+        },
+        follows: ["friend", "secondfriend"],
+        categoryFor: (login) => (login === "friend" ? "13" : "99"),
+      });
+      vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([
+        preferenceCampaign("twitch", "first", "13"),
+        preferenceCampaign("twitch", "second", "99"),
+      ]);
+      const result = await collectDiscoverySnapshot(
+        adapter,
+        undefined,
+        new AbortController().signal,
+      );
+      expect(
+        result.campaigns.map(({ candidates }) =>
+          candidates.map(({ candidate }) => candidate.username),
+        ),
+      ).toEqual([["directory"], ["directory"]]);
+      expect(availabilityRequests).toEqual(
+        rateLimited ? [["friend-id"]] : [["friend-id"], ["secondfriend-id"]],
+      );
+      expect(result.metrics).toMatchObject({
+        uniqueChannelChecks: 3,
+        candidates: 2,
+        batchRequests: rateLimited ? 2 : 3,
+        singleFallbacks: 0,
+      });
+    },
+  );
+
   it("rejects a batch that skips a preferred candidate after a successful check", async () => {
     const source = preferenceCampaign("kick", "general", "13");
+    const first = { platform: "kick" as const, username: "first", url: "https://kick.com/first" };
+    const second = {
+      platform: "kick" as const,
+      username: "second",
+      url: "https://kick.com/second",
+    };
     const adapter = {
       platform: "kick" as const,
       refreshCampaigns: async () => [source],
-      listFollowedChannels: async () => ["first", "second"],
-      listCandidateChannels: async () => [],
+      listFollowedChannels: async () => ["second"],
+      listCandidateChannels: async () => [first, second],
       checkChannel: vi.fn(),
-      checkChannels: vi.fn(async () => ({
-        checks: [
-          {
-            candidate: {
-              platform: "kick" as const,
-              username: "first",
-              url: "https://kick.com/first",
-            },
-            live: true,
-            categoryMatches: true,
-          },
-          undefined,
-        ],
+      checkChannels: vi.fn(async (requests: ChannelCheckRequest[]) => ({
+        checks: requests.map(({ channel }) =>
+          channel.username === "first"
+            ? { candidate: first, live: true, categoryMatches: true }
+            : undefined,
+        ),
         uniqueChannelChecks: 1,
       })),
     };

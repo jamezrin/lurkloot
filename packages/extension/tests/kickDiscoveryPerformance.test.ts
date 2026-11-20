@@ -571,6 +571,68 @@ describe("Kick discovery batch", () => {
 });
 
 describe("Kick discovery request budgets and selection", () => {
+  it("caps Kick known-channel probes after deduplicating Watchlist and live follows", async () => {
+    const follows = Array.from({ length: 60 }, (_, i) => "follow-" + i);
+    const adapter = kickAdapter(jsonFetcher(() => liveResponse));
+    vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
+    vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([candidate("directory")]);
+    vi.spyOn(adapter, "listFollowedChannels").mockResolvedValue(["watchlist", ...follows]);
+    const result = await collectDiscoverySnapshot(
+      adapter,
+      undefined,
+      new AbortController().signal,
+      () => NOW,
+      true,
+      [candidate("watchlist")],
+    );
+    expect(result.followedChannels).toEqual(["watchlist", ...follows]);
+    expect(result.metrics.uniqueChannelChecks).toBe(41);
+    expect(
+      result.campaigns[0]?.candidates.map(({ candidate }) => candidate.username).sort(),
+    ).toEqual(["watchlist", ...follows.slice(0, 39), "directory"].sort());
+  });
+
+  it.each(["missing", "rate-limited"])(
+    "keeps the Kick directory fallback with %s known-channel evidence",
+    async (failure) => {
+      const probes: string[] = [];
+      const adapter = kickAdapter(
+        jsonFetcher((url) => {
+          const login = new URL(url).pathname.split("/").at(-1)!;
+          probes.push(login);
+          if (login === "watchlist") {
+            if (failure === "rate-limited")
+              throw new SafeFetchError({ kind: "http_error", status: 429 });
+            return {};
+          }
+          return liveResponse;
+        }),
+      );
+      vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
+      vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([candidate("directory")]);
+      vi.spyOn(adapter, "listFollowedChannels").mockResolvedValue([
+        "first",
+        "second",
+        "third",
+        "fourth",
+      ]);
+      const result = await collectDiscoverySnapshot(
+        adapter,
+        undefined,
+        new AbortController().signal,
+        () => NOW,
+        true,
+        [candidate("watchlist")],
+      );
+      const found = result.campaigns[0]?.candidates.map(({ candidate }) => candidate.username);
+      expect(found).toContain("directory");
+      expect(found).not.toContain("watchlist");
+      expect(result.idleCandidates).toEqual([]);
+      if (failure === "rate-limited") expect(probes).not.toContain("fourth");
+      else expect(found).toContain("fourth");
+    },
+  );
+
   it.each(["idle", "retained", "switch"] as const)(
     "bounds %s discovery requests and latency",
     async (scenario) => {

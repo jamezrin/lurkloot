@@ -61,11 +61,13 @@ export interface ChannelCheckRequest {
   // Preferred channels need individual observations so selection can rank
   // them. They do not satisfy the batch's early stop for other candidates.
   alwaysCheck?: true;
+  // Supplemental evidence may be omitted on failure or rate limiting.
+  bestEffort?: true;
 }
 
 export interface ChannelCheckBatch {
-  // Request order. Only ordinary campaign checks may be omitted, after an
-  // earlier ordinary candidate passed for that campaign.
+  // Request order. Best-effort checks may be omitted, as may ordinary campaign
+  // checks after an earlier ordinary candidate passed for that campaign.
   checks: Array<ChannelCheck | undefined>;
   uniqueChannelChecks: number;
 }
@@ -86,6 +88,16 @@ export interface CandidateChannelSelection {
     batchRequests: number;
     singleFallbacks: number;
   };
+}
+
+export interface KnownChannelChecks {
+  // Streams.checked counts the prefix of attempted probes in request order.
+  // A failed probe is included in that count and omitted from observations.
+  streams: CandidateChannelSelection;
+  checkCampaign(
+    campaign: DropCampaign,
+    streams: ChannelCheck[],
+  ): Promise<CandidateChannelSelection>;
 }
 
 export interface KickPageContextCycleObservation {
@@ -132,6 +144,14 @@ export interface PlatformAdapter {
     campaign?: DropCampaign,
     options?: CandidateSelectionOptions,
   ): Promise<CandidateChannelSelection>;
+  // Limit on supplemental probes, with Watchlist entries admitted first.
+  readonly knownChannelLimit?: number;
+  // Collect reusable stream evidence and campaign eligibility for supplemental
+  // candidates. Any rate limit or failed probe is scoped to this refresh.
+  prepareKnownChannelChecks?(
+    candidates: ChannelCandidate[],
+    options?: AdapterOperationOptions,
+  ): Promise<KnownChannelChecks>;
   // Logins of live channels the signed-in account follows, used for general
   // campaign discovery and for ranking candidates that qualify.
   listFollowedChannels?(options?: AdapterOperationOptions): Promise<string[]>;
