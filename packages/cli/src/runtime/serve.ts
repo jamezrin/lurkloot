@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { LocalCredentialHealth } from "../authStore";
@@ -46,10 +47,17 @@ export function readyLine(url: string): string {
 }
 
 // Calls onEnd once the stream ends, closes or fails, and keeps it flowing so
-// the end is seen. The returned release stops reading, so a stream still open
-// after the loop stops does not hold the process. An error listener stays, so
-// a late pipe error cannot crash the exit.
+// the end is seen. A stream already over sends none of those events again, so
+// onEnd runs at once. The returned release stops reading, so a stream still
+// open after the loop stops does not hold the process. An error listener
+// stays, so a late pipe error cannot crash the exit.
 function watchStreamEnd(stream: NodeJS.ReadableStream, onEnd: () => void): () => void {
+  const state = stream as Partial<Pick<Readable, "readableEnded" | "destroyed" | "closed">>;
+  if (state.readableEnded || state.destroyed || state.closed) {
+    stream.on("error", () => {});
+    onEnd();
+    return () => {};
+  }
   const discard = () => {};
   stream.on("data", discard);
   stream.once("end", onEnd);

@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { spawn, type ChildProcessByStdio } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { once } from "node:events";
 import { PassThrough, type Readable, Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -180,6 +181,89 @@ describe("serve launcher options", () => {
     expect(transport.dispose).toHaveBeenCalledTimes(1);
   });
 
+  // An input that ended before serve watched it sends no more events.
+  it.each([
+    [
+      "ended",
+      async () => {
+        const input = new PassThrough();
+        input.resume();
+        input.end();
+        await once(input, "end");
+        return input;
+      },
+    ],
+    [
+      "destroyed",
+      async () => {
+        const input = new PassThrough();
+        input.destroy();
+        await once(input, "close");
+        return input;
+      },
+    ],
+  ])("stops at once, printing no ready line, when the input is already %s", async (_, made) => {
+    const input = await made();
+    const output = new PassThrough();
+    const written = collect(output);
+    let port = 0;
+    const { running, transport } = startServe({
+      readyOutput: output,
+      exitWithInput: input,
+      onListening: (address) => {
+        port = address.port;
+      },
+    });
+    await running;
+    expect(transport.dispose).toHaveBeenCalledTimes(1);
+    expect(written.text()).toBe("");
+    expect(port).toBe(0);
+  });
+
+  it("waits for a state save in flight when the input ends", async () => {
+    const input = new PassThrough();
+    const order: string[] = [];
+    let release: () => void = () => {};
+    const barrier = new Promise<void>((resolveBarrier) => {
+      release = resolveBarrier;
+    });
+    let entered = false;
+    const stateStore = memoryStateStore();
+    const { running, transport } = startServe({
+      exitWithInput: input,
+      stateStore: {
+        load: stateStore.load,
+        save: async (state) => {
+          if (!entered) {
+            entered = true;
+            order.push("save started");
+            await barrier;
+            order.push("save finished");
+          }
+          await stateStore.save(state);
+        },
+      },
+    });
+    vi.mocked(transport.dispose).mockImplementation(async () => {
+      order.push("dispose");
+    });
+    let settled = false;
+    void running.then(() => {
+      settled = true;
+    });
+    await vi.waitFor(() => expect(entered).toBe(true));
+    input.end();
+    // The input's end and the shutdown it starts run, then stop at the save.
+    for (let turn = 0; turn < 10; turn += 1) {
+      await new Promise((resolveTurn) => setImmediate(resolveTurn));
+    }
+    expect(order).toEqual(["save started"]);
+    expect(settled).toBe(false);
+    release();
+    await running;
+    expect(order).toEqual(["save started", "save finished", "dispose"]);
+  });
+
   it("writes nothing to stdout and leaves stdin alone with the options off", async () => {
     const stdoutWrite = vi.spyOn(process.stdout, "write");
     const stdinListeners = ["data", "end", "close", "error"].map((event) =>
@@ -235,13 +319,27 @@ afterAll(async () => {
 });
 
 type Child = ChildProcessByStdio<Writable, Readable, Readable>;
+type Exit = { code: number | null; signal: NodeJS.Signals | null; error?: Error };
+
+// Rejects once `ms` pass, so a hung child fails the test inside its own
+// timeout and its `finally` still kills it and removes the directory.
+function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, rejectTimeout) => {
+      timer = setTimeout(() => rejectTimeout(new Error(`${what} took over ${ms} ms`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 // Both platforms off, so the child touches no network.
 async function spawnServe(): Promise<{
   child: Child;
   dir: string;
   stdout: { text: () => string };
-  exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }>;
+  exited: Promise<Exit>;
+  stop: () => Promise<void>;
 }> {
   const dir = await mkdtemp(join(tmpdir(), "serve-launcher-"));
   const configPath = join(dir, "config.json");
@@ -269,55 +367,104 @@ async function spawnServe(): Promise<{
       },
     },
   );
-  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
-    (resolveExit) => child.once("exit", (code, signal) => resolveExit({ code, signal })),
-  );
+  // A spawn failure, or a write to a pipe the child already closed, must fail
+  // the test, not crash the runner.
+  const exited = new Promise<Exit>((resolveExit) => {
+    child.once("exit", (code, signal) => resolveExit({ code, signal }));
+    child.once("error", (error) => resolveExit({ code: null, signal: null, error }));
+  });
+  for (const pipe of [child.stdin, child.stdout, child.stderr]) pipe.on("error", () => {});
   child.stderr.resume();
-  return { child, dir, stdout: collect(child.stdout), exited };
+  // The `finally` of every test: the child goes, then its directory.
+  const stop = async () => {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    await within(exited, 5_000, "the killed child's exit").catch(() => undefined);
+    await rm(dir, { recursive: true, force: true });
+  };
+  return { child, dir, stdout: collect(child.stdout), exited, stop };
+}
+
+// The state file is whole: it parses, and no temporary write is left behind.
+function expectStateSaved(dir: string): void {
+  expect(() => JSON.parse(readFileSync(join(dir, "state.json"), "utf8"))).not.toThrow();
+  expect(readdirSync(dir).filter((name) => name.endsWith(".tmp"))).toEqual([]);
 }
 
 describe("lurkloot serve under a launcher", () => {
   it("prints the ready line, then saves state and exits 0 when stdin closes", async () => {
-    const { child, dir, stdout, exited } = await spawnServe();
+    const { child, dir, stdout, exited, stop } = await spawnServe();
     try {
       await vi.waitFor(() => expect(readyUrl(stdout.text())).toBeDefined(), {
-        timeout: 15_000,
+        timeout: 10_000,
       });
       const url = readyUrl(stdout.text())!;
       expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
       expect(await getStatus(url)).toBe(200);
       await vi.waitFor(() => expect(existsSync(join(dir, "state.json"))).toBe(true), {
-        timeout: 15_000,
+        timeout: 5_000,
       });
       child.stdin.end();
-      expect(await exited).toEqual({ code: 0, signal: null });
-      // Logs go to stderr; stdout carried the ready line alone.
+      expect(await within(exited, 10_000, "exit")).toEqual({ code: 0, signal: null });
+      expectStateSaved(dir);
+      // Lurkloot logs to stderr, so here the ready line is all of stdout. A
+      // transport helper (cycletls) may add lines of its own, which is why a
+      // launcher scans for the ready line.
       expect(stdout.text().split("\n").filter(Boolean)).toHaveLength(1);
     } finally {
-      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-      await exited;
-      await rm(dir, { recursive: true, force: true });
+      await stop();
     }
-  }, 30_000);
+  }, 40_000);
+
+  // A launcher that stops reading its child's output before closing stdin must
+  // not turn the shutdown log line into a crash (EPIPE).
+  it("exits 0 when the launcher closes stdout and stderr before stdin", async () => {
+    const { child, dir, stdout, exited, stop } = await spawnServe();
+    try {
+      await vi.waitFor(() => expect(readyUrl(stdout.text())).toBeDefined(), {
+        timeout: 10_000,
+      });
+      await vi.waitFor(() => expect(existsSync(join(dir, "state.json"))).toBe(true), {
+        timeout: 5_000,
+      });
+      child.stdout.destroy();
+      child.stderr.destroy();
+      child.stdin.end();
+      expect(await within(exited, 10_000, "exit")).toEqual({ code: 0, signal: null });
+      expectStateSaved(dir);
+    } finally {
+      await stop();
+    }
+  }, 40_000);
+
+  // Stdin already at end of file when serve looks at it: the launcher has
+  // gone, so serve stops without announcing a server nobody will use.
+  it("prints no ready line and exits 0 when stdin is closed from the start", async () => {
+    const { child, stdout, exited, stop } = await spawnServe();
+    try {
+      child.stdin.end();
+      expect(await within(exited, 15_000, "exit")).toEqual({ code: 0, signal: null });
+      expect(readyUrl(stdout.text())).toBeUndefined();
+    } finally {
+      await stop();
+    }
+  }, 40_000);
 
   // Windows has no SIGTERM (kill() force-kills there), which is why the
   // stdin option exists.
   it.skipIf(process.platform === "win32")(
     "exits 0 on SIGTERM while stdin stays open",
     async () => {
-      const { child, dir, stdout, exited } = await spawnServe();
+      const { child, stdout, exited, stop } = await spawnServe();
       try {
         await vi.waitFor(() => expect(readyUrl(stdout.text())).toBeDefined(), {
-          timeout: 15_000,
+          timeout: 10_000,
         });
         child.kill("SIGTERM");
-        expect(await exited).toEqual({ code: 0, signal: null });
+        expect(await within(exited, 10_000, "exit")).toEqual({ code: 0, signal: null });
       } finally {
-        if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-        await exited;
-        await rm(dir, { recursive: true, force: true });
+        await stop();
       }
     },
-    30_000,
+    40_000,
   );
 });

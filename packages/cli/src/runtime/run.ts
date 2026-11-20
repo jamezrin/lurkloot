@@ -25,8 +25,9 @@ export type FarmingController = ReturnType<typeof createBackgroundController<Eng
 // on shutdown, before the controller and transport go.
 export interface FarmingHost {
   close(): Promise<void>;
-  // Called once the loop has taken the host, never when the loop stopped while
-  // the host was starting. `serve --ready-json` prints its ready line here.
+  // Called once the loop has taken the host and let I/O already pending run
+  // (stdin's end, say), and never when the loop stopped before that. `serve
+  // --ready-json` prints its ready line here.
   ready?(): void;
 }
 
@@ -67,6 +68,8 @@ export interface RunOptions {
   stopSignal?: AbortSignal;
 }
 
+const nextTurn = () => new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
+
 // Logs each campaign reward newly waiting on a subscription once, and forgets
 // the ones that stopped waiting, so a reward that waits again is logged again.
 export function createSubscriptionWaitReporter(logger: Logger): (state: SchedulerState) => void {
@@ -101,9 +104,26 @@ export async function runLoop(options: RunOptions): Promise<void> {
     // Settings come from the config file; the run loop never mutates them.
     save: async () => {},
   };
-  const saveRuntimeState =
+  const writeRuntimeState =
     options.stateStore?.save
     ?? (async (state: SchedulerState): Promise<void> => saveState(statePath, state));
+  // State writes in flight. Shutdown waits for them before the transport goes
+  // and the loop resolves, so the process never exits halfway through one.
+  const stateWrites = new Set<Promise<void>>();
+  const saveRuntimeState = (state: SchedulerState): Promise<void> => {
+    const write = writeRuntimeState(state);
+    const forget = () => {
+      stateWrites.delete(write);
+    };
+    // The controller gets the write itself, and with it any failure.
+    write.then(forget, forget);
+    stateWrites.add(write);
+    return write;
+  };
+  // A write can start while an earlier one is awaited (an aborted tick commits).
+  const settleStateWrites = async () => {
+    while (stateWrites.size > 0) await Promise.allSettled([...stateWrites]);
+  };
 
   // Timers fire into the controller once it exists.
   let dispatchJob: (name: string) => void = () => undefined;
@@ -135,6 +155,14 @@ export async function runLoop(options: RunOptions): Promise<void> {
       : {}),
     twitch: {},
   });
+
+  // What every stop ends with: the controller, then its last state writes, then
+  // the transport.
+  const stopFarming = async () => {
+    controller.shutdown();
+    await settleStateWrites();
+    await transport.dispose();
+  };
 
   // The CLI's own view of committed state: subscription waits it has not
   // logged yet. The engine decides everything else.
@@ -179,6 +207,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     // keeps watching after the single tick.
     controller.shutdown();
     await controller.settleBackgroundWork();
+    await settleStateWrites();
     await transport.dispose();
     return;
   }
@@ -219,8 +248,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       // tick would otherwise keep refreshing against disposed resources, and its
       // pending delay would hold the process open until the handoff's deadline.
       try {
-        controller.shutdown();
-        await transport.dispose();
+        await stopFarming();
         resolveLoop();
       } catch (error) {
         rejectLoop(error);
@@ -246,8 +274,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
           stopped = true;
           stopJobs();
           try {
-            controller.shutdown();
-            await transport.dispose();
+            await stopFarming();
           } catch (teardownError) {
             logger.error(errorMessage(teardownError), "run");
           }
@@ -257,6 +284,13 @@ export async function runLoop(options: RunOptions): Promise<void> {
         // A stop during startup closes the host itself, after waiting for it.
         if (stopped) return;
         host = started;
+        // Let I/O already pending land first: a stop on its way (stdin at end
+        // of file under `--exit-with-stdin`) closes the host, and then no
+        // ready line announces a server that is going away. Two turns, so at
+        // least one full poll of the event loop runs.
+        await nextTurn();
+        await nextTurn();
+        if (stopped) return;
         started.ready?.();
       }
       // The restart reconciliation the extension runs on browser startup

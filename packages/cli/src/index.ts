@@ -41,7 +41,7 @@ import { importCredentials } from "./auth/importCredentials";
 import { twitchBrowserLogin } from "./auth/twitchBrowserLogin";
 import { twitchDeviceLogin } from "./auth/twitchDeviceFlow";
 import { kickDeviceLogin } from "./auth/kickDeviceFlow";
-import { createLogger } from "./logger";
+import { createLogger, tolerateClosedReader } from "./logger";
 import { reportCliEvents } from "./events";
 import { toEngineSettings } from "./settings";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -278,6 +278,12 @@ const serveCommand: CommandModule = {
         describe: "Shut down cleanly, as on SIGTERM, when stdin closes",
       }),
   handler: async (argv) => {
+    // A launcher may stop reading our output before it closes stdin; from here
+    // on no failed write may interrupt the run or its cleanup.
+    if (argv.readyJson || argv.exitWithStdin) {
+      tolerateClosedReader(process.stdout);
+      tolerateClosedReader(process.stderr);
+    }
     // Refuse an unsafe bind before anything else starts.
     let binding: ReturnType<typeof resolveServeBinding>;
     try {
