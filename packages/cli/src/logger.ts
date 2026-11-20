@@ -29,3 +29,13 @@ export function createLogger(level: LogLevel = "info"): Logger {
     error: (message, scope) => emit("error", message, scope),
   };
 }
+
+// Under a launcher (`serve --ready-json` / `--exit-with-stdin`), the parent may
+// stop reading this process's output before it closes stdin. The next write
+// then fails with EPIPE, emitted as an `error` event that would crash the
+// process in the middle of its shutdown. This makes the stream's output best
+// effort: a failed write is dropped. The handler logs nothing, since a log line
+// written from a stderr error would only fail again.
+export function tolerateClosedReader(stream: NodeJS.WritableStream): void {
+  stream.on("error", () => {});
+}

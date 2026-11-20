@@ -1115,8 +1115,9 @@ describe("runLoop heartbeat driver", () => {
 
       process.emit("SIGTERM");
       await disposeStarted.promise;
-      await Promise.resolve();
-      await Promise.resolve();
+      // Timers are fake here; a few microtask turns let the rejection travel
+      // through the shutdown's awaits without counting them exactly.
+      for (let turn = 0; turn < 10; turn += 1) await Promise.resolve();
 
       expect(
         await Promise.race([settlement, Promise.resolve({ status: "pending" as const })]),

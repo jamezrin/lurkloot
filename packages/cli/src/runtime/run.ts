@@ -25,6 +25,9 @@ export type FarmingController = ReturnType<typeof createBackgroundController<Eng
 // on shutdown, before the controller and transport go.
 export interface FarmingHost {
   close(): Promise<void>;
+  // Called once the loop has taken the host and yielded to pending I/O, if
+  // shutdown has not begun. `serve --ready-json` prints its ready line here.
+  ready?(): void;
 }
 
 // Where the controller reads and writes the engine settings. The default reads
@@ -59,7 +62,12 @@ export interface RunOptions {
   // Started once the controller exists, before startup reconciliation and the
   // first ticks. `run` passes none, so it starts no server. Ignored with `once`.
   startHost?: (controller: FarmingController) => Promise<FarmingHost>;
+  // Aborting it stops the loop through the same shutdown as SIGINT/SIGTERM.
+  // `serve --exit-with-stdin` aborts it when stdin ends. Ignored with `once`.
+  stopSignal?: AbortSignal;
 }
+
+const nextTurn = () => new Promise<void>((resolveTurn) => setImmediate(resolveTurn));
 
 // Logs each campaign reward newly waiting on a subscription once, and forgets
 // the ones that stopped waiting, so a reward that waits again is logged again.
@@ -95,9 +103,26 @@ export async function runLoop(options: RunOptions): Promise<void> {
     // Settings come from the config file; the run loop never mutates them.
     save: async () => {},
   };
-  const saveRuntimeState =
+  const writeRuntimeState =
     options.stateStore?.save
     ?? (async (state: SchedulerState): Promise<void> => saveState(statePath, state));
+  // State writes in flight. Shutdown waits for them before the transport goes
+  // and the loop resolves, so the process never exits halfway through one.
+  const stateWrites = new Set<Promise<void>>();
+  const saveRuntimeState = (state: SchedulerState): Promise<void> => {
+    const write = writeRuntimeState(state);
+    const forget = () => {
+      stateWrites.delete(write);
+    };
+    // The controller gets the write itself, and with it any failure.
+    write.then(forget, forget);
+    stateWrites.add(write);
+    return write;
+  };
+  // A write can start while an earlier one is awaited (an aborted tick commits).
+  const settleStateWrites = async () => {
+    while (stateWrites.size > 0) await Promise.allSettled([...stateWrites]);
+  };
 
   // Timers fire into the controller once it exists.
   let dispatchJob: (name: string) => void = () => undefined;
@@ -129,6 +154,16 @@ export async function runLoop(options: RunOptions): Promise<void> {
       : {}),
     twitch: {},
   });
+
+  let startupReconciliation: Promise<EngineSettings | void> | undefined;
+  // Reconciliation can still start a save after a stop arrives. Join it before
+  // shutting down the controller and draining writes, then dispose the transport.
+  const stopFarming = async () => {
+    if (startupReconciliation) await startupReconciliation;
+    controller.shutdown();
+    await settleStateWrites();
+    await transport.dispose();
+  };
 
   // The CLI's own view of committed state: subscription waits it has not
   // logged yet. The engine decides everything else.
@@ -173,6 +208,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     // keeps watching after the single tick.
     controller.shutdown();
     await controller.settleBackgroundWork();
+    await settleStateWrites();
     await transport.dispose();
     return;
   }
@@ -180,22 +216,31 @@ export async function runLoop(options: RunOptions): Promise<void> {
   await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
     let host: FarmingHost | undefined;
-    const handleSigint = () => void shutdown("SIGINT");
-    const handleSigterm = () => void shutdown("SIGTERM");
+    // The host while it starts. Shutdown waits for it and closes it, so the loop
+    // never ends with a server still coming up behind it.
+    let startingHost: Promise<FarmingHost> | undefined;
+    const handleSigint = () => void shutdown("Received SIGINT");
+    const handleSigterm = () => void shutdown("Received SIGTERM");
+    const stopSignal = options.stopSignal;
+    const handleStop = () =>
+      void shutdown(typeof stopSignal?.reason === "string" ? stopSignal.reason : "Stop requested");
     const stopJobs = () => {
       jobs.dispose();
       process.removeListener("SIGINT", handleSigint);
       process.removeListener("SIGTERM", handleSigterm);
+      stopSignal?.removeEventListener("abort", handleStop);
     };
-    const shutdown = async (signal: string) => {
+    const shutdown = async (reason: string) => {
       if (stopped) return;
       stopped = true;
-      logger.info(`Received ${signal}; shutting down`, "run");
+      logger.info(`${reason}; shutting down`, "run");
       stopJobs();
       // The host goes first, so nothing reaches the controller while it stops.
-      if (host) {
+      const current =
+        host ?? (startingHost ? await startingHost.catch(() => undefined) : undefined);
+      if (current) {
         try {
-          await host.close();
+          await current.close();
         } catch (error) {
           logger.error(errorMessage(error), "run");
         }
@@ -204,8 +249,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       // tick would otherwise keep refreshing against disposed resources, and its
       // pending delay would hold the process open until the handoff's deadline.
       try {
-        controller.shutdown();
-        await transport.dispose();
+        await stopFarming();
         resolveLoop();
       } catch (error) {
         rejectLoop(error);
@@ -213,11 +257,20 @@ export async function runLoop(options: RunOptions): Promise<void> {
     };
     process.once("SIGINT", handleSigint);
     process.once("SIGTERM", handleSigterm);
+    if (stopSignal?.aborted) {
+      handleStop();
+      return;
+    }
+    stopSignal?.addEventListener("abort", handleStop, { once: true });
     void (async () => {
       if (options.startHost) {
         let started: FarmingHost;
         try {
-          started = await options.startHost(controller);
+          // Recorded before any host code runs, so a stop that lands while the
+          // host starts (even synchronously) still waits for it and closes it.
+          const startHost = options.startHost;
+          startingHost = Promise.resolve().then(() => startHost(controller));
+          started = await startingHost;
         } catch (error) {
           // A host that cannot start (a port in use) stops the loop the way a
           // signal does, or the Node timers would keep the process alive.
@@ -225,30 +278,32 @@ export async function runLoop(options: RunOptions): Promise<void> {
           stopped = true;
           stopJobs();
           try {
-            controller.shutdown();
-            await transport.dispose();
+            await stopFarming();
           } catch (teardownError) {
             logger.error(errorMessage(teardownError), "run");
           }
           rejectLoop(error);
           return;
         }
-        // A signal during startup already tore the rest down.
-        if (stopped) {
-          await started.close().catch((error) => logger.error(errorMessage(error), "run"));
-          return;
-        }
+        // A stop during startup closes the host itself, after waiting for it.
+        if (stopped) return;
         host = started;
+        // Give a pending pipe EOF a chance to arrive before announcing ready.
+        // Two turns allow a full I/O poll. Later EOF still shuts down normally.
+        await nextTurn();
+        await nextTurn();
+        if (stopped) return;
+        started.ready?.();
       }
       // The restart reconciliation the extension runs on browser startup
       // (#593): register the jobs again (Node timers end with the process),
       // release heartbeat ownership held by the previous process, and pause
       // the sessions it left watching. The CLI's own ticks then resume them.
-      try {
-        await controller.reconcileStartup();
-      } catch (error) {
+      startupReconciliation = controller.reconcileStartup().catch((error: unknown) => {
         logger.error(errorMessage(error), "run");
-      }
+      });
+      await startupReconciliation;
+      startupReconciliation = undefined;
       if (stopped) return;
       // Recovery and shutdown must not wait for initial discovery. A persisted
       // cadence may already be due while the first campaign refresh is slow or
@@ -259,6 +314,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       } catch (error) {
         logger.error(errorMessage(error), "run");
       }
+      if (stopped) return;
       void runJob(WATCH_ALARM_NAME);
       void runJob(TWITCH_ALARM_NAME);
       void runJob(KICK_ALARM_NAME);

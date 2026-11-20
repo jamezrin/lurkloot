@@ -478,6 +478,48 @@ curl -s -H 'content-type: application/json' \
 LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" lurkloot serve --host 0.0.0.0
 ```
 
+### Running under a launcher
+
+Two `serve` options exist for a parent process that starts `serve` as its child,
+such as the desktop app. Both are off by default, and `run` has neither.
+
+- **`--ready-json`** prints one line on stdout once the control plane listens:
+
+  ```json
+  {"event":"ready","url":"http://127.0.0.1:49152/"}
+  ```
+
+  `url` is the address that reaches the server from this machine. With
+  `--port 0` it carries the port the OS picked; on a wildcard bind it names
+  `127.0.0.1`. It never carries the token. The human log line is still written.
+  Lurkloot's own logger writes to stderr, but other output can reach stdout: a
+  transport's helper process (cycletls) shares it. Read stdout line by line
+  and take the first line that parses as JSON with `"event":"ready"`; do not
+  assume it is the first or only line. With `--exit-with-stdin`, `serve` skips
+  the ready line if it observes EOF before announcing readiness. Pipe EOF can
+  arrive after the ready line. A subsequent exit with code 0 is normal.
+- **`--exit-with-stdin`** shuts down when stdin ends, closes or fails, the same
+  way as SIGINT/SIGTERM. The server closes, any startup reconciliation and
+  pending state writes finish, and the process exits with code 0. A launcher
+  stops `serve` by closing the pipe, including on Windows. If the launcher
+  crashes, the OS closes the pipe. `serve` reads and discards anything written
+  to stdin. Give the launcher a pipe for this option. With stdin redirected
+  from a file or the null device (such as `/dev/null` under `docker run` without
+  `-i`), `serve` exits before binding or printing a ready line.
+
+With either option, output is best effort: a launcher may stop reading stdout
+and stderr before it closes stdin, and the lines `serve` then cannot write are
+dropped instead of stopping it, so the shutdown still runs to the end.
+
+To keep other programs on the machine out of the API, the launcher sets a fresh
+`LURKLOOT_SERVE_TOKEN` for each launch. A token applies to a loopback bind too
+(see [Security model](#security-model)).
+
+```bash
+LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" \
+  lurkloot serve --port 0 --ready-json --exit-with-stdin
+```
+
 ## Event logging
 
 The farming engine reports typed activity and diagnostic batches directly to

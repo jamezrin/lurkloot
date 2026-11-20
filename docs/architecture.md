@@ -625,6 +625,30 @@ reconciliation, and the loop closes it first on shutdown; `run` passes none and 
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
 messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
 
+The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
+all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
+necessary. It then waits for any startup reconciliation in progress, which can begin a state save
+after shutdown starts. After shutting down the controller, `runLoop` drains tracked state writes
+before disposing the transport and resolving. A host that fails to start uses the same farming
+teardown. The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
+event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
+stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
+including on Windows or when the launcher crashes. An already-ended or destroyed input or
+file-backed stdin such as `/dev/null` stops the loop before binding. For pipes, the yield gives
+pending EOF a chance to arrive. If EOF arrives after the ready line, the subsequent exit with code
+0 is normal. Once the loop stops, `serve` stops reading stdin, so an open
+pipe does not hold the process. `serve --ready-json` writes one JSON line,
+`{"event":"ready","url":…}`, to stdout from that hook, once the control plane listens. A failed
+write (the launcher stopped reading) is logged and farming goes on. The URL is the control
+plane's `localUrl`, which is also what its log line names. Lurkloot's logger writes to stderr, but
+stdout is not exclusive to the ready line (a transport helper such as cycletls shares it), so a
+launcher scans stdout line by line for the `"event":"ready"` JSON. With either option, `serve`
+attaches a no-op error listener to stdout and stderr when the command starts
+(`tolerateClosedReader` in `logger.ts`), so a launcher that closes its readers before stdin cannot
+turn a log line into an EPIPE crash midway through shutdown. Both options are off by default and
+`run` has neither. `packages/cli/tests/serveLauncher.test.ts` drives them with
+injected streams and through the built CLI.
+
 Settings reach the controller through the loop's `SettingsStore` seam: `load`, `save` and an
 optional `applyPatch`. The default, which `run` uses, keeps the CLI's long-standing behavior (the
 config file's settings, saves dropped, no patch). `serve` builds the config-file store from the
