@@ -25,9 +25,8 @@ export type FarmingController = ReturnType<typeof createBackgroundController<Eng
 // on shutdown, before the controller and transport go.
 export interface FarmingHost {
   close(): Promise<void>;
-  // Called once the loop has taken the host and let I/O already pending run
-  // (stdin's end, say), and never when the loop stopped before that. `serve
-  // --ready-json` prints its ready line here.
+  // Called once the loop has taken the host and yielded to pending I/O, if
+  // shutdown has not begun. `serve --ready-json` prints its ready line here.
   ready?(): void;
 }
 
@@ -156,9 +155,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
     twitch: {},
   });
 
-  // What every stop ends with: the controller, then its last state writes, then
-  // the transport.
+  let startupReconciliation: Promise<EngineSettings | void> | undefined;
+  // Reconciliation can still start a save after a stop arrives. Join it before
+  // shutting down the controller and draining writes, then dispose the transport.
   const stopFarming = async () => {
+    if (startupReconciliation) await startupReconciliation;
     controller.shutdown();
     await settleStateWrites();
     await transport.dispose();
@@ -284,10 +285,8 @@ export async function runLoop(options: RunOptions): Promise<void> {
         // A stop during startup closes the host itself, after waiting for it.
         if (stopped) return;
         host = started;
-        // Let I/O already pending land first: a stop on its way (stdin at end
-        // of file under `--exit-with-stdin`) closes the host, and then no
-        // ready line announces a server that is going away. Two turns, so at
-        // least one full poll of the event loop runs.
+        // Give a pending pipe EOF a chance to arrive before announcing ready.
+        // Two turns allow a full I/O poll. Later EOF still shuts down normally.
         await nextTurn();
         await nextTurn();
         if (stopped) return;
@@ -297,11 +296,11 @@ export async function runLoop(options: RunOptions): Promise<void> {
       // (#593): register the jobs again (Node timers end with the process),
       // release heartbeat ownership held by the previous process, and pause
       // the sessions it left watching. The CLI's own ticks then resume them.
-      try {
-        await controller.reconcileStartup();
-      } catch (error) {
+      startupReconciliation = controller.reconcileStartup().catch((error: unknown) => {
         logger.error(errorMessage(error), "run");
-      }
+      });
+      await startupReconciliation;
+      startupReconciliation = undefined;
       if (stopped) return;
       // Recovery and shutdown must not wait for initial discovery. A persisted
       // cadence may already be due while the first campaign refresh is slow or
@@ -312,6 +311,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       } catch (error) {
         logger.error(errorMessage(error), "run");
       }
+      if (stopped) return;
       void runJob(WATCH_ALARM_NAME);
       void runJob(TWITCH_ALARM_NAME);
       void runJob(KICK_ALARM_NAME);

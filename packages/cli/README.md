@@ -495,17 +495,17 @@ such as the desktop app. Both are off by default, and `run` has neither.
   Lurkloot's own logger writes to stderr, but other output can reach stdout: a
   transport's helper process (cycletls) shares it. Read stdout line by line
   and take the first line that parses as JSON with `"event":"ready"`; do not
-  assume it is the first or only line. With `--exit-with-stdin`, no ready line
-  is printed when stdin has already closed by the time the server listens:
-  `serve` stops instead.
+  assume it is the first or only line. With `--exit-with-stdin`, `serve` skips
+  the ready line if it observes EOF before announcing readiness. Pipe EOF can
+  arrive after the ready line. A subsequent exit with code 0 is normal.
 - **`--exit-with-stdin`** shuts down when stdin ends, closes or fails, the same
-  way as SIGINT/SIGTERM: the server closes, the loop stops, a state write in
-  progress finishes, and the process exits with code 0. Closing the pipe is how
-  a launcher stops `serve` on Windows, which has no SIGTERM. It also stops
-  `serve` if the launcher crashes, because the OS closes the pipe then. Anything written to stdin is read and discarded;
-  it is not a command channel. Do not use this option without a pipe on stdin:
-  with stdin at `/dev/null`, as under `docker run` without `-i`, `serve` stops as
-  soon as it starts.
+  way as SIGINT/SIGTERM. The server closes, any startup reconciliation and
+  pending state writes finish, and the process exits with code 0. A launcher
+  stops `serve` by closing the pipe, including on Windows. If the launcher
+  crashes, the OS closes the pipe. `serve` reads and discards anything written
+  to stdin. Give the launcher a pipe for this option. With stdin redirected
+  from a file or the null device (such as `/dev/null` under `docker run` without
+  `-i`), `serve` exits before binding or printing a ready line.
 
 With either option, output is best effort: a launcher may stop reading stdout
 and stderr before it closes stdin, and the lines `serve` then cannot write are

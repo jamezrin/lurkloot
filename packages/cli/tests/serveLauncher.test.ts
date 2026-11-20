@@ -23,10 +23,15 @@ const quiet = { ...createLogger("error"), log: () => {}, error: () => {} };
 
 function getStatus(url: string): Promise<number> {
   return new Promise((resolveStatus, rejectStatus) => {
-    const req = httpRequest(new URL("v1/health", url), { agent: false }, (res) => {
-      res.resume();
-      res.on("end", () => resolveStatus(res.statusCode ?? 0));
-    });
+    const req = httpRequest(
+      new URL("v1/health", url),
+      { agent: false, signal: AbortSignal.timeout(2_000) },
+      (res) => {
+        res.on("error", rejectStatus);
+        res.on("end", () => resolveStatus(res.statusCode ?? 0));
+        res.resume();
+      },
+    );
     req.on("error", rejectStatus);
     req.end();
   });
@@ -264,6 +269,52 @@ describe("serve launcher options", () => {
     expect(order).toEqual(["save started", "save finished", "dispose"]);
   });
 
+  it("waits for startup reconciliation to save a stale session when input ends during its read", async () => {
+    const input = new PassThrough();
+    const stateStore = memoryStateStore();
+    const state = await stateStore.load();
+    state.sessions.twitch.status = "watching";
+    let releaseRead: () => void = () => {};
+    const reading = new Promise<void>((resolveRead) => {
+      releaseRead = resolveRead;
+    });
+    const load = vi.fn(async () => {
+      await reading;
+      return stateStore.load();
+    });
+    const order: string[] = [];
+    const { running, transport } = startServe({
+      exitWithInput: input,
+      stateStore: {
+        load,
+        save: async (next) => {
+          await stateStore.save(next);
+          order.push("save");
+        },
+      },
+    });
+    vi.mocked(transport.dispose).mockImplementation(async () => {
+      order.push("dispose");
+    });
+
+    try {
+      await vi.waitFor(() => expect(load).toHaveBeenCalled());
+      const ended = once(input, "end");
+      input.end();
+      await ended;
+      // Let shutdown proceed while the first reconciliation read is still held.
+      await new Promise((resolveTurn) => setImmediate(resolveTurn));
+    } finally {
+      input.end();
+      releaseRead();
+      await running;
+      order.push("resolved");
+    }
+    expect(order[0]).toBe("save");
+    expect(order.slice(-2)).toEqual(["dispose", "resolved"]);
+    expect((await stateStore.load()).sessions.twitch.status).toBe("paused");
+  });
+
   it("writes nothing to stdout and leaves stdin alone with the options off", async () => {
     const stdoutWrite = vi.spyOn(process.stdout, "write");
     const stdinListeners = ["data", "end", "close", "error"].map((event) =>
@@ -318,7 +369,7 @@ afterAll(async () => {
   if (bundleDir) await rm(bundleDir, { recursive: true, force: true });
 });
 
-type Child = ChildProcessByStdio<Writable, Readable, Readable>;
+type Child = ChildProcessByStdio<Writable | null, Readable, Readable>;
 type Exit = { code: number | null; signal: NodeJS.Signals | null; error?: Error };
 
 // Rejects once `ms` pass, so a hung child fails the test inside its own
@@ -334,9 +385,10 @@ function within<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
 }
 
 // Both platforms off, so the child touches no network.
-async function spawnServe(): Promise<{
+async function spawnServe(stdin: "pipe" | "ignore" = "pipe"): Promise<{
   child: Child;
   dir: string;
+  stderr: { text: () => string };
   stdout: { text: () => string };
   exited: Promise<Exit>;
   stop: () => Promise<void>;
@@ -352,36 +404,44 @@ async function spawnServe(): Promise<{
     }),
     "utf8",
   );
-  const child = spawn(
-    process.execPath,
-    [bundle, "serve", "--config", configPath, "--port", "0", "--ready-json", "--exit-with-stdin"],
-    {
-      cwd: dir,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        SA_TWITCH_AUTH_TOKEN: undefined,
-        SA_TWITCH_DEVICE_ID: undefined,
-        SA_KICK_SESSION_TOKEN: undefined,
-        LURKLOOT_SERVE_TOKEN: undefined,
-      },
+  const args = [
+    bundle,
+    "serve",
+    "--config",
+    configPath,
+    "--port",
+    "0",
+    "--ready-json",
+    "--exit-with-stdin",
+  ];
+  const options = {
+    cwd: dir,
+    env: {
+      ...process.env,
+      SA_TWITCH_AUTH_TOKEN: undefined,
+      SA_TWITCH_DEVICE_ID: undefined,
+      SA_KICK_SESSION_TOKEN: undefined,
+      LURKLOOT_SERVE_TOKEN: undefined,
     },
-  );
+  };
+  const child =
+    stdin === "pipe"
+      ? spawn(process.execPath, args, { ...options, stdio: ["pipe", "pipe", "pipe"] })
+      : spawn(process.execPath, args, { ...options, stdio: ["ignore", "pipe", "pipe"] });
   // A spawn failure, or a write to a pipe the child already closed, must fail
   // the test, not crash the runner.
   const exited = new Promise<Exit>((resolveExit) => {
-    child.once("exit", (code, signal) => resolveExit({ code, signal }));
+    child.once("close", (code, signal) => resolveExit({ code, signal }));
     child.once("error", (error) => resolveExit({ code: null, signal: null, error }));
   });
-  for (const pipe of [child.stdin, child.stdout, child.stderr]) pipe.on("error", () => {});
-  child.stderr.resume();
+  for (const pipe of [child.stdin, child.stdout, child.stderr]) pipe?.on("error", () => {});
   // The `finally` of every test: the child goes, then its directory.
   const stop = async () => {
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
     await within(exited, 5_000, "the killed child's exit").catch(() => undefined);
     await rm(dir, { recursive: true, force: true });
   };
-  return { child, dir, stdout: collect(child.stdout), exited, stop };
+  return { child, dir, stdout: collect(child.stdout), stderr: collect(child.stderr), exited, stop };
 }
 
 // The state file is whole: it parses, and no temporary write is left behind.
@@ -403,7 +463,7 @@ describe("lurkloot serve under a launcher", () => {
       await vi.waitFor(() => expect(existsSync(join(dir, "state.json"))).toBe(true), {
         timeout: 5_000,
       });
-      child.stdin.end();
+      child.stdin!.end();
       expect(await within(exited, 10_000, "exit")).toEqual({ code: 0, signal: null });
       expectStateSaved(dir);
       // Lurkloot logs to stderr, so here the ready line is all of stdout. A
@@ -428,7 +488,7 @@ describe("lurkloot serve under a launcher", () => {
       });
       child.stdout.destroy();
       child.stderr.destroy();
-      child.stdin.end();
+      child.stdin!.end();
       expect(await within(exited, 10_000, "exit")).toEqual({ code: 0, signal: null });
       expectStateSaved(dir);
     } finally {
@@ -441,9 +501,21 @@ describe("lurkloot serve under a launcher", () => {
   it("prints no ready line and exits 0 when stdin is closed from the start", async () => {
     const { child, stdout, exited, stop } = await spawnServe();
     try {
-      child.stdin.end();
+      child.stdin!.end();
       expect(await within(exited, 15_000, "exit")).toEqual({ code: 0, signal: null });
       expect(readyUrl(stdout.text())).toBeUndefined();
+    } finally {
+      await stop();
+    }
+  }, 40_000);
+
+  it("exits 0 before binding or printing ready when stdin is the null device", async () => {
+    const { stdout, stderr, exited, stop } = await spawnServe("ignore");
+    try {
+      expect(await within(exited, 15_000, "exit")).toEqual({ code: 0, signal: null });
+      expect(readyUrl(stdout.text())).toBeUndefined();
+      expect(stderr.text()).toContain("Input closed (--exit-with-stdin)");
+      expect(stderr.text()).not.toContain("Control plane listening");
     } finally {
       await stop();
     }

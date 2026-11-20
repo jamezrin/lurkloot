@@ -626,17 +626,17 @@ reconciliation, and the loop closes it first on shutdown; `run` passes none and 
 messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
 
 The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
-all run it: the host closes first, then the controller and the transport. A stop that lands while
-the host is still starting waits for it and closes it, so the loop never ends with a server coming
-up behind it. The host's `ready` hook runs only once the loop has taken the host and let pending I/O
-run for two event-loop turns, and never once a stop has begun. Shutdown also waits for any state
-write in flight (`runLoop` tracks the writes it hands the controller) before the transport goes and
-the loop resolves, on every stop path, including a host that fails to start. `serve
---exit-with-stdin` (#1023) aborts that signal when stdin ends, closes or fails, so a launcher such
-as the desktop app stops `serve` by closing the pipe. That works on Windows, which has no SIGTERM,
-and also when the launcher crashes. A stdin that has already ended or been destroyed stops the loop
-at once, and one whose end is already pending lands within those two turns, so no ready line is
-printed for a launcher that has gone. Once the loop stops, `serve` stops reading stdin, so an open
+all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
+necessary. It then waits for any startup reconciliation in progress, which can begin a state save
+after shutdown starts. After shutting down the controller, `runLoop` drains tracked state writes
+before disposing the transport and resolving. A host that fails to start uses the same farming
+teardown. The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
+event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
+stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
+including on Windows or when the launcher crashes. An already-ended or destroyed input or
+file-backed stdin such as `/dev/null` stops the loop before binding. For pipes, the yield gives
+pending EOF a chance to arrive. If EOF arrives after the ready line, the subsequent exit with code
+0 is normal. Once the loop stops, `serve` stops reading stdin, so an open
 pipe does not hold the process. `serve --ready-json` writes one JSON line,
 `{"event":"ready","url":…}`, to stdout from that hook, once the control plane listens. A failed
 write (the launcher stopped reading) is logged and farming goes on. The URL is the control

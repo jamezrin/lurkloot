@@ -1,3 +1,4 @@
+import { Socket } from "node:net";
 import type { Readable } from "node:stream";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
@@ -53,7 +54,11 @@ export function readyLine(url: string): string {
 // stays, so a late pipe error cannot crash the exit.
 function watchStreamEnd(stream: NodeJS.ReadableStream, onEnd: () => void): () => void {
   const state = stream as Partial<Pick<Readable, "readableEnded" | "destroyed" | "closed">>;
-  if (state.readableEnded || state.destroyed || state.closed) {
+  // Node exposes a live stdin pipe or terminal as a Socket. File-backed stdin
+  // (including the null device) cannot track a launcher, and its async EOF can
+  // arrive after the server listens. Treat it as ended before starting the host.
+  const noLauncherInput = !(stream instanceof Socket) && stream === process.stdin;
+  if (noLauncherInput || state.readableEnded || state.destroyed || state.closed) {
     stream.on("error", () => {});
     onEnd();
     return () => {};
