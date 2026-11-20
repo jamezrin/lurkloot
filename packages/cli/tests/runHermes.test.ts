@@ -188,7 +188,8 @@ function controllerFor(transport: TransportHandle) {
   let state = structuredClone(DEFAULT_STATE);
   const events: EngineEvent[] = [];
   const controller = createBackgroundController({
-    capabilities: CLI_CAPABILITIES,
+    // A bare controller: it drives Hermes only, without the Twitch Extensions lane.
+    capabilities: { ...CLI_CAPABILITIES, supplementalSources: false },
     storage: {
       loadSettings: async () => settings,
       saveSettings: async () => {},
