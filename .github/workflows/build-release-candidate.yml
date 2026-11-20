@@ -230,10 +230,12 @@ jobs:
             echo "## Install the Chrome zip"
             echo
             echo "To load this pre-release in Chrome from the zip, see [Installing a pre-release build]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/docs/install-prerelease.md)."
-            echo
-            echo "## Run the CLI without Node"
-            echo
-            echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Standalone executables]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/cli/README.md#standalone-executables)."
+            if compgen -G '../release-assets/lurkloot-cli-*' > /dev/null; then
+              echo
+              echo "## Run the CLI without Node"
+              echo
+              echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Standalone executables]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/cli/README.md#standalone-executables)."
+            fi
           } >> ../notes.md
       - name: Create or refresh the owned GitHub prerelease
         env:
