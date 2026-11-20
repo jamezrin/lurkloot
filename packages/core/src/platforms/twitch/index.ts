@@ -184,8 +184,9 @@ export interface TwitchAdapterOptions {
   // at all (non-web client ids).
   currentIntegrity?: () => TwitchIntegrity | undefined;
   // Factory for the Hermes channel-points WebSocket. The extension injects
-  // the browser WebSocket; headless runtimes omit it so live-event claiming
-  // stays off without a socket.
+  // its socket host's; the CLI injects a Node socket for a web sign-in only.
+  // Without it there is no push controller: claims poll, watch streaks read as
+  // unavailable and no stream-down push arrives.
   webSocketFactory?: WebSocketFactory;
   // Factory for the IRC chat presence socket alone, for a host that joins chat
   // without Hermes (the CLI). Defaults to webSocketFactory.

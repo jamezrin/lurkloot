@@ -1,6 +1,6 @@
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
+import { DEFAULT_ENGINE_SETTINGS, watchStreakChannelsFor } from "@lurkloot/shared/settings";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import WebSocket from "ws";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
@@ -20,7 +20,8 @@ import {
 } from "@lurkloot/core/twitch/heartbeat";
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
 import type { PlatformCredentials } from "../authStore";
-import { TWITCH_WEB_CLIENT_ID, twitchClientIdentity } from "../twitch";
+import { TWITCH_WEB_CLIENT_ID, twitchClientIdentity, twitchIdentityUsesHermes } from "../twitch";
+import { createNodeTwitchHermesWebSocketFactory } from "./twitchHermes";
 import type { TwitchIntegrity, TwitchIntegrityRequest } from "@lurkloot/core/twitchIntegrity";
 
 export interface CliTwitchIntegrity {
@@ -92,10 +93,33 @@ export interface CliTransportDeps {
   // The Twitch chat presence socket. Defaults to a plain Node WebSocket: Twitch's
   // IRC endpoint needs no browser headers, so both transports share it.
   twitchChatWebSocketFactory?(): WebSocketFactory;
+  // Twitch's push socket (Hermes). Defaults to a Node WebSocket that presents
+  // only Twitch's web Origin (twitchHermes.ts), so both transports share it.
+  // Used only for an identity that opens Hermes (twitchIdentityUsesHermes).
+  twitchHermesWebSocketFactory?(): WebSocketFactory;
 }
 
 const nodeWebSocketFactory: WebSocketFactory = (url) =>
   new WebSocket(url, { handshakeTimeout: 10_000 }) as unknown as WebSocketLike;
+
+// What a sign-in without Hermes loses, said once per process. Only when a
+// setting asks for push: the push claim with claiming on (both default on), or
+// a maintained watch streak.
+const TWITCH_NO_HERMES_WARNING =
+  "Twitch push (Hermes) is off for this sign-in, which is not a web session: "
+  + "platform.twitch.channelPointsPushClaim has no effect and channel points are claimed by polling, "
+  + "platform.twitch.watchlistStreakChannels are watched as ordinary Watchlist rows, "
+  + "and a stream that ends is noticed at the next check. "
+  + "A web sign-in imported with `auth import` uses it.";
+
+function settingsWantTwitchPush(settings: EngineSettings): boolean {
+  const twitch = settings.platform.twitch;
+  return (
+    twitch.enabled
+    && ((twitch.autoClaimChannelPoints && twitch.channelPointsPushClaim)
+      || watchStreakChannelsFor(settings, "twitch").length > 0)
+  );
+}
 
 export function createCliAdapters(
   creds: PlatformCredentials,
@@ -104,6 +128,7 @@ export function createCliAdapters(
   const kickClaimState = new KickClaimState();
   const kickDiscoveryState = new KickDiscoveryState();
   const twitchDiscoveryState = new TwitchDiscoveryState();
+  let warnedNoHermes = false;
   const createAdapter = (
     platform: Platform,
     emit: EventEmitter | undefined,
@@ -116,6 +141,24 @@ export function createCliAdapters(
     const twitchIntegrity =
       identity.clientId === TWITCH_WEB_CLIENT_ID ? deps.twitchIntegrity : undefined;
     const twitchIdentity = identity.userAgent ? "android" : "web";
+    const hermes = twitchIdentityUsesHermes(identity);
+    // The lazy `adapters` getter builds with no emitter; the warning waits
+    // for a build that can report it.
+    if (
+      platform === "twitch"
+      && !hermes
+      && emit
+      && !warnedNoHermes
+      && settingsWantTwitchPush(settings)
+    ) {
+      warnedNoHermes = true;
+      emit({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: TWITCH_NO_HERMES_WARNING,
+      });
+    }
     const resolution = resolveCompatibility(settings.compatibility, {
       host: "cli",
       twitchIdentity,
@@ -133,7 +176,16 @@ export function createCliAdapters(
               discoveryState: twitchDiscoveryState,
               strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
               heartbeatIdentity: twitchIdentity,
-              // Chat presence only: Hermes stays off, so channel points keep polling.
+              // Hermes for the web sign-in only; the others keep polling.
+              ...(hermes
+                ? {
+                    webSocketFactory:
+                      deps.twitchHermesWebSocketFactory?.()
+                      ?? createNodeTwitchHermesWebSocketFactory(),
+                  }
+                : {}),
+              // Chat keeps its own plain socket: it would otherwise default to
+              // the Hermes factory, whose Origin IRC does not need.
               chatWebSocketFactory: deps.twitchChatWebSocketFactory?.() ?? nodeWebSocketFactory,
               getAuthToken: async () => creds.twitch?.authToken,
               liveDiscoveryGames: [

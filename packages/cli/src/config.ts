@@ -108,9 +108,10 @@ export function defaultConfigJsonc(): string {
         // yield to the next source; the CLI currently skips NoPixelV and Fortnite.
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
         "watchlistChannels": ${json(twitch.watchlistChannels)},
-        // Watchlist channels whose watch streak to maintain. The CLI has no
-        // Twitch push connection to see the payout. These channels still
-        // qualify as ordinary Watchlist channels.
+        // Watchlist channels whose watch streak to maintain. The payout is
+        // seen over Twitch's push connection (Hermes), which the CLI opens
+        // only for a web sign-in (auth import); with another sign-in these
+        // rows are watched as ordinary Watchlist rows.
         "watchlistStreakChannels": ${json(twitch.watchlistStreakChannels ?? [])},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
@@ -155,7 +156,8 @@ export function defaultConfigJsonc(): string {
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
         // Advanced: claim channel-point bonuses from Twitch's live Hermes
-        // notification. Has no effect without a WebSocket factory.
+        // notification, opened only for a web sign-in (auth import). With
+        // another sign-in, bonuses are claimed by polling.
         "channelPointsPushClaim": ${json(twitch.channelPointsPushClaim)},
         // Advanced: only farm a campaign on channels Twitch's AvailableDrops
         // query lists it for. Twitch often omits farmable campaigns there, so

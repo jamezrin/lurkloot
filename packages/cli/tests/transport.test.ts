@@ -171,7 +171,7 @@ describe("createTransport", () => {
     }
   });
 
-  it("joins Twitch chat with the stored token and leaves Hermes and Kick chat off", async () => {
+  it("joins Twitch chat with a Smart TV token and leaves Hermes and Kick chat off", async () => {
     const sent: string[] = [];
     const urls: string[] = [];
     const listeners: Record<string, (event: { data?: unknown }) => void> = {};
