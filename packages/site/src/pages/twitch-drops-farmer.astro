@@ -20,7 +20,7 @@ const sections = [
 const steps = [
   {
     title: "Install and stay signed in",
-    body: "Add Lurkloot from the Chrome Web Store and sign in to Twitch the way you normally would. It rides on that session — there is no Lurkloot account and no password to hand over.",
+    body: "Add Lurkloot from the Chrome Web Store, or from Firefox Add-ons in Firefox, and sign in to Twitch the way you normally would. It rides on that session — there is no Lurkloot account and no password to hand over.",
   },
   {
     title: "Let it read your inventory",
@@ -73,7 +73,7 @@ const games = [
           claims each reward the moment it unlocks — while you do something else.
         </p>
         <div class="lp-hero__cta">
-          <a class="sg-pill sg-pill--lg" href={LINKS.chrome} target="_blank" rel="noopener">
+          <a class="sg-pill sg-pill--lg" href={LINKS.chrome} data-install-link target="_blank" rel="noopener">
             Get Lurkloot — free
           </a>
           <a class="sg-pill sg-pill--lg sg-pill--ghost" href="#headless">Run it headless</a>
@@ -186,10 +186,10 @@ const games = [
     <section id="browsers" class="lp-sec">
       <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Browsers</p>
-        <h2>A Twitch Drops extension for every Chromium browser</h2></div><div class="guide-section-body">
+        <h2>A Twitch Drops extension for Chromium browsers and Firefox</h2></div><div class="guide-section-body">
         <p>
-          One Chrome Web Store listing covers Chrome, Edge, Brave, Opera and Vivaldi. Firefox
-          builds are published on GitHub Releases. The extension asks only for the host
+          One Chrome Web Store listing covers Chrome, Edge, Brave, Opera and Vivaldi, and
+          Firefox installs the same extension from Firefox Add-ons. The extension asks only for the host
           permissions it needs to reach Twitch and Kick — there is no analytics endpoint and
           no Lurkloot server in the path.
         </p>
