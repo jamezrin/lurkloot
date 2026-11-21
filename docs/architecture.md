@@ -1826,8 +1826,13 @@ authorizes contact with its backend. `serve` validates provider toggles and pers
 NoPixelV holds the watch slot. Fortnite uses Node `ws` for its declared
 `backendSocketOrigin` and fixed handler path, with no URL userinfo or redirects. The handshake
 sets only the provider frame's `Origin`. The socket port consumes late errors and waits for
-close with a two-second close timeout on shutdown. The CLI leaves the optional Hermes broadcast
-ports unwired pending #1105. Provider session refreshes continue through polling.
+close with a two-second close timeout on shutdown. The CLI wires the optional Hermes broadcast
+ports, `supplementalSources.refreshNow` and `broadcastToken`, to the lane as the extension does
+(#1105). Both are inert until the lane's host exists. A web sign-in's Hermes connection then
+subscribes the watching provider's broadcast topic with its session JWT and refreshes the provider
+on its refresh events. Android and Smart TV sign-ins open no Hermes connection, so their provider
+sessions keep the once-a-minute refresh with no further warning. The inert-settings route (#1095)
+remains the only warning about missing push.
 
 Both CLI transports match GQL Client-ID to the effective credential and resolve the viewer
 login through Twitch's identity query. The lane starts when a configured provider is needed
