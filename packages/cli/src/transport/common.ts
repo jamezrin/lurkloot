@@ -21,7 +21,7 @@ import {
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
 import { createTwitchExtensionAccessReader, type TwitchExtensionAccess } from "./twitchExtensions";
 import type { PlatformCredentials } from "../authStore";
-import { TWITCH_WEB_CLIENT_ID, twitchClientIdentity, twitchIdentityUsesHermes } from "../twitch";
+import { TWITCH_WEB_CLIENT_ID, twitchClientIdentity } from "../twitch";
 import { createNodeTwitchHermesWebSocketFactory } from "./twitchHermes";
 import type { TwitchIntegrity, TwitchIntegrityRequest } from "@lurkloot/core/twitchIntegrity";
 
@@ -97,7 +97,6 @@ export interface CliTransportDeps {
   twitchChatWebSocketFactory?(): WebSocketFactory;
   // Twitch's push socket (Hermes). Defaults to a Node WebSocket that presents
   // only Twitch's web Origin (twitchHermes.ts), so both transports share it.
-  // Used only for an identity that opens Hermes (twitchIdentityUsesHermes).
   twitchHermesWebSocketFactory?(): WebSocketFactory;
 }
 
@@ -129,7 +128,6 @@ export function createCliAdapters(
     const twitchIntegrity =
       identity.clientId === TWITCH_WEB_CLIENT_ID ? deps.twitchIntegrity : undefined;
     const twitchIdentity = identity.userAgent ? "android" : "web";
-    const hermes = twitchIdentityUsesHermes(identity);
     const twitchToken = creds.twitch?.authToken;
     if (twitchToken !== previousTwitchToken || identity.clientId !== previousTwitchClientId) {
       hermesRevision = Symbol();
@@ -153,19 +151,13 @@ export function createCliAdapters(
               discoveryState: twitchDiscoveryState,
               strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
               heartbeatIdentity: twitchIdentity,
-              // Hermes for the web sign-in only; the others keep polling.
-              ...(hermes
-                ? {
-                    webSocketFactory:
-                      deps.twitchHermesWebSocketFactory?.()
-                      ?? createNodeTwitchHermesWebSocketFactory(),
-                    channelPointsPush: {
-                      revision: hermesRevision,
-                      getAuthToken: async () => twitchToken,
-                      extendedReconnectBackoff: true,
-                    },
-                  }
-                : {}),
+              webSocketFactory:
+                deps.twitchHermesWebSocketFactory?.() ?? createNodeTwitchHermesWebSocketFactory(),
+              channelPointsPush: {
+                revision: hermesRevision,
+                getAuthToken: async () => twitchToken,
+                extendedReconnectBackoff: true,
+              },
               // Chat keeps its own plain socket: it would otherwise default to
               // the Hermes factory, whose Origin IRC does not need.
               chatWebSocketFactory: deps.twitchChatWebSocketFactory?.() ?? nodeWebSocketFactory,

@@ -53,20 +53,9 @@ const KNOWN_GAPS: ReadonlyArray<{
   feature: AdapterFeature;
   cases: readonly AdapterCaseName[];
   issue: string;
-}> = [
-  {
-    feature: "channelPointsPush",
-    cases: TWITCH_CASES.filter(({ clientId }) => clientId !== TWITCH_WEB_CLIENT_ID).map(
-      ({ name }) => name,
-    ),
-    issue: issueUrl(1101),
-  },
-  { feature: "chatPresence", cases: ["kick/http"], issue: issueUrl(1099) },
-];
+}> = [{ feature: "chatPresence", cases: ["kick/http"], issue: issueUrl(1099) }];
 
 // Values that request adapter features and differ from the defaults.
-// channelPointsPushClaim has no such value: it defaults to true and false
-// turns the feature off. The guard still checks its backing in every case.
 const WARNING_SAMPLES = {
   "platform.twitch.watchlistStreakChannels": ["streamer"],
   "platform.twitch.watchStreakBudgetMinutes": 20,
@@ -76,14 +65,26 @@ const WARNING_SAMPLES = {
 };
 
 // Gapped adapter-backed keys that cannot have a warning sample, with why.
-const NO_WARNING_SAMPLE: Record<string, string> = {
-  "platform.twitch.channelPointsPushClaim":
-    "defaults to true and false turns push claiming off, so no value requests the gap",
-};
+const NO_WARNING_SAMPLE: Record<string, string> = {};
 
 function issueUrl(number: number): string {
   return `https://github.com/jamezrin/lurkloot/issues/${number}`;
 }
+
+// Keep the runtime warning test offline while exercising the real adapters.
+const { openHermes } = vi.hoisted(() => ({
+  openHermes: vi.fn(() => ({
+    readyState: 0,
+    send: () => {},
+    close: () => {},
+    addEventListener: (type: string, listener: () => void) => {
+      if (type === "close") queueMicrotask(listener);
+    },
+  })),
+}));
+vi.mock("../src/transport/twitchHermes", () => ({
+  createNodeTwitchHermesWebSocketFactory: () => openHermes,
+}));
 
 // How every other accepted key takes effect. Per-platform keys whose effect
 // depends on an adapter feature come from core's ADAPTER_BACKED_SETTINGS and
@@ -322,10 +323,11 @@ describe("CLI run with inert settings on http (#1090)", () => {
     },
     {
       name: "changed settings",
-      settings: settingsWithSamples(optedInWarnings),
+      settings: settingsWithSamples(Object.keys(WARNING_SAMPLES)),
       expected: optedInWarnings,
     },
   ])("logs only the requested inert settings once with $name", async ({ settings, expected }) => {
+    openHermes.mockClear();
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) =>
@@ -351,6 +353,11 @@ describe("CLI run with inert settings on http (#1090)", () => {
       error: () => {},
     };
     let state: SchedulerState = structuredClone(DEFAULT_STATE);
+    // A persisted farming session wants the points topic even with untouched
+    // settings and no configured Watchlist.
+    state.farmingSessions = {
+      twitch: { id: "twitch-session", startedAt: new Date().toISOString() },
+    };
     const stateStore = {
       load: async () => state,
       save: async (next: SchedulerState) => {
@@ -366,6 +373,8 @@ describe("CLI run with inert settings on http (#1090)", () => {
       stateStore,
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
+    expect(openHermes).toHaveBeenCalledTimes(1);
+    expect(warnings.filter((message) => /channel-points push|Hermes/.test(message))).toEqual([]);
     expect(warnings.filter((message) => message.endsWith("has no effect"))).toHaveLength(
       expected.length,
     );

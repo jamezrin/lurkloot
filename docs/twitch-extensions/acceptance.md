@@ -24,10 +24,13 @@ Audited implementation: `a6aacaf5`. Latest CI run [34751942993](https://github.c
 
 The CLI tests exercise NoPixelV selection, Twitch chat, confirmed pack logging,
 snapshot summaries and restart memory through the shared engine. They also check
-Fortnite socket admission and teardown and non-web sign-in refusals over hours
-of simulated time. With a web sign-in they check that the NoPixelV broadcast
-topic is subscribed with the session JWT and that a giveaway event refreshes
-the provider, and that an Android sign-in keeps polling with no warning. The fixtures do not establish live earning on the CLI.
+Fortnite socket admission and teardown and non-web provider query refusals over
+hours of simulated time. For web, Android and Smart TV sign-ins,
+`runExtensionBroadcast.test.ts` checks that the NoPixelV broadcast subscription
+uses the session JWT and that a giveaway event refreshes the provider.
+`runHermes.test.ts` checks bounded retries and channel-point claim polling
+through upgrade, authentication and points-topic refusals on all three sign-ins.
+Live provider earning and Hermes delivery on the CLI remain unverified.
 
 ## Remaining release gates
 

@@ -5,7 +5,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CLI_CAPABILITIES, createBackgroundController } from "@lurkloot/core/controller";
+import {
+  CLI_CAPABILITIES,
+  createBackgroundController,
+  TWITCH_CHANNEL_POINTS_ALARM_NAME,
+} from "@lurkloot/core/controller";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
@@ -14,6 +18,7 @@ import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type {
   ChannelCandidate,
   ChannelCheck,
+  DropCampaign,
   EngineSettings,
   Platform,
   PlatformAuthHealth,
@@ -28,7 +33,11 @@ import {
   createNodeTwitchHermesWebSocketFactory,
   type HermesSocketOptions,
 } from "../src/transport/twitchHermes";
-import { TWITCH_ANDROID_CLIENT_ID, TWITCH_WEB_CLIENT_ID } from "../src/twitch";
+import {
+  TWITCH_ANDROID_CLIENT_ID,
+  TWITCH_SMARTBOX_CLIENT_ID,
+  TWITCH_WEB_CLIENT_ID,
+} from "../src/twitch";
 
 const HEALTHY: PlatformAuthHealth = {
   status: "healthy",
@@ -89,6 +98,29 @@ class FakeHermesSocket implements WebSocketLike {
         result === "ok" ? { result, subscription: { id: subscription.id } } : { result },
     });
   }
+
+  payWatchStreak(channelId: string, userId: string): void {
+    const frame = this.requestedSubscription(`community-points-user-v1.${userId}`)!;
+    const subscription = frame.subscribe as { id: string };
+    this.message({
+      type: "notification",
+      notification: {
+        subscription: { id: subscription.id },
+        type: "pubsub",
+        pubsub: JSON.stringify({
+          type: "points-earned",
+          data: {
+            point_gain: {
+              user_id: userId,
+              channel_id: channelId,
+              reason_code: "WATCH_STREAK",
+              total_points: 450,
+            },
+          },
+        }),
+      },
+    });
+  }
 }
 
 function fakeAdapter(platform: Platform): PlatformAdapter {
@@ -112,6 +144,25 @@ const WEB: PlatformCredentials = {
 const ANDROID: PlatformCredentials = {
   twitch: { authToken: "android-token", clientId: TWITCH_ANDROID_CLIENT_ID },
 };
+const SMART_TV: PlatformCredentials = {
+  twitch: { authToken: "tv-token", clientId: TWITCH_SMARTBOX_CLIENT_ID },
+};
+
+const CAMPAIGN: DropCampaign = {
+  id: "campaign",
+  platform: "twitch",
+  name: "Test campaign",
+  status: "active",
+  rewards: [
+    {
+      id: "reward",
+      name: "Test reward",
+      requiredMinutes: 60,
+      watchedMinutes: 0,
+      status: "in_progress",
+    },
+  ],
+};
 
 // Discovery is offline, but the push factory and credential reload path are
 // the same ones used in run and serve.
@@ -119,13 +170,34 @@ function hermesTransport(
   creds: PlatformCredentials = WEB,
   createSocket?: (url: string, options: HermesSocketOptions) => WebSocketLike,
   isLive = () => false,
-): { transport: TransportHandle; sockets: FakeHermesSocket[] } {
+  campaign?: DropCampaign,
+) {
   const sockets: FakeHermesSocket[] = [];
+  const pointClaims: unknown[] = [];
   const viewerId = () => (creds.twitch?.authToken === "new-web-token" ? "456" : "123");
   const cli = createCliAdapters(creds, {
     twitchFetcher: () => ({
-      fetchJson: async <T>() =>
-        ({ data: { currentUser: { id: viewerId(), login: "viewer" } } }) as T,
+      fetchJson: async <T>(_url: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        switch (body.operationName) {
+          case "ChannelPointsContext":
+            return {
+              data: {
+                community: {
+                  channel: {
+                    id: "22",
+                    self: { communityPoints: { availableClaim: { id: "bonus" } } },
+                  },
+                },
+              },
+            } as T;
+          case "ClaimCommunityPoints":
+            pointClaims.push(body.variables.input);
+            return { data: { claimCommunityPoints: { status: "CLAIMED" } } } as T;
+          default:
+            return { data: { currentUser: { id: viewerId(), login: "viewer" } } } as T;
+        }
+      },
     }),
     twitchHeartbeat: () => ({
       heartbeatFetchText: async () => "",
@@ -150,9 +222,18 @@ function hermesTransport(
     if (platform === "kick") return kick;
     return {
       ...twitch,
+      ...(campaign
+        ? {
+            refreshCampaigns: async () => [campaign],
+            listCandidateChannels: async (): Promise<ChannelCandidate[]> => [
+              { platform: "twitch", username: "ordinary", url: "https://www.twitch.tv/ordinary" },
+            ],
+          }
+        : {}),
       checkAuthHealth: async () => ({ ...HEALTHY, accountId: viewerId() }),
       createChannelPointsPushController: built.createChannelPointsPushController,
       channelPointsPushRevision: built.channelPointsPushRevision,
+      claimChannelPoints: built.claimChannelPoints?.bind(built),
       checkChannel: async (candidate: ChannelCandidate) => ({
         live: isLive(),
         categoryMatches: true,
@@ -166,25 +247,23 @@ function hermesTransport(
     host: "cli",
     twitchIdentity: "web",
   });
-  return {
-    sockets,
-    transport: {
-      adapters: { twitch, kick },
-      createAdapter: (platform, emit, settings) => ({
-        adapter: build(platform, emit, settings),
-        ...compatibility,
-      }),
-      createAdapters: (emit, settings) => ({
-        adapters: { twitch: build("twitch", emit, settings), kick: build("kick", emit, settings) },
-        ...compatibility,
-      }),
-      dispose: async () => {},
-    },
+  const transport: TransportHandle = {
+    adapters: { twitch, kick },
+    createAdapter: (platform, emit, settings) => ({
+      adapter: build(platform, emit, settings),
+      ...compatibility,
+    }),
+    createAdapters: (emit, settings) => ({
+      adapters: { twitch: build("twitch", emit, settings), kick: build("kick", emit, settings) },
+      ...compatibility,
+    }),
+    dispose: async () => {},
   };
+  return { transport, sockets, pointClaims };
 }
 
-function controllerFor(transport: TransportHandle) {
-  const settings = toEngineSettings(SETTINGS);
+function controllerFor(transport: TransportHandle, config = SETTINGS) {
+  const settings = toEngineSettings(config);
   let state = structuredClone(DEFAULT_STATE);
   const events: EngineEvent[] = [];
   const controller = createBackgroundController({
@@ -223,6 +302,14 @@ const SETTINGS: CliSettings = {
       watchlistStreakChannels: ["streaker"],
     },
     kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: false },
+  },
+};
+
+const CLAIMING_DISABLED: CliSettings = {
+  ...DEFAULT_CLI_SETTINGS,
+  platform: {
+    ...DEFAULT_CLI_SETTINGS.platform,
+    twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, autoClaimChannelPoints: false },
   },
 };
 
@@ -299,60 +386,86 @@ describe("runLoop and the Twitch Hermes socket", () => {
     }
   });
 
-  it.each([WEB, ANDROID])(
-    "follows the new web account after a credential reload ($twitch.clientId)",
-    async (initial) => {
-      saveCredentials(dir, initial);
-      const creds = loadCredentials(dir, {});
-      const { transport, sockets } = hermesTransport(creds);
-      const { controller } = controllerFor(
-        createCredentialRefreshingTransport(transport, creds, dir, {}),
-      );
-      try {
-        await controller.tick(["twitch"]);
-        const wasWeb = initial === WEB;
-        expect(sockets).toHaveLength(wasWeb ? 1 : 0);
-        const original = sockets[0];
-        original?.authenticate();
-        original?.respondToSubscription("community-points-user-v1.");
-        await controller.tick(["twitch"]);
-        expect(sockets).toHaveLength(wasWeb ? 1 : 0);
-        saveCredentials(dir, { twitch: { ...WEB.twitch, authToken: "new-web-token" } });
-        await controller.tick(["twitch"]);
-        expect(sockets).toHaveLength(wasWeb ? 2 : 1);
-        if (original) expect(original.readyState).toBe(WebSocket.CLOSED);
-        const current = sockets.at(-1)!;
-        current.authenticate();
-        expect(current.sent).toContainEqual(
-          expect.objectContaining({
-            type: "authenticate",
-            authenticate: { token: "new-web-token" },
-          }),
-        );
-        expect(current.sent).toContainEqual(
-          expect.objectContaining({
-            type: "subscribe",
-            subscribe: expect.objectContaining({
-              pubsub: { topic: "community-points-user-v1.456" },
-            }),
-          }),
-        );
-      } finally {
-        await controller.shutdown();
-      }
+  it.each([
+    {
+      name: "web to new web account",
+      initial: WEB,
+      next: { twitch: { ...WEB.twitch, authToken: "new-web-token" } },
+      userId: "456",
     },
-  );
+    {
+      name: "Android to web",
+      initial: ANDROID,
+      next: { twitch: { ...WEB.twitch, authToken: "new-web-token" } },
+      userId: "456",
+    },
+    { name: "web to Android", initial: WEB, next: ANDROID, userId: "123" },
+  ])("follows the new credentials on reload ($name)", async ({ initial, next, userId }) => {
+    saveCredentials(dir, initial);
+    const creds = loadCredentials(dir, {});
+    const { transport, sockets } = hermesTransport(creds);
+    const { controller } = controllerFor(
+      createCredentialRefreshingTransport(transport, creds, dir, {}),
+    );
+    try {
+      await controller.tick(["twitch"]);
+      expect(sockets).toHaveLength(1);
+      const original = sockets[0]!;
+      original.authenticate();
+      original.respondToSubscription("community-points-user-v1.");
+      await controller.tick(["twitch"]);
+      expect(sockets).toHaveLength(1);
+      saveCredentials(dir, next);
+      await controller.tick(["twitch"]);
+      expect(sockets).toHaveLength(2);
+      expect(original.readyState).toBe(WebSocket.CLOSED);
+      const current = sockets.at(-1)!;
+      expect(new URL(current.url).searchParams.get("clientId")).toBe(next.twitch?.clientId);
+      current.authenticate();
+      expect(current.sent).toContainEqual(
+        expect.objectContaining({
+          type: "authenticate",
+          authenticate: { token: next.twitch?.authToken },
+        }),
+      );
+      expect(current.sent).toContainEqual(
+        expect.objectContaining({
+          type: "subscribe",
+          subscribe: expect.objectContaining({
+            pubsub: { topic: `community-points-user-v1.${userId}` },
+          }),
+        }),
+      );
+    } finally {
+      await controller.shutdown();
+    }
+  });
 
-  it.each(["upgrade", "authenticate", "points subscription"])(
-    "suspends streaks across hours of %s refusals and recovers on confirmation",
-    async (failure) => {
+  it.each(
+    (["upgrade", "authenticate", "points subscription"] as const).flatMap((failure) =>
+      [
+        { name: "web", creds: WEB },
+        { name: "Android", creds: ANDROID },
+        { name: "Smart TV", creds: SMART_TV },
+      ].flatMap((signIn) =>
+        [
+          { mode: "defaults", settings: DEFAULT_CLI_SETTINGS },
+          { mode: "claiming disabled", settings: CLAIMING_DISABLED },
+          { mode: "streak rows", settings: SETTINGS },
+        ].map((config) => ({ ...signIn, ...config, failure })),
+      ),
+    ),
+  )(
+    "handles hours of $failure refusals for $name with $mode",
+    async ({ creds, failure, mode, settings }) => {
       vi.useFakeTimers();
+      const maintainsStreaks = mode === "streak rows";
       let refused = true;
-      let live = false;
+      let live = !maintainsStreaks;
       let playbackConfirmations = 0;
       const sockets: FakeHermesSocket[] = [];
-      const { transport } = hermesTransport(
-        WEB,
+      const { transport, pointClaims } = hermesTransport(
+        creds,
         (url) => {
           const socket = new FakeHermesSocket(url);
           sockets.push(socket);
@@ -375,32 +488,49 @@ describe("runLoop and the Twitch Hermes socket", () => {
           return socket;
         },
         () => live,
+        maintainsStreaks ? undefined : CAMPAIGN,
       );
-      const { controller, events, state } = controllerFor(transport);
+      const { controller, events, state } = controllerFor(transport, settings);
       const streaks = () => state().watchStreaks?.twitch;
       try {
+        await controller.reconcileStartup();
         await controller.tick(["twitch"]);
         for (let minute = 0; minute < 180; minute += 1) {
           await vi.advanceTimersByTimeAsync(60_000);
           await controller.tick(["twitch"]);
-          if (minute === 0) {
+          if (maintainsStreaks && minute === 0) {
             expect(streaks()?.observerAvailable).toBe(false);
             live = true;
           }
-          expect(streaks()?.attempts).toEqual([]);
+          if (maintainsStreaks) expect(streaks()?.attempts).toEqual([]);
         }
         expect(sockets.length).toBeGreaterThanOrEqual(3);
         expect(sockets.length).toBeLessThanOrEqual(13);
         if (failure === "points subscription") expect(playbackConfirmations).toBeGreaterThan(0);
-        expect(streaks()?.observerAvailable).toBe(false);
+        if (maintainsStreaks) expect(streaks()?.observerAvailable).toBe(false);
         expect(state().sessions.twitch.channel?.username).toBe("ordinary");
-        const warnings = events.filter(
+        expect(state().authHealth.twitch).toEqual(HEALTHY);
+        const claimsBeforePoll = pointClaims.length;
+        await controller.runJob(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+        expect(pointClaims.slice(claimsBeforePoll)).toEqual(
+          settings.platform.twitch.autoClaimChannelPoints
+            ? [{ claimID: "bonus", channelID: "22" }]
+            : [],
+        );
+        const unavailable = events.filter(
           (event) =>
             event.category === "diagnostic"
-            && event.level === "warn"
             && event.message.includes("Twitch channel-points push is unavailable"),
         );
-        expect(warnings).toHaveLength(1);
+        expect(unavailable).toEqual([
+          expect.objectContaining({
+            level: maintainsStreaks ? "warn" : "debug",
+            message: maintainsStreaks
+              ? expect.stringContaining("Watch streaks are paused")
+              : expect.not.stringMatching(/streak/i),
+          }),
+        ]);
+        if (!maintainsStreaks) return;
 
         refused = false;
         const attemptsBeforeRecovery = sockets.length;
@@ -421,6 +551,18 @@ describe("runLoop and the Twitch Hermes socket", () => {
         expect(streaks()?.observerAvailable).toBe(true);
         expect(streaks()?.attempts).toHaveLength(1);
         expect(state().sessions.twitch.channel?.username).toBe("streaker");
+        recovered.payWatchStreak("22", "123");
+        await controller.settleBackgroundWork();
+        expect(streaks()?.attempts).toEqual([
+          expect.objectContaining({ username: "streaker", outcome: "credited" }),
+        ]);
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            category: "activity",
+            code: "watch_streak_ended",
+            data: { channel: "streaker", outcome: "credited" },
+          }),
+        );
       } finally {
         await controller.shutdown();
       }

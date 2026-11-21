@@ -22,6 +22,7 @@ import {
   watchStreakStateFor,
 } from "../core/watchStreaks";
 import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
+import { requestedAdapterSettings } from "./adapterSettings";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -182,6 +183,10 @@ export function createChannelPoints<S extends EngineSettings>(
     "Twitch channel-points observer",
     "discard",
   );
+  const pushAvailabilityReports = new WeakMap<
+    TwitchChannelPointsPushController,
+    "debug" | "warn"
+  >();
   // The check a stream-down push scheduled; a stream-up or a stop cancels it.
   let streamDownCheck: { timer: ReturnType<typeof setTimeout>; channelId: string } | undefined;
   function cancelStreamDownCheck(): void {
@@ -448,6 +453,38 @@ export function createChannelPoints<S extends EngineSettings>(
     );
   }
 
+  function reportPersistentPushFailure(
+    controller: TwitchChannelPointsPushController,
+    settings: EngineSettings,
+    claims: boolean,
+    streaks: boolean,
+    emit: EventEmitter,
+  ): void {
+    if (controller.watchStreaksAvailable !== false) return;
+    const previousLevel = pushAvailabilityReports.get(controller);
+    if (previousLevel === "warn") return;
+    const requestedClaims =
+      claims
+      && requestedAdapterSettings("twitch", settings, ports.capabilities).some(
+        ({ entry }) => entry.field === "channelPointsPushClaim",
+      );
+    const level = streaks || requestedClaims ? "warn" : "debug";
+    if (level === previousLevel) return;
+    // A settings change can promote a previous debug report to a warning.
+    pushAvailabilityReports.set(controller, level);
+    const detail = streaks
+      ? " Watch streaks are paused until the points subscription is confirmed."
+      : requestedClaims
+        ? " Channel-point bonus claims will use polling."
+        : "";
+    emit({
+      category: "diagnostic",
+      platform: "twitch",
+      level,
+      message: `Twitch channel-points push is unavailable after repeated connection failures.${detail}`,
+    });
+  }
+
   // Commits a payout against the attempt it belongs to, re-checked against the
   // latest stored state: a payout for an account no longer signed in, or one
   // no attempt can be attributed to, changes nothing. A tick that was running
@@ -569,8 +606,9 @@ export function createChannelPoints<S extends EngineSettings>(
       open: observersOpen,
       since,
       emit,
-      start: (controller) =>
-        controller.start({
+      start: (controller) => {
+        reportPersistentPushFailure(controller, settings, claims, streaks, emit);
+        return controller.start({
           ...(claims
             ? {
                 onClaimAvailable: (notice: TwitchChannelPointsClaimNotice) => {
@@ -622,7 +660,8 @@ export function createChannelPoints<S extends EngineSettings>(
                 },
               }
             : {}),
-        }),
+        });
+      },
     });
   }
 

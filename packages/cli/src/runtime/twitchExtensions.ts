@@ -105,10 +105,9 @@ export function createCliTwitchExtensionLane(options: {
       }
       return startHost().setEnabled(id, enabled);
     },
-    // Hermes broadcast ports (#757, #1105). Only a web sign-in opens Hermes, so
-    // only it subscribes the topic. Android and Smart TV sign-ins keep the
-    // once-a-minute refresh. Until the host exists there is no provider
-    // session, so there is no token either.
+    // Hermes broadcast ports (#757, #1105). The provider's periodic refresh
+    // continues if push is unavailable. The host must start a session before
+    // it can supply a token for the topic.
     refreshNow(provider: string, channelId: string): void {
       if (!closed) host?.refreshNow(provider, channelId);
     },

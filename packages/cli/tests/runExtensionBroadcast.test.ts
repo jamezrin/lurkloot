@@ -19,10 +19,14 @@ import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 import type { TransportHandle } from "../src/transport";
 import { createCliAdapters } from "../src/transport/common";
 import { createNodeTwitchHermesWebSocketFactory } from "../src/transport/twitchHermes";
-import { TWITCH_ANDROID_CLIENT_ID, TWITCH_WEB_CLIENT_ID } from "../src/twitch";
+import {
+  TWITCH_ANDROID_CLIENT_ID,
+  TWITCH_SMARTBOX_CLIENT_ID,
+  TWITCH_WEB_CLIENT_ID,
+} from "../src/twitch";
 import { memoryStateStore } from "./helpers/fakeFarming";
 
-// #1105: with a web sign-in, the CLI subscribes the watching Twitch Extension
+// #1105: the CLI subscribes the watching Twitch Extension
 // provider's Hermes broadcast topic with the provider session's JWT, and a
 // refresh-worthy message refreshes the provider at once, as the extension does.
 
@@ -51,6 +55,9 @@ const WEB: PlatformCredentials = {
 };
 const ANDROID: PlatformCredentials = {
   twitch: { authToken: "android-oauth-value", clientId: TWITCH_ANDROID_CLIENT_ID },
+};
+const SMART_TV: PlatformCredentials = {
+  twitch: { authToken: "tv-oauth-value", clientId: TWITCH_SMARTBOX_CLIENT_ID },
 };
 
 class FakeHermesSocket implements WebSocketLike {
@@ -169,7 +176,7 @@ function idle(platform: Platform): PlatformAdapter {
   };
 }
 
-// The real CLI adapter factory supplies Hermes (web sign-ins only) and the
+// The real CLI adapter factory supplies Hermes and the
 // lane's GQL access; discovery, watching and chat are offline fakes.
 function transportFor(creds: PlatformCredentials) {
   const sockets: FakeHermesSocket[] = [];
@@ -295,107 +302,77 @@ afterEach(async () => {
 });
 
 describe("runLoop and the Twitch Extension broadcast topic", () => {
-  it("subscribes NoPixelV's topic with its session JWT and refreshes on a giveaway event", async () => {
-    const setups = stubNoPixel();
-    const { transport, sockets } = transportFor(WEB);
-    const logger = createLogger("debug");
-    const log = vi.spyOn(logger, "log").mockImplementation(() => undefined);
-    const stop = new AbortController();
-    let controller: FarmingController | undefined;
-    const done = runLoop({
-      statePath: join(dir, "state.json"),
-      settings: settings(),
-      transport,
-      logger,
-      stopSignal: stop.signal,
-      stateStore: memoryStateStore(),
-      checkCredentialAvailability: async () => ({ status: "available" }),
-      startHost: async (running) => {
-        controller = running;
-        return { close: async () => {} };
-      },
-    });
-    try {
-      await vi.waitFor(async () => {
+  it.each([
+    ["web", WEB],
+    ["Android", ANDROID],
+    ["Smart TV", SMART_TV],
+  ])(
+    "refreshes NoPixelV on its session JWT's broadcast topic for a %s sign-in",
+    async (_name, creds) => {
+      const setups = stubNoPixel();
+      const { transport, sockets } = transportFor(creds);
+      const logger = createLogger("debug");
+      const log = vi.spyOn(logger, "log").mockImplementation(() => undefined);
+      const stop = new AbortController();
+      let controller: FarmingController | undefined;
+      const done = runLoop({
+        statePath: join(dir, "state.json"),
+        settings: settings(),
+        transport,
+        logger,
+        stopSignal: stop.signal,
+        stateStore: memoryStateStore(),
+        checkCredentialAvailability: async () => ({ status: "available" }),
+        startHost: async (running) => {
+          controller = running;
+          return { close: async () => {} };
+        },
+      });
+      try {
+        await vi.waitFor(async () => {
+          const snapshot = await snapshotOf(controller);
+          expect(snapshot?.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
+          expect(sockets.at(-1)?.extensionSubscription()).toBeDefined();
+        });
+        const socket = sockets.at(-1)!;
+        const frame = socket.extensionSubscription()!;
+        expect(frame.subscribe.extension).toEqual({ topic: TOPIC, token: JWT });
+        socket.message({
+          type: "subscribeResponse",
+          parentId: frame.id,
+          subscribeResponse: { result: "ok", subscription: { id: frame.subscribe.id } },
+        });
+        await vi.waitFor(() => expect(setups).toHaveBeenCalled());
+        await settle();
+
+        // An event that is not one of the provider's refresh events changes nothing.
+        const before = setups.mock.calls.length;
+        socket.broadcast(frame.subscribe.id, "map.event.updated");
+        await settle();
+        expect(setups).toHaveBeenCalledTimes(before);
+
+        socket.broadcast(frame.subscribe.id, "cards.giveaway.started");
+        await vi.waitFor(() => expect(setups).toHaveBeenCalledTimes(before + 1));
+        await vi.waitFor(() =>
+          expect(log).toHaveBeenCalledWith(
+            "debug",
+            expect.stringContaining("nopixel announced cards.giveaway.started"),
+            "twitch",
+          ),
+        );
         const snapshot = await snapshotOf(controller);
-        expect(snapshot?.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
-        expect(sockets.at(-1)?.extensionSubscription()).toBeDefined();
-      });
-      const socket = sockets.at(-1)!;
-      const frame = socket.extensionSubscription()!;
-      expect(frame.subscribe.extension).toEqual({ topic: TOPIC, token: JWT });
-      socket.message({
-        type: "subscribeResponse",
-        parentId: frame.id,
-        subscribeResponse: { result: "ok", subscription: { id: frame.subscribe.id } },
-      });
-      await vi.waitFor(() => expect(setups).toHaveBeenCalled());
-      await settle();
-
-      // An event that is not one of the provider's refresh events changes nothing.
-      const before = setups.mock.calls.length;
-      socket.broadcast(frame.subscribe.id, "map.event.updated");
-      await settle();
-      expect(setups).toHaveBeenCalledTimes(before);
-
-      socket.broadcast(frame.subscribe.id, "cards.giveaway.started");
-      await vi.waitFor(() => expect(setups).toHaveBeenCalledTimes(before + 1));
-      await vi.waitFor(() =>
-        expect(log).toHaveBeenCalledWith(
-          "debug",
-          expect.stringContaining("nopixel announced cards.giveaway.started"),
-          "twitch",
-        ),
-      );
-      const snapshot = await snapshotOf(controller);
-      expect(JSON.stringify(snapshot)).not.toContain(JWT);
-    } finally {
-      stop.abort();
-      await done;
-    }
-    const logged = JSON.stringify(log.mock.calls);
-    expect(logged).not.toContain(JWT);
-    expect(logged).not.toContain(payload);
-    expect(logged).not.toContain("payload-not-read");
-    expect(log.mock.calls.filter(([level]) => level === "warn" || level === "error")).toEqual([]);
-    expect(sockets.every((socket) => socket.readyState === 3)).toBe(true);
-  });
-
-  it("keeps polling NoPixelV on an Android sign-in, with no Hermes and no warning", async () => {
-    const setups = stubNoPixel();
-    const { transport, sockets } = transportFor(ANDROID);
-    const logger = createLogger("debug");
-    const log = vi.spyOn(logger, "log").mockImplementation(() => undefined);
-    const stop = new AbortController();
-    let controller: FarmingController | undefined;
-    const done = runLoop({
-      statePath: join(dir, "state.json"),
-      settings: settings(),
-      transport,
-      logger,
-      stopSignal: stop.signal,
-      stateStore: memoryStateStore(),
-      checkCredentialAvailability: async () => ({ status: "available" }),
-      startHost: async (running) => {
-        controller = running;
-        return { close: async () => {} };
-      },
-    });
-    try {
-      await vi.waitFor(async () => {
-        const snapshot = await snapshotOf(controller);
-        expect(snapshot?.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
-        expect(setups).toHaveBeenCalled();
-      });
-      await settle();
-    } finally {
-      stop.abort();
-      await done;
-    }
-    expect(sockets).toEqual([]);
-    const logged = JSON.stringify(log.mock.calls);
-    expect(logged).not.toContain(JWT);
-    expect(logged).not.toContain("broadcast");
-    expect(log.mock.calls.filter(([level]) => level === "warn" || level === "error")).toEqual([]);
-  });
+        expect(JSON.stringify(snapshot)).not.toContain(JWT);
+      } finally {
+        stop.abort();
+        await done;
+      }
+      const logged = JSON.stringify(log.mock.calls);
+      expect(logged).not.toContain(creds.twitch!.authToken);
+      expect(logged).not.toContain(JWT);
+      expect(logged).not.toContain(payload);
+      expect(logged).not.toContain("payload-not-read");
+      expect(log.mock.calls.filter(([level]) => level === "warn" || level === "error")).toEqual([]);
+      expect(sockets.every((socket) => socket.readyState === 3)).toBe(true);
+    },
+  );
 });

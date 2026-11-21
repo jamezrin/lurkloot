@@ -171,7 +171,7 @@ describe("createTransport", () => {
     }
   });
 
-  it("joins Twitch chat with a Smart TV token and leaves Hermes and Kick chat off", async () => {
+  it("joins Twitch chat with a Smart TV token independently of Hermes", async () => {
     const sent: string[] = [];
     const urls: string[] = [];
     const listeners: Record<string, (event: { data?: unknown }) => void> = {};
@@ -203,7 +203,6 @@ describe("createTransport", () => {
       },
     );
 
-    expect(built.adapters.twitch.createChannelPointsPushController).toBeUndefined();
     expect(built.adapters.kick.createChatPresenceClient).toBeUndefined();
     const client = built.adapters.twitch.createChatPresenceClient!();
     await client.follow({ username: "prod" });
