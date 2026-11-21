@@ -64,8 +64,6 @@ const SMART_TV: PlatformCredentials = {
   twitch: { authToken: "tv-token", clientId: TWITCH_SMARTBOX_CLIENT_ID },
 };
 
-const HERMES_URL = `wss://hermes.twitch.tv/v1?clientId=${TWITCH_WEB_CLIENT_ID}`;
-
 function stubCurrentUser(): void {
   vi.stubGlobal(
     "fetch",
@@ -91,14 +89,20 @@ afterEach(() => {
 });
 
 describe("CLI Twitch push (Hermes)", () => {
-  it.each(["http", "impersonate"] as const)(
-    "gives the %s transport's web sign-in a Hermes socket with only the web Origin",
-    async (transport) => {
+  it.each(
+    (["http", "impersonate"] as const).flatMap((transport) => [
+      { transport, name: "web", creds: WEB },
+      { transport, name: "Android", creds: ANDROID },
+      { transport, name: "Smart TV", creds: SMART_TV },
+    ]),
+  )(
+    "gives $transport's $name sign-in a Hermes socket with only the web Origin",
+    async ({ transport, creds }) => {
       stubCurrentUser();
       const handle =
         transport === "http"
-          ? createHttpTransport(WEB, ENABLED)
-          : await createImpersonateTransport(WEB, ENABLED, {
+          ? createHttpTransport(creds, ENABLED)
+          : await createImpersonateTransport(creds, ENABLED, {
               initClient: async () => fakeCycleClient(),
             });
       try {
@@ -110,7 +114,7 @@ describe("CLI Twitch push (Hermes)", () => {
         const hermes = created.filter((socket) => socket.url.startsWith("wss://hermes."));
         expect(hermes).toHaveLength(1);
         const [socket] = hermes;
-        expect(socket!.url).toBe(HERMES_URL);
+        expect(socket!.url).toBe(`wss://hermes.twitch.tv/v1?clientId=${creds.twitch!.clientId}`);
         expect(socket!.options).toEqual({
           headers: { Origin: "https://www.twitch.tv" },
           handshakeTimeout: 10_000,
@@ -124,7 +128,7 @@ describe("CLI Twitch push (Hermes)", () => {
           listener({ data: JSON.stringify({ type: "welcome", welcome: { keepaliveSec: 15 } }) });
         expect(JSON.parse(socket!.sent[0]!)).toMatchObject({
           type: "authenticate",
-          authenticate: { token: "web-token" },
+          authenticate: { token: creds.twitch!.authToken },
         });
 
         await controller.stop();
@@ -149,28 +153,6 @@ describe("CLI Twitch push (Hermes)", () => {
       await client.stop();
     } finally {
       await handle.dispose();
-    }
-  });
-
-  it.each([
-    ["Android (browser-login)", ANDROID],
-    ["Smart TV (device-login)", SMART_TV],
-  ])("leaves Hermes off for the %s sign-in on both transports", async (_name, creds) => {
-    const http = createHttpTransport(creds, ENABLED);
-    const impersonate = await createImpersonateTransport(creds, ENABLED, {
-      initClient: async () => fakeCycleClient(),
-    });
-    try {
-      for (const handle of [http, impersonate]) {
-        const adapter = handle.adapters.twitch;
-        expect(adapter.createChannelPointsPushController).toBeUndefined();
-        expect(tickCapabilities(adapter, false).observeWatchStreaks).toBe(false);
-        // Chat presence does not depend on Hermes.
-        expect(adapter.createChatPresenceClient).toBeDefined();
-      }
-    } finally {
-      await http.dispose();
-      await impersonate.dispose();
     }
   });
 });

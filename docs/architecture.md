@@ -647,8 +647,8 @@ For adapter-backed settings the guard uses the production transports and checks 
 Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus Kick on
 each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
 where it is missing. Narrow a row's cases when support lands for some combinations,
-and remove the row when all its cases gain support. The Hermes gap applies to Android and
-Smart TV sign-ins (#1101). The Kick chat gap applies to `kick/http` (#1099).
+and remove the row when all its cases gain support. The Kick chat gap applies to
+`kick/http` (#1099).
 The guard fails for unexpected gaps and stale exceptions. It also checks
 that changed values requesting a missing feature produce a warning.
 
@@ -1414,20 +1414,24 @@ claims to know the user's streak count.
   progress ends.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
-- **Hermes availability.** The CLI offers the push factory for web sign-ins (#1084).
-  Android and Smart TV use claim polling and ordinary Watchlist ordering. The
-  tick's unsupported-settings reporter warns for changed settings only (#1090).
-  Each CLI adapter carries an opaque in-memory credential revision, stable
+- **Hermes availability.** Every CLI Twitch sign-in attempts Hermes (#1084, #1101)
+  with its effective Client-ID and OAuth token through the shared Origin-only
+  socket factory. Each CLI adapter carries an opaque in-memory credential revision, stable
   across builds for the same login. The observer slot revokes old callbacks
   and drains the previous socket before replacing it on a revision change.
-  For CLI web sign-ins, the push controller reports itself unavailable after
-  three consecutive failures, warns once per observer, and retries after 5,
-  10, 20 and then 30 minutes. A confirmed points subscription clears the
-  suspension. The channel-points service reads availability from the observer
+  The push controller reports itself unavailable after three consecutive
+  upgrade, authentication or points-topic failures, warns once per observer,
+  and retries after 5, 10, 20 and then every 30 minutes. The one-minute
+  channel-points claim job takes over when push claiming is inactive.
+  A confirmed points subscription clears the suspension.
+  The channel-points service reads availability from the observer
   for the current revision, and the tick combines it with the adapter's factory
   when deciding streak priority and accrual. This signal never writes auth
   health. The extension uses its existing retry policy. `runHermes.test.ts`
-  exercises credential reload and several hours of timed refusal and recovery.
+  exercises credential reload, three hours of timed refusals, claim polling,
+  and payouts after recovery for CLI sign-ins. Live acceptance per sign-in is
+  unverified. The debug line `Twitch channel-points push subscribed to community-points-user-v1.<id>`
+  confirms the points subscription.
 
 ## Tabless Watch
 
@@ -1851,11 +1855,10 @@ NoPixelV holds the watch slot. Fortnite uses Node `ws` for its declared
 sets only the provider frame's `Origin`. The socket port consumes late errors and waits for
 close with a two-second close timeout on shutdown. The CLI wires the optional Hermes broadcast
 ports, `supplementalSources.refreshNow` and `broadcastToken`, to the lane as the extension does
-(#1105). Both are inert until the lane's host exists. A web sign-in's Hermes connection then
-subscribes the watching provider's broadcast topic with its session JWT and refreshes the provider
-on its refresh events. Android and Smart TV sign-ins open no Hermes connection, so their provider
-sessions keep the once-a-minute refresh with no further warning. The inert-settings route (#1095)
-remains the only warning about missing push.
+(#1105). The lane supplies the JWT once it has a provider session. For any sign-in,
+the Hermes connection subscribes to the watching provider's broadcast topic with
+that JWT and refreshes the provider on its refresh events. The once-a-minute provider
+refresh continues if Twitch refuses the connection or the broadcast topic.
 
 Both CLI transports match GQL Client-ID to the effective credential and resolve the viewer
 login through Twitch's identity query. The lane starts when a configured provider is needed

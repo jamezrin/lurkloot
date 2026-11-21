@@ -214,20 +214,20 @@ every host, with a deprecation warning.
 ### Settings with limited CLI support
 
 These settings can be shared with the extension. Their CLI support depends on
-the platform, transport and sign-in. A per-platform setting that asks for an unavailable
+the platform and transport. A per-platform setting that asks for an unavailable
 feature and differs from its default logs one warning per run. If the signed-in
 identity changes during a run, the warning can first appear when the new adapter
 lacks the feature. Once logged, it stays quiet for the rest of that run.
 
 | Setting | Why | Tracked in |
 |---|---|---|
-| `platform.twitch.channelPointsPushClaim` (with `autoClaimChannelPoints` on) | Web sign-ins support push; Android and Smart TV sign-ins claim points through the one-minute check | [#1101](https://github.com/jamezrin/lurkloot/issues/1101) |
-| `platform.twitch.watchlistStreakChannels`, `watchStreakBudgetMinutes`, `watchStreakRetryCooldownMinutes`, `watchStreakMaxRounds` | Web sign-ins support streaks; Android and Smart TV sign-ins watch these as ordinary Watchlist channels | [#1101](https://github.com/jamezrin/lurkloot/issues/1101) |
 | `platform.kick.alwaysEnterChat` on `http` | The HTTP transport cannot reach Kick realtime through the WAF | [#1099](https://github.com/jamezrin/lurkloot/issues/1099) |
 
-The default config is quiet. `channelPointsPushClaim` is on by default, and
-setting it to `false` disables push claiming, so either value stays quiet.
-`tests/inertSettings.test.ts` checks these gaps per transport and Twitch sign-in.
+All Twitch sign-ins attempt push. If the connection stays unavailable, the
+CLI polls for channel-point claims and treats streak channels as ordinary
+Watchlist rows. See [Twitch push (Hermes)](#twitch-push-hermes) for retry
+behavior and how to verify live acceptance. `tests/inertSettings.test.ts`
+checks adapter support per transport and Twitch sign-in.
 
 ## Twitch Extensions
 
@@ -264,14 +264,12 @@ a provider query for a non-web sign-in, the CLI logs one warning for that
 provider and leaves it idle until the credentials change. Other farming
 continues.
 
-Each provider session refreshes once a minute. With a web sign-in, the CLI
-also follows NoPixelV's broadcast topic on its Twitch push connection (see
-[Twitch push (Hermes)](#twitch-push-hermes)) and refreshes the provider when it
-receives a giveaway start or end notification there. Whether Twitch accepts
-that subscription from the CLI and delivers those notifications has not been
-verified live. Android and Smart TV sign-ins have no push
-connection, so they rely on the once-a-minute refresh alone, without a
-warning.
+Each provider session refreshes once a minute. With any sign-in, the CLI also
+follows NoPixelV's broadcast topic when Twitch accepts the connection and
+topic, and refreshes the provider when it receives a giveaway start or end
+notification. Live acceptance of the broadcast subscription and delivery of
+these notifications remain unverified for CLI sign-ins. See
+[Twitch push (Hermes)](#twitch-push-hermes).
 
 ## Transports
 
@@ -358,11 +356,12 @@ private auth store, so a stale environment value cannot override a refresh.
 
 ### Twitch push (Hermes)
 
-Twitch's web client gets live notices over one push connection, Hermes. With
-a **web sign-in** (`auth import`), the CLI opens that connection too, as the
-extension does. The socket presents Twitch's web `Origin`
-(`https://www.twitch.tv`) and no other identity header: no User-Agent, Referer,
-cookie or client hint. Over it the CLI:
+The CLI attempts Twitch's Hermes push connection for every sign-in: **web**
+(`auth import`), **Android** (`auth twitch browser-login`), and **Smart TV**
+(`auth twitch device-login`). It uses the sign-in's Client-ID and authenticates
+with its OAuth token. The only identity header it sets on the socket is
+`Origin: https://www.twitch.tv`. When Twitch accepts the relevant subscriptions,
+the CLI can do the following.
 
 - claims channel-point bonuses as Twitch announces them
   (`channelPointsPushClaim`), with the one-minute claim job as the fallback;
@@ -375,21 +374,19 @@ cookie or client hint. Over it the CLI:
   topic with the provider session's token, held in memory and never logged,
   and refreshes the provider when a giveaway starts or ends.
 
-The **Android** (`auth twitch browser-login`) and **Smart TV**
-(`auth twitch device-login`) sign-ins do not open Hermes. Hermes is the web
-client's service, and whether it accepts a token issued to those clients has
-not been checked live. These sign-ins keep polling instead: channel points are
-claimed by the one-minute job, `channelPointsPushClaim` has no effect,
-`watchlistStreakChannels` rows are watched as ordinary Watchlist rows, and an
-ended stream is noticed at the next check. Defaults stay quiet. The CLI warns
-once per changed setting that requests unsupported push functionality. Chat
-presence (`alwaysEnterChat`) uses a separate connection for all three sign-ins.
+If Twitch repeatedly refuses the connection, authentication, or the points
+topic, the CLI logs one warning per observer after three consecutive failures.
+It suspends streak priority and accrual and retries after 5, 10, 20, and then
+30 minutes between attempts. The one-minute job claims channel-point bonuses
+when push claiming is inactive, and periodic stream checks and provider
+refreshes continue. A confirmed points subscription restores streak tracking.
+Updating the Twitch login replaces the old connection on the next
+reconciliation. Chat presence (`alwaysEnterChat`) uses a separate connection
+for every sign-in.
 
-If a web sign-in's push connection fails three times in a row, the CLI logs
-one warning, pauses streak priority and accrual, and starts retrying at
-five-minute intervals with backoff up to 30 minutes. Confirmation of the
-channel-points subscription restores streak tracking. Updating the web login
-while the CLI runs replaces the old connection on the next reconciliation.
+Live Hermes acceptance per CLI sign-in is unverified. To confirm it for your
+sign-in, run with `--log debug` while Twitch farming is enabled and look for
+`Twitch channel-points push subscribed to community-points-user-v1.<id>`.
 
 `run --once`, SIGINT, SIGTERM, and `serve --exit-with-stdin` wait for the
 Hermes socket to close. The socket is dropped if the peer takes more than

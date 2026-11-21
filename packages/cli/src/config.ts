@@ -121,9 +121,8 @@ export function defaultConfigJsonc(): string {
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
         "watchlistChannels": ${json(twitch.watchlistChannels)},
         // Watchlist channels whose watch streak to maintain. The payout is
-        // seen over Twitch's push connection (Hermes), which the CLI opens
-        // only for a web sign-in (auth import); with another sign-in these
-        // rows are watched as ordinary Watchlist rows.
+        // seen over Twitch's push connection (Hermes) for any sign-in.
+        // If push stays unavailable, these are ordinary Watchlist rows.
         "watchlistStreakChannels": ${json(twitch.watchlistStreakChannels ?? [])},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
@@ -168,8 +167,8 @@ export function defaultConfigJsonc(): string {
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
         // Advanced: claim channel-point bonuses from Twitch's live Hermes
-        // notification, opened only for a web sign-in (auth import). With
-        // another sign-in, bonuses are claimed by polling.
+        // notifications on any sign-in. The one-minute check claims bonuses
+        // while the points subscription is unavailable.
         "channelPointsPushClaim": ${json(twitch.channelPointsPushClaim)},
         // Advanced: only farm a campaign on channels Twitch's AvailableDrops
         // query lists it for. Twitch often omits farmable campaigns there, so
