@@ -1829,10 +1829,10 @@ export async function* decidePlatformTick(
       || (authChallenge
         && Date.parse(health.checkedAt ?? "") < Date.parse(previous.retryAfter ?? ""));
     if (authChallenge && !inBackoff) {
-      // The probe's health carries no HTTP status. The typed failure keeps the
-      // platform error in diagnostics and critical health, and it is not an auth
-      // failure: authHealthFromError ignores http_error.
-      throw new SafeFetchError({ kind: "http_error", reason: "Identity request challenged" });
+      throw new SafeFetchError({
+        kind: "request_challenged",
+        reason: "Identity request challenged",
+      });
     }
     if (health.status !== "healthy" && !authChallenge) {
       yield* suspendPlatformForAuthentication(tick, platform, previous);

@@ -1,6 +1,7 @@
 export type SafeFetchFailureKind =
   | "authentication_rejected"
   | "security_policy_blocked"
+  | "request_challenged"
   | "http_error"
   | "invalid_response"
   | "network_error";
@@ -15,6 +16,7 @@ export interface SafeFetchFailure {
 const FAILURE_KINDS = new Set<SafeFetchFailureKind>([
   "authentication_rejected",
   "security_policy_blocked",
+  "request_challenged",
   "http_error",
   "invalid_response",
   "network_error",

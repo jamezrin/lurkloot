@@ -1284,9 +1284,9 @@ existing classification and safe reference.
 
 When the identity probe receives an HTTP challenge it reports unavailable
 (`request_challenged`, a platform-neutral reason). The scheduler records a
-platform error (an `http_error` `SafeFetchError`, so critical health and
-diagnostics keep it as an API failure rather than an auth one) and applies the
-usual exponential backoff. Scheduled ticks use the deadline from committed state
+platform API failure with code `request_challenged` in critical health and
+applies the usual exponential backoff. Auth health remains owned by the identity
+probe. Scheduled ticks use the deadline from committed state
 to defer the identity request until the retry is due. The first probe on a
 fresh controller rechecks immediately. The next successful probe lets
 discovery and farming resume.
@@ -1300,21 +1300,20 @@ the option the marker is a plain `http_error`.
 `KickPageContextFallback` (`src/core/kickPageDocument.ts`, wired in
 `background.ts`) chooses the fallback's options per request:
 
-- A challenge seen only by the service worker takes the normal fallback. A real
-  kick.com tab runs Cloudflare's challenge, so a user with no Kick tab open
-  recovers: the fallback opens at most one retained page context, later
-  fallbacks reuse it, and the managed-tab churn breaker bounds any reopening.
+- A challenge seen only by the service worker takes the normal fallback. If
+  there is no usable Kick tab, the fallback can open a retained page context.
+  Kick recovers when the request succeeds there. Later fallbacks reuse the
+  retained context, and managed-tab opens count toward the churn breaker.
 - Once the page context itself returns the challenge marker for a host, later
   challenged fallbacks for that host pass `reusePageContextOrThrow`. They reuse
   a usable user tab or the retained context and never open a tab. When none is
   open the fetch rethrows the service-worker challenge, and Kick stays
   unavailable with no tab opening; this is the intended steady state.
 - A success for that host, from the page or from the service worker, clears the
-  latch. The latch is in memory, so a restarted service worker starts over with
-  the normal fallback. That does not reopen tabs: the retained context is
-  persisted in `managedPageContextTabs` and rehydrated into the registry on
-  every tick, and the churn breaker is synced from persisted critical health.
-  After a restart a tab opens only when no usable context is open.
+  latch. After a worker restart, the normal fallback resumes and reuses any
+  usable retained tab. The registry rehydrates its ownership from
+  `managedPageContextTabs` on each tick and syncs the churn breaker from
+  persisted critical health.
 
 `authHealth.test.ts` drives three hours of ticks for both cases, and
 `kickPageContextFallback.test.ts` covers the per-host latch.
