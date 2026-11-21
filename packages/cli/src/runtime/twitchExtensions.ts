@@ -105,6 +105,17 @@ export function createCliTwitchExtensionLane(options: {
       }
       return startHost().setEnabled(id, enabled);
     },
+    // Hermes broadcast ports (#757, #1105). Only a web sign-in opens Hermes, so
+    // only it subscribes the topic. Android and Smart TV sign-ins keep the
+    // once-a-minute refresh. Until the host exists there is no provider
+    // session, so there is no token either.
+    refreshNow(provider: string, channelId: string): void {
+      if (!closed) host?.refreshNow(provider, channelId);
+    },
+    // The provider session's JWT stays in memory: never logged or persisted.
+    broadcastToken(provider: string, channelId: string): string | undefined {
+      return closed ? undefined : host?.broadcastToken(provider, channelId);
+    },
     snapshot: () => host?.snapshot() ?? {},
     async close() {
       closed = true;

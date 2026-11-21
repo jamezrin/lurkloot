@@ -279,6 +279,28 @@ it("saves a disabled provider setting without starting the lane", async () => {
   }
 });
 
+it("has no broadcast token and ignores pushed refreshes until the lane starts", async () => {
+  const transport = { ...idleTransport(), twitchExtensionAccess: vi.fn() };
+  const lane = createCliTwitchExtensionLane({
+    transport,
+    statePath,
+    loadSettings: async () => toEngineSettings(farmingSettings()),
+    loadState: async () => healthyState(),
+    savePatch: async () => {},
+    requestTick: vi.fn(),
+    publish: vi.fn(),
+    onSessionReady: vi.fn(),
+  });
+  try {
+    expect(lane.broadcastToken("nopixel", channelId)).toBeUndefined();
+    expect(() => lane.refreshNow("nopixel", channelId)).not.toThrow();
+    expect(transport.twitchExtensionAccess).not.toHaveBeenCalled();
+  } finally {
+    await lane.close();
+  }
+  expect(lane.broadcastToken("nopixel", channelId)).toBeUndefined();
+});
+
 describe("non-web session refusal", () => {
   it.each([
     ["HTTP 401", () => new Response("Unauthorized", { status: 401 })],

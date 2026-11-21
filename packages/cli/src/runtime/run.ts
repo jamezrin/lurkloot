@@ -195,6 +195,8 @@ export async function runLoop(options: RunOptions): Promise<void> {
       supplementalSources: {
         select: (state, settings, signal, source) =>
           extensionLane.select(state, settings, signal, source),
+        refreshNow: (provider, channelId) => extensionLane.refreshNow(provider, channelId),
+        broadcastToken: (provider, channelId) => extensionLane.broadcastToken(provider, channelId),
       },
     },
   });

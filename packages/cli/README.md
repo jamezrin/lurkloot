@@ -262,7 +262,16 @@ the extension on Twitch.
 Live CLI earning is unverified for each sign-in. If Twitch explicitly refuses
 a provider query for a non-web sign-in, the CLI logs one warning for that
 provider and leaves it idle until the credentials change. Other farming
-continues. Provider refreshes use polling. Hermes broadcast integration is tracked in #1105.
+continues.
+
+Each provider session refreshes once a minute. With a web sign-in, the CLI
+also follows NoPixelV's broadcast topic on its Twitch push connection (see
+[Twitch push (Hermes)](#twitch-push-hermes)) and refreshes the provider when it
+receives a giveaway start or end notification there. Whether Twitch accepts
+that subscription from the CLI and delivers those notifications has not been
+verified live. Android and Smart TV sign-ins have no push
+connection, so they rely on the once-a-minute refresh alone, without a
+warning.
 
 ## Transports
 
@@ -356,7 +365,10 @@ cookie or client hint. Over it the CLI:
   the way the extension maintains them, tuned by `watchStreakBudgetMinutes`,
   `watchStreakRetryCooldownMinutes` and `watchStreakMaxRounds`;
 - hears when the watched stream ends, checks it 60 s later and switches
-  channel without waiting for the next discovery.
+  channel without waiting for the next discovery;
+- while NoPixelV holds the watch slot, follows its Twitch Extension broadcast
+  topic with the provider session's token, held in memory and never logged,
+  and refreshes the provider when a giveaway starts or ends.
 
 The **Android** (`auth twitch browser-login`) and **Smart TV**
 (`auth twitch device-login`) sign-ins do not open Hermes. Hermes is the web
