@@ -1608,9 +1608,8 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
   });
 
   it("falls back to the page tab when the background fetch is WAF-blocked", async () => {
-    const blocked = new KickWafBlockedError("HTTP 403 Forbidden");
     const background = vi.fn(async () => {
-      throw blocked;
+      throw new KickWafBlockedError("HTTP 403 Forbidden");
     });
     const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
     const onPageFallback = vi.fn(async () => undefined);
@@ -1622,11 +1621,9 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 
     expect(result).toEqual({ data: "from-tab" });
     expect(background).toHaveBeenCalledTimes(1);
-    expect(pageFetch).toHaveBeenCalledWith(
-      "https://web.kick.com/api/v1/drops/campaigns",
-      { method: "GET" },
-      blocked,
-    );
+    expect(pageFetch).toHaveBeenCalledWith("https://web.kick.com/api/v1/drops/campaigns", {
+      method: "GET",
+    });
     expect(onPageFallback).toHaveBeenCalledWith("web.kick.com", expect.any(Function));
   });
 

@@ -4,14 +4,18 @@ import type { PlatformAuthHealth } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { createKickFetcher } from "@lurkloot/core/kick";
 import { kickAdapter } from "../helpers/adapters";
-import { fetchKickInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
+import {
+  fetchKickInBackgroundWith,
+  kickHttpChallenge,
+  KickWafBlockedError,
+} from "@lurkloot/core/transport";
 import { channel, deferred, farming, harness } from "../helpers/backgroundController";
 import {
   fetchJsonInPageWithBrowser,
   pageFetchJson,
   type BrowserTabApi,
 } from "../../src/core/browserTabs";
-import { KickPageContextFallback } from "../../src/core/kickPageDocument";
+import { inspectKickDocument } from "../../src/core/kickPageDocument";
 
 // Auth health probes, refreshes and invalidation.
 
@@ -31,7 +35,6 @@ function challengedKickPageContext() {
   );
   vi.stubGlobal("document", { cookie: "", contentType: "text/html" });
   const env = harness(farming(DEFAULT_SETTINGS));
-  const userTabs: { id: number; url: string }[] = [];
   const openTabs = new Set<number>();
   let nextTabId = 40;
   const create = vi.fn(async () => {
@@ -61,7 +64,7 @@ function challengedKickPageContext() {
   });
   const browser = {
     tabs: {
-      query: vi.fn(async () => userTabs),
+      query: vi.fn(async () => []),
       create,
       remove,
       get,
@@ -69,22 +72,16 @@ function challengedKickPageContext() {
     },
     scripting: { executeScript },
   } as unknown as BrowserTabApi;
-  const fallback = new KickPageContextFallback();
   const kick = kickAdapter(
     createKickFetcher({
       background: (url, init) => fetchKickInBackgroundWith({}, url, init),
-      pageFetch: (url, init, error) =>
-        fallback.fetch(url, error, (options) =>
-          fetchJsonInPageWithBrowser(
-            env.tabRegistry,
-            browser,
-            KICK_PAGE_ORIGIN,
-            url,
-            init,
-            options,
-          ),
-        ),
-      onBackgroundSuccess: (host) => fallback.recordBackgroundSuccess(host),
+      pageFetch: (url, init) =>
+        fetchJsonInPageWithBrowser(env.tabRegistry, browser, KICK_PAGE_ORIGIN, url, init, {
+          retainPageContext: { platform: "kick" },
+          inspectDocument: inspectKickDocument,
+          challengeError: kickHttpChallenge,
+          openReason: "background_rejected",
+        }),
     }),
   );
   vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) => kick.checkAuthHealth(signal));
@@ -92,8 +89,6 @@ function challengedKickPageContext() {
     env,
     create,
     remove,
-    openTabs,
-    userTabs,
     page,
     pageFetches: () =>
       executeScript.mock.calls.filter(
@@ -198,38 +193,6 @@ describe("background controller", () => {
       reasonCode: "request_challenged",
     });
     expect(JSON.stringify(kick.env.reportEvents.mock.calls)).not.toContain("private-body");
-
-    kick.page.works = true;
-    vi.setSystemTime(Date.parse(kick.env.state.sessions.kick.retryAfter ?? ""));
-    await kick.tick();
-    expect(kick.env.state.authHealth.kick.status).toBe("healthy");
-    expect(kick.create).toHaveBeenCalledOnce();
-  });
-
-  it("opens no Kick page context after the page itself was challenged, but reuses a user tab", async () => {
-    const kick = challengedKickPageContext();
-    await kick.tick();
-    expect(kick.create).toHaveBeenCalledOnce();
-    // The user closes the challenged context. Another tab would repeat the
-    // blocked request, so the fallback only reuses what is already open.
-    kick.openTabs.clear();
-
-    for (let minute = 0; minute < 180; minute += 1) {
-      vi.advanceTimersByTime(60_000);
-      await kick.tick();
-    }
-    expect(kick.create).toHaveBeenCalledOnce();
-    expect(kick.env.state.authHealth.kick).toMatchObject({
-      status: "unavailable",
-      reasonCode: "request_challenged",
-    });
-
-    const fetchesBefore = kick.pageFetches();
-    kick.userTabs.push({ id: 7, url: KICK_PAGE_ORIGIN });
-    vi.setSystemTime(Date.parse(kick.env.state.sessions.kick.retryAfter ?? ""));
-    await kick.tick();
-    expect(kick.pageFetches()).toBe(fetchesBefore + 1);
-    expect(kick.env.state.authHealth.kick.status).toBe("unavailable");
 
     kick.page.works = true;
     vi.setSystemTime(Date.parse(kick.env.state.sessions.kick.retryAfter ?? ""));

@@ -127,8 +127,9 @@ cause class (WAF block, auth, network, or other). The warning treats recognized
 Kick challenge responses as WAF blocks and HTTP server errors as other. The
 warning reports the lookup outcome independently of the identity probe. A
 successful lookup, including an empty list, resets the streak. Twitch replaces
-its cache and streak on an account switch. Strict Twitch discovery also waits for stale refreshes so the
-refresh's warning reaches the discovery event collector.
+its cache and streak on an account switch. Strict Twitch discovery also waits
+for stale refreshes so the refresh's warning reaches the discovery event
+collector.
 
 ## Background controller ownership and concurrency
 
@@ -1276,47 +1277,29 @@ which set their headers directly:
 ## Kick Integration
 
 `KickAdapter` uses Kick JSON APIs. Native fetch (the CLI's `http` transport and
-the extension background) and CycleTLS share a failure classifier. A non-empty, non-JSON
-401 or 403 becomes a `KickWafBlockedError` with `challenge: true`. The error
-retains the status and a fixed message. A JSON credential rejection still maps
-to `authentication_rejected`, as does an empty 401 or 403. A JSON security-policy block keeps its
-existing classification and safe reference.
+the extension background) and CycleTLS share `kickHttpError`. A non-empty,
+non-JSON 401 or 403 becomes a `KickWafBlockedError` with `challenge: true`, the
+HTTP status and a fixed message. JSON credential rejections and empty 401 or
+403 responses map to `authentication_rejected`. JSON security-policy blocks
+map to `security_policy_blocked` and retain their safe reference.
 
 When the identity probe receives an HTTP challenge it reports unavailable
 (`request_challenged`, a platform-neutral reason). The scheduler records a
 platform API failure with code `request_challenged` in critical health and
-applies the usual exponential backoff. Auth health remains owned by the identity
-probe. Scheduled ticks use the deadline from committed state
-to defer the identity request until the retry is due. The first probe on a
-fresh controller rechecks immediately. The next successful probe lets
-discovery and farming resume.
+applies the usual exponential backoff. The identity probe owns auth health.
+Scheduled ticks defer the probe until the committed retry deadline. A fresh
+controller probes immediately on its first tick, and explicit auth checks can
+probe immediately. A successful probe lets discovery and farming resume.
 
-In the extension the in-page fetch (`pageFetchJson`) returns a challenge
-marker with only the status for a non-empty, non-JSON 401 or 403. The caller
-maps it through `PageFetchOptions.challengeError`; Kick's wiring passes
-`kickHttpChallenge`, so a challenged fallback also reports unavailable. Without
-the option the marker is a plain `http_error`.
-
-`KickPageContextFallback` (`src/core/kickPageDocument.ts`, wired in
-`background.ts`) chooses the fallback's options per request:
-
-- A challenge seen only by the service worker takes the normal fallback. If
-  there is no usable Kick tab, the fallback can open a retained page context.
-  Kick recovers when the request succeeds there. Later fallbacks reuse the
-  retained context, and managed-tab opens count toward the churn breaker.
-- Once the page context itself returns the challenge marker for a host, later
-  challenged fallbacks for that host pass `reusePageContextOrThrow`. They reuse
-  a usable user tab or the retained context and never open a tab. When none is
-  open the fetch rethrows the service-worker challenge, and Kick stays
-  unavailable with no tab opening; this is the intended steady state.
-- A success for that host, from the page or from the service worker, clears the
-  latch. After a worker restart, the normal fallback resumes and reuses any
-  usable retained tab. The registry rehydrates its ownership from
-  `managedPageContextTabs` on each tick and syncs the churn breaker from
-  persisted critical health.
-
-`authHealth.test.ts` drives three hours of ticks for both cases, and
-`kickPageContextFallback.test.ts` covers the per-host latch.
+An HTML 401 or 403 in the service worker takes the existing extension
+fallback. The tab owner can reuse a usable Kick context or open a managed
+one. If the in-page fetch (`pageFetchJson`) receives a non-empty, non-JSON
+401 or 403, it returns a challenge marker with the status. Kick's extension
+wiring supplies `kickHttpChallenge` as `PageFetchOptions.challengeError` so
+the identity probe can classify that result as `request_challenged`. Other
+callers can receive a plain `http_error` through the default mapping.
+The extension's page-context accounting and startup breaker ordering are
+tracked in [#1107](https://github.com/jamezrin/lurkloot/issues/1107).
 
 - Campaign discovery fetches `https://web.kick.com/api/v1/drops/campaigns`.
 - Progress refresh fetches `https://web.kick.com/api/v1/drops/progress`.

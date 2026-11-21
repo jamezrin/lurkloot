@@ -274,11 +274,10 @@ export class KickPageContextRecoveryTracker {
 
 // The page fallback exists for failures tied to the service-worker origin: WAF
 // blocks, network/CORS rejections, challenge pages, auth rejections and server
-// errors. A definitive client error is
-// Kick's answer to the request itself, which the page tab would receive too, so
-// falling back would only open a kick.com tab for nothing — e.g. every claim on
-// an unlinked campaign answers 400 INVALID_CLAIM. Rate limiting (429) likewise
-// applies to the request, not its execution context.
+// errors. A definitive client error is Kick's answer to the request itself,
+// which the page tab would receive too. Falling back would open a tab for
+// nothing — e.g. every claim on an unlinked campaign answers 400 INVALID_CLAIM.
+// Rate limiting (429) likewise applies to the request in any execution context.
 function isOriginIndependentKickFailure(error: unknown): boolean {
   if (!isSafeFetchError(error) || error instanceof KickWafBlockedError) return false;
   const { kind, status } = error.failure;
@@ -291,11 +290,7 @@ function isOriginIndependentKickFailure(error: unknown): boolean {
 // counted until the caller flushes the drained logical operation.
 export function createKickFetcher(deps: {
   background: (url: string, init?: RequestInit) => Promise<unknown>;
-  pageFetch?: (
-    url: string,
-    init: RequestInit | undefined,
-    backgroundError: unknown,
-  ) => Promise<unknown>;
+  pageFetch?: (url: string, init?: RequestInit) => Promise<unknown>;
   onBackgroundSuccess?: (host: string, emit: EventEmitter) => Promise<void> | void;
   onPageFallback?: (host: string, emit: EventEmitter) => Promise<void> | void;
   routeState?: KickRouteState;
@@ -344,7 +339,7 @@ export function createKickFetcher(deps: {
           // CLI transports have no page fallback and retain their original error.
           if (!pageFetch || isOriginIndependentKickFailure(error)) throw error;
           init?.signal?.throwIfAborted();
-          result = await pageFetch(url, init, error);
+          result = await pageFetch(url, init);
           routeState.report(
             emit,
             host,

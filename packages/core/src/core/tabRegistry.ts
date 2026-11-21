@@ -46,7 +46,6 @@ export interface PageContextEntry {
   promise: Promise<PageContextTab>;
   refs: number;
   abort: AbortController;
-  reusePageContextOrThrow?: Error;
 }
 
 // Every tab the engine holds, and the state that goes with it, for one

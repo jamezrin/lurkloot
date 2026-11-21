@@ -294,10 +294,10 @@ fingerprint via [cycletls](https://github.com/Danny-Dasilva/CycleTLS) and reache
 Kick's API without a browser. The viewer socket uses Node's WebSocket client
 with the same Kick session bearer.
 
-On `http`, a Kick 401 or 403 with a non-JSON body is reported as a WAF challenge. If
-it hits the identity endpoint, the account check reports Kick as temporarily
-unavailable and farming retries with platform backoff. JSON credential
-rejections still ask you to sign in again.
+On `http`, a Kick 401 or 403 with a non-empty, non-JSON body is reported as a WAF
+challenge. At the identity endpoint, this makes the account check report Kick
+as temporarily unavailable, and farming retries with platform backoff. JSON
+credential rejections still ask you to sign in again.
 
 On `impersonate`, set `platform.kick.alwaysEnterChat` to `true` to join the
 channel's chat while watching. The CLI opens the chat socket only when needed,

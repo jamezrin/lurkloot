@@ -729,9 +729,6 @@ export interface PageFetchOptions {
   // reloading it to force activity is not ours to do — so user tabs are skipped
   // and an extension-owned context is created or explicitly navigated instead.
   requireFreshPageContext?: boolean;
-  // Reuse a viable context or surface the failure that prompted the fallback.
-  // The caller uses this when creating a tab would repeat a blocked request.
-  reusePageContextOrThrow?: Error;
   // Without an inspector every tab on the origin counts as a usable context.
   inspectDocument?: PageDocumentInspector;
   // Maps pageFetchJson's challenge marker (a non-empty, non-JSON 401 or 403) to
@@ -1192,7 +1189,6 @@ async function acquirePageContextTab(
       ),
       refs: 0,
       abort,
-      reusePageContextOrThrow: options?.reusePageContextOrThrow,
     };
     registry.pageContextTabs.set(origin, entry);
     promise = entry.promise;
@@ -1202,14 +1198,6 @@ async function acquirePageContextTab(
     return await withAbortSignal(promise, signal);
   } catch (error) {
     entry.refs -= 1;
-    if (entry.reusePageContextOrThrow && error === entry.reusePageContextOrThrow) {
-      // No tab was acquired. A normal fallback that joined this lookup can
-      // still create a context, while reuse-only callers keep their own error.
-      if (registry.pageContextTabs.get(origin) === entry) registry.pageContextTabs.delete(origin);
-      signal?.throwIfAborted();
-      if (options?.reusePageContextOrThrow) throw options.reusePageContextOrThrow;
-      return acquirePageContextTab(registry, browserApi, originUrl, origin, options, signal);
-    }
     if (entry.refs === 0 && registry.pageContextTabs.get(origin) === entry) {
       registry.pageContextTabs.delete(origin);
       entry.abort.abort(signal?.aborted ? signal.reason : error);
@@ -1470,7 +1458,6 @@ async function findOrCreatePageContextTab(
     } catch {
       signal?.throwIfAborted();
     }
-    if (options?.reusePageContextOrThrow) throw options.reusePageContextOrThrow;
     registry.retainedPageContextTabs.delete(retained.platform);
     registry.retainedPageContextRevision += 1;
     openReason = "managed_context_unusable";
@@ -1511,8 +1498,6 @@ async function findOrCreatePageContextTab(
       );
     }
   }
-
-  if (options?.reusePageContextOrThrow) throw options.reusePageContextOrThrow;
 
   // The breaker is open: this platform kept reopening a managed tab. Opening
   // another one is exactly the user-hostile behaviour we detected, so the fetch

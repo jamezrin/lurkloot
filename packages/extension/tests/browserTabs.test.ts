@@ -1586,40 +1586,6 @@ describe("tab manager", () => {
     expect(isKickHttpChallenge(mapped)).toBe(true);
   });
 
-  it("lets a normal fallback create a context after sharing a reuse-only lookup", async () => {
-    const browser = {
-      ...browserMock(),
-      scripting: {
-        executeScript: vi
-          .fn()
-          .mockResolvedValueOnce([{ result: { usable: true } }])
-          .mockResolvedValueOnce([{ result: { id: 42 } }]),
-      },
-    };
-    const origin = "https://kick.com/drops/inventory";
-    const url = "https://kick.com/api/v1/user";
-    const challenge = kickHttpChallenge(403);
-    const reuseOnly = fetchJsonInPageWithBrowser(
-      registry,
-      browser,
-      origin,
-      url,
-      undefined,
-      kickPageOptions({ reusePageContextOrThrow: challenge }),
-    );
-    const normal = fetchJsonInPageWithBrowser(
-      registry,
-      browser,
-      origin,
-      url,
-      undefined,
-      kickPageOptions(),
-    );
-    await expect(reuseOnly).rejects.toBe(challenge);
-    await expect(normal).resolves.toEqual({ id: 42 });
-    expect(browser.tabs.create).toHaveBeenCalledOnce();
-  });
-
   it("rejects a completed security-policy document and recovers with a valid Kick context", async () => {
     const executeScript = vi
       .fn()
