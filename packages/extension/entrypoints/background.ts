@@ -36,6 +36,7 @@ import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/sha
 import { withActivityDiagnostics } from "@lurkloot/core/activityDiagnostics";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
+import { kickHttpChallenge } from "@lurkloot/core/transport";
 import {
   createKickFetcher,
   KickAdapter,
@@ -283,6 +284,7 @@ function createExtensionAdapter(
               fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
                 retainPageContext: { platform: "kick" },
                 inspectDocument: inspectKickDocument,
+                challengeError: kickHttpChallenge,
                 emit,
                 openReason: "background_rejected",
               }),

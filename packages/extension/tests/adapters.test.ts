@@ -8,7 +8,11 @@ import {
   KickDiscoveryState,
   KickPageContextRecoveryTracker,
 } from "@lurkloot/core/kick";
-import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
+import {
+  fetchTwitchInBackgroundWith,
+  kickHttpError,
+  KickWafBlockedError,
+} from "@lurkloot/core/transport";
 import type { TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import { readFileSync } from "node:fs";
 import { type TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
@@ -1585,6 +1589,24 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     expect(onPageFallback).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["an HTML challenge 403", () => kickHttpError(403, "<html>Just a moment...</html>")],
+    ["a JSON auth 403", () => kickHttpError(403, JSON.stringify({ message: "Unauthenticated." }))],
+  ])("falls back to the page tab once for %s", async (_label, failure) => {
+    const background = vi.fn(async () => {
+      throw failure();
+    });
+    const pageFetch = vi.fn(async () => ({ id: 42 }));
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({ background, pageFetch, onPageFallback });
+
+    await expect(fetcher.fetchJson("https://kick.com/api/v1/user")).resolves.toEqual({ id: 42 });
+
+    expect(background).toHaveBeenCalledTimes(1);
+    expect(pageFetch).toHaveBeenCalledTimes(1);
+    expect(onPageFallback).toHaveBeenCalledTimes(1);
+  });
+
   it("falls back to the page tab when the background fetch is WAF-blocked", async () => {
     const background = vi.fn(async () => {
       throw new KickWafBlockedError("HTTP 403 Forbidden");
@@ -1599,7 +1621,6 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
 
     expect(result).toEqual({ data: "from-tab" });
     expect(background).toHaveBeenCalledTimes(1);
-    // The same url + init are forwarded to the fallback unchanged.
     expect(pageFetch).toHaveBeenCalledWith("https://web.kick.com/api/v1/drops/campaigns", {
       method: "GET",
     });

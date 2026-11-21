@@ -26,7 +26,12 @@ const AUTH_REASONS: Record<PlatformAuthStatus, readonly PlatformAuthReasonCode[]
   missing_credentials: ["credentials_missing"],
   invalid_credentials: ["credentials_rejected"],
   blocked: ["security_policy_blocked"],
-  unavailable: ["credential_lookup_failed", "platform_unavailable", "network_unavailable"],
+  unavailable: [
+    "credential_lookup_failed",
+    "platform_unavailable",
+    "request_challenged",
+    "network_unavailable",
+  ],
 };
 
 const AUTH_MESSAGE_KEYS: Record<
@@ -44,6 +49,7 @@ const AUTH_MESSAGE_KEYS: Record<
   security_policy_blocked: "authSecurityPolicyBlocked",
   credential_lookup_failed: "authCredentialLookupFailed",
   platform_unavailable: "authPlatformUnavailable",
+  request_challenged: "authPlatformUnavailable",
   network_unavailable: "authNetworkUnavailable",
 };
 

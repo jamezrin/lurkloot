@@ -4,14 +4,201 @@ import type { PlatformAuthHealth } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { createKickFetcher } from "@lurkloot/core/kick";
 import { kickAdapter } from "../helpers/adapters";
-import { KickWafBlockedError } from "@lurkloot/core/transport";
+import {
+  fetchKickInBackgroundWith,
+  kickHttpChallenge,
+  KickWafBlockedError,
+} from "@lurkloot/core/transport";
 import { channel, deferred, farming, harness } from "../helpers/backgroundController";
+import {
+  fetchJsonInPageWithBrowser,
+  pageFetchJson,
+  type BrowserTabApi,
+} from "../../src/core/browserTabs";
+import { inspectKickDocument } from "../../src/core/kickPageDocument";
 
 // Auth health probes, refreshes and invalidation.
+
+const KICK_PAGE_ORIGIN = "https://kick.com/drops/inventory";
+
+// Kick behind an HTTP challenge from the service worker, wired to the real
+// page-context fallback with a browser whose tabs stay open until removed.
+// `page.works` decides whether the in-page fetch is challenged too.
+function challengedKickPageContext() {
+  vi.useFakeTimers();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response("<!doctype html><title>Just a moment…</title>private-body", { status: 403 }),
+    ),
+  );
+  vi.stubGlobal("document", { cookie: "", contentType: "text/html" });
+  const env = harness(farming(DEFAULT_SETTINGS));
+  const openTabs = new Set<number>();
+  let nextTabId = 40;
+  const create = vi.fn(async () => {
+    nextTabId += 1;
+    openTabs.add(nextTabId);
+    return { id: nextTabId };
+  });
+  const remove = vi.fn(async (tabId: number) => {
+    openTabs.delete(tabId);
+  });
+  const get = vi.fn(async (tabId: number) =>
+    openTabs.has(tabId) ? { id: tabId, url: KICK_PAGE_ORIGIN, status: "complete" } : undefined,
+  );
+  const page = { works: false };
+  const executeScript = vi.fn<
+    NonNullable<NonNullable<BrowserTabApi["scripting"]>["executeScript"]>
+  >(async (details) => {
+    const { func, args } = details as { func: (...args: never[]) => unknown; args?: never[] };
+    return [
+      {
+        result:
+          func === pageFetchJson && page.works
+            ? { __lurklootPageFetch: true, ok: true, data: { id: 42 } }
+            : await func(...(args ?? [])),
+      },
+    ];
+  });
+  const browser = {
+    tabs: {
+      query: vi.fn(async () => []),
+      create,
+      remove,
+      get,
+      update: vi.fn(async () => ({})),
+    },
+    scripting: { executeScript },
+  } as unknown as BrowserTabApi;
+  const kick = kickAdapter(
+    createKickFetcher({
+      background: (url, init) => fetchKickInBackgroundWith({}, url, init),
+      pageFetch: (url, init) =>
+        fetchJsonInPageWithBrowser(env.tabRegistry, browser, KICK_PAGE_ORIGIN, url, init, {
+          retainPageContext: { platform: "kick" },
+          inspectDocument: inspectKickDocument,
+          challengeError: kickHttpChallenge,
+          openReason: "background_rejected",
+        }),
+    }),
+  );
+  vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) => kick.checkAuthHealth(signal));
+  return {
+    env,
+    create,
+    remove,
+    page,
+    pageFetches: () =>
+      executeScript.mock.calls.filter(
+        ([details]) => (details as { func?: unknown }).func === pageFetchJson,
+      ).length,
+    tick: () => env.controller.tick(["kick"], "alarm"),
+  };
+}
 
 describe("background controller", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("backs off a Kick HTML challenge at the identity endpoint and resumes after a healthy probe", async () => {
+    vi.useFakeTimers();
+    const fetch = vi.fn(
+      async () =>
+        new Response("<!doctype html><title>Just a moment…</title>", {
+          status: 403,
+          headers: { "content-type": "text/html" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const kick = kickAdapter(
+      createKickFetcher({
+        background: (url, init) => fetchKickInBackgroundWith({}, url, init),
+      }),
+    );
+    vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) =>
+      kick.checkAuthHealth(signal),
+    );
+    const tick = () => env.controller.tick(["kick"], "alarm");
+
+    await tick();
+    expect(env.state.authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "request_challenged",
+    });
+    expect(env.state.sessions.kick).toMatchObject({
+      status: "error",
+      reasonCode: "platform_error",
+      errorChecks: 1,
+    });
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+    // The critical-failure prompt gets the challenge code from the scheduler.
+    expect(env.state.criticalHealth?.kick?.records?.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "request_challenged",
+      detail: "Identity request challenged",
+    });
+    const firstRetry = env.state.sessions.kick.retryAfter;
+
+    vi.advanceTimersByTime(30_000);
+    await tick();
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(env.state.sessions.kick).toMatchObject({
+      reasonCode: "platform_backoff",
+      retryAfter: firstRetry,
+      errorChecks: 1,
+    });
+
+    vi.advanceTimersByTime(30_000);
+    await tick();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(env.state.sessions.kick).toMatchObject({ reasonCode: "platform_error", errorChecks: 2 });
+    expect(Date.parse(env.state.sessions.kick.retryAfter ?? "") - Date.now()).toBe(120_000);
+
+    fetch.mockResolvedValueOnce(Response.json({ id: 42 }));
+    vi.advanceTimersByTime(120_000);
+    await tick();
+    expect(env.state.authHealth.kick.status).toBe("healthy");
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(env.state.sessions.kick.retryAfter).toBeUndefined();
+  });
+
+  it("opens one Kick page context when only the service worker is challenged and recovers", async () => {
+    const kick = challengedKickPageContext();
+    kick.page.works = true;
+
+    await kick.tick();
+
+    expect(kick.env.state.authHealth.kick.status).toBe("healthy");
+    expect(kick.create).toHaveBeenCalledOnce();
+    expect(kick.remove).not.toHaveBeenCalled();
+  });
+
+  it("reuses one Kick page context across hours of challenges on both sides, then recovers", async () => {
+    const kick = challengedKickPageContext();
+
+    for (let minute = 0; minute < 180; minute += 1) {
+      await kick.tick();
+      vi.advanceTimersByTime(60_000);
+    }
+    expect(kick.create).toHaveBeenCalledOnce();
+    expect(kick.remove).not.toHaveBeenCalled();
+    expect(kick.pageFetches()).toBeGreaterThan(5);
+    expect(kick.env.state.authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "request_challenged",
+    });
+    expect(JSON.stringify(kick.env.reportEvents.mock.calls)).not.toContain("private-body");
+
+    kick.page.works = true;
+    vi.setSystemTime(Date.parse(kick.env.state.sessions.kick.retryAfter ?? ""));
+    await kick.tick();
+    expect(kick.env.state.authHealth.kick.status).toBe("healthy");
+    expect(kick.create).toHaveBeenCalledOnce();
   });
 
   it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {

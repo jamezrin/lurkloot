@@ -731,6 +731,9 @@ export interface PageFetchOptions {
   requireFreshPageContext?: boolean;
   // Without an inspector every tab on the origin counts as a usable context.
   inspectDocument?: PageDocumentInspector;
+  // Maps pageFetchJson's challenge marker (a non-empty, non-JSON 401 or 403) to
+  // the platform's error. Without it the marker is a plain http_error.
+  challengeError?: (status: number) => Error;
 }
 
 // Page context to open when no token has been captured: a logged-in twitch.tv
@@ -1103,7 +1106,7 @@ export async function fetchJsonInPageWithBrowser<T>(
       // means the context tab was closed or navigated away before injection.
       // Surface that clearly instead of dereferencing undefined.
       if (!result) throw new Error(`Page context for ${origin} returned no script result`);
-      return unwrapPageFetchResult<T>(result.result);
+      return unwrapPageFetchResult<T>(result.result, options?.challengeError);
     }
 
     if (runtimeBrowser.tabs.executeScript) {
@@ -1111,7 +1114,7 @@ export async function fetchJsonInPageWithBrowser<T>(
       const execution = runtimeBrowser.tabs.executeScript(pageContext.tabId, { code });
       const results = await withAbortSignal(execution, signal);
       const result = results?.[0];
-      return unwrapPageFetchResult<T>(result);
+      return unwrapPageFetchResult<T>(result, options?.challengeError);
     }
 
     throw new Error("No supported page script execution API is available");
@@ -1133,12 +1136,23 @@ function pageFetchInitJson(init?: RequestInit): string | null {
   return JSON.stringify(serializableInit);
 }
 
-function unwrapPageFetchResult<T>(candidate: unknown): T {
+function unwrapPageFetchResult<T>(
+  candidate: unknown,
+  challengeError?: PageFetchOptions["challengeError"],
+): T {
   if (!candidate || typeof candidate !== "object") return candidate as T;
   const envelope = candidate as Record<string, unknown>;
   if (envelope.__lurklootPageFetch !== true) return candidate as T;
   if (envelope.ok === true) return envelope.data as T;
-  throw new SafeFetchError(safeFetchFailure(envelope.error));
+  const failure = safeFetchFailure(envelope.error);
+  if (
+    challengeError
+    && envelope.challenge === true
+    && (failure.status === 401 || failure.status === 403)
+  ) {
+    throw challengeError(failure.status);
+  }
+  throw new SafeFetchError(failure);
 }
 
 async function acquirePageContextTab(
@@ -1828,6 +1842,7 @@ export async function pageFetchJson(targetUrl: string, initJson?: string): Promi
     });
     const text = await response.text();
     if (!response.ok) {
+      const authStatus = response.status === 401 || response.status === 403;
       let body: Record<string, unknown> = {};
       try {
         const parsed = JSON.parse(text) as unknown;
@@ -1835,6 +1850,16 @@ export async function pageFetchJson(targetUrl: string, initJson?: string): Promi
           body = parsed as Record<string, unknown>;
       } catch {
         // Never retain non-JSON response bodies.
+        // This function is serialized into the page, so it cannot call the
+        // transport classifier. Return only the status and a challenge marker.
+        if (authStatus && text.trim() !== "") {
+          return {
+            __lurklootPageFetch: true,
+            ok: false,
+            challenge: true,
+            error: { kind: "http_error", status: response.status },
+          };
+        }
       }
       const rawReason =
         typeof body.error === "string"
@@ -1856,7 +1881,7 @@ export async function pageFetchJson(targetUrl: string, initJson?: string): Promi
         error: {
           kind: blocked
             ? "security_policy_blocked"
-            : response.status === 401 || response.status === 403
+            : authStatus
               ? "authentication_rejected"
               : "http_error",
           status: response.status,

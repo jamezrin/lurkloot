@@ -560,7 +560,7 @@ async function discoverPlatform(
   } catch (error) {
     if (error instanceof KickWafBlockedError) {
       logger.warn(
-        `Cloudflare WAF blocked the request (HTTP 403). Use the "impersonate" transport to reach Kick without a browser. (${error.message})`,
+        `Cloudflare WAF blocked the request. Use the "impersonate" transport to reach Kick without a browser. (${error.message})`,
         platform,
       );
       return;

@@ -47,7 +47,7 @@ import { errorMessage } from "@lurkloot/shared/errors";
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  transaction: Pick<StateTransaction<S>, "concludeTick">,
+  transaction: Pick<StateTransaction<S>, "concludeTick" | "onCommit">,
   {
     tickSlice,
     tabRegistry,
@@ -164,6 +164,22 @@ export function createTickRun<S extends EngineSettings>(
       ),
     ));
 
+  // Reuse the committed scheduler deadline without an extra storage load on
+  // every tick. A new controller rechecks the identity on its first probe.
+  const authProbeRetryAt: Partial<Record<Platform, number>> = {};
+  transaction.onCommit((change) => {
+    if (change.kind !== "state") return;
+    for (const platform of change.platforms) {
+      const { authHealth, sessions } = change.state;
+      const session = sessions[platform];
+      if (authHealth[platform].reasonCode === "request_challenged" && session.status === "error") {
+        authProbeRetryAt[platform] = Date.parse(session.retryAfter ?? "");
+      } else {
+        delete authProbeRetryAt[platform];
+      }
+    }
+  });
+
   async function tickPlatform(
     platform: Platform,
     trigger: TickTrigger,
@@ -255,9 +271,18 @@ export function createTickRun<S extends EngineSettings>(
         const ready = policySlice.tickReadiness[platform];
         if (ready && !(await ready(settings, signal, tickContext))) excludedPlatforms.add(platform);
       }
-      const authPlatforms = requestedPlatforms.filter(
-        (platform) => !excludedPlatforms.has(platform),
-      );
+      const authPlatforms = requestedPlatforms.filter((platform) => {
+        if (excludedPlatforms.has(platform)) return false;
+        // A challenge at the identity endpoint uses the scheduler's platform
+        // retry window. Explicit auth checks still run through the auth owner.
+        const retryAt = authProbeRetryAt[platform];
+        return (
+          !retryAt
+          || retryAt <= Date.now()
+          || trigger === "manual_tick"
+          || trigger === "manual_resume"
+        );
+      });
       if (authPlatforms.length > 0) {
         const authStartedAt = Date.now();
         try {

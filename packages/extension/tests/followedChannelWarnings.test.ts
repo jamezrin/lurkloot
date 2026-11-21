@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { KickDiscoveryState } from "@lurkloot/core/kick";
-import { KickWafBlockedError, safeKickFailure } from "@lurkloot/core/transport";
+import { kickHttpError, KickWafBlockedError } from "@lurkloot/core/transport";
 import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { jsonFetcher, kickAdapter, twitchAdapter } from "./helpers/adapters";
@@ -34,15 +34,13 @@ describe.each([
       [
         "WAF block",
         () => {
-          throw new KickWafBlockedError(
-            `Non-JSON API response (likely a challenge page): ${sensitiveDetail}`,
-          );
+          throw kickHttpError(403, `<html>${sensitiveDetail}</html>`);
         },
       ],
       [
         "auth",
         () => {
-          throw new SafeFetchError(safeKickFailure(403, `<html>${sensitiveDetail}</html>`));
+          throw kickHttpError(403, JSON.stringify({ error: "Invalid session" }));
         },
       ],
     ] as const,
