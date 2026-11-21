@@ -266,8 +266,10 @@ continues.
 
 Each provider session refreshes once a minute. With a web sign-in, the CLI
 also follows NoPixelV's broadcast topic on its Twitch push connection (see
-[Twitch push (Hermes)](#twitch-push-hermes)) and refreshes the provider as soon
-as a giveaway starts or ends. Android and Smart TV sign-ins have no push
+[Twitch push (Hermes)](#twitch-push-hermes)) and refreshes the provider when it
+receives a giveaway start or end notification there. Whether Twitch accepts
+that subscription from the CLI and delivers those notifications has not been
+verified live. Android and Smart TV sign-ins have no push
 connection, so they rely on the once-a-minute refresh alone, without a
 warning.
 
