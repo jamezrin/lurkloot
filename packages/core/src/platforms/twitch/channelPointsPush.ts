@@ -123,7 +123,6 @@ export class TwitchChannelPointsPushController {
   private readonly refusedTopics = new Set<string>();
   private reconnectAttempt = 0;
   private streaksSuspended = false;
-  private warnedUnavailable = false;
   private readonly extendedReconnectBackoff: boolean;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private keepAliveTimer?: ReturnType<typeof setTimeout>;
@@ -207,7 +206,6 @@ export class TwitchChannelPointsPushController {
     this.owners = {};
     this.refusedTopics.clear();
     this.streaksSuspended = false;
-    this.warnedUnavailable = false;
     await this.closing;
   }
 
@@ -637,16 +635,7 @@ export class TwitchChannelPointsPushController {
     this.reconnectAttempt += 1;
     const prolongedFailure =
       this.extendedReconnectBackoff && this.reconnectAttempt >= PUSH_FAILURE_THRESHOLD;
-    if (prolongedFailure) {
-      this.streaksSuspended = true;
-      if (!this.warnedUnavailable) {
-        this.warnedUnavailable = true;
-        this.log(
-          "warn",
-          "Twitch channel-points push is unavailable after repeated connection failures. Watch streaks are paused until the points subscription is confirmed.",
-        );
-      }
-    }
+    if (prolongedFailure) this.streaksSuspended = true;
     const delayMs = prolongedFailure
       ? Math.min(
           PUSH_REPROBE_BASE_MS * 2 ** (this.reconnectAttempt - PUSH_FAILURE_THRESHOLD),

@@ -72,10 +72,18 @@ function issueUrl(number: number): string {
 }
 
 // Keep the runtime warning test offline while exercising the real adapters.
+const { openHermes } = vi.hoisted(() => ({
+  openHermes: vi.fn(() => ({
+    readyState: 0,
+    send: () => {},
+    close: () => {},
+    addEventListener: (type: string, listener: () => void) => {
+      if (type === "close") queueMicrotask(listener);
+    },
+  })),
+}));
 vi.mock("../src/transport/twitchHermes", () => ({
-  createNodeTwitchHermesWebSocketFactory: () => () => {
-    throw new Error("Test Hermes endpoint unavailable");
-  },
+  createNodeTwitchHermesWebSocketFactory: () => openHermes,
 }));
 
 // How every other accepted key takes effect. Per-platform keys whose effect
@@ -319,6 +327,7 @@ describe("CLI run with inert settings on http (#1090)", () => {
       expected: optedInWarnings,
     },
   ])("logs only the requested inert settings once with $name", async ({ settings, expected }) => {
+    openHermes.mockClear();
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) =>
@@ -344,6 +353,11 @@ describe("CLI run with inert settings on http (#1090)", () => {
       error: () => {},
     };
     let state: SchedulerState = structuredClone(DEFAULT_STATE);
+    // A persisted farming session wants the points topic even with untouched
+    // settings and no configured Watchlist.
+    state.farmingSessions = {
+      twitch: { id: "twitch-session", startedAt: new Date().toISOString() },
+    };
     const stateStore = {
       load: async () => state,
       save: async (next: SchedulerState) => {
@@ -359,6 +373,8 @@ describe("CLI run with inert settings on http (#1090)", () => {
       stateStore,
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
+    expect(openHermes).toHaveBeenCalledTimes(1);
+    expect(warnings.filter((message) => /channel-points push|Hermes/.test(message))).toEqual([]);
     expect(warnings.filter((message) => message.endsWith("has no effect"))).toHaveLength(
       expected.length,
     );

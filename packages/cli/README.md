@@ -374,18 +374,21 @@ the CLI can do the following.
   topic with the provider session's token, held in memory and never logged,
   and refreshes the provider when a giveaway starts or ends.
 
-If Twitch repeatedly refuses the connection, authentication, or the points
-topic, the CLI logs one warning per observer after three consecutive failures.
-It suspends streak priority and accrual and retries after 5, 10, 20, and then
-30 minutes between attempts. The one-minute job claims channel-point bonuses
-when push claiming is inactive, and periodic stream checks and provider
+After three consecutive connection, authentication, or points-topic failures,
+the CLI logs at debug level with default settings. It warns once per observer
+when maintained watch-streak rows or an explicitly enabled non-default
+push-claim setting depend on the connection. It suspends streak priority and
+accrual and retries after 5, 10, 20, and then 30 minutes between attempts.
+The one-minute job claims channel-point bonuses when automatic claiming is
+enabled and push claiming is inactive. Periodic stream checks and provider
 refreshes continue. A confirmed points subscription restores streak tracking.
 Updating the Twitch login replaces the old connection on the next
 reconciliation. Chat presence (`alwaysEnterChat`) uses a separate connection
 for every sign-in.
 
 Live Hermes acceptance per CLI sign-in is unverified. To confirm it for your
-sign-in, run with `--log debug` while Twitch farming is enabled and look for
+sign-in, run with `--log debug` while the CLI is watching a Twitch channel
+and wants the points topic (for example, with default claim settings). Look for
 `Twitch channel-points push subscribed to community-points-user-v1.<id>`.
 
 `run --once`, SIGINT, SIGTERM, and `serve --exit-with-stdin` wait for the

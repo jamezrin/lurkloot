@@ -1420,18 +1420,22 @@ claims to know the user's streak count.
   across builds for the same login. The observer slot revokes old callbacks
   and drains the previous socket before replacing it on a revision change.
   The push controller reports itself unavailable after three consecutive
-  upgrade, authentication or points-topic failures, warns once per observer,
-  and retries after 5, 10, 20 and then every 30 minutes. The one-minute
-  channel-points claim job takes over when push claiming is inactive.
+  upgrade, authentication or points-topic failures and retries after 5, 10, 20
+  and then every 30 minutes. The channel-points service owns the diagnostic.
+  It reports at debug level by default and warns once per observer when streak
+  rows are maintained or an active push-claim setting differs from its default.
+  The one-minute channel-points claim job takes over when push claiming is inactive.
   A confirmed points subscription clears the suspension.
   The channel-points service reads availability from the observer
   for the current revision, and the tick combines it with the adapter's factory
   when deciding streak priority and accrual. This signal never writes auth
   health. The extension uses its existing retry policy. `runHermes.test.ts`
-  exercises credential reload, three hours of timed refusals, claim polling,
-  and payouts after recovery for CLI sign-ins. Live acceptance per sign-in is
-  unverified. The debug line `Twitch channel-points push subscribed to community-points-user-v1.<id>`
-  confirms the points subscription.
+  exercises credential reload, three hours of timed refusals, diagnostic levels,
+  claim polling, and payouts after recovery for CLI sign-ins. Live acceptance
+  per sign-in is unverified. While watching a Twitch channel with the points
+  topic requested, look for the debug line
+  `Twitch channel-points push subscribed to community-points-user-v1.<id>`
+  to confirm the subscription.
 
 ## Tabless Watch
 

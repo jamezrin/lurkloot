@@ -25,9 +25,10 @@ validation instructions are in
   Client-ID. The extension supplies its existing browser session fetcher and web
   Client-ID. The CLI matches Client-ID to its imported web, Android or Smart TV
   credential. An explicit refusal for a non-web client leaves that provider idle
-  until credentials change, with one warning. With a web sign-in the CLI follows
-  the provider's Hermes broadcast topic as the extension does (#1105); Android
-  and Smart TV sign-ins have no Hermes and keep polling. The session read runs tabless. Active
+  until credentials change, with one warning. The CLI attempts the provider's
+  Hermes broadcast subscription with every sign-in (#1105, #1101). The
+  once-a-minute refresh continues when the connection or topic is refused.
+  The session read runs tabless. Active
   installation, channel binding, viewer role, linked identity and expiry are
   checked; provider backends still perform cryptographic verification.
 - Credentials stay within the privileged source/driver callback. Only bounded
