@@ -17,7 +17,7 @@ Each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) has 
 
 ## Start it
 
-On Linux or macOS:
+On Linux or macOS, using the name of the file you downloaded (this example is Linux x64; for a Mac with Apple Silicon it would be `macos-arm64`):
 
 ```bash
 tar -xzf lurkloot-cli-<version>-linux-x64.tar.gz

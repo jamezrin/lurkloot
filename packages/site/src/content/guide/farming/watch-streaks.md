@@ -21,8 +21,8 @@ Do this for each channel whose streak you want to keep.
 ## How it works
 
 - **Watch streaks** is its own source in [Watch-source priority](/guide/choosing/watch-source-priority), first by default, ahead of Drops. When a streak channel goes live, Lurkloot watches it before anything else.
-- It watches until Twitch confirms the streak payout, or for 15 minutes, whichever comes first. Then it returns to drops or the rest of your Watchlist.
-- It tries once per stream. A new stream on that channel gets a new try.
+- It watches until Twitch confirms the streak payout, or until the **Watch streak budget** runs out (15 minutes by default), whichever comes first. Then it returns to drops or the rest of your Watchlist.
+- It watches each stream once. If the video will not play, it waits for the **Watch streak retry delay** and tries the same stream again, up to **Watch streak tries** times, keeping the time it already watched. A new stream on that channel starts over.
 
 ## What the labels mean
 

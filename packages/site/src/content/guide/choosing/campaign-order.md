@@ -24,7 +24,9 @@ Stars are long-lived: next season's campaign for a game you starred is already n
 
 ## 3. Then by
 
-Everything else follows the rule you pick on the **Then by** divider in the Queue, or under **Campaign priority** in Settings:
+Everything else follows the rule you pick on the **Then by** divider in the Queue, or under **Campaign priority** in Settings.
+
+One exception: if [campaigns without a linked account](/guide/choosing/linked-accounts) are set to **Farm last**, those come after every linked campaign, even one that ends later. The rule below still orders campaigns within each of the two groups.
 
 - **Ending soonest** (default): campaigns that end first are farmed first, so fewer run out before you finish them.
 - **Low availability first**: campaigns with the fewest channels to watch go first, while you can still find one.

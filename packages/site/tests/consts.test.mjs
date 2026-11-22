@@ -157,7 +157,11 @@ test("links the user guide from every page's nav and lists every guide page in t
   for (const href of new Set(pages)) {
     assert.ok(sitemap.includes(`${SITE.url}${href}/`), `sitemap lists ${href}`);
   }
-  for (const page of ["privacy/index.html", "changelog/index.html", "twitch-drops-farmer/index.html"]) {
+  for (const page of [
+    "privacy/index.html",
+    "changelog/index.html",
+    "twitch-drops-farmer/index.html",
+  ]) {
     const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
     assert.ok(html.includes(`href="${LINKS.guide}"`), `${page} links to the guide`);
   }
@@ -171,7 +175,10 @@ test("links every guide page only to pages and headings that exist", async () =>
     .map((file) => `guide/${file}`);
   const html = new Map();
   for (const file of ["index.html", ...files]) {
-    html.set(`/${file.replace(/\/?index\.html$/, "")}`.replace(/\/$/, "") || "/", await readFile(new URL(file, dist), "utf8"));
+    html.set(
+      `/${file.replace(/\/?index\.html$/, "")}`.replace(/\/$/, "") || "/",
+      await readFile(new URL(file, dist), "utf8"),
+    );
   }
   const pathOf = (href) => href.split("#")[0].replace(/\/$/, "") || "/";
 
@@ -181,7 +188,8 @@ test("links every guide page only to pages and headings that exist", async () =>
       const target = html.get(pathOf(href));
       assert.ok(target, `${file} links to missing page ${href}`);
       const anchor = href.split("#")[1];
-      if (anchor) assert.ok(target.includes(`id="${anchor}"`), `${file} links to missing heading ${href}`);
+      if (anchor)
+        assert.ok(target.includes(`id="${anchor}"`), `${file} links to missing heading ${href}`);
     }
   }
 });

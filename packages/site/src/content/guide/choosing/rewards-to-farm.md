@@ -30,7 +30,7 @@ Some examples:
 - **Only farm what I pin**: untick the Favourite games and Other campaigns rows. Campaigns you have not pinned then say *Pin it to farm it*.
 - **Badges only from my favourite games**: tick Badges in the Favourite games row only.
 
-Lurkloot stops working on a campaign once the rewards you chose from it are earned. It still claims anything else from that campaign that becomes ready.
+If a reward you chose needs another reward first, such as a badge you left unticked, Lurkloot farms that one too. Lurkloot stops working on a campaign once the rewards you chose from it are earned. It still claims anything else from that campaign that becomes ready.
 
 ## Subscription rewards
 

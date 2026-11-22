@@ -32,9 +32,11 @@ If Lurkloot shows *Lurkloot has stopped working*, its **Copy logs & open issue**
 Export a diagnostics report after the problem happens, using the same config as the running CLI:
 
 ```bash
-lurkloot diagnostics export --out diagnostics.log
+lurkloot diagnostics export --config config.json --out diagnostics.log
+# if the running CLI uses its own state file, add the same --state path
 # with Docker Compose:
 docker compose exec -T lurkloot node /app/dist/index.mjs diagnostics export --config /data/config.json > diagnostics.log
+# add the same --state path before > if you set one
 ```
 
 Attach `diagnostics.log` to the report. It has no tokens or cookies in it.

@@ -19,7 +19,7 @@ Look at the status strip. It shows what is being watched right now.
 
 ## Is the computer awake?
 
-Lurkloot only works while your browser is open and the computer is awake. A sleeping laptop farms nothing. Progress carries on when it wakes up.
+The extension only works while your browser is open and the computer is awake. The CLI needs no browser, but its machine has to stay awake too. A sleeping laptop farms nothing. Progress carries on when it wakes up.
 
 ## Does the channel count?
 
@@ -27,7 +27,7 @@ A drop only counts on channels taking part in the campaign. Lurkloot checks ever
 
 ## Is background watching counting?
 
-If background watching stops counting, Lurkloot opens the stream in a muted tab after 5 failed checks. If you see a tab open, that is it working. Leave the tab open.
+If background watching stops counting, the extension opens the stream in a muted tab after 5 failed checks. The CLI has no tabs to fall back to, so there it keeps trying without one. If you see a tab open, that is it working. Leave the tab open.
 
 If it never counts, even in a tab, turn off **Tabless low-resource mode** so Lurkloot always uses a tab, and see whether that helps. Mention it in a [bug report](/guide/troubleshooting/report-a-problem).
 

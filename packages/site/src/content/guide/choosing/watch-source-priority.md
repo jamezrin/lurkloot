@@ -24,7 +24,7 @@ Lurkloot can watch for several reasons, called *sources*. **Watch-source priorit
 
 The first source in the list that has something to watch right now is watched. A source that is switched off or has nothing live is skipped.
 
-A higher source takes over as soon as it has something, even in the middle of a drop. For example, with the default order, a streak channel going live interrupts a drop for up to 15 minutes, then the drop carries on.
+A higher source takes over as soon as it has something, even in the middle of a drop. For example, with the default order, a streak channel going live interrupts a drop for up to the **Watch streak budget** (15 minutes unless you change it, 5–60 in Advanced settings), then the drop carries on.
 
 ## Changing the order
 

@@ -28,7 +28,9 @@ const editUrl = `${EXTERNAL_URLS.github}/edit/develop/packages/site/${entry.file
 const href = guideHref(entry);
 const supportRows = entry.data.supportTable
   ? sections.flatMap((section) =>
-      section.pages.flatMap((page) => (page.data.support ? [{ page, support: page.data.support }] : [])),
+      section.pages.flatMap((page) =>
+        page.data.support ? [{ page, support: page.data.support }] : [],
+      ),
     )
   : [];
 ---
@@ -93,5 +95,12 @@ const supportRows = entry.data.supportTable
   // ones, where it would otherwise push the article far down. It renders open,
   // so it still works without this script.
   const menu = document.querySelector<HTMLDetailsElement>("[data-guide-nav]");
-  if (menu && matchMedia("(max-width: 900px)").matches) menu.open = false;
+  const narrow = matchMedia("(max-width: 900px)");
+  // Closed on narrow screens, and open again when the window widens, where the
+  // summary that would reopen it is hidden.
+  const sync = () => {
+    if (menu) menu.open = !narrow.matches;
+  };
+  sync();
+  narrow.addEventListener("change", sync);
 </script>

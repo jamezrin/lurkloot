@@ -11,17 +11,17 @@ The extension uses the Twitch and Kick sessions already signed in to your browse
 
 - It never asks for your password.
 - There is no Lurkloot account, no Lurkloot server and no analytics. Your settings, progress and activity stay in your browser.
-- It talks to Twitch and Kick directly. When you turn on [NoPixel](/guide/farming/nopixel) or [Fortnite](/guide/farming/fortnite), it also talks to that extension's own service, and only after your browser asks you for permission.
+- It talks to Twitch and Kick directly. When you turn on [NoPixel](/guide/farming/nopixel) or [Fortnite](/guide/farming/fortnite), it also talks to that extension's own service, and only after your browser asks you for permission. That service gets the same viewer pass a Twitch extension normally gets. Depending on how your accounts are linked, it can tell who you are and update your rewards there. It never gets your Twitch or Kick login.
 
 The [privacy policy](/privacy) has the full details.
 
-## The one thing that leaves your browser
+## Exporting your sign-ins
 
 **Settings → Export credentials** saves your Twitch and Kick sign-ins to a file, to set up the CLI. Only you can start it, and the browser asks you to confirm.
 
 Treat that file like a password. Anyone who has it can use your Twitch and Kick accounts. Do not share it, upload it or attach it to a bug report. Delete it once the CLI has imported it.
 
-**Export settings** is different and safe to share: it never contains your login.
+**Export settings** is different: it never contains your login. It does contain your Watchlist, games and other preferences, so look through it before you share it.
 
 ## What others can see
 

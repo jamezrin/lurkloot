@@ -52,8 +52,8 @@ It prints a `kick.com/tv/login` link and a 6-digit code. Open the link **on your
 This brings over the Twitch and Kick sign-ins from your browser.
 
 1. In the extension, open Settings → **Export credentials** and confirm. If your browser asks for one more site permission, allow it. Without it, the Twitch part cannot be imported.
-2. Copy the file to the CLI's machine.
-3. Run `lurkloot auth import <file>`.
+2. Copy the file to the CLI's machine. With Docker, put it in the `data` folder, because the container only sees that folder.
+3. Run `lurkloot auth import <file>`. With Docker, the path is the one inside the container, for example `auth import /data/lurkloot-credentials.json`.
 4. Delete the file. Anyone who has it can use your accounts.
 
 ## Checking and signing out

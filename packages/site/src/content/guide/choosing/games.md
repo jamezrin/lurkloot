@@ -22,11 +22,11 @@ Search for a game to add it to the list.
 
 ## Star a game
 
-The star puts a game's campaigns near the top of the Queue, after pinned campaigns. It does not filter anything: a starred game is farmed whatever the mode above. Drag starred games, or type a number, to order them. See [Campaign order](/guide/choosing/campaign-order).
+The star puts a game's campaigns near the top of the Queue, after pinned campaigns. It does not choose what is farmed: in **All categories** a starred game is farmed anyway, but in **Only selected** you also need to tick it. Drag starred games, or type a number, to order them. See [Campaign order](/guide/choosing/campaign-order).
 
 ## Block a game
 
-The ⊘ button blocks a game. Its campaigns are never farmed, in either mode, and show under **Skipped** in the Queue. You can also block a game from one of its campaigns: **Exclude** → **Category**. Choose it again to unblock.
+The ⊘ button blocks a game. Its campaigns are never farmed, in either mode, and show under **Skipped** in the Queue. A campaign that covers several games is skipped only when all of them are blocked; otherwise Lurkloot farms it on channels playing one of the others. You can also block a game from one of its campaigns: **Exclude** → **Category**. Choose it again to unblock.
 
 A blocked game that was starred keeps its star for when you unblock it.
 

@@ -26,6 +26,8 @@ If an access token is set (`LURKLOOT_SERVE_TOKEN`, which the Docker Compose setu
 By default the app only answers on the machine it runs on. To reach it from elsewhere:
 
 - An access token is required. `serve` will not listen on other addresses without `LURKLOOT_SERVE_TOKEN` (at least 16 characters).
-- Put it behind a reverse proxy that serves HTTPS, such as Caddy or Traefik, so the token is never sent in the clear. With nginx, add `proxy_set_header Host $host;`.
+- Start it with `--host 0.0.0.0` (or the address the proxy connects to), plus the token. Docker already does this. Left on its default address, `serve` turns away requests that arrive under another name, so the app will not load through a proxy.
+- Put it behind a reverse proxy that serves HTTPS, such as Caddy or Traefik, so the token is never sent in the clear. With nginx, add `proxy_set_header Host $http_host;`.
+- Keep the plain HTTP port itself closed to other machines, for example with a firewall, so the only way in is through the proxy.
 
 Do not expose it to the internet without HTTPS and a token. Anyone who can use it can change your settings and sign-ins.
