@@ -34,7 +34,7 @@ Settings has a search box at the top: type part of a setting's name to find it. 
 | **Auto-claim drops** | On | Claim rewards as soon as they are earned. | Yes |
 | **Skip rewards that cannot be completed** | On | Skip rewards that need more watch time than is left before they end. | Yes |
 | **Prefer followed and Watchlist channels** | On | Pick a channel you know over an unfamiliar one. See [Channels and chat](/guide/choosing/channels). | Yes |
-| **Forget excluded campaigns** | — | Put back every campaign you excluded. | Edit `config.json` |
+| **Forget excluded campaigns** | A button | Put back every campaign you excluded. | Edit `config.json` |
 
 ## Farming tabs
 
@@ -74,11 +74,11 @@ Only change these if you have a reason to.
 | **Scheduler interval** | 1 minute | 1–60 | How often Lurkloot checks campaigns and streams. Longer saves a little work but reacts more slowly. | Yes |
 | **Tabless fallback threshold** | 5 | 1–10 | Failed background checks in a row before a tab opens. | No |
 | **Kick fallback-page recovery** | 3 | 1–10 | Good checks in a row before Lurkloot closes the Kick page it opened to get past Kick's checks. | No |
-| **Fast reward handoff** | On | — | After a claim, check quickly for the next reward. Twitch only. | Yes |
+| **Fast reward handoff** | On | | After a claim, check quickly for the next reward. Twitch only. | Yes |
 | **Handoff check interval** | 5 seconds | 1–30 | Time between those checks. | Yes |
 | **Handoff time limit** | 45 seconds | 5–120 | When to give up and go back to the normal schedule. | Yes |
 | **Deadline safety margin** | 5 minutes | 0–60 | Spare time a reward must have before its deadline to be farmed. | Yes |
-| **Include diagnostic logs** | On | — | Keep extra technical detail for bug reports. | No, use `--log` |
+| **Include diagnostic logs** | On | | Keep extra technical detail for bug reports. | No, use `--log` |
 
 ## Keeping and resetting your settings
 

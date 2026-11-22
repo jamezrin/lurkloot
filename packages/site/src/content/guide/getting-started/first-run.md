@@ -13,7 +13,7 @@ If you want to farm both platforms, sign in to both.
 
 ## 2. Open the popup
 
-Click the Lurkloot icon in the toolbar. The first time, a short tour offers to show you around. It takes under a minute, and you can use the arrow keys to move through it. **Skip** is fine too — you can read the same thing here.
+Click the Lurkloot icon in the toolbar. The first time, a short tour offers to show you around. It takes under a minute, and you can use the arrow keys to move through it. **Skip** is fine too: everything it shows is also in this guide.
 
 ## 3. Switch on a platform
 
@@ -25,7 +25,7 @@ Each platform has its own switch, so you can farm one or both. Each also has its
 
 That is all. Lurkloot looks at which drops you can still earn, picks a live channel that counts toward one, and claims each reward as soon as it is ready. When a stream goes offline or a reward finishes, it moves on by itself.
 
-Keep the browser open. You can close the popup, use other tabs and do other things — farming carries on in the background.
+Keep the browser open. You can close the popup, use other tabs and do other things. Farming carries on in the background.
 
 ## Will I see a stream playing?
 

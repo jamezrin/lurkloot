@@ -31,4 +31,4 @@ If you would rather run Lurkloot on a server, a NAS or an always-on PC, there is
 
 ## Next step
 
-[Start farming](/guide/getting-started/first-run) — sign in, turn on a platform, and let Lurkloot take it from there.
+[Start farming](/guide/getting-started/first-run): sign in, turn on a platform, and let Lurkloot take it from there.
