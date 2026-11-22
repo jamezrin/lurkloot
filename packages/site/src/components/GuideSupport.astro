@@ -1,0 +1,20 @@
+---
+import { SUPPORT_LABELS, type GuideEntry } from "../guide";
+
+interface Props {
+  support: NonNullable<GuideEntry["data"]["support"]>;
+}
+const { support } = Astro.props;
+const hosts = [
+  { label: "Browser extension", level: support.extension },
+  { label: "CLI and Docker", level: support.cli },
+];
+---
+<aside class="guide-support" aria-label="Where this works">
+  <dl>
+    {hosts.map((host) => (
+      <div data-level={host.level}><dt>{host.label}</dt><dd>{SUPPORT_LABELS[host.level]}</dd></div>
+    ))}
+  </dl>
+  {support.note && <p>{support.note}</p>}
+</aside>

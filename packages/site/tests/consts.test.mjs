@@ -45,6 +45,9 @@ const indexablePages = [
   "changelog/index.html",
   "twitch-drops-farmer/index.html",
   "kick-drops-farmer/index.html",
+  "guide/index.html",
+  "guide/getting-started/install/index.html",
+  "guide/getting-started/first-run/index.html",
 ];
 
 test("keeps the structured download URL canonical", async () => {
@@ -143,4 +146,42 @@ test("cross-links the two platform pages to each other", async () => {
 
   assert.ok(twitch.includes(`href="${LINKS.kickFarmer}"`));
   assert.ok(kick.includes(`href="${LINKS.twitchFarmer}"`));
+});
+
+test("links the user guide from every page's nav and lists every guide page in the sitemap", async () => {
+  const sitemap = await readFile(new URL("../dist/sitemap-0.xml", import.meta.url), "utf8");
+  const guideIndex = await readFile(new URL("../dist/guide/index.html", import.meta.url), "utf8");
+  const pages = [...guideIndex.matchAll(/href="(\/guide\/[^"]+)"/g)].map((match) => match[1]);
+
+  assert.ok(pages.length > 0, "the guide index links its pages");
+  for (const href of new Set(pages)) {
+    assert.ok(sitemap.includes(`${SITE.url}${href}/`), `sitemap lists ${href}`);
+  }
+  for (const page of ["privacy/index.html", "changelog/index.html", "twitch-drops-farmer/index.html"]) {
+    const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
+    assert.ok(html.includes(`href="${LINKS.guide}"`), `${page} links to the guide`);
+  }
+});
+
+test("links every guide page only to pages and headings that exist", async () => {
+  const { readdir } = await import("node:fs/promises");
+  const dist = new URL("../dist/", import.meta.url);
+  const files = (await readdir(new URL("guide/", dist), { recursive: true }))
+    .filter((file) => file.endsWith("index.html"))
+    .map((file) => `guide/${file}`);
+  const html = new Map();
+  for (const file of ["index.html", ...files]) {
+    html.set(`/${file.replace(/\/?index\.html$/, "")}`.replace(/\/$/, "") || "/", await readFile(new URL(file, dist), "utf8"));
+  }
+  const pathOf = (href) => href.split("#")[0].replace(/\/$/, "") || "/";
+
+  for (const file of files) {
+    const page = html.get(`/${file.replace(/\/index\.html$/, "")}`);
+    for (const [, href] of page.matchAll(/href="(\/guide[^"]*)"/g)) {
+      const target = html.get(pathOf(href));
+      assert.ok(target, `${file} links to missing page ${href}`);
+      const anchor = href.split("#")[1];
+      if (anchor) assert.ok(target.includes(`id="${anchor}"`), `${file} links to missing heading ${href}`);
+    }
+  }
 });

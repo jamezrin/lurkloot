@@ -39,6 +39,7 @@ export const LINKS = {
   // On-site pages (no trailing slash, matching `trailingSlash: "ignore"`).
   privacy: "/privacy",
   changelog: "/changelog",
+  guide: "/guide",
   twitchFarmer: "/twitch-drops-farmer",
   kickFarmer: "/kick-drops-farmer",
   x: "https://x.com/jamezrin",
