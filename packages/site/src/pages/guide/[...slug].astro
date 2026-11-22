@@ -103,4 +103,25 @@ const supportRows = entry.data.supportTable
   };
   sync();
   narrow.addEventListener("change", sync);
+
+  // Copy buttons on code blocks (see codeFrame in astro.config.mjs).
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-code-copy]")) {
+    const code = button.closest(".code-frame")?.querySelector("pre code");
+    if (!code || !navigator.clipboard) continue;
+    button.hidden = false;
+    let reset: number | undefined;
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code.textContent?.replace(/\n$/, "") ?? "");
+        button.textContent = "Copied";
+      } catch {
+        button.textContent = "Press Ctrl+C";
+        getSelection()?.selectAllChildren(code);
+      }
+      window.clearTimeout(reset);
+      reset = window.setTimeout(() => {
+        button.textContent = "Copy";
+      }, 2000);
+    });
+  }
 </script>

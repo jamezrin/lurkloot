@@ -197,3 +197,14 @@
   .guide-nav-toggle .guide-nav { display: block; padding-top: 0; background: none; box-shadow: none; }
   .guide-nav-toggle .guide-nav a { display: block; }
 }
+
+/* Guide code blocks: a frame with the language and a Copy button
+   (codeFrame in astro.config.mjs), over Shiki's highlighting. */
+.document-prose .code-frame { margin: 0 0 20px; border: 1px solid var(--sg-line-strong); border-radius: 10px; background: #0d0d0d; overflow: hidden; }
+.document-prose .code-frame-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 4px 6px 4px 14px; border-bottom: 1px solid var(--sg-line); background: rgb(255 255 255 / 3%); }
+.document-prose .code-frame-label { font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--sg-faint); }
+.document-prose .code-copy { padding: 5px 10px; border: 1px solid var(--sg-line-strong); border-radius: 6px; background: transparent; font: 500 12px/1 var(--font-mono); color: var(--sg-muted); cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.document-prose .code-copy:hover { color: #ededed; border-color: rgb(255 255 255 / 30%); background: rgb(255 255 255 / 5%); }
+.document-prose .code-copy:focus-visible { outline: 2px solid #ededed; outline-offset: 2px; }
+.document-prose .code-frame pre.astro-code { margin: 0; padding: 16px 18px; background-color: transparent !important; font: 13.5px/1.7 var(--font-mono); overflow-x: auto; overflow-wrap: normal; tab-size: 2; }
+.document-prose .code-frame pre code { padding: 0; border-radius: 0; background: none; box-shadow: none; font: inherit; color: inherit; }

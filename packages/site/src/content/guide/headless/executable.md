@@ -26,7 +26,12 @@ cd lurkloot-cli-<version>-linux-x64
 ./lurkloot serve
 ```
 
-On Windows, unzip it, open PowerShell in that folder, and run `.\lurkloot.exe auth twitch browser-login`, then `.\lurkloot.exe serve`.
+On Windows, unzip it, then open PowerShell in that folder:
+
+```powershell
+.\lurkloot.exe auth twitch browser-login
+.\lurkloot.exe serve
+```
 
 `serve` farms and opens the [web app](/guide/headless/app) at `http://127.0.0.1:8420/`. Use `run` instead to farm with no web app.
 

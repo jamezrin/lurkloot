@@ -58,9 +58,16 @@ This brings over the Twitch and Kick sign-ins from your browser.
 
 ## Checking and signing out
 
+See what is signed in:
+
 ```bash
-lurkloot auth status          # what is signed in
-lurkloot auth twitch logout   # or: auth kick logout
+lurkloot auth status
+```
+
+Sign out of Twitch (use `kick` instead of `twitch` for Kick):
+
+```bash
+lurkloot auth twitch logout
 ```
 
 If you set `SA_TWITCH_AUTH_TOKEN` or `SA_KICK_SESSION_TOKEN` as environment variables, those win over whatever is stored. Remove them to use a sign-in made here.

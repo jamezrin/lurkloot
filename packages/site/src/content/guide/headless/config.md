@@ -23,12 +23,19 @@ Check a hand-edited file with `lurkloot validate-config`. It prints the settings
 
 ## A minimal example
 
-```jsonc
+This is a complete `config.json`: it farms Twitch only and keeps one channel on the Watchlist. Anything you leave out uses its default.
+
+```json
 {
   "settings": {
     "platform": {
-      "twitch": { "enabled": true, "watchlistChannels": ["somechannel"] },
-      "kick": { "enabled": false }
+      "twitch": {
+        "enabled": true,
+        "watchlistChannels": ["somechannel"]
+      },
+      "kick": {
+        "enabled": false
+      }
     }
   }
 }

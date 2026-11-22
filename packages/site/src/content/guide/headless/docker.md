@@ -24,12 +24,16 @@ Your data is in `./data`.
 
 ## Without the web app
 
-Sign in first, then start the farming loop in the background:
+Sign in first:
 
 ```bash
 docker run --rm -it -v "$PWD/data:/data" ghcr.io/jamezrin/lurkloot-cli:latest auth twitch browser-login
 docker run --rm -it -v "$PWD/data:/data" ghcr.io/jamezrin/lurkloot-cli:latest auth kick device-login
+```
 
+Then start it in the background:
+
+```bash
 docker run -d --name lurkloot --restart unless-stopped \
   -v "$PWD/data:/data" ghcr.io/jamezrin/lurkloot-cli:latest
 ```
@@ -39,8 +43,10 @@ The first command creates `data/config.json` with every setting and a comment on
 ## Watching what it does
 
 ```bash
-docker logs -f lurkloot          # or: docker compose logs -f
+docker compose logs -f
 ```
+
+Without Compose, use `docker logs -f lurkloot`.
 
 ## Updating
 
