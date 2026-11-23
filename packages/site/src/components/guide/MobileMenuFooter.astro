@@ -5,6 +5,7 @@ import { LINKS, NAV_LINKS } from "../../consts";
 ---
 <div class="guide-menu-footer">
   <nav aria-label="Site">
+    <a href="/">Home</a>
     {NAV_LINKS.map((link) => <a href={link.href}>{link.label}</a>)}
     <a href={LINKS.github} target="_blank" rel="noopener">GitHub</a>
   </nav>

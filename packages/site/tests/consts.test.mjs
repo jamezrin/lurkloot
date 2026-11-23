@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { CLI_GUIDE_PATH, EXTERNAL_URLS, LINKS, SITE } from "../src/consts.ts";
+import {
+  CLI_GUIDE_PATH,
+  EXTERNAL_URLS,
+  HOME_SECTIONS,
+  LINKS,
+  NAV_LINKS,
+  SITE,
+} from "../src/consts.ts";
 
 test("attributes Chrome Web Store website referrals", () => {
   const url = new URL(LINKS.chrome);
@@ -230,4 +237,35 @@ test("sends people to the user guide to set up the CLI", async () => {
     assert.ok(!html.includes("lurkloot/tree/main/packages/cli"), `${page} skips the CLI README`);
   }
   await readFile(new URL(`../dist${CLI_GUIDE_PATH}/index.html`, import.meta.url), "utf8");
+});
+
+// Every page, the guide included, has the same page links in its header. The
+// homepage adds a row of its own sections, each pointing at a real section.
+test("gives every page the same header links", async () => {
+  const pages = [
+    "index.html",
+    "twitch-drops-farmer/index.html",
+    "kick-drops-farmer/index.html",
+    "changelog/index.html",
+    "privacy/index.html",
+    "guide/index.html",
+    "guide/farming/watch-streaks/index.html",
+  ];
+  for (const page of pages) {
+    const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
+    const header = html.slice(0, html.indexOf("</header>"));
+    const hrefs = [
+      ...header.matchAll(/<nav[^>]*aria-label="Main navigation"[^>]*>([\s\S]*?)<\/nav>/g),
+    ].flatMap((nav) => [...nav[1].matchAll(/href="([^"]+)"/g)].map((match) => match[1]));
+    assert.deepEqual(
+      hrefs,
+      NAV_LINKS.map((link) => link.href),
+      page,
+    );
+  }
+  const home = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
+  for (const section of HOME_SECTIONS) {
+    assert.ok(home.includes(`href="${section.href}"`), `the sections row links ${section.href}`);
+    assert.ok(home.includes(`id="${section.href.slice(1)}"`), `${section.href} is a section`);
+  }
 });

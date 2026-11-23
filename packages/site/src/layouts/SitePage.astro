@@ -5,7 +5,6 @@
 import Base from "./Base.astro";
 import Nav from "../components/signal/Nav.astro";
 import Footer from "../components/signal/Footer.astro";
-import { NAV_LINKS } from "../consts";
 import "../styles/signal.css";
 import "../styles/signal-pages.css";
 
@@ -14,7 +13,7 @@ const { sections = [], ...metadata } = Astro.props;
 <Base {...metadata}>
   <a class="sg-skip" href="#content">Skip to content</a>
   <div class="signal sg-page">
-    <Nav links={NAV_LINKS} />
+    <Nav />
     {sections.length > 0 && (
       <nav class="sg-wrap sg-subnav" aria-label="On this page">
         {sections.map((link: { href: string; label: string }) => <a href={link.href}>{link.label}</a>)}

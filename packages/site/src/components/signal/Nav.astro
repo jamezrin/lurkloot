@@ -1,22 +1,21 @@
 ---
-import { LINKS } from "../../consts";
+import { LINKS, NAV_LINKS } from "../../consts";
 import logo from "../../assets/logo-ring.svg";
 import { GITHUB_ICON_PATH as githubPath, STAR_ICON_PATH as starPath } from "./icons";
 
-interface Props {
-  links?: { href: string; label: string; badge?: string }[];
+interface NavLink {
+  href: string;
+  label: string;
+  badge?: string;
 }
-// The homepage links to its own sections; other pages pass their own links.
-const {
-  links = [
-    { href: "#how-it-works", label: "How it works" },
-    { href: "#priorities", label: "Priorities" },
-    { href: "#platforms", label: "Platforms" },
-    { href: "#cli", label: "Headless", badge: "Beta" },
-    { href: "#faq", label: "FAQ" },
-    { href: LINKS.guide, label: "Guide" },
-  ],
-} = Astro.props;
+interface Props {
+  // Links to sections of this page, shown as a second row under the header.
+  sections?: NavLink[];
+}
+// The same page links on every page. A page with sections (the homepage) adds
+// a row to jump between them, which marks the one you are reading.
+const { sections = [] } = Astro.props;
+const links: NavLink[] = NAV_LINKS;
 const path = Astro.url.pathname.replace(/\/$/, "");
 ---
 <header class="sg-nav" id="top" data-nav>
@@ -48,6 +47,17 @@ const path = Astro.url.pathname.replace(/\/$/, "");
       </button>
     </div>
   </div>
+  {sections.length > 0 && (
+    <nav class="sg-subnav" aria-label="On this page" data-subnav>
+      <div class="sg-wrap sg-subnav__inner">
+        {sections.map((section) => (
+          <a href={section.href}>
+            {section.label}{section.badge && <span class="sg-badge sg-badge--sm">{section.badge}</span>}
+          </a>
+        ))}
+      </div>
+    </nav>
+  )}
 </header>
 
 <dialog class="sg-menu" aria-label="Menu" data-menu data-lenis-prevent>
@@ -62,14 +72,18 @@ const path = Astro.url.pathname.replace(/\/$/, "");
     </button>
   </div>
   <nav class="sg-wrap sg-menu__links" aria-label="Main navigation">
+    <a href="/" aria-current={path === "" ? "page" : undefined} style="--i: 0">
+      Home
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" /></svg>
+    </a>
     {links.map((link, index) => (
-      <a href={link.href} aria-current={link.href === path ? "page" : undefined} style={`--i: ${index}`}>
+      <a href={link.href} aria-current={link.href === path ? "page" : undefined} style={`--i: ${index + 1}`}>
         {link.label}{link.badge && <span class="sg-badge">{link.badge}</span>}
         <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" /></svg>
       </a>
     ))}
   </nav>
-  <div class="sg-wrap sg-menu__end" style={`--i: ${links.length}`}>
+  <div class="sg-wrap sg-menu__end" style={`--i: ${links.length + 1}`}>
     <a class="sg-pill sg-pill--lg" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot</a>
     <a class="sg-pill sg-pill--lg sg-pill--ghost" href={LINKS.github} target="_blank" rel="noopener">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={githubPath} /></svg>
@@ -95,5 +109,41 @@ const path = Astro.url.pathname.replace(/\/$/, "");
     matchMedia("(min-width: 1101px)").addEventListener("change", (event) => {
       if (event.matches) menu.close();
     });
+  }
+
+  // Marks the section in the middle of the screen in the sections row, and
+  // keeps that link in view when the row scrolls sideways on a phone.
+  const subnav = document.querySelector<HTMLElement>("[data-subnav]");
+  if (subnav) {
+    const links = new Map(
+      [...subnav.querySelectorAll<HTMLAnchorElement>("a")].map((link) => [link.hash.slice(1), link]),
+    );
+    const mark = (id: string | null) => {
+      for (const [key, link] of links) {
+        if (key === id) {
+          link.setAttribute("aria-current", "location");
+          const row = link.parentElement;
+          if (row && row.scrollWidth > row.clientWidth) {
+            row.scrollTo({ left: link.offsetLeft - (row.clientWidth - link.offsetWidth) / 2, behavior: "smooth" });
+          }
+        } else link.removeAttribute("aria-current");
+      }
+    };
+    const visible = new Set<string>();
+    const order = [...links.keys()];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+        mark(order.find((id) => visible.has(id)) ?? null);
+      },
+      { rootMargin: "-45% 0px -50% 0px" },
+    );
+    for (const id of order) {
+      const section = document.getElementById(id);
+      if (section) observer.observe(section);
+    }
   }
 </script>

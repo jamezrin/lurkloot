@@ -53,10 +53,21 @@ export const LINKS = {
 
 // The main links in the bar at the top of every page except the homepage,
 // which links to its own sections. The guide's header shows the same ones.
+// The header's links, the same on every page (the guide's header uses them
+// too). The logo links home.
 export const NAV_LINKS = [
-  { href: "/", label: "Home" },
   { href: LINKS.twitchFarmer, label: "Twitch" },
   { href: LINKS.kickFarmer, label: "Kick" },
   { href: LINKS.guide, label: "Guide" },
   { href: LINKS.changelog, label: "Changelog" },
+];
+
+// The homepage's sections, shown as a second row under its header so you can
+// jump straight to one. Each href is a section id on the homepage.
+export const HOME_SECTIONS = [
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#priorities", label: "Priorities" },
+  { href: "#platforms", label: "Platforms" },
+  { href: "#cli", label: "Headless", badge: "Beta" },
+  { href: "#faq", label: "FAQ" },
 ];
