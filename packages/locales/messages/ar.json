@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 خارج تصفية المكافآت لديك"
   },
+  "queueSkippedGuide": {
+    "message": "لماذا تُتجاوَز حملة؟"
+  },
   "queueActionRequired": {
     "message": "يلزم إجراء"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "فتح المخزون"
+  },
+  "openGuide": {
+    "message": "دليل المستخدم"
   },
   "openSettings": {
     "message": "فتح الإعدادات"

@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 आपके रिवॉर्ड फ़िल्टर से बाहर"
   },
+  "queueSkippedGuide": {
+    "message": "कोई कैंपेन क्यों छोड़ा गया है?"
+  },
   "queueActionRequired": {
     "message": "कार्रवाई आवश्यक"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "इन्वेंटरी खोलें"
+  },
+  "openGuide": {
+    "message": "उपयोगकर्ता गाइड"
   },
   "openSettings": {
     "message": "सेटिंग्स खोलें"

@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 不在你的奖励筛选范围内"
   },
+  "queueSkippedGuide": {
+    "message": "为什么会跳过某个活动？"
+  },
   "queueActionRequired": {
     "message": "需要操作"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "打开掉宝库存"
+  },
+  "openGuide": {
+    "message": "用户指南"
   },
   "openSettings": {
     "message": "打开设置"

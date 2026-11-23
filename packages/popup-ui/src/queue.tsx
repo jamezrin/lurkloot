@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { AnimatePresence } from "motion/react";
 import { createPortal } from "react-dom";
-import { ChevronRight, Clock3, Pin } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Clock3, Pin } from "lucide-react";
 import type {
   CategorySelection,
   Platform,
@@ -11,7 +11,9 @@ import type {
   UnlinkedCampaignMode,
 } from "@lurkloot/shared/models";
 import { defaultRewardFilter, isRewardFilterNarrowed } from "@lurkloot/shared/rewardFilter";
-import { I18nContext, useT } from "./context";
+import { I18nContext, PopupRuntimeContext, useT } from "./context";
+import { GUIDE_SKIPPED_URL } from "./constants";
+import { openHttpsLink } from "./links";
 import { filterCampaigns } from "./campaignSearch";
 import {
   CampaignCard,
@@ -393,6 +395,7 @@ export function QueuePanel({
               />
             </div>
           ))}
+          <SkippedGuideLink />
         </Disclosure>
       ) : null}
 
@@ -795,6 +798,24 @@ function GroupDivider({
         </button>
       ) : null}
     </div>
+  );
+}
+
+// Under the skipped campaigns: the guide's list of skip reasons and their fixes.
+function SkippedGuideLink(): React.ReactElement | null {
+  const t = useT();
+  const runtime = React.useContext(PopupRuntimeContext);
+  if (!runtime) return null;
+  return (
+    <button
+      type="button"
+      data-queue-guide-link="skipped"
+      onClick={() => openHttpsLink(GUIDE_SKIPPED_URL, runtime.adapter.openLink)}
+      className="flex w-full items-center gap-1.5 rounded-lg px-2.5 py-1 text-start text-[11px] text-zinc-500 outline-none hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-400 dark:text-zinc-400 dark:hover:text-zinc-100"
+    >
+      <span>{t("queueSkippedGuide")}</span>
+      <ArrowUpRight size={11} className="shrink-0 opacity-70" />
+    </button>
   );
 }
 

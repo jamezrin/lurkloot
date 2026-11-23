@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 は報酬フィルターの対象外"
   },
+  "queueSkippedGuide": {
+    "message": "キャンペーンがスキップされる理由"
+  },
   "queueActionRequired": {
     "message": "要対応"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "インベントリを開く"
+  },
+  "openGuide": {
+    "message": "ユーザーガイド"
   },
   "openSettings": {
     "message": "設定を開く"

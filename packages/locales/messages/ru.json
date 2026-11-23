@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 вне фильтра наград"
   },
+  "queueSkippedGuide": {
+    "message": "Почему кампания пропускается?"
+  },
   "queueActionRequired": {
     "message": "Требуется действие"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "Открыть инвентарь"
+  },
+  "openGuide": {
+    "message": "Руководство пользователя"
   },
   "openSettings": {
     "message": "Открыть настройки"

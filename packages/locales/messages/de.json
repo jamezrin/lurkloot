@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 außerhalb deines Belohnungsfilters"
   },
+  "queueSkippedGuide": {
+    "message": "Warum wird eine Kampagne übersprungen?"
+  },
   "queueActionRequired": {
     "message": "Aktion erforderlich"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "Inventar öffnen"
+  },
+  "openGuide": {
+    "message": "Benutzerhandbuch"
   },
   "openSettings": {
     "message": "Einstellungen öffnen"

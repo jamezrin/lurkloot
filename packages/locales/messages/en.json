@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 outside your reward filter"
   },
+  "queueSkippedGuide": {
+    "message": "Why is a campaign skipped?"
+  },
   "queueActionRequired": {
     "message": "Action required"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "Open inventory"
+  },
+  "openGuide": {
+    "message": "User guide"
   },
   "openSettings": {
     "message": "Open settings"
