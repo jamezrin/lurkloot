@@ -64,7 +64,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     getPendingOnboarding: loadPendingOnboarding,
     dismissPendingOnboarding,
     exportCredentials: (blob) => {
-      // Download the credential blob the CLI's `login --import` consumes. The
+      // Download the credential blob the CLI's `auth import` consumes. The
       // popup is a normal extension page, so a Blob URL + anchor works without
       // the downloads permission.
       const url = URL.createObjectURL(

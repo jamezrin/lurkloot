@@ -1425,7 +1425,7 @@
     "message": "このブラウザのログインセッションを使い、サーバーまたは Docker 上で Lurkloot CLI によりドロップをファームします。"
   },
   "cliExportHint": {
-    "message": "Twitch と Kick のセッショントークンをエクスポートし、CLI の「login --import」で再利用できます。ファイルは秘密にしてください — 持っている人はあなたのセッションを使えます。"
+    "message": "Twitch と Kick のセッショントークンをエクスポートし、CLI の「auth import」で再利用できます。ファイルは秘密にしてください — 持っている人はあなたのセッションを使えます。"
   },
   "cliExportConfirm": {
     "message": "Twitch と Kick のセッショントークンをファイルにダウンロードします。そのファイルを持つ人はそれらのサイトであなたになりすごせます。続行しますか？"

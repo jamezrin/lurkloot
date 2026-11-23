@@ -1425,7 +1425,7 @@
     "message": "Jalankan farming drop di server atau Docker dengan CLI Lurkloot, memakai sesi login browser ini."
   },
   "cliExportHint": {
-    "message": "Mengekspor token sesi Twitch dan Kick agar “login --import” CLI bisa memakainya. Jaga file tetap pribadi — siapa pun yang memilikinya bisa memakai sesi Anda."
+    "message": "Mengekspor token sesi Twitch dan Kick agar “auth import” CLI bisa memakainya. Jaga file tetap pribadi — siapa pun yang memilikinya bisa memakai sesi Anda."
   },
   "cliExportConfirm": {
     "message": "Ini mengunduh token sesi Twitch dan Kick ke file. Siapa pun dengan file itu bisa bertindak sebagai Anda di situs tersebut. Lanjutkan?"

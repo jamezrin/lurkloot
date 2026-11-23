@@ -1425,7 +1425,7 @@
     "message": "Run drop farming on a server or in Docker with the Lurkloot CLI, using this browser's logged-in session."
   },
   "cliExportHint": {
-    "message": "Exports your Twitch and Kick session tokens so the CLI's “login --import” can reuse them. Keep the file private — anyone with it can use your sessions."
+    "message": "Exports your Twitch and Kick session tokens so the CLI's “auth import” can reuse them. Keep the file private — anyone with it can use your sessions."
   },
   "cliExportConfirm": {
     "message": "This downloads your Twitch and Kick session tokens to a file. Anyone with that file can act as you on those sites. Continue?"
