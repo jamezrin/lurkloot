@@ -154,7 +154,7 @@ test("links the user guide from every page's nav and lists every guide page in t
   const pages = [...guideIndex.matchAll(/href="(\/guide\/[^"]+)"/g)].map((match) => match[1]);
 
   assert.ok(pages.length > 0, "the guide index links its pages");
-  for (const href of new Set(pages)) {
+  for (const href of new Set(pages.map((page) => page.replace(/\/$/, "")))) {
     assert.ok(sitemap.includes(`${SITE.url}${href}/`), `sitemap lists ${href}`);
   }
   for (const page of [
@@ -192,4 +192,33 @@ test("links every guide page only to pages and headings that exist", async () =>
         assert.ok(target.includes(`id="${anchor}"`), `${file} links to missing heading ${href}`);
     }
   }
+});
+
+test("builds a search index for the guide and keeps the badges out of it", async () => {
+  const { readdir } = await import("node:fs/promises");
+  const pagefind = await readdir(new URL("../dist/pagefind/", import.meta.url));
+  assert.ok(pagefind.includes("pagefind.js"), "Starlight's Pagefind index is built");
+
+  const page = await readFile(
+    new URL("../dist/guide/farming/watch-streaks/index.html", import.meta.url),
+    "utf8",
+  );
+  assert.match(page, /data-pagefind-body/);
+  assert.match(page, /class="guide-support"[^>]*data-pagefind-ignore/);
+});
+
+test("gives guide pages the site's canonical form, social image and breadcrumbs", async () => {
+  const page = "guide/farming/watch-streaks/index.html";
+  const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
+
+  assert.match(
+    html,
+    new RegExp(`<link rel="canonical" href="${SITE.url}/guide/farming/watch-streaks"`),
+  );
+  assert.match(html, new RegExp(`<meta property="og:image" content="${SITE.url}/og.png"`));
+  const crumbs = ldOfType(await structuredData(page), "BreadcrumbList");
+  assert.deepEqual(
+    crumbs.itemListElement.map((item) => item.item),
+    [SITE.url, `${SITE.url}/guide`, `${SITE.url}/guide/farming/watch-streaks`],
+  );
 });

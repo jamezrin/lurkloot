@@ -1,0 +1,155 @@
+/* ============================================================
+   User guide (/guide), rendered by Starlight.
+   Starlight's own tokens are pointed at the site's "signal" theme
+   (signal.css): the same black canvas, Geist type, grey text and
+   thin white hairlines, so the guide reads as part of the site.
+   Unlayered rules here win over Starlight's layered defaults.
+   ============================================================ */
+@import "@fontsource-variable/archivo";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "./signal.css";
+
+:root,
+:root[data-theme="dark"] {
+  --font-body: "Geist Variable", system-ui, sans-serif;
+  --font-display: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --sg-surface: #0a0a0a;
+  --sg-line: rgb(255 255 255 / 9%);
+  --sg-line-strong: rgb(255 255 255 / 15%);
+  --sg-muted: #a1a1a1;
+  --sg-faint: #8f8f8f;
+  --sg-ease: cubic-bezier(.22, 1, .36, 1);
+
+  --sl-font: var(--font-body);
+  --sl-font-mono: var(--font-mono);
+  --sl-text-h1: clamp(34px, 4vw, 48px);
+  --sl-text-h2: clamp(24px, 2.2vw, 30px);
+  --sl-text-h3: 20px;
+  --sl-line-height: 1.8;
+  --sl-line-height-headings: 1.15;
+  --sl-nav-height: 4rem;
+  --sl-content-width: 46rem;
+  --sl-sidebar-width: 18rem;
+
+  --sl-color-white: #ededed;
+  --sl-color-gray-1: #ededed;
+  --sl-color-gray-2: #a1a1a1;
+  --sl-color-gray-3: #8f8f8f;
+  --sl-color-gray-4: #555;
+  --sl-color-gray-5: #262626;
+  --sl-color-gray-6: #141414;
+  --sl-color-black: #000;
+  --sl-color-accent-low: #1a1a1a;
+  --sl-color-accent: #ededed;
+  --sl-color-accent-high: #fff;
+  --sl-color-text: #a1a1a1;
+  --sl-color-text-accent: #ededed;
+  --sl-color-text-invert: #000;
+  --sl-color-bg: #000;
+  --sl-color-bg-nav: rgb(0 0 0 / 80%);
+  --sl-color-bg-sidebar: #000;
+  --sl-color-bg-inline-code: #111;
+  --sl-color-hairline-light: rgb(255 255 255 / 15%);
+  --sl-color-hairline: rgb(255 255 255 / 9%);
+  --sl-color-hairline-shade: rgb(255 255 255 / 9%);
+}
+
+body { background: #000; }
+::selection { background: #ededed; color: #000; }
+
+/* ---------- header: the site's bar, with search ---------- */
+header.header { backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4); }
+.guide-header { display: flex; align-items: center; gap: 20px; height: 100%; }
+.guide-header .sg-brand { flex: none; color: #ededed; text-decoration: none; }
+.guide-header__links { display: flex; gap: 2px; }
+.guide-header__links a { padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--sg-muted); text-decoration: none; transition: color .15s; }
+.guide-header__links a:hover, .guide-header__links a[aria-current="page"] { color: #ededed; }
+.guide-header__search { flex: 1 1 auto; display: flex; justify-content: flex-end; min-width: 0; }
+.guide-header__end { display: flex; gap: 8px; }
+.guide-header__end .sg-pill { height: 32px; padding: 0 12px; border-radius: 6px; font-size: 14px; text-decoration: none; }
+@media (max-width: 72rem) { .guide-header__links { display: none; } }
+@media (max-width: 50rem) { .guide-header__end { display: none; } }
+
+/* Search box: a quiet field like the site's ghost buttons. */
+site-search button[data-open-modal] { border-radius: 6px; border-color: var(--sg-line-strong); background: #0a0a0a; color: var(--sg-muted); }
+site-search button[data-open-modal]:hover { border-color: rgb(255 255 255 / 30%); color: #ededed; }
+@media (min-width: 50rem) { site-search button[data-open-modal] { width: 16rem; max-width: 100%; } }
+site-search dialog { border-color: var(--sg-line-strong); border-radius: 12px; background: #0a0a0a; }
+
+/* ---------- sidebar ---------- */
+.sidebar-content { --sl-sidebar-item-padding-inline: .5rem; }
+.sidebar-content a[aria-current="page"] { background: #1a1a1a; color: #ededed; font-weight: 500; }
+.sidebar-content summary .group-label .large { font-weight: 500; color: var(--sg-muted); }
+@media (min-width: 50rem) { .sidebar-content summary .group-label .large { font-size: 14px; } }
+.sidebar-content details[open] > summary .group-label .large { color: #ededed; }
+.sidebar-content ul ul { border-inline-start-color: var(--sg-line); }
+
+/* ---------- page title and content ---------- */
+.content-panel { border-top-color: var(--sg-line); }
+h1#_top { font-weight: 450; letter-spacing: -.055em; color: #ededed; text-wrap: balance; }
+.sl-markdown-content :is(h2, h3) { font-weight: 450; letter-spacing: -.04em; color: #ededed; }
+.sl-markdown-content :is(h2, h3) { scroll-margin-top: calc(var(--sl-nav-height) + 1.5rem); }
+.sl-markdown-content a:not(.sl-anchor-link) { color: #ededed; text-decoration-color: rgb(255 255 255 / 35%); text-underline-offset: 3px; }
+.sl-markdown-content strong { font-weight: 500; color: #ededed; }
+.sl-markdown-content code:not(pre code) { padding: 2px 6px; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--sg-line); font-size: .86em; color: #ededed; }
+.sl-markdown-content blockquote { padding: 12px 16px; border-inline-start: 2px solid var(--sg-line-strong); border-radius: 0 8px 8px 0; background: var(--sg-surface); }
+.sl-markdown-content table { font-size: 14px; }
+.sl-markdown-content :is(th, td) { border-color: var(--sg-line-strong); }
+
+/* "On this page" */
+.right-sidebar-panel h2 { font-size: 13px; font-weight: 500; color: var(--sg-faint); }
+.right-sidebar-panel a { color: var(--sg-muted); }
+.right-sidebar-panel a[aria-current="true"] { color: #ededed; }
+
+/* Footer: edit link, previous / next, then the site's own line. */
+.pagination-links a { border-radius: 12px; border-color: var(--sg-line); box-shadow: none; color: #ededed; }
+.pagination-links a:hover { border-color: var(--sg-line-strong); }
+.guide-site-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; margin-top: 3rem; padding-top: 24px; border-top: 1px solid var(--sg-line); font-size: 13px; color: var(--sg-faint); }
+.guide-site-footer nav { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.guide-site-footer a { color: var(--sg-muted); text-decoration: none; }
+.guide-site-footer a:hover { color: #ededed; }
+
+/* Phone menu: the site's links under the guide's sections. */
+.guide-menu-footer { display: grid; gap: 16px; padding-block: 1rem 1.5rem; border-top: 1px solid var(--sg-line); }
+.guide-menu-footer nav { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.guide-menu-footer nav a { font-size: 15px; color: var(--sg-muted); text-decoration: none; }
+.guide-menu-footer .sg-pill { justify-self: start; text-decoration: none; }
+
+/* ---------- guide home ---------- */
+.hero h1 { font-weight: 450; letter-spacing: -.055em; color: #ededed; }
+.hero .tagline { color: var(--sg-muted); }
+.hero .sl-link-button { border-radius: 999px; }
+.hero .sl-link-button.primary { background: #ededed; border-color: #ededed; color: #000; }
+.guide-sections { display: grid; gap: 48px; }
+.guide-section-card h2 { margin: 0 0 16px; font-size: clamp(22px, 2vw, 28px); font-weight: 450; letter-spacing: -.04em; color: #ededed; }
+.guide-section-card ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.guide-section-card a { display: grid; gap: 6px; height: 100%; padding: 18px; border-radius: 12px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); text-decoration: none; transition: box-shadow .15s; }
+.guide-section-card a:hover { box-shadow: inset 0 0 0 1px var(--sg-line-strong); }
+.guide-section-card strong { font-weight: 500; color: #ededed; }
+.guide-section-card span { font-size: 14px; line-height: 1.5; color: var(--sg-muted); }
+
+/* ---------- Extension / CLI support ---------- */
+.guide-support { margin-top: 1.25rem; padding: 14px 16px; border-radius: 12px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); }
+.guide-support dl { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.guide-support dl > div { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.guide-support dt { color: var(--sg-muted); }
+.guide-support dd { margin: 0; padding: 1px 8px; border-radius: 999px; font: 500 12px/1.6 var(--font-mono); box-shadow: inset 0 0 0 1px var(--sg-line-strong); color: #ededed; }
+.guide-support [data-level="no"] dd { color: var(--sg-faint); }
+.guide-support p { margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--sg-muted); }
+.guide-support-table td[data-level] { white-space: nowrap; }
+.guide-support-table td[data-level="yes"] { color: #ededed; }
+.guide-support-table td[data-level="no"] { color: var(--sg-faint); }
+
+/* Phone menu button: the site's square ghost button, not Starlight's disc. */
+.sl-menu-button { border-radius: 6px; background: #0a0a0a; box-shadow: inset 0 0 0 1px var(--sg-line-strong); color: #ededed; }
+.sl-menu-button:hover { background: #1a1a1a; }
+
+/* The guide home is a splash page: give its section cards the site's width. */
+:root[data-has-hero] { --sl-content-width: 72rem; }
+
+/* ---------- live popup pictures (GuidePopup.astro) ---------- */
+.guide-popup { margin: 2rem 0; }
+.guide-popup .sg-excerpt { margin-inline: 0; border-radius: 12px; box-shadow: 0 0 0 1px var(--sg-line-strong), 0 24px 60px -30px rgb(255 255 255 / 12%); }
+.guide-popup figcaption { margin-top: 10px; font-size: 13px; color: var(--sg-faint); }

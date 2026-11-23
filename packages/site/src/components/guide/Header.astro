@@ -1,0 +1,34 @@
+---
+// Starlight's header, replaced with the site's own bar: the same brand, links
+// and buttons as every other page, plus the guide's search box.
+import Search from "virtual:starlight/components/Search";
+import { LINKS, NAV_LINKS } from "../../consts";
+import logo from "../../assets/logo-ring.svg";
+import { GITHUB_ICON_PATH as githubPath, STAR_ICON_PATH as starPath } from "../signal/icons";
+---
+<div class="guide-header">
+  <a class="sg-brand" href="/" aria-label="Lurkloot home">
+    <img src={logo.src} width="26" height="26" alt="" />
+    <span>Lurkloot</span>
+  </a>
+  <nav class="guide-header__links" aria-label="Main navigation">
+    {NAV_LINKS.map((link) => (
+      <a href={link.href} aria-current={link.href === LINKS.guide ? "page" : undefined}>{link.label}</a>
+    ))}
+  </nav>
+  <div class="guide-header__search"><Search /></div>
+  <div class="guide-header__end">
+    <a class="sg-pill sg-pill--ghost sg-nav__gh" href={LINKS.github} target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={githubPath} /></svg>
+      <span>GitHub</span>
+      <span class="sg-nav__stars" data-github-stars-wrap hidden>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={starPath} /></svg>
+        <span data-github-stars></span><span class="sg-sr"> stars</span>
+      </span>
+    </a>
+    <a class="sg-pill" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot</a>
+  </div>
+</div>
+<script>
+  import "../../scripts/github-stars.ts";
+</script>

@@ -10,7 +10,7 @@ repository. Tracking issue: [#485](https://github.com/jamezrin/lurkloot/issues/4
 /                        product + brand hub (both platforms)
 ├── twitch-drops-farmer/ Twitch search intent
 ├── kick-drops-farmer/   Kick search intent
-├── guide/               user guide: how to use Lurkloot (src/content/guide/)
+├── guide/               user guide: how to use Lurkloot (Starlight, src/content/docs/guide/)
 │   └── <section>/<page>/
 ├── changelog/           release notes
 └── privacy/             privacy policy

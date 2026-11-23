@@ -1,0 +1,35 @@
+---
+title: Activity and notifications
+description: See what Lurkloot did while you were away, and choose which alerts you get.
+sidebar:
+  order: 3
+support:
+  extension: "yes"
+  cli: "partial"
+  note: The CLI keeps the same Activity history and shows it in its app, but it has no desktop notifications. It writes events to its log instead.
+---
+
+import GuidePopup from "../../../../components/guide/GuidePopup.astro";
+
+## Activity
+
+**Activity** lists what Lurkloot did, newest first: every reward claimed, every channel it started or stopped watching, every campaign it finished, and anything that interrupted farming. It also groups your time into farming sessions, with the channel points and rewards each one earned.
+
+<GuidePopup view="activity" caption="Activity. Sample data." />
+
+Use **Copy log** to copy what is shown, for example into a bug report. **Clear history** empties it.
+
+### Diagnostics
+
+**Include diagnostic logs**, in Settings, keeps extra technical detail that helps find problems. It is on by default and the history is kept for a week. While it is on, Activity has a second tab, **Diagnostics**, with an **Export all** button. See [Report a problem](/guide/troubleshooting/report-a-problem).
+
+## Notifications
+
+Lurkloot can show desktop notifications through your browser. Both are on by default. Turn them on or off under **Notifications** in Settings:
+
+| Notification | When |
+| --- | --- |
+| **Reward earned** | A drop reward is ready, or has been claimed for you. Kick daily challenge rewards notify too. |
+| **No drops left** | Every active campaign on a platform is used up, so there is nothing left to farm there. |
+
+If notifications never appear, check that your browser and operating system allow notifications from your browser.

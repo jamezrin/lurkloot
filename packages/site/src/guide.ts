@@ -1,8 +1,9 @@
-// Navigation order for the user guide (/guide). The guide is written for people
-// using Lurkloot, not for contributors: describe what to click and what to
-// expect, in the popup's own wording, without implementation details.
-import type { CollectionEntry } from "astro:content";
-
+// The user guide (/guide), built with Starlight. It is written for people using
+// Lurkloot, not for contributors: describe what to click and what to expect, in
+// the popup's own wording, without implementation details.
+//
+// Each section is a folder under src/content/docs/guide/; this list sets the
+// order and the name the sidebar and the guide's home page show for it.
 export const GUIDE_SECTIONS = [
   { id: "getting-started", title: "Getting started" },
   { id: "popup", title: "Using the popup" },
@@ -22,16 +23,14 @@ export const SUPPORT_LABELS: Record<SupportLevel, string> = {
   no: "No",
 };
 
-export type GuideEntry = CollectionEntry<"guide">;
-
-export const guideHref = (entry: GuideEntry) => `/guide/${entry.id}`;
-
-/** Sections in navigation order, each with its pages sorted; empty sections are left out. */
-export function groupGuide(entries: GuideEntry[]) {
-  return GUIDE_SECTIONS.map((section) => ({
-    ...section,
-    pages: entries
-      .filter((entry) => entry.data.section === section.id)
-      .sort((a, b) => a.data.order - b.data.order || a.data.title.localeCompare(b.data.title)),
-  })).filter((section) => section.pages.length > 0);
+export interface GuideSupport {
+  extension: SupportLevel;
+  cli: SupportLevel;
+  note?: string;
 }
+
+/** The URL of a guide page from its Starlight entry id ("guide/farming/nopixel"). */
+export const guideHref = (id: string) => `/${id.replace(/\/index$/, "")}`;
+
+/** The section folder a guide page sits in, or undefined for the guide's home page. */
+export const guideSectionOf = (id: string) => id.split("/")[1];

@@ -48,3 +48,13 @@ export const LINKS = {
   cli: withCampaign(`${EXTERNAL_URLS.cli}#readme`, "open_source"),
   ghcr: withCampaign(EXTERNAL_URLS.ghcr, "open_source"),
 } as const;
+
+// The main links in the bar at the top of every page except the homepage,
+// which links to its own sections. The guide's header shows the same ones.
+export const NAV_LINKS = [
+  { href: "/", label: "Home" },
+  { href: LINKS.twitchFarmer, label: "Twitch" },
+  { href: LINKS.kickFarmer, label: "Kick" },
+  { href: LINKS.guide, label: "Guide" },
+  { href: LINKS.changelog, label: "Changelog" },
+];
