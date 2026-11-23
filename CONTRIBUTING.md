@@ -29,9 +29,11 @@ Lurkloot is a TypeScript pnpm monorepo. The packages under `packages/`:
 | `packages/extension` | `@lurkloot/extension` | The WXT WebExtension shell: entrypoints, browser adapters, and the test suite. |
 | `packages/core` | `@lurkloot/core` | The browser-free farming engine: scheduler, controller, platform adapters and parsers. |
 | `packages/cli` | `@lurkloot/cli` | The headless/Docker runtime built on the same engine. |
-| `packages/popup-ui` | `@lurkloot/popup-ui` | The shared React popup UI, used by the extension and the site demo. |
+| `packages/popup-ui` | `@lurkloot/popup-ui` | The shared React popup UI, used by the extension, the site demo, and the app UI. |
+| `packages/app-ui` | `@lurkloot/app-ui` | The full-window app UI that `lurkloot serve` serves, built from the popup's views. |
 | `packages/locales` | `@lurkloot/locales` | Localized message catalogs and the catalog loader. |
 | `packages/shared` | `@lurkloot/shared` | Framework-agnostic contracts: models, settings, messages, logging. |
+| `packages/store-sync` | `@lurkloot/store-sync` | The generic Chrome Web Store listing sync. Maintainer tooling. |
 | `packages/site` | `@lurkloot/site` | The Astro marketing site. |
 
 For how these fit together at runtime — scheduler flow, watch tabs, tabless watching, the Twitch and
@@ -40,7 +42,7 @@ behavior.
 
 ## Development setup
 
-CI runs Node 24 and pnpm 11.24.0; use those versions locally to avoid surprises. The repository does
+CI runs Node 24 and pnpm 12.21.0; use those versions locally to avoid surprises. The repository does
 not pin them itself.
 
 Fork the repository on GitHub, then clone your fork and add this repository as `upstream` so you can
@@ -80,7 +82,7 @@ pnpm build:all      # every package
 | --- | --- |
 | `pnpm test` | Every package's test script (`pnpm -r --if-present test`). |
 | `pnpm typecheck` | `tsc --noEmit` in every package. |
-| `pnpm check` | Script tests (`cws:test`, `release:test`), workspace typechecks, package tests, and the site build. |
+| `pnpm check` | Biome, script tests (`cws:test`, `amo:test`, `release:test`, `locales:test`), the locale key check, workspace typechecks, package tests, and the site and app UI builds. |
 | `pnpm verify` | `pnpm check` plus both browser builds. |
 
 For a change confined to one package, `pnpm test` and `pnpm typecheck` are usually enough. Run
@@ -98,8 +100,9 @@ adds a slow font download.
 
 ## Testing guidelines
 
-Tests use Vitest in a Node environment with globals enabled and live in `packages/extension/tests/`.
-Add focused `*.test.ts` files named after the module under test, such as `scheduler.test.ts` or
+Tests use Vitest in a Node environment with globals enabled. Most live in `packages/extension/tests/`,
+which also covers `core`, `shared`, and `popup-ui`; the `cli`, `app-ui`, `store-sync`, and `site`
+packages keep their own `tests/` directory. Add focused `*.test.ts` files named after the module under test, such as `scheduler.test.ts` or
 `parsers.test.ts`.
 
 - Prefer deterministic unit tests with mocked adapters, browser APIs, and storage. Do not write tests
@@ -134,7 +137,8 @@ These are product constraints, not just style preferences:
 - Do not add features that store credentials, export cookies, or bypass platform detection. Lurkloot
   relies on a normal logged-in browser session and visible muted tabs. The headless CLI is the one
   narrow exception (#653): its private auth store, the user-confirmed Export credentials action
-  (including Twitch's Kasada session cookie through the optional `k.twitchcdn.net` permission), and
+  (including Twitch's Kasada session cookie, read from `k.twitchcdn.net` under the required
+  `https://*.twitchcdn.net/*` host permission), and
   the CLI minting Twitch web integrity from that cookie. See the security section of `AGENTS.md`.
 - Keep `permissions` and `host_permissions` in `packages/extension/wxt.config.ts` scoped to the
   services already declared, and document any new permission in the pull request description.

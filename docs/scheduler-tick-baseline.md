@@ -42,10 +42,10 @@ Therefore `heartbeatAttempts: 1`, `heartbeatBlockedByDiscovery: 0`, and `discove
 Related scheduler entry paths and concurrency boundaries remain pinned by focused deterministic tests rather than duplicated inside every matrix cell:
 
 - extension alarm dispatch: `backgroundEntrypoint.test.ts` asserts Twitch and Kick alarm names dispatch targeted `alarm` ticks;
-- manual/settings overlap: `backgroundController.test.ts` covers a pending manual claim while the sibling scheduler completes, settings patches during active work, and non-overlapping settings reconciliation;
-- heartbeat isolation: `backgroundController.test.ts` blocks Twitch heartbeat work and proves Kick heartbeat and persistence complete independently;
-- claim handoff: `backgroundController.test.ts` covers independent cross-platform handoffs, immediate post-claim heartbeats, and duplicate-handoff suppression;
-- discovery-signal overlap: `backgroundController.test.ts` proves bursts coalesce into one non-overlapping follow-up.
+- manual/settings overlap: the `backgroundController/` suite covers a pending manual claim while the sibling scheduler completes, settings patches during active work, and non-overlapping settings reconciliation;
+- heartbeat isolation: the `backgroundController/` suite blocks Twitch heartbeat work and proves Kick heartbeat and persistence complete independently;
+- claim handoff: `backgroundController/claims.test.ts` covers independent cross-platform handoffs, immediate post-claim heartbeats, and duplicate-handoff suppression;
+- discovery-signal overlap: `backgroundController/discoverySignals.test.ts` proves bursts coalesce into one non-overlapping follow-up.
 
 The CLI interval baseline blocks one refresh across another elapsed interval. Provider discovery is now single-flight per platform: elapsed intervals coalesce into at most one follow-up refresh instead of queuing every missed interval. Twitch and Kick own separate lanes, so either provider can publish while the other is blocked.
 

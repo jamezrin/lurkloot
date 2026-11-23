@@ -1,6 +1,6 @@
 # Lurkloot — landing page
 
-Marketing site for the [Lurkloot](../README.md) browser extension. Built
+Marketing site for the [Lurkloot](../../README.md) browser extension. Built
 with [Astro](https://astro.build) (static, mostly zero-JS), deployed to
 **Cloudflare Pages** at **https://lurkloot.jamezrin.com**.
 
@@ -35,7 +35,7 @@ pnpm --filter @lurkloot/site exec node scripts/make-og.mjs   # -> public/og.png 
 ## Deployment — Cloudflare Pages (Direct Upload)
 
 Deployed with `wrangler pages deploy` — we build locally and upload `dist/`
-straight to Cloudflare, so Cloudflare never needs access to this (private) repo.
+straight to Cloudflare, so Cloudflare never needs access to this repository.
 
 ```bash
 cd packages/site
@@ -52,7 +52,7 @@ GitHub release deployments use the same Pages project with channel-specific
 branches. Pre-releases deploy to the `next` preview branch at
 `https://next.lurkloot.pages.dev`, while stable releases deploy to `main` and
 therefore update `https://lurkloot.jamezrin.com`. GitHub records these against
-the `prerelease-site` and `production-site` environments, respectively. The
+the `preview` and `production` environments, respectively. The
 pre-release build blocks all crawlers in `robots.txt` and sends an
 `X-Robots-Tag: noindex, nofollow, noarchive` header for every route; production
 remains crawlable.
