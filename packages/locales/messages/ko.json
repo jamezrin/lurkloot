@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch & Kick 드롭 파밍"
   },
   "extensionDescription": {
-    "message": "일반 브라우저 세션, 보이는 음소거 탭, 선택적 저자원 모드로 Twitch와 Kick 드롭을 파밍합니다."
+    "message": "Twitch와 Kick의 드롭을 자동으로 파밍합니다. 방송을 골라 진행 상황을 추적하고, 다른 일을 하는 동안 보상을 받습니다."
   },
   "toolbarTitleOff": {
     "message": "파밍 꺼짐"

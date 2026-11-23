@@ -6,7 +6,7 @@
     "message": "Lurkloot - Farm de drops Twitch et Kick"
   },
   "extensionDescription": {
-    "message": "Farmez les drops Twitch et Kick avec des sessions normales du navigateur, des onglets visibles et muets, et un mode basse consommation optionnel."
+    "message": "Farmez les drops Twitch et Kick en tâche de fond : il choisit un stream, suit l'avancée et réclame vos récompenses."
   },
   "toolbarTitleOff": {
     "message": "Farm désactivé"

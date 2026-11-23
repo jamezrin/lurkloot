@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch & Kick Drop Farmer"
   },
   "extensionDescription": {
-    "message": "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode."
+    "message": "Farm Twitch and Kick drops automatically. It picks a stream, tracks progress and claims your rewards while you do other things."
   },
   "toolbarTitleOff": {
     "message": "Farming is off"
