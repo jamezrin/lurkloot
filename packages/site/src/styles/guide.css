@@ -61,16 +61,12 @@ body { background: #000; }
 
 /* ---------- header: the site's bar, with search ---------- */
 header.header { backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4); }
-.guide-header { display: flex; align-items: center; gap: 20px; height: 100%; }
-.guide-header .sg-brand { flex: none; color: #ededed; text-decoration: none; }
-.guide-header__links { display: flex; gap: 2px; margin-left: 12px; }
-.guide-header__links a { padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--sg-muted); text-decoration: none; transition: color .15s; }
-.guide-header__links a:hover, .guide-header__links a[aria-current="page"] { color: #ededed; }
-.guide-header__search { flex: 1 1 auto; display: flex; justify-content: flex-end; min-width: 0; }
-.guide-header__end { display: flex; gap: 8px; }
-.guide-header__end .sg-pill { height: 32px; padding: 0 12px; border-radius: 6px; font-size: 14px; text-decoration: none; }
-@media (max-width: 72rem) { .guide-header__links { display: none; } }
-@media (max-width: 50rem) { .guide-header__end { display: none; } }
+/* The bar's own styles are in signal.css (.sg-bar). In the guide it fills
+   Starlight's header, and on narrow screens gives way to Starlight's search
+   and menu buttons, whose menu carries the site's links (MobileMenuFooter). */
+header.header .sg-bar { height: 100%; min-height: 0; }
+header.header .sg-bar a { text-decoration: none; }
+@media (max-width: 50rem) { header.header .sg-bar__end { display: none; } }
 
 /* Search box: a quiet field like the site's ghost buttons. */
 site-search button[data-open-modal] { border-radius: 6px; border-color: var(--sg-line-strong); background: #0a0a0a; color: var(--sg-muted); }

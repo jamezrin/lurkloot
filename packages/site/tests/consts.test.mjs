@@ -254,6 +254,7 @@ test("gives every page the same header links", async () => {
   for (const page of pages) {
     const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
     const header = html.slice(0, html.indexOf("</header>"));
+    assert.match(header, /class="sg-bar"/, `${page} uses the shared bar (SiteBar.astro)`);
     const hrefs = [
       ...header.matchAll(/<nav[^>]*aria-label="Main navigation"[^>]*>([\s\S]*?)<\/nav>/g),
     ].flatMap((nav) => [...nav[1].matchAll(/href="([^"]+)"/g)].map((match) => match[1]));
