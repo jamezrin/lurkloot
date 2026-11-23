@@ -12,8 +12,11 @@ test("points the popup's guide links at pages and headings that exist", async ()
     const { origin, pathname, hash } = new URL(url);
     assert.equal(origin, SITE.url, url);
     const page = `${pathname.replace(/^\//, "").replace(/\/?$/, "/")}index.html`;
-    const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8").catch(() => "");
+    const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8").catch(
+      () => "",
+    );
     assert.ok(html, `${url} is a page of the site`);
-    if (hash) assert.ok(html.includes(`id="${hash.slice(1)}"`), `${url} names a heading on that page`);
+    if (hash)
+      assert.ok(html.includes(`id="${hash.slice(1)}"`), `${url} names a heading on that page`);
   }
 });
