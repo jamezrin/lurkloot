@@ -1,0 +1,30 @@
+---
+// Every feature page's `support` frontmatter as one table, in sidebar order,
+// so this page and the badges under each title can never disagree.
+import { getCollection } from "astro:content";
+import { GUIDE_SECTIONS, SUPPORT_LABELS, guideHref, guideSectionOf } from "../../guide";
+
+const sectionOrder = (id: string) =>
+  GUIDE_SECTIONS.findIndex((section) => section.id === guideSectionOf(id));
+const rows = (await getCollection("docs", (entry) => Boolean(entry.data.support)))
+  .sort(
+    (a, b) =>
+      sectionOrder(a.id) - sectionOrder(b.id)
+      || (a.data.sidebar.order ?? Infinity) - (b.data.sidebar.order ?? Infinity)
+      || a.data.title.localeCompare(b.data.title),
+  )
+  .map((entry) => ({ entry, support: entry.data.support! }));
+---
+<table class="guide-support-table">
+  <thead><tr><th scope="col">Feature</th><th scope="col">Extension</th><th scope="col">CLI</th><th scope="col">Notes</th></tr></thead>
+  <tbody>
+    {rows.map(({ entry, support }) => (
+      <tr>
+        <th scope="row"><a href={guideHref(entry.id)}>{entry.data.title}</a></th>
+        <td data-level={support.extension}>{SUPPORT_LABELS[support.extension]}</td>
+        <td data-level={support.cli}>{SUPPORT_LABELS[support.cli]}</td>
+        <td>{support.note ?? ""}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>

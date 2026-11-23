@@ -237,7 +237,7 @@ jobs:
               echo
               echo "## Run the CLI without Node"
               echo
-              echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Standalone executables]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/cli/README.md#standalone-executables)."
+              echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Run the CLI as a program]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/site/src/content/docs/guide/headless/executable.md)."
             fi
           } >> ../notes.md
       - name: Create or refresh the owned GitHub prerelease

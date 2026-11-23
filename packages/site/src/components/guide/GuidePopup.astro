@@ -1,0 +1,19 @@
+---
+// The real popup, opened on one view with sample data, as a picture for a guide
+// page. It is drawn live from the same code as the extension, so it always
+// shows the popup as it is today. Read-only: it ignores clicks and is hidden
+// from screen readers, so the caption carries the meaning.
+import type { PopupView } from "@lurkloot/popup-ui";
+import PopupExcerpt from "../../popup-ui/PopupExcerpt";
+
+interface Props {
+  view: PopupView;
+  caption: string;
+  height?: number;
+}
+const { view, caption, height = 560 } = Astro.props;
+---
+<figure class="guide-popup not-content">
+  <PopupExcerpt client:visible view={view} width={560} height={height} />
+  <figcaption>{caption}</figcaption>
+</figure>

@@ -22,6 +22,7 @@ const { items, eyebrow, heading, deck } = Astro.props;
         <details>
           <summary>{item.q}<span aria-hidden="true"></span></summary>
           <p>{item.a}</p>
+          {item.guide && <a class="sg-faq__guide" href={item.guide}>More in the user guide <span aria-hidden="true">→</span></a>}
         </details>
       ))}
     </div>

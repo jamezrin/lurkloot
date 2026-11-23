@@ -7,7 +7,7 @@
 // the same results. Section order is deliberately not the Twitch page's.
 import Base from "../layouts/SitePage.astro";
 import Faq from "../components/Faq.astro";
-import { DOCKER_IMAGE, LINKS } from "../consts";
+import { CLI_GUIDE_PATH, DOCKER_IMAGE, LINKS } from "../consts";
 import { kickFaqItems } from "../faq";
 
 const sections = [
@@ -214,7 +214,7 @@ const steps = [
         </p>
         <p><code class="lp-code">{DOCKER_IMAGE}</code></p>
         <p>
-          <a href={LINKS.cli} target="_blank" rel="noopener">Read the headless CLI guide →</a>
+          <a href={CLI_GUIDE_PATH}>Read the headless CLI guide →</a>
         </p>
       </div></div>
     </section>

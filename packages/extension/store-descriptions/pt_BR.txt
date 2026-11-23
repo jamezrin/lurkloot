@@ -7,3 +7,5 @@ Seus dados continuam seus: sem senhas, sem exportar cookies ou tokens, e tudo fi
 Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos que importam para você, gerenciar as listas de visualização e os canais excluídos de cada plataforma, e alternar o resgate automático e as notificações.
 
 O Lurkloot também pode farmar tempo de exibição na Kick quando não há drops ativos. Adicione seus canais preferidos à lista de visualização e ele escolhe automaticamente um que esteja ao vivo. A visualização sem abas reduz o uso de recursos, enquanto o retorno a uma aba fixada mantém a sessão confiável.
+
+Novo no Lurkloot? O guia do usuário passo a passo explica cada recurso e configuração: https://lurkloot.jamezrin.com/guide

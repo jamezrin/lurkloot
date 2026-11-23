@@ -39,6 +39,10 @@
 .signal p { color: var(--sg-muted); }
 .signal a:focus-visible, .signal button:focus-visible, .signal summary:focus-visible { outline: 2px solid #ededed; outline-offset: 3px; border-radius: 6px; }
 .sg-wrap { width: min(100% - 48px, 1280px); margin-inline: auto; }
+/* The header spans the window, as the guide's does, so it sits in the same
+   place on every page at every width. Its gutter matches the guide's
+   (--sl-nav-pad-x in guide.css). */
+.sg-edge { width: calc(100% - 48px); margin-inline: auto; }
 .sg-section { padding-block: clamp(96px, 11vw, 160px); }
 .sg-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .sg-skip { position: absolute; left: 24px; top: -100px; z-index: 100; padding: 10px 16px; border-radius: 6px; background: #ededed; color: #000; font-weight: 500; }
@@ -73,17 +77,43 @@
 /* ---------- nav ---------- */
 .sg-nav { position: sticky; top: 0; z-index: 50; background: rgb(0 0 0 / 80%); backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4); transition: box-shadow .2s; }
 .sg-nav[data-scrolled] { box-shadow: 0 1px 0 var(--sg-line-strong); }
+/* The phone menu's top row, the logo and its close button. */
 .sg-nav__inner { display: flex; align-items: center; gap: 24px; min-height: 64px; }
+/* The header bar every page shares (SiteBar.astro). */
+.sg-bar { display: flex; align-items: center; gap: 24px; min-height: 64px; font-family: var(--font-body); letter-spacing: -0.01em; }
+.sg-bar .sg-brand { flex: none; color: #ededed; }
 .sg-brand { display: inline-flex; align-items: center; gap: 9px; font: 600 18px/1 var(--font-display); letter-spacing: -.035em; }
 .sg-brand img { width: 26px; height: 26px; }
-.sg-nav nav { display: flex; gap: 2px; margin-left: 8px; }
-.sg-nav nav a { padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--sg-muted); transition: color .15s; }
-.sg-nav nav a:hover, .sg-nav nav a[aria-current="page"] { color: #ededed; }
-.sg-nav__end { display: flex; gap: 8px; margin-left: auto; }
-.sg-nav__end .sg-pill { height: 32px; padding: 0 12px; border-radius: 6px; font-size: 14px; }
+.sg-bar__links { display: flex; gap: 2px; margin-left: 8px; }
+.sg-bar__links a { padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--sg-muted); transition: color .15s; }
+.sg-bar__links a:hover, .sg-bar__links a[aria-current="page"] { color: #ededed; }
+.sg-bar__search { flex: 1 1 auto; display: flex; justify-content: flex-end; min-width: 0; }
+.sg-bar__end { display: flex; gap: 8px; margin-left: auto; }
+.sg-bar__search + .sg-bar__end { margin-left: 0; }
+.sg-bar__end .sg-pill { height: 32px; padding: 0 12px; border-radius: 6px; font-size: 14px; }
 .sg-nav__stars { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; padding-left: 10px; border-left: 1px solid var(--sg-line-strong); color: var(--sg-muted); font-variant-numeric: tabular-nums; }
 .sg-nav__stars[hidden] { display: none; }
-.sg-nav__gh:hover .sg-nav__stars { color: #ededed; }
+.sg-bar__gh:hover .sg-nav__stars { color: #ededed; }
+/* The homepage's sections, a quieter second row under the page links. The
+   row collapses through its grid track, so it can slide in on phones. */
+.sg-subnav { display: grid; grid-template-rows: 1fr; border-top: 1px solid var(--sg-line); transition: grid-template-rows .25s ease, border-color .25s ease, visibility .25s allow-discrete; }
+.sg-subnav__row { min-height: 0; overflow: hidden; }
+.sg-subnav__inner {
+  position: relative; display: flex; gap: 2px; align-items: center; padding-block: 6px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.sg-subnav__inner::-webkit-scrollbar { display: none; }
+.sg-subnav a {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  padding: 4px 10px; border-radius: 6px; font-size: 13px; color: var(--sg-faint);
+  transition: color .15s, background .15s; white-space: nowrap;
+}
+.sg-subnav a:first-child { margin-left: -10px; }
+.sg-subnav a:hover { color: #ededed; }
+.sg-subnav a[aria-current="location"] { color: #ededed; background: rgb(255 255 255 / 6%); }
+/* Anchor jumps land below the header, whatever its height (Nav.astro measures it). */
+html:has(.sg-nav) { scroll-padding-top: calc(var(--sg-header-h, 64px) + 8px); }
+
 .sg-nav__toggle {
   position: relative; display: none; place-items: center; flex: none;
   width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px;
@@ -339,6 +369,8 @@ html.sg-pinned .sg-scene.is-current { opacity: 1; translate: 0 0; transition-del
 .sg-faq__list summary > span::after { rotate: 90deg; }
 .sg-faq__list details[open] summary > span { rotate: 45deg; background: #ededed; color: #000; }
 .sg-faq__list details > p { padding: 0 22px 22px; font-size: 15px; }
+.sg-faq__list details > p:has(+ .sg-faq__guide) { padding-bottom: 12px; }
+.sg-faq__guide { display: inline-flex; gap: 6px; margin: 0 22px 22px; font-size: 14px; font-weight: 500; color: #ededed; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 35%); text-underline-offset: 3px; }
 
 /* ---------- CTA ---------- */
 .sg-cta { padding-bottom: clamp(80px, 10vw, 140px); }
@@ -421,7 +453,7 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
-  .sg-nav nav { display: none; }
+  .sg-bar__links { display: none; }
   .sg-nav__toggle { display: grid; }
   .sg-hero__grid { grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); }
   .sg-hero__mark { grid-row: span 2; grid-column: 2; }
@@ -461,11 +493,22 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
 }
 @media (max-width: 640px) {
   .signal { font-size: 15px; }
-  .sg-wrap { width: calc(100% - 32px); }
-  .sg-nav__inner { min-height: 56px; gap: 12px; }
+  .sg-wrap, .sg-edge { width: calc(100% - 32px); }
+  .sg-nav__inner, .sg-bar { min-height: 56px; gap: 12px; }
+  /* The sections row waits until the hero is scrolled past, then slides in.
+     It scrolls sideways edge to edge, fading where it is cut off. */
+  /* It hangs below the bar instead of growing the header, so the page does
+     not jump when it appears. */
+  .sg-subnav { position: absolute; inset: 100% 0 auto; background: rgb(0 0 0 / 92%); box-shadow: 0 1px 0 var(--sg-line-strong); }
+  .sg-nav:not([data-past-hero]) .sg-subnav { box-shadow: none; }
+  .sg-nav:not([data-past-hero]) .sg-subnav { grid-template-rows: 0fr; border-top-color: transparent; visibility: hidden; }
+  .sg-subnav__inner {
+    width: 100%; padding-inline: 16px; scroll-padding-inline: 16px;
+    mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+  }
   .sg-brand { font-size: 17px; }
   /* The menu carries the GitHub link at this width. */
-  .sg-nav__gh { display: none; }
+  .sg-bar__gh { display: none; }
   .sg-announce { gap: 12px; font-size: 13px; }
   .sg-hero h1 { font-size: clamp(44px, 13vw, 60px); }
   .sg-hero__actions .sg-pill { width: 100%; }
@@ -505,6 +548,7 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
   .sg-card__art { padding-inline: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .sg-subnav { transition: none; }
   .sg-menu[open] :is(.sg-menu__links a, .sg-menu__end) { animation: none; }
   /* Still rows you can scroll sideways, each game once. */
   .sg-marquee__row { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }

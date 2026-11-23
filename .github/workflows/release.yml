@@ -232,7 +232,7 @@ jobs:
             echo
             echo "## Run the CLI without Node"
             echo
-            echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Standalone executables]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/cli/README.md#standalone-executables)."
+            echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Run the CLI as a program](https://lurkloot.jamezrin.com/guide/headless/executable)."
           } >> notes.md
           # Promotion strips the candidate marker, so a recovery checkout of the merged
           # SHA cannot satisfy promote-release's ownership check. Skip when already stable.

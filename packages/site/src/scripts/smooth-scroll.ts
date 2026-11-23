@@ -30,7 +30,9 @@ if (!reduceMotion) {
     const target = document.querySelector(id);
     if (!target) return;
     event.preventDefault();
-    lenis.scrollTo(target as HTMLElement, { offset: -72, duration: 1.3 });
+    // Lenis stops short by the page's scroll-padding-top, which follows the
+    // sticky header's measured height (signal.css), so no offset is needed here.
+    lenis.scrollTo(target as HTMLElement, { duration: 1.3 });
     history.replaceState(null, "", id);
   });
 }

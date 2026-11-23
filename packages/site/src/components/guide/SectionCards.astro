@@ -1,0 +1,29 @@
+---
+// The guide's home page: one card per section, listing its pages.
+import { getCollection } from "astro:content";
+import { GUIDE_SECTIONS, guideHref, guideSectionOf } from "../../guide";
+
+const entries = await getCollection("docs");
+const sections = GUIDE_SECTIONS.map((section) => ({
+  ...section,
+  pages: entries
+    .filter((entry) => guideSectionOf(entry.id) === section.id)
+    .sort(
+      (a, b) =>
+        (a.data.sidebar.order ?? Infinity) - (b.data.sidebar.order ?? Infinity)
+        || a.data.title.localeCompare(b.data.title),
+    ),
+})).filter((section) => section.pages.length > 0);
+---
+<div class="guide-sections not-content">
+  {sections.map((section) => (
+    <section class="guide-section-card" aria-labelledby={`section-${section.id}`}>
+      <h2 id={`section-${section.id}`}>{section.title}</h2>
+      <ul>
+        {section.pages.map((page) => (
+          <li><a href={guideHref(page.id)}><strong>{page.data.title}</strong><span>{page.data.description}</span></a></li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</div>
