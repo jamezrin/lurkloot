@@ -32,8 +32,8 @@ export const SITE_URL = "https://lurkloot.jamezrin.com";
 // anchor is the heading's id on that page; the site's link test keeps it real.
 export const GUIDE_URL = `${SITE_URL}/guide`;
 export const GUIDE_SKIPPED_URL = `${GUIDE_URL}/popup/queue#why-is-a-campaign-skipped`;
+export const CLI_DOCS_URL = `${GUIDE_URL}/headless/overview`;
 export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
-export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
 export const GITHUB_TRANSLATION_GUIDE_URL =
   "https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md";

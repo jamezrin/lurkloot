@@ -4,11 +4,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { GUIDE_SKIPPED_URL, GUIDE_URL } from "../../popup-ui/src/constants.ts";
+import { CLI_DOCS_URL, GUIDE_SKIPPED_URL, GUIDE_URL } from "../../popup-ui/src/constants.ts";
 import { SITE } from "../src/consts.ts";
 
 test("points the popup's guide links at pages and headings that exist", async () => {
-  for (const url of [GUIDE_URL, GUIDE_SKIPPED_URL]) {
+  for (const url of [GUIDE_URL, GUIDE_SKIPPED_URL, CLI_DOCS_URL]) {
     const { origin, pathname, hash } = new URL(url);
     assert.equal(origin, SITE.url, url);
     const page = `${pathname.replace(/^\//, "").replace(/\/?$/, "/")}index.html`;
