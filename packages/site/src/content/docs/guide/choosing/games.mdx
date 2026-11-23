@@ -59,4 +59,4 @@ The CLI uses the same lists, and its app (`lurkloot serve`) has the same **Games
 - `categoryMode` is `"all"` (All categories) or `"include"` (Only selected).
 - `categories` are the ticked games, `favouriteCategories` the starred ones, in order, and `blockedCategories` the blocked ones.
 
-With [code sign-in on Twitch](/guide/headless/sign-in), the CLI cannot see the full campaign list, so it looks for campaigns on live channels of up to four games. It takes them in order from `categories`, then `favouriteCategories`, then the games of campaigns you have already started, and skips `blockedCategories`. Put the games you care about first in `categories`, even with `"all"`.
+With [code sign-in on Twitch](/guide/headless/sign-in), the CLI cannot see the full campaign list, so it looks for campaigns on live channels of up to four games. It takes them in order from `categories`, then `favouriteCategories`, leaving out any game in `blockedCategories`, then the games of campaigns you have already started. Put the games you care about first in `categories`, even with `"all"`.
