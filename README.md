@@ -12,6 +12,8 @@
 <p align="center">
   <a href="https://lurkloot.jamezrin.com">Website</a>
   ·
+  <a href="https://lurkloot.jamezrin.com/guide">User guide</a>
+  ·
   <a href="https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn">Chrome Web Store</a>
   ·
   <a href="https://lurkloot.jamezrin.com/changelog">Changelog</a>
@@ -112,7 +114,7 @@ The extension uses the Twitch and Kick sessions already in your browser. It does
 
 ## Help
 
-If something is wrong, [open a bug report](https://github.com/jamezrin/lurkloot/issues/new?template=bug_report.yml). Include your browser, the platform, and what you expected to happen. Leave out passwords, cookies, and session tokens.
+The [user guide](https://lurkloot.jamezrin.com/guide) explains every feature and setting, and has a troubleshooting section for the usual problems. If something is still wrong, [open a bug report](https://github.com/jamezrin/lurkloot/issues/new?template=bug_report.yml). Include your browser, the platform, and what you expected to happen. Leave out passwords, cookies, and session tokens.
 
 Ideas belong in a [feature request](https://github.com/jamezrin/lurkloot/issues/new?template=feature_request.yml).
 

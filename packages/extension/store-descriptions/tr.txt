@@ -7,3 +7,5 @@ Verileriniz size ait kalır: parola yok, dışa aktarılan çerez veya oturum an
 Açılır pencereden her platformu etkinleştirebilir, önemsediğiniz kampanyalara ve oyunlara öncelik verebilir, platforma özel İzleme Listelerini ve hariç tutulan kanalları yönetebilir, otomatik alma ile bildirimleri açıp kapatabilirsiniz.
 
 Aktif drop olmadığında Lurkloot, Kick izlenme süresini de kasabilir. Tercih ettiğiniz kanalları İzleme Listesine ekleyin; canlı olanlardan birini otomatik seçer. Sekmesiz izleme kaynak kullanımını düşük tutarken, gerektiğinde sabitlenmiş sekmeye dönmek oturumun güvenilir biçimde sürmesini sağlar.
+
+Lurkloot'a yeni mi başladınız? Adım adım kullanım kılavuzu her özelliği ve ayarı açıklıyor: https://lurkloot.jamezrin.com/guide

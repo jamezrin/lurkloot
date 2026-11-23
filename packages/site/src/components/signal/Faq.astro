@@ -10,6 +10,7 @@ import { homeFaqItems } from "../../faq";
       <h2 id="faq-title">A few things<br /><span class="sg-dim">worth knowing.</span></h2>
       <p>Your session stays yours. The extension runs in your browser, without a separate Lurkloot account or a password to hand over.</p>
       <div class="sg-faq__links">
+        <a href={LINKS.guide}>Read the user guide <span aria-hidden="true">→</span></a>
         <a href={LINKS.privacy}>Read the privacy policy <span aria-hidden="true">→</span></a>
         <a href={LINKS.github} target="_blank" rel="noopener">Source code <span aria-hidden="true">↗</span></a>
       </div>
@@ -19,6 +20,7 @@ import { homeFaqItems } from "../../faq";
         <details data-reveal>
           <summary>{item.q}<span aria-hidden="true"></span></summary>
           <p>{item.a}</p>
+          {item.guide && <a class="sg-faq__guide" href={item.guide}>More in the user guide <span aria-hidden="true">→</span></a>}
         </details>
       ))}
     </div>

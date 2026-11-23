@@ -339,6 +339,8 @@ html.sg-pinned .sg-scene.is-current { opacity: 1; translate: 0 0; transition-del
 .sg-faq__list summary > span::after { rotate: 90deg; }
 .sg-faq__list details[open] summary > span { rotate: 45deg; background: #ededed; color: #000; }
 .sg-faq__list details > p { padding: 0 22px 22px; font-size: 15px; }
+.sg-faq__list details > p:has(+ .sg-faq__guide) { padding-bottom: 12px; }
+.sg-faq__guide { display: inline-flex; gap: 6px; margin: 0 22px 22px; font-size: 14px; font-weight: 500; color: #ededed; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 35%); text-underline-offset: 3px; }
 
 /* ---------- CTA ---------- */
 .sg-cta { padding-bottom: clamp(80px, 10vw, 140px); }
