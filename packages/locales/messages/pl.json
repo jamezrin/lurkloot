@@ -6,7 +6,7 @@
     "message": "Lurkloot — farmer dropów Twitch i Kick"
   },
   "extensionDescription": {
-    "message": "Farmuj dropy Twitch i Kick w normalnych sesjach przeglądarki, na widocznych wyciszonych kartach i opcjonalnie w trybie niskiego zużycia zasobów."
+    "message": "Farmuj dropy na Twitchu i Kicku automatycznie. Wybiera stream, śledzi postęp i odbiera nagrody, gdy masz inne sprawy."
   },
   "toolbarTitleOff": {
     "message": "Farmienie wyłączone"

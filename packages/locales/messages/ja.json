@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch & Kick ドロップファーマー"
   },
   "extensionDescription": {
-    "message": "通常のブラウザセッション、表示されたミュートタブ、オプションの低リソースモードで Twitch と Kick のドロップをファームします。"
+    "message": "Twitch と Kick のドロップを自動でファームします。配信を選び、進捗を追跡して、他の作業中も報酬を受け取ります。"
   },
   "toolbarTitleOff": {
     "message": "ファームはオフ"

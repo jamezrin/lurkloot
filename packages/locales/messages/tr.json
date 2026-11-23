@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch ve Kick İzlenme Süresi ve Drop Kasma Aracı"
   },
   "extensionDescription": {
-    "message": "Tarayıcı ile oturumu açın ve düşük kaynak modunu kullanarak Twitch ile Kick droplarını otomatik olarak toplayın."
+    "message": "Twitch ve Kick dropları otomatik farm edin. Yayın seçer, ilerlemeyi izler, ödülleri siz başka işlerle meşgulken toplar."
   },
   "toolbarTitleOff": {
     "message": "Farmlama kapalı"

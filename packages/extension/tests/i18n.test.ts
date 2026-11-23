@@ -226,6 +226,16 @@ describe("i18n", () => {
     expect(readCatalog("tr").subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
   });
 
+  // The manifest description is the Chrome Web Store summary, which the
+  // dashboard caps at 132 characters.
+  it("keeps the store summary within the Chrome Web Store limit in every catalog", () => {
+    for (const locale of localeCodes()) {
+      const summary = readCatalog(locale).extensionDescription?.message ?? "";
+      expect(summary.length, locale).toBeGreaterThan(0);
+      expect([...summary].length, locale).toBeLessThanOrEqual(132);
+    }
+  });
+
   it("captures store artwork for every catalog locale", () => {
     expect([...(STORE_LOCALES as string[])].sort()).toEqual(localeCodes().sort());
   });
