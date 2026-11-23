@@ -28,3 +28,27 @@ Twitch does not always list a campaign on every channel that counts toward it, s
 Off by default. Turn on **Always enter channel chat** to join the chat of each channel Lurkloot watches in the background. You then appear in the chat's viewer list, where streamers and moderators can see you. Lurkloot never sends a message.
 
 [NoPixel](/guide/farming/nopixel) joins chat whatever this setting says, because it only counts watch time for viewers in chat.
+
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "preferKnownChannels": true,
+    "platform": {
+      "twitch": {
+        "excludedChannels": ["somechannel"],
+        "strictCampaignAvailability": false,
+        "alwaysEnterChat": false
+      },
+      "kick": {
+        "excludedChannels": ["otherchannel"]
+      }
+    }
+  }
+}
+```
+
+`preferKnownChannels` applies to both platforms. The others are set per platform. Channel names are written without `@`.

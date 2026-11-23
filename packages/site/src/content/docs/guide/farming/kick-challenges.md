@@ -23,3 +23,21 @@ On Kick, the status strip shows a small badge with your viewer level, how close 
 ## Keeping it going when there are no drops
 
 Kick watch time only counts while Lurkloot is watching something. Add a few channels to your Kick [Watchlist](/guide/farming/watchlist), so it keeps watching when no drop campaigns are running.
+
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "kick": {
+        "autoClaimChallenges": true,
+        "watchlistChannels": ["kickchannel"]
+      }
+    }
+  }
+}
+```
+

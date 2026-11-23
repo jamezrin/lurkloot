@@ -36,4 +36,27 @@ A blocked game that was starred keeps its star for when you unblock it.
 
 ## In the CLI
 
-The CLI uses the same lists. With [code sign-in on Twitch](/guide/headless/sign-in), the CLI cannot see the full campaign list, so it looks for campaigns on live channels of up to four games taken from this list. Add the games you care about there, even with **All categories**.
+The CLI uses the same lists, and its app (`lurkloot serve`) has the same **Games** view, which is the easiest way to pick games. In [`config.json`](/guide/headless/config), each game needs Twitch's or Kick's ID for it as well as its name:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "twitch": {
+        "categoryMode": "include",
+        "categories": [
+          { "id": "263490", "name": "Rust" },
+          { "id": "516575", "name": "VALORANT" }
+        ],
+        "favouriteCategories": [{ "id": "263490", "name": "Rust" }],
+        "blockedCategories": [{ "id": "21779", "name": "League of Legends" }]
+      }
+    }
+  }
+}
+```
+
+- `categoryMode` is `"all"` (All categories) or `"include"` (Only selected).
+- `categories` are the ticked games, `favouriteCategories` the starred ones, in order, and `blockedCategories` the blocked ones.
+
+With [code sign-in on Twitch](/guide/headless/sign-in), the CLI cannot see the full campaign list, so it looks for campaigns on live channels of up to four games taken from `categories`. Add the games you care about there, even with `"all"`.

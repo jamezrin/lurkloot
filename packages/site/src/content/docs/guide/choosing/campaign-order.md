@@ -38,6 +38,22 @@ Lurkloot does not drop progress lightly. If it is part-way through a reward and 
 - A **pinned** campaign above takes over straight away.
 - A favourite or a campaign under Then by waits until the current reward is earned.
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same Queue: drag campaigns, star games and pick **Then by** there. In [`config.json`](/guide/headless/config), the rule is one setting for both platforms:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "priorityMode": "lowest_availability"
+  }
+}
+```
+
+It is `"ending_soonest"` (Ending soonest) or `"lowest_availability"` (Low availability first).
+
+Pins are saved per platform in `campaignPins`, and excluded campaigns in `excludedCampaignIds`, as lists of campaign IDs. Twitch and Kick do not show those IDs, so pin and exclude from the app rather than by hand. Favourite games are in `favouriteCategories`: see [Games and categories](/guide/choosing/games#in-the-cli).
+
 ## What the order cannot do
 
 The order only decides *which first*. It never makes a campaign farmable. A campaign that is excluded, blocked, outside your [Rewards to farm](/guide/choosing/rewards-to-farm) or waiting for a subscription stays in **Skipped** or **Action required**, wherever you pin it.

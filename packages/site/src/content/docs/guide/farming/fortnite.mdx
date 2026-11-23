@@ -34,6 +34,25 @@ It is off until you turn it on.
 | --- | --- | --- |
 | **Allow Fortnite takeovers** | Off | Starts eligible takeovers during interactive phases. |
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "twitchExtensions": {
+      "fortnite": {
+        "enabled": true,
+        "allowTakeovers": false
+      }
+    }
+  }
+}
+```
+
+`allowTakeovers` is **Allow Fortnite takeovers**. The CLI does not need to ask for permission first.
+
 ## Things to know
 
 - **Order against drops.** By default, drops and NoPixel come first, then Fortnite, then your Watchlist. Change it in [Watch-source priority](/guide/choosing/watch-source-priority).

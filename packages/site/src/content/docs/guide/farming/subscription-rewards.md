@@ -34,3 +34,23 @@ In [Rewards to farm](/guide/choosing/rewards-to-farm), **Subscription rewards** 
 - **Only**: only rewards that need a subscription are farmed.
 
 Kick has no subscription rewards.
+
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "twitch": {
+        "rewardFilter": {
+          "subscriptions": "skip"
+        }
+      }
+    }
+  }
+}
+```
+
+`subscriptions` is `"include"`, `"skip"` or `"only"`. **Mark as subscribed** is in the app too. It saves the reward in `subscribedRewardMarks`.

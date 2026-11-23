@@ -35,6 +35,25 @@ It is off until you turn it on.
 | --- | --- | --- |
 | **Open NoPixelV packs automatically** | Off | Reveals cards from unopened packs. Opening uses up the pack and cannot be undone. |
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "twitchExtensions": {
+      "nopixel": {
+        "enabled": true,
+        "autoOpenPacks": false
+      }
+    }
+  }
+}
+```
+
+`autoOpenPacks` is **Open NoPixelV packs automatically**. The CLI does not need to ask for permission first.
+
 ## Things to know
 
 - **You appear in chat.** NoPixel only counts watch time for viewers who are in the channel's chat. Lurkloot joins the chat, so you appear in its viewer list. It never sends a message. If it cannot join chat, the popup says *Not in chat*, and watch time is not earned until it can.

@@ -30,6 +30,27 @@ The first **live** channel in the list is watched. If it goes offline, Lurkloot 
 
 By default the Watchlist comes last: it is only used when there are no drops (and, on Twitch, no extension rewards) to farm. Change that in [Watch-source priority](/guide/choosing/watch-source-priority). Move **Watchlist** above **Drops** and Lurkloot watches your channels first, and only farms drops when none of them is live.
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "twitch": {
+        "watchlistChannels": ["firstchoice", "secondchoice"]
+      },
+      "kick": {
+        "watchlistChannels": ["kickchannel"]
+      }
+    }
+  }
+}
+```
+
+The list is in order: the first live channel is watched.
+
 ## Things to know
 
 - Excluded drop channels do not apply here. A channel you list is always allowed.

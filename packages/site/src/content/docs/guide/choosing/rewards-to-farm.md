@@ -44,6 +44,37 @@ See [Subscription rewards](/guide/farming/subscription-rewards).
 
 **Include**, **Skip** or **Farm last**. See [Linked game accounts](/guide/choosing/linked-accounts).
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "twitch": {
+        "rewardFilter": {
+          "pinnedKinds": ["item", "badge", "emote"],
+          "favouriteKinds": ["item", "badge"],
+          "kinds": ["item"],
+          "subscriptions": "include"
+        },
+        "unlinkedCampaigns": "last"
+      }
+    }
+  }
+}
+```
+
+This farms everything from pinned campaigns, items and badges from favourite games, and only items from everything else. Campaigns without a linked account are farmed last.
+
+- The three rows are `pinnedKinds` (Pinned campaigns), `favouriteKinds` (Favourite games) and `kinds` (Other campaigns).
+- The types are `"item"`, `"badge"` and `"emote"`. Kick only has `"item"`. An empty list, `[]`, farms nothing from that row.
+- `subscriptions` is `"include"`, `"skip"` or `"only"`.
+- `unlinkedCampaigns` is `"include"`, `"skip"` or `"last"` (Farm last).
+
+For Kick, use the same keys under `"kick"` instead of `"twitch"`.
+
 ## Starting over
 
 **Reset to all rewards** puts the filter back to its defaults.

@@ -26,6 +26,23 @@ Under **Campaigns without a linked account**, in [Rewards to farm](/guide/choosi
 
 **Farm last** is a good middle ground: you still build up progress on campaigns you might link later, without taking time from the ones you can claim now.
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "twitch": { "unlinkedCampaigns": "last" },
+      "kick": { "unlinkedCampaigns": "skip" }
+    }
+  }
+}
+```
+
+The values are `"include"`, `"skip"` and `"last"` (Farm last).
+
 ## Things to know
 
 - Whether watch time before linking counts depends on the campaign. Check its page on Twitch or Kick if it matters, or link first to be safe.

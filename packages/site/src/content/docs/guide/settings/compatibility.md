@@ -24,6 +24,30 @@ Leave them on **Automatic** unless a bug report or the maintainer asks you to ch
 
 Each option is marked *Recommended*, *Legacy* or *Experimental*.
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same settings. In [`config.json`](/guide/headless/config) they are under `compatibility`, and `"auto"` is Automatic:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "compatibility": {
+      "twitch": {
+        "profile": "auto",
+        "heartbeatTransport": "auto",
+        "inventoryQueryVersion": "auto"
+      },
+      "kick": {
+        "profile": "auto",
+        "claimLinkHandling": "auto"
+      }
+    }
+  }
+}
+```
+
+Only change one when a bug report or the maintainer gives you a value. `lurkloot validate-config` warns about a value it does not know, and the CLI then uses Automatic.
+
 ## Getting back to normal
 
 Click **Restore automatic compatibility** to put every option back on Automatic.

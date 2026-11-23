@@ -45,6 +45,28 @@ Under **Advanced** in the Twitch settings:
 | **Watch streak retry delay** | 30 minutes | How long to wait before trying again after the stream would not play (10–240). |
 | **Watch streak tries** | 3 | How many times to try a stream that will not play before showing *Couldn't watch* (1–5). |
 
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "twitch": {
+        "watchlistChannels": ["firstchoice", "secondchoice"],
+        "watchlistStreakChannels": ["firstchoice"],
+        "watchStreakBudgetMinutes": 15,
+        "watchStreakRetryCooldownMinutes": 30,
+        "watchStreakMaxRounds": 3
+      }
+    }
+  }
+}
+```
+
+A channel in `watchlistStreakChannels` must also be in `watchlistChannels`, or it is ignored. The other three are **Watch streak budget**, **Watch streak retry delay** and **Watch streak tries**.
+
 ## Things to know
 
 - Lurkloot does not know your streak count. It only knows whether Twitch confirmed the streak for a stream.

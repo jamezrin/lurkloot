@@ -34,3 +34,24 @@ Common changes:
 
 - **Watchlist first.** Move **Watchlist** above **Drops** to watch your own channels whenever one is live, and farm drops only when none is.
 - **Drops over streaks.** Move **Watch streaks** below **Drops** so streaks never interrupt a drop. A streak channel is then only watched when no drop is.
+
+## In the CLI
+
+The CLI's app (`lurkloot serve`) has the same controls. To set it in [`config.json`](/guide/headless/config) instead:
+
+```jsonc title="config.json"
+{
+  "settings": {
+    "platform": {
+      "twitch": {
+        "watchSourcePriority": ["drops", "watch_streaks", "nopixel", "fortnite", "watchlist"]
+      },
+      "kick": {
+        "watchSourcePriority": ["watchlist", "drops"]
+      }
+    }
+  }
+}
+```
+
+The sources are `"watch_streaks"`, `"drops"`, `"nopixel"`, `"fortnite"` and `"watchlist"`. Kick only has `"drops"` and `"watchlist"`. List every source the platform has.
