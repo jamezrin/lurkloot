@@ -1,23 +1,25 @@
 ---
-// Compact "works on every Chromium browser" row — full-color logos, small
-// footprint. Sits under CTAs instead of taking a whole section.
+// Compact "works on Chromium browsers and Firefox" row — full-color logos,
+// small footprint. Sits under CTAs instead of taking a whole section.
 import chrome from "../assets/browsers/chrome.svg?raw";
 import edge from "../assets/browsers/microsoft-edge.svg?raw";
 import brave from "../assets/browsers/brave.svg?raw";
 import opera from "../assets/browsers/opera.svg?raw";
 import vivaldi from "../assets/browsers/vivaldi.svg?raw";
+import firefox from "../assets/browsers/firefox.svg?raw";
 
 interface Props {
   label?: string;
   class?: string;
 }
-const { label = "Works on every Chromium browser", class: cls = "" } = Astro.props;
+const { label = "Works on Chromium browsers and Firefox", class: cls = "" } = Astro.props;
 const icons = [
   { name: "Chrome", svg: chrome },
   { name: "Edge", svg: edge },
   { name: "Brave", svg: brave },
   { name: "Opera", svg: opera },
   { name: "Vivaldi", svg: vivaldi },
+  { name: "Firefox", svg: firefox },
 ];
 ---
 

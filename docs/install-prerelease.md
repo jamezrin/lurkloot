@@ -1,4 +1,4 @@
-# Installing a pre-release Chrome build
+# Installing a pre-release build
 
 Stable Lurkloot installs come from the [Chrome Web Store](https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn). Candidate builds are published as GitHub **Pre-release** assets while a version is still under review. Those zips are the same Chrome package the store will receive, and you can load them directly in Chrome.
 
@@ -7,7 +7,7 @@ Do not install the `.crx` asset. Chrome blocks CRX files that did not come from 
 ## Download the zip
 
 1. Open [GitHub Releases](https://github.com/jamezrin/lurkloot/releases) and select the version marked **Pre-release**.
-2. Download `lurkloot-X.Y.Z-chrome.zip`. Ignore the Firefox zips and `lurkloot-X.Y.Z-chrome.crx`.
+2. Download `lurkloot-X.Y.Z-chrome.zip`. Ignore the Firefox zips (see [Firefox](#firefox) below) and `lurkloot-X.Y.Z-chrome.crx`.
 3. Unzip it to a folder you will keep. Chrome reads the extension from that folder, so moving or deleting it later disables the load.
 
 The unzipped folder must contain `manifest.json`. If the archive extracted into a nested directory, select that inner folder in the next section.
@@ -30,3 +30,13 @@ The same steps work in other Chromium browsers, using that browser's extensions 
 To update, unzip the newer `lurkloot-X.Y.Z-chrome.zip` over the same folder and click **Reload** on `chrome://extensions`.
 
 To go back to the store build, remove the unpacked extension on `chrome://extensions`, then install Lurkloot from the [Chrome Web Store](https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn). Store updates do not apply to a sideloaded copy.
+
+## Firefox
+
+Stable Firefox installs come from [Firefox Add-ons](https://addons.mozilla.org/firefox/addon/lurkloot/), where Mozilla signs each release. The `lurkloot-X.Y.Z-firefox.zip` on GitHub is unsigned, and release Firefox installs only signed add-ons, so a candidate can only run as a temporary add-on:
+
+1. Unzip `lurkloot-X.Y.Z-firefox.zip` to a folder.
+2. Go to `about:debugging#/runtime/this-firefox`.
+3. Click **Load Temporary Add-on** and choose `manifest.json` in that folder.
+
+Firefox removes a temporary add-on when it restarts.
