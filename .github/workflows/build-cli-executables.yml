@@ -78,7 +78,7 @@ jobs:
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         if: steps.support.outputs.available == 'true'
         with:
-          version: 12.21.0
+          version: 12.23.0
       # The executable is a copy of this Node binary, so this is the Node version that ships.
       - uses: actions/setup-node@v7
         if: steps.support.outputs.available == 'true'
