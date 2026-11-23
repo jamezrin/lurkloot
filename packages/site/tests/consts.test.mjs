@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { EXTERNAL_URLS, LINKS, SITE } from "../src/consts.ts";
+import { CLI_GUIDE_PATH, EXTERNAL_URLS, LINKS, SITE } from "../src/consts.ts";
 
 test("attributes Chrome Web Store website referrals", () => {
   const url = new URL(LINKS.chrome);
@@ -15,7 +15,7 @@ test("attributes Chrome Web Store website referrals", () => {
 });
 
 test("attributes every GitHub-owned website destination", () => {
-  for (const key of ["github", "cli", "ghcr"]) {
+  for (const key of ["github", "ghcr"]) {
     const url = new URL(LINKS[key]);
 
     assert.equal(`${url.origin}${url.pathname}`, EXTERNAL_URLS[key]);
@@ -23,9 +23,6 @@ test("attributes every GitHub-owned website destination", () => {
     assert.equal(url.searchParams.get("utm_medium"), "referral");
     assert.equal(url.searchParams.get("utm_campaign"), "open_source");
   }
-
-  assert.equal(new URL(LINKS.cli).hash, "#readme");
-  assert.match(LINKS.cli, /\?[^#]+#readme$/);
 });
 
 // Structured data is now per-page (Base.astro emits SoftwareApplication
@@ -119,8 +116,8 @@ test("describes Twitch CLI login and only user-initiated Kick credential transfe
   );
 
   assert.doesNotMatch(twitch, /plain HTTP/);
-  assert.match(twitch, /Twitch(?:'s|&#39;s) Smart TV device login/);
-  assert.match(twitch, /may miss campaigns/);
+  assert.match(twitch, /sees every drop campaign/);
+  assert.match(twitch, /only shows it the\s+campaigns you have already started/);
   assert.match(kick, /optional, user-initiated session-token transfer/i);
 });
 
@@ -221,4 +218,16 @@ test("gives guide pages the site's canonical form, social image and breadcrumbs"
     crumbs.itemListElement.map((item) => item.item),
     [SITE.url, `${SITE.url}/guide`, `${SITE.url}/guide/farming/watch-streaks`],
   );
+});
+
+// Setting up the CLI is explained in the user guide. The package README on
+// GitHub is written for contributors, so the site never sends people there.
+test("sends people to the user guide to set up the CLI", async () => {
+  const pages = ["index.html", "twitch-drops-farmer/index.html", "kick-drops-farmer/index.html"];
+  for (const page of pages) {
+    const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
+    assert.ok(html.includes(`href="${CLI_GUIDE_PATH}"`), `${page} links to ${CLI_GUIDE_PATH}`);
+    assert.ok(!html.includes("lurkloot/tree/main/packages/cli"), `${page} skips the CLI README`);
+  }
+  await readFile(new URL(`../dist${CLI_GUIDE_PATH}/index.html`, import.meta.url), "utf8");
 });

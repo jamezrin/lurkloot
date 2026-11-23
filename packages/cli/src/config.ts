@@ -116,8 +116,8 @@ export function defaultConfigJsonc(): string {
     "platform": {
       "twitch": {
         "enabled": ${json(twitch.enabled)},
-        // First eligible source wins. Providers without a host implementation
-        // yield to the next source; the CLI currently skips NoPixelV and Fortnite.
+        // First eligible source wins. NoPixelV and Fortnite also need enabling
+        // under "twitchExtensions" above.
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
         "watchlistChannels": ${json(twitch.watchlistChannels)},
         // Watchlist channels whose watch streak to maintain. The payout is

@@ -19,10 +19,13 @@ export const SITE = {
 // unified release workflow. Used verbatim in the CLI section's snippet.
 export const DOCKER_IMAGE = "ghcr.io/jamezrin/lurkloot-cli:latest";
 
+// Where the site sends people to set up the CLI: the user guide, not the
+// package README, which is written for contributors.
+export const CLI_GUIDE_PATH = "/guide/headless/overview";
+
 export const EXTERNAL_URLS = {
   chrome: "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
   github: "https://github.com/jamezrin/lurkloot",
-  cli: "https://github.com/jamezrin/lurkloot/tree/main/packages/cli",
   ghcr: "https://github.com/jamezrin/lurkloot/pkgs/container/lurkloot-cli",
 } as const;
 
@@ -45,7 +48,6 @@ export const LINKS = {
   x: "https://x.com/jamezrin",
   // The open-source repo (not the profile) — surfaced across hero/CLI/footer.
   github: withCampaign(EXTERNAL_URLS.github, "open_source"),
-  cli: withCampaign(`${EXTERNAL_URLS.cli}#readme`, "open_source"),
   ghcr: withCampaign(EXTERNAL_URLS.ghcr, "open_source"),
 } as const;
 

@@ -37,7 +37,7 @@ export const twitchFaqItems: FaqItem[] = [
   },
   {
     q: "Can I farm Twitch Drops on a server, with no browser?",
-    a: "The headless CLI can run on a server or NAS without a browser. It uses Twitch's Smart TV device-code login. Twitch currently withholds the full campaign dashboard from headless clients, so the CLI scans live channels in games you configure and may miss offline or unscanned campaigns. The browser extension remains the choice for full campaign discovery while this CLI path is being verified end to end.",
+    a: "Yes. The headless CLI runs on a server or NAS without a browser. You sign in to Twitch once, in any browser, and paste back the address you land on, or bring your sign-in over from the extension. Either way it sees every drop campaign. A code sign-in also works, but Twitch then only shows the campaigns you have already started. Claiming Twitch drops from the CLI is still being checked end to end on live accounts.",
     guide: "/guide/headless/overview",
   },
   {

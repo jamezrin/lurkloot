@@ -14,6 +14,20 @@ The Lurkloot CLI is the same farming engine as the extension, without the browse
 
 Either way, it can run as `lurkloot run`, which just farms, or `lurkloot serve`, which also gives you [a web page to control it](/guide/headless/app).
 
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `lurkloot run` | Farms until you stop it. This is what the Docker image runs by default. |
+| `lurkloot serve` | Farms like `run`, and serves [the web app](/guide/headless/app). |
+| `lurkloot run --once` | Checks campaigns once, claims anything ready, and exits. |
+| `lurkloot discover` | Lists the campaigns it can see, then exits. Handy to check a sign-in. |
+| `lurkloot auth …` | Signs in, checks and signs out. See [Sign in to the CLI](/guide/headless/sign-in). |
+| `lurkloot validate-config` | Checks `config.json` and prints the settings it will use. See [CLI settings](/guide/headless/config). |
+| `lurkloot diagnostics export` | Saves a report for a bug report. See [Report a problem](/guide/troubleshooting/report-a-problem#from-the-cli). |
+
+Add `--help` to any command to see its options. With Docker, put the command after the image name, for example `docker run --rm -it -v "$PWD/data:/data" ghcr.io/jamezrin/lurkloot-cli:latest discover`.
+
 ## How it differs from the extension
 
 - **It signs in with its own login.** It does not use a browser's session. See [Sign in to the CLI](/guide/headless/sign-in).

@@ -89,15 +89,15 @@ docker run --rm -it -v "$PWD/data:/data" \
   ghcr.io/jamezrin/lurkloot-cli:latest auth twitch browser-login
 ```
 
-That login sees every drop campaign. `auth twitch device-login` needs no browser, but Twitch only lets it see campaigns you have already started, so it finds the rest only on live channels of your chosen games. Kick login on the same image is `auth kick device-login`. Authentication, configuration, and the command that keeps farming in the background are in the [CLI guide](packages/cli/README.md).
+That login sees every drop campaign. `auth twitch device-login` needs no browser, but Twitch only lets it see campaigns you have already started, so it finds the rest only on live channels of your chosen games. Kick login on the same image is `auth kick device-login`. Signing in, settings, and the command that keeps farming in the background are in the user guide's [CLI pages](https://lurkloot.jamezrin.com/guide/headless/overview).
 
-Without Docker, each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) also has the CLI as a standalone `lurkloot` executable for Linux (x64, arm64), macOS (Apple Silicon, Intel) and Windows (x64), which needs no Node installed. Unpack the `lurkloot-cli-*` archive for your system and run `lurkloot` from it; the [CLI guide](packages/cli/README.md#standalone-executables) covers the first run.
+Without Docker, each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) also has the CLI as a standalone `lurkloot` executable for Linux (x64, arm64), macOS (Apple Silicon, Intel) and Windows (x64), which needs no Node installed. Unpack the `lurkloot-cli-*` archive for your system and run `lurkloot` from it; the user guide's [Run the CLI as a program](https://lurkloot.jamezrin.com/guide/headless/executable) covers the first run.
 
-Fortnite and NoPixel run in the extension. The CLI farms Twitch and Kick.
+The CLI farms Twitch and Kick, and can also earn [NoPixel](https://lurkloot.jamezrin.com/guide/farming/nopixel) and [Fortnite](https://lurkloot.jamezrin.com/guide/farming/fortnite) rewards.
 
 ### The app
 
-`lurkloot serve` farms like the CLI's `run` and also serves the Lurkloot app, at an address you open in your browser. It has the same views as the extension popup, in a full window, with a page to sign in to Twitch and Kick. Its Activity view shows [farming history](packages/cli/README.md#activity-history) saved in `state.json.activity.json` across restarts. Recent diagnostic reports are available through the [CLI or control plane](packages/cli/README.md#diagnostics-export). With Docker, use the [compose file](packages/cli/compose.yaml):
+`lurkloot serve` farms like the CLI's `run` and also serves the Lurkloot app, at an address you open in your browser. It has the same views as the extension popup, in a full window, with a page to sign in to Twitch and Kick. Its Activity view keeps your farming history across restarts. To save a diagnostics report for a bug, see [Report a problem](https://lurkloot.jamezrin.com/guide/troubleshooting/report-a-problem#from-the-cli). With Docker, use the [compose file](packages/cli/compose.yaml):
 
 ```bash
 mkdir lurkloot && cd lurkloot
@@ -106,7 +106,7 @@ echo "LURKLOOT_SERVE_TOKEN=$(openssl rand -hex 32)" > .env
 docker compose up -d
 ```
 
-Open http://127.0.0.1:8420 and enter the token from `.env` once per tab. The port is reachable from this machine only. Running it locally, opening it from another machine, and the security model are in the [CLI guide](packages/cli/README.md#the-app).
+Open http://127.0.0.1:8420 and enter the token from `.env` once per tab. The port is reachable from this machine only. Opening it from another machine safely is covered in [The CLI web app](https://lurkloot.jamezrin.com/guide/headless/app#opening-it-from-another-machine).
 
 ## Your account stays yours
 
@@ -131,7 +131,7 @@ Bug reports, translations, documentation, and code are welcome. Pick the guide f
 | [Contributing](CONTRIBUTING.md) | Repository setup, branch and commit conventions, and the checks a pull request should pass |
 | [Architecture](docs/architecture.md) | How the extension, farming engine, popup, and CLI fit together |
 | [Translations](docs/translations.md) | Correcting a locale catalog |
-| [CLI guide](packages/cli/README.md) | The headless runtime, auth, and Docker |
+| [CLI reference](packages/cli/README.md) | Building the CLI, its control plane API, and how it stores state |
 | [Releasing](RELEASING.md) | How versions are cut and published |
 
 The source is licensed under the [Apache License 2.0](LICENSE).
