@@ -21,7 +21,7 @@ Either way, it can run as `lurkloot run`, which just farms, or `lurkloot serve`,
 | `lurkloot run` | Farms until you stop it. This is what the Docker image runs by default. |
 | `lurkloot serve` | Farms like `run`, and serves [the web app](/guide/headless/app). |
 | `lurkloot run --once` | Checks campaigns once, claims anything ready, and exits. |
-| `lurkloot discover` | Lists the campaigns it can see, then exits. Handy to check a sign-in. |
+| `lurkloot discover` | Counts the campaigns it can see and lists the first 20, then exits. Handy to check a sign-in. |
 | `lurkloot auth …` | Signs in, checks and signs out. See [Sign in to the CLI](/guide/headless/sign-in). |
 | `lurkloot validate-config` | Checks `config.json` and prints the settings it will use. See [CLI settings](/guide/headless/config). |
 | `lurkloot diagnostics export` | Saves a report for a bug report. See [Report a problem](/guide/troubleshooting/report-a-problem#from-the-cli). |

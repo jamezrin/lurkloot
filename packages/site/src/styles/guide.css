@@ -70,6 +70,12 @@ header.header { backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filt
 header.header .sg-bar { height: 100%; min-height: 0; }
 header.header .sg-bar a { text-decoration: none; }
 @media (max-width: 50rem) { header.header .sg-bar__end { display: none; } }
+/* Between Starlight's phone menu and the full bar, keep the site's links in
+   view, since the guide has no other way to reach them; GitHub gives way. */
+@media (min-width: 50rem) and (max-width: 1100px) {
+  header.header .sg-bar__links { display: flex; }
+  header.header .sg-bar__gh { display: none; }
+}
 
 /* Search box: a quiet field like the site's ghost buttons. */
 site-search button[data-open-modal] { border-radius: 6px; border-color: var(--sg-line-strong); background: #0a0a0a; color: var(--sg-muted); }
