@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch 与 Kick 掉宝挂机助手"
   },
   "extensionDescription": {
-    "message": "通过正常的浏览器登录会话、可见的静音标签页和可选的低资源模式，在 Twitch 与 Kick 上挂机获取掉宝。"
+    "message": "自动挂机获取 Twitch 和 Kick 掉宝。自动选择直播间、跟踪进度并领取奖励，您可以同时做其他事情。"
   },
   "toolbarTitleOff": {
     "message": "挂机已关闭"

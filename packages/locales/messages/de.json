@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch- & Kick-Drops-Farmer"
   },
   "extensionDescription": {
-    "message": "Farme Twitch- und Kick-Drops über normale Browsersitzungen, sichtbare stummgeschaltete Tabs und optionalen Energiesparmodus."
+    "message": "Farme Twitch- und Kick-Drops automatisch. Es wählt einen Stream, verfolgt den Fortschritt und holt Belohnungen ab."
   },
   "toolbarTitleOff": {
     "message": "Farmen ist aus"

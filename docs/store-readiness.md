@@ -17,7 +17,7 @@ Lurkloot is designed as a normal-session WebExtension:
 ## Chrome Web Store listing
 
 - **Single purpose:** Lurkloot automates collecting Twitch and Kick viewer drops within the user's own logged-in browser session.
-- **Summary (≤132 chars):** Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode.
+- **Summary (≤132 chars):** Farm Twitch and Kick drops automatically. It picks a stream, tracks progress and claims your rewards while you do other things.
 - **Category:** Productivity.
 - **Detailed description:** Lurkloot farms Twitch and Kick viewer drops for you using your normal, already-logged-in browser session. By default it opens a visible, pinned, muted watch tab on the channel that earns the drop you want, switches channels as campaigns complete, and claims eligible rewards automatically. An optional tabless low-resource mode sends platform watch heartbeats instead of keeping a tab open, and automatically falls back to a visible muted tab if progress stalls. It never asks for your password, never exports cookies or tokens, and keeps settings and logs on your device. Optional NoPixelV and Fortnite reward providers run without Twitch tabs and receive scoped viewer authorization directly only when enabled. The popup lets you enable each platform, prioritize campaigns and games, manage per-platform watchlists and excluded channels, and toggle auto-claim and notifications.
 - **Privacy policy URL:** the policy in `privacy-policy.md` must be published at a public URL (e.g. GitHub Pages or a gist) and that URL entered in the dashboard. A file in the repository is not sufficient.
