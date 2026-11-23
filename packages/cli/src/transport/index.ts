@@ -5,13 +5,37 @@ import { TWITCH_WEB_CLIENT_ID } from "../twitch";
 import { createHttpTransport } from "./http";
 import { createImpersonateTransport } from "./impersonate";
 import type { EnabledPlatforms, TransportHandle } from "./common";
+import type { ImpersonationBackend } from "./impersonation";
 
 export type { TransportHandle, EnabledPlatforms } from "./common";
+export type { ImpersonationBackend } from "./impersonation";
+
+// The browser-impersonating library each transport sends Kick through, or
+// undefined for plain fetch. "impersonate" names whichever one is the default,
+// impit today, and is resolved here rather than rewritten in config.json.
+export function impersonationBackendOf(transport: Transport): ImpersonationBackend | undefined {
+  switch (transport) {
+    case "http":
+      return undefined;
+    case "cycletls":
+      return "cycletls";
+    case "impit":
+    case "impersonate":
+      return "impit";
+  }
+}
+
+// The library the Kick TV-link sign-in uses under a transport. Its endpoint
+// sits behind Kick's WAF, so the plain http transport still signs in through
+// the default impersonating backend.
+export function signInBackendOf(transport: Transport): ImpersonationBackend {
+  return impersonationBackendOf(transport) ?? "impit";
+}
 
 // Builds the adapter set for the configured transport. Returns a disposable
 // handle so callers can release transport-owned resources. Async because the
-// impersonate transport spins up a cycletls subprocess on creation; `http`
-// resolves immediately.
+// impersonating transports load their library (and cycletls starts its helper
+// process) on creation; `http` resolves immediately.
 export async function createTransport(
   transport: Transport,
   credentials: PlatformCredentials,
@@ -33,14 +57,12 @@ export async function createTransport(
           },
         })
       : undefined;
-  switch (transport) {
-    case "http":
-      return createHttpTransport(credentials, enabled, webIntegrity);
-    case "impersonate":
-      return createImpersonateTransport(credentials, enabled, {}, webIntegrity);
-    default:
-      throw new Error(`Unknown transport: ${transport as string}`);
+  const backend = impersonationBackendOf(transport);
+  if (backend === undefined) {
+    if (transport !== "http") throw new Error(`Unknown transport: ${transport as string}`);
+    return createHttpTransport(credentials, enabled, webIntegrity);
   }
+  return createImpersonateTransport(credentials, enabled, { backend }, webIntegrity);
 }
 
 // Reloads the credential store into the transport's credentials object before

@@ -97,7 +97,7 @@ jobs:
       - run: pnpm --filter @lurkloot/cli build:executable --archive "$GITHUB_WORKSPACE/cli-assets"
         if: steps.support.outputs.available == 'true'
       # Unpacks the archive into a fresh directory and runs it with no node on PATH: serve must
-      # answer /v1/session and /, and a Kick request through the shipped cycletls is reported
+      # answer /v1/session and /, and a Kick request through the shipped impit and cycletls is reported
       # (a warning when Kick's WAF challenges the runner).
       - name: Smoke-test the archive
         if: steps.support.outputs.available == 'true'

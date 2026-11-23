@@ -45,4 +45,4 @@ The setting names match the extension's: see [All settings](/guide/settings/refe
 
 ## Connection setting
 
-`"transport"` at the top of the file is `"impersonate"` by default, which reaches both Twitch and Kick. `"http"` is lighter but Kick blocks it, so only use it for Twitch-only setups.
+`"transport"` at the top of the file is `"impersonate"` by default, which reaches both Twitch and Kick. `"impit"` and `"cycletls"` also reach both: they pick the library that gets the CLI past Kick's protection by name, and `"cycletls"` is the one older versions used, if `"impersonate"` stops working for you. `"http"` is lighter but Kick can block it, so only use it for Twitch-only setups.

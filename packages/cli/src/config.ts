@@ -12,7 +12,9 @@ import {
 } from "./settings";
 import { errorMessage } from "@lurkloot/shared/errors";
 
-export const TRANSPORTS = ["http", "impersonate"] as const;
+// "impersonate" is an alias for the default impersonating library (impit);
+// "impit" and "cycletls" pick one by name.
+export const TRANSPORTS = ["http", "impersonate", "impit", "cycletls"] as const;
 export type Transport = (typeof TRANSPORTS)[number];
 
 export interface CliConfig {
@@ -42,8 +44,10 @@ export function defaultConfigJsonc(): string {
   const twitch = defaults.platform.twitch;
   const kick = defaults.platform.kick;
   return `{
-  // "impersonate" works with both Twitch and Kick. Use "http" only for a
-  // lighter Twitch-only setup; Kick's API rejects plain Node TLS requests.
+  // "impersonate" works with both Twitch and Kick: it sends a browser's TLS
+  // fingerprint through the default library, impit. "impit" and "cycletls"
+  // pick that library by name. Use "http" only for a lighter Twitch-only
+  // setup; Kick's API can reject plain Node TLS requests.
   "transport": "impersonate",
 
   // Credentials are stored separately in this directory, relative to this file.
@@ -202,7 +206,7 @@ export function defaultConfigJsonc(): string {
         // Lurkloot treats their subscription as made, like the popup's
         // "Mark as subscribed".
         "subscribedRewardMarks": ${json(kick.subscribedRewardMarks ?? [])},
-        // Join each watched channel's chat on the impersonate transport.
+        // Join each watched channel's chat (impersonate, impit and cycletls transports).
         "alwaysEnterChat": ${json(kick.alwaysEnterChat ?? false)},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}

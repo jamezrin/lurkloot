@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { saveCredentials } from "../authStore";
-import { initCycle, createTvLinkAuthenticator } from "../transport/cycle";
+import { createTvLinkAuthenticator } from "../transport/kick";
+import { createImpersonatingClient, type ImpersonationBackend } from "../transport/impersonation";
 import type { Logger } from "../logger";
 import { waitForDeviceApproval, type DeviceLoginFlow } from "./deviceLogin";
 
@@ -13,7 +14,8 @@ import { waitForDeviceApproval, type DeviceLoginFlow } from "./deviceLogin";
 //
 // The authenticate endpoint sits behind Kick's Cloudflare WAF (a plain fetch
 // gets HTTP 403 "Request blocked by security policy."), so the request rides the
-// same cycletls Chrome fingerprint the impersonate transport uses for Kick.
+// same impersonated Chrome fingerprint (impit, or cycletls when configured) the
+// impersonate transport uses for Kick.
 const LOGIN_URL = "https://kick.com/tv/login";
 // The flow is push-driven in the apps (a Pusher `tv-setup-<uuid>` event), but
 // polling the authenticate endpoint until it returns a token works headlessly.
@@ -35,20 +37,20 @@ export function requestTvLink(): TvLink {
 // Resolves the link once the user approves it (the response carries a token).
 export type TvLinkAuthenticator = (uuid: string, code: string) => Promise<{ token?: string }>;
 
-// The authenticate call and what it holds (a cycletls subprocess), so the flow
-// can release it however it ends.
+// The authenticate call and what it holds (the impersonating client, and with
+// cycletls its helper process), so the flow can release it however it ends.
 export interface TvLinkClient {
   authenticate: TvLinkAuthenticator;
   dispose(): Promise<void>;
 }
 
-async function createCycleTvLinkClient(): Promise<TvLinkClient> {
-  const cycleTLS = await initCycle();
+async function createImpersonatedTvLinkClient(
+  backend: ImpersonationBackend,
+): Promise<TvLinkClient> {
+  const client = await createImpersonatingClient(backend);
   return {
-    authenticate: createTvLinkAuthenticator(cycleTLS),
-    dispose: async () => {
-      await cycleTLS.exit();
-    },
+    authenticate: createTvLinkAuthenticator(client),
+    dispose: () => client.close(),
   };
 }
 
@@ -58,11 +60,16 @@ async function createCycleTvLinkClient(): Promise<TvLinkClient> {
 // let anyone collect the token once the user approves, so the link is shown to
 // the user and never logged by `serve`.
 export async function startKickDeviceLogin(
-  options: { createClient?: () => Promise<TvLinkClient>; link?: TvLink } = {},
+  options: {
+    createClient?: () => Promise<TvLinkClient>;
+    link?: TvLink;
+    backend?: ImpersonationBackend;
+  } = {},
 ): Promise<DeviceLoginFlow> {
   const link = options.link ?? requestTvLink();
-  const createClient = options.createClient ?? createCycleTvLinkClient;
-  // Started on the first poll, so the link is shown before cycletls spins up.
+  const createClient =
+    options.createClient ?? (() => createImpersonatedTvLinkClient(options.backend ?? "impit"));
+  // Started on the first poll, so the link is shown before the client loads.
   let client: Promise<TvLinkClient> | undefined;
   return {
     platform: "kick",
@@ -88,8 +95,12 @@ export async function startKickDeviceLogin(
   };
 }
 
-export async function kickDeviceLogin(authDir: string, logger: Logger): Promise<void> {
-  const flow = await startKickDeviceLogin();
+export async function kickDeviceLogin(
+  authDir: string,
+  logger: Logger,
+  backend: ImpersonationBackend = "impit",
+): Promise<void> {
+  const flow = await startKickDeviceLogin({ backend });
   try {
     logger.info(
       // The link is a deep link into Kick's phone app; kick.com has no page

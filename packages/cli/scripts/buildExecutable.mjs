@@ -1,10 +1,12 @@
 // Builds the standalone `lurkloot` executable for the machine it runs on
 // (#1022): Node's single-executable application, with the CLI bundled inside,
-// so it runs where no Node is installed. Beside it go the cycletls package in
-// cycletls/ (its unmodified JavaScript, runtime dependencies and this
-// platform's Go binary, loaded at run time and never compiled in, as cycletls
-// is GPL-3.0), the app UI in app/, LICENSE and a NOTICE, and with --archive all
-// of it is packed into the release archive for this target.
+// so it runs where no Node is installed. Beside it go the impit package in
+// impit/ (its JavaScript and this platform's native add-on, which cannot load
+// from inside the executable), the cycletls package in cycletls/ (its
+// unmodified JavaScript, runtime dependencies and this platform's Go binary,
+// loaded at run time and never compiled in, as cycletls is GPL-3.0), the app
+// UI in app/, LICENSE and a NOTICE, and with --archive all of it is packed
+// into the release archive for this target.
 //
 //   node scripts/buildExecutable.mjs [--archive <dir>]
 //
@@ -18,6 +20,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -40,6 +43,7 @@ import {
   bundledPackages,
   cycleTlsUpstreamName,
   dependencyClosure,
+  impitBindingPackages,
   packageDirOf,
   executableName,
   nodeLicenseCandidates,
@@ -82,10 +86,11 @@ rmSync(dirname(out), { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
 mkdirSync(out, { recursive: true });
 
-// 1. One CommonJS file with every dependency inside but cycletls: a
+// 1. One CommonJS file with every dependency inside but cycletls and impit: a
 // single-executable application's main script can require only Node's built-in
-// modules. "cycletls" is aliased to a shim that loads the package from the
-// cycletls/ folder at run time (src/runtime/cycleTlsStandalone.ts). ws's
+// modules. "cycletls" and "impit" are aliased to shims that load each package
+// from its folder at run time (src/runtime/cycleTlsStandalone.ts,
+// src/runtime/impitStandalone.ts). ws's
 // optional native add-ons stay out; ws falls back without them. The banner
 // gives import.meta.url a value (the executable's own path) for code that
 // reads it in this CommonJS output.
@@ -100,7 +105,10 @@ const result = await build({
   mainFields: ["module", "main"],
   outfile: bundle,
   external: ["bufferutil", "utf-8-validate"],
-  alias: { cycletls: "./src/runtime/cycleTlsStandalone.ts" },
+  alias: {
+    cycletls: "./src/runtime/cycleTlsStandalone.ts",
+    impit: "./src/runtime/impitStandalone.ts",
+  },
   banner: {
     js: 'const __lurklootModuleUrl = require("node:url").pathToFileURL(__filename).href;',
   },
@@ -109,12 +117,18 @@ const result = await build({
   logLevel: "warning",
 });
 
-const compiledCycleTls = Object.keys(result.metafile.inputs).filter((input) =>
-  packageDirOf(input)?.endsWith(`node_modules${sep}cycletls`),
-);
-if (compiledCycleTls.length > 0) {
-  process.stderr.write(`cycletls must not be compiled in: ${compiledCycleTls.join(", ")}\n`);
-  process.exit(1);
+for (const shipped of ["cycletls", "impit"]) {
+  const compiled = Object.keys(result.metafile.inputs).filter((input) => {
+    const dir = packageDirOf(input);
+    return (
+      dir?.endsWith(`node_modules${sep}${shipped}`)
+      || dir?.includes(`node_modules${sep}${shipped}-`)
+    );
+  });
+  if (compiled.length > 0) {
+    process.stderr.write(`${shipped} must not be compiled in: ${compiled.join(", ")}\n`);
+    process.exit(1);
+  }
 }
 
 // 2. The blob Node starts from, made by the same node binary it goes into.
@@ -183,6 +197,48 @@ if (platform === "darwin") {
   }
 }
 
+// 4b. The impit package, as the CLI loads it (src/runtime/standalone.ts):
+// impit/ holds its package.json and JavaScript, and this platform's native
+// add-on beside them, where impit's own loader looks before its binding
+// packages. The add-on comes from the binding package installed for this
+// machine (both libc builds on Linux when both are installed).
+const impitDir = realpathSync(dirname(require.resolve("impit/package.json")));
+const impitManifest = JSON.parse(readFileSync(join(impitDir, "package.json"), "utf8"));
+const impitOut = join(out, "impit");
+mkdirSync(impitOut, { recursive: true });
+copyFileSync(join(impitDir, "package.json"), join(impitOut, "package.json"));
+for (const file of readdirSync(impitDir).filter((name) => name.endsWith(".js"))) {
+  copyFileSync(join(impitDir, file), join(impitOut, file));
+}
+const impitBindings = impitBindingPackages(impitManifest, platform, arch).flatMap((name) => {
+  try {
+    const dir = realpathSync(
+      dirname(createRequire(join(impitDir, "package.json")).resolve(`${name}/package.json`)),
+    );
+    return [{ name, dir }];
+  } catch {
+    return [];
+  }
+});
+if (impitBindings.length === 0) {
+  process.stderr.write(`No impit native add-on is installed for ${platform}-${arch}\n`);
+  process.exit(1);
+}
+const impitAddons = [];
+for (const binding of impitBindings) {
+  for (const file of readdirSync(binding.dir).filter((name) => name.endsWith(".node"))) {
+    copyFileSync(join(binding.dir, file), join(impitOut, file));
+    impitAddons.push(file);
+    if (platform === "darwin") {
+      try {
+        execFileSync("codesign", ["--verify", join(impitOut, file)], { stdio: "ignore" });
+      } catch {
+        run("codesign", ["--sign", "-", join(impitOut, file)]);
+      }
+    }
+  }
+}
+
 // 5. The app UI, the license and the notice.
 cpSync(appDir, join(out, "app"), { recursive: true });
 copyFileSync(join(repoRoot, "LICENSE"), join(out, "LICENSE"));
@@ -197,6 +253,11 @@ writeFileSync(
     version,
     nodeVersion: process.version,
     nodeLicense: readFileSync(nodeLicense, "utf8"),
+    impit: {
+      version: impitManifest.version,
+      license: impitManifest.license,
+      addons: impitAddons,
+    },
     cycleTls: {
       file: cycleTlsFile,
       version: cycleTlsManifest.version,

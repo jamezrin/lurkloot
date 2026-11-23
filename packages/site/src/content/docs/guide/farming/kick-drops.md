@@ -28,4 +28,4 @@ Kick runs drop campaigns too: watch a game's streams for a while and earn an in-
 
 ## In the CLI
 
-The CLI farms Kick drops without a browser. Sign it in with a code you confirm in the Kick app on your phone (`auth kick device-login`), or import credentials from the extension. Keep the default `impersonate` connection setting: the plain `http` setting is blocked by Kick. See [Sign in to the CLI](/guide/headless/sign-in).
+The CLI farms Kick drops without a browser. Sign it in with a code you confirm in the Kick app on your phone (`auth kick device-login`), or import credentials from the extension. Keep the default `impersonate` connection setting (or `impit` or `cycletls`): Kick can block the plain `http` setting. See [Sign in to the CLI](/guide/headless/sign-in).

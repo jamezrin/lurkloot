@@ -8,6 +8,7 @@ import {
   executableName,
   nodeLicenseCandidates,
   packageDirOf,
+  impitBindingPackages,
   renderNotice,
 } from "../scripts/executable.mjs";
 
@@ -110,6 +111,11 @@ describe("executable build helpers", () => {
       version: "1.25.0",
       nodeVersion: "v24.11.1",
       nodeLicense: "Node license text",
+      impit: {
+        version: "0.14.9",
+        license: "Apache-2.0",
+        addons: ["impit-node.linux-x64-gnu.node"],
+      },
       cycleTls: {
         file: "cycletls",
         version: "2.0.5",
@@ -127,6 +133,10 @@ describe("executable build helpers", () => {
     expect(notice).toContain("  - ws 8.22.1 (MIT)");
     expect(notice).toContain("cycletls/ is the unmodified cycletls 2.0.5 npm package");
     expect(notice).toContain("it is not compiled in");
+    expect(notice).toContain(
+      "impit/ is the unmodified impit 0.14.9 npm package, under the Apache-2.0",
+    );
+    expect(notice).toContain("(impit-node.linux-x64-gnu.node)");
     expect(notice).toContain("  - form-data 4.0.6 (MIT)");
     expect(notice).toContain("App UI (app/)");
     expect(notice).toContain("React license text");
@@ -140,11 +150,30 @@ describe("executable build helpers", () => {
         version: "1.25.0",
         nodeVersion: "v24.11.1",
         nodeLicense: "Node license text",
+        impit: { version: "0.14.9", license: "Apache-2.0", addons: [] },
         cycleTls: { file: "cycletls", version: "2.0.6", license: "GPL text" },
         packages: [],
         appLicenses: "App licenses",
       }),
     ).toThrow(/cycletls 2\.0\.6.*pinned.*2\.0\.5/);
+  });
+
+  it("lists impit's binding packages for one platform and architecture, every libc", () => {
+    const manifest = {
+      optionalDependencies: {
+        "impit-darwin-arm64": "0.14.9",
+        "impit-linux-x64-gnu": "0.14.9",
+        "impit-linux-x64-musl": "0.14.9",
+        "impit-linux-arm64-gnu": "0.14.9",
+        "impit-win32-x64-msvc": "0.14.9",
+      },
+    };
+    expect(impitBindingPackages(manifest, "linux", "x64")).toEqual([
+      "impit-linux-x64-gnu",
+      "impit-linux-x64-musl",
+    ]);
+    expect(impitBindingPackages(manifest, "darwin", "arm64")).toEqual(["impit-darwin-arm64"]);
+    expect(impitBindingPackages(manifest, "win32", "x64")).toEqual(["impit-win32-x64-msvc"]);
   });
 
   it("strip every directory holding node from the child's PATH", () => {
