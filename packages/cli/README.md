@@ -286,8 +286,8 @@ these notifications remain unverified for CLI sign-ins. See
 | Transport | Twitch | Kick | Notes |
 |---|---|---|---|
 | `http` | ✅ plain Node fetch | ⚠️ Cloudflare WAF may refuse it (403) | Lightest; Twitch-only in practice. |
-| `impersonate` | ✅ | ✅ **impit Chrome TLS/HTTP-2** | Recommended default. Reaches both with no browser. Names the default library, impit today. |
-| `impit` | ✅ | ✅ **impit Chrome TLS/HTTP-2** | impit by name, in process (a native add-on). |
+| `impersonate` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | Recommended default. Reaches both with no browser. Names the default library, impit today. |
+| `impit` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | impit by name, in process (a native add-on). |
 | `cycletls` | ✅ | ✅ **cycletls Chrome 124 JA3/HTTP-2** | The previous default, kept as a fallback. Runs cycletls's Go helper as a separate process. |
 
 New Twitch device logins use the **SMARTBOX (Smart TV) client**. Previously

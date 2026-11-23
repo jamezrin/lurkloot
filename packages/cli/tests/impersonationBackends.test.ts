@@ -3,7 +3,12 @@ import { join, relative } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { Impit } from "impit";
 import { KickWafBlockedError } from "@lurkloot/core/transport";
-import { createImpitClient, clientHintsFor, impitHeaders } from "../src/transport/impit";
+import {
+  createImpitClient,
+  clientHintsFor,
+  IMPIT_BROWSER,
+  impitHeaders,
+} from "../src/transport/impit";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import { impersonationBackendOf, signInBackendOf } from "../src/transport";
 import type {
@@ -29,6 +34,13 @@ describe("transport modes", () => {
 
   it("signs in to Kick through impit unless cycletls is configured", () => {
     expect(TRANSPORTS.map(signInBackendOf)).toEqual(["impit", "impit", "impit", "cycletls"]);
+  });
+});
+
+describe("impit profile", () => {
+  it("pins the same Chrome version as the user agent Kick requests send", () => {
+    const uaMajor = /Chrome\/(\d+)\./.exec(CHROME_UA)?.[1];
+    expect(IMPIT_BROWSER).toBe(`chrome${uaMajor}`);
   });
 });
 

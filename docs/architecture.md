@@ -797,7 +797,7 @@ Every caller talks to the library through one interface, `ImpersonatingClient`
 redirect mode and abort signal, answered with status, headers, body text and final URL. The Kick
 fetcher, the TV-link authenticator and the viewer socket's headers live once in
 `src/transport/kick.ts` over that interface, so the 401/403 classification (`kickHttpError`) is the
-same on both libraries. The backends are `src/transport/impit.ts` (impit's `chrome` profile, in
+same on both libraries. The backends are `src/transport/impit.ts` (impit's `chrome124` profile, pinned to `CHROME_UA`'s version and bounded by a 30 s request timeout, in
 process, cancellable by the signal) and `src/transport/cycle.ts` (the pinned Chrome 124 JA3/HTTP-2
 strings in `common.ts`, through cycletls's Go helper, which cannot cancel one request). Every Kick
 request sends `CHROME_UA` on either library, the user agent the viewer socket sends. impit's

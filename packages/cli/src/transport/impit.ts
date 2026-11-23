@@ -1,11 +1,16 @@
 import type { Impit, ImpitOptions } from "impit";
 import type { ImpersonatedResponse, ImpersonatingClient } from "./impersonation";
 
-// impit's own Chrome profile: its TLS and HTTP/2 fingerprint, and the
-// user agent and client hints that go with it. "chrome" follows the newest
-// profile the pinned impit release ships, so a bump of the impit version moves
-// the fingerprint with it.
-export const IMPIT_BROWSER = "chrome" satisfies ImpitOptions["browser"];
+// impit's Chrome profile: its TLS and HTTP/2 fingerprint. Pinned to the
+// Chrome version of CHROME_UA (common.ts), the user agent every Kick request
+// sends and the client hints are built from, so the fingerprint, user agent
+// and client hints describe one browser. Bump them together; impit's bare
+// "chrome" alias could move under an impit upgrade.
+export const IMPIT_BROWSER = "chrome124" satisfies ImpitOptions["browser"];
+
+// No request waits longer than this, even without a caller's signal (the Kick
+// TV-link poll has none). Callers with a deadline of their own cut earlier.
+export const IMPIT_TIMEOUT_MS = 30_000;
 
 type ImpitModule = { Impit: new (options?: ImpitOptions) => Impit };
 
@@ -15,7 +20,7 @@ export async function initImpit(): Promise<Impit> {
   // native add-on.
   const loaded = (await import("impit")) as ImpitModule & { default?: ImpitModule };
   const { Impit: ImpitClass } = loaded.default ?? loaded;
-  return new ImpitClass({ browser: IMPIT_BROWSER, timeout: null });
+  return new ImpitClass({ browser: IMPIT_BROWSER, timeout: IMPIT_TIMEOUT_MS });
 }
 
 // impit sends the headers of a page navigation (sec-fetch-mode: navigate,
