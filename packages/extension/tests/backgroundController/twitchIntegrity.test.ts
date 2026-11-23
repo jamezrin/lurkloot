@@ -977,7 +977,7 @@ describe("background controller", () => {
       await expect(acquire()).resolves.toBe(false);
       expect(env.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
       expect(env.state.criticalHealth?.twitch?.records).toEqual([
-        expect.objectContaining({ kind: "context_open" }),
+        expect.objectContaining({ kind: "context_open", code: "integrity_rejection_recovery" }),
       ]);
       expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(42);
       browser.tabs.get.mockResolvedValue(undefined);

@@ -476,6 +476,12 @@ The rebase is a three-way merge per platform-owned key:
     same tab;
   - heartbeat fields stay with the heartbeat's commit;
   - the other writer's claims carry into the tick's inventory;
+  - the newest challenge poll stamp wins;
+  - critical health keeps the tick's observation and incorporates page-context opens and rejections
+    committed during its effects, including the open breadcrumbs and any committed flag. An open
+    breaker on either side stays open, and the combined open counts can also trip it. A concurrent
+    dismissal supersedes the tick's observation;
+  - the live registry supplies managed page-context ownership at publication;
   - anything else is a conflict.
 
 On a conflict, or when the selection went stale, the decision is dropped. `tickEffectFacts` still
@@ -1314,8 +1320,12 @@ three hours also open it. This covers retries near the 30-minute backoff cap,
 which fall outside the short window. Both sets of timestamps survive worker
 restarts. A reused tab adds no open or rejection from a new acquisition. A saved
 open breaker blocks new tabs on the first probe while still allowing reuse.
-When the breaker blocks Kick's fallback, the adapter preserves the original
-service-worker failure for auth classification.
+The controller updates the live breaker after accounting commits and after the
+tick prunes expired evidence, so standalone probes in the same worker respect
+both transitions. When the breaker or pending tab cleanup blocks Kick's fallback,
+the adapter preserves the original service-worker failure for auth classification.
+The tab owner holds the acquisition entry while it closes a temporary or discarded
+context. Releasing a retained context frees the entry immediately.
 
 - Campaign discovery fetches `https://web.kick.com/api/v1/drops/campaigns`.
 - Progress refresh fetches `https://web.kick.com/api/v1/drops/progress`.

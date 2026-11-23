@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveCompatibility } from "@lurkloot/core";
 import { mergeSchedulerState } from "@lurkloot/core/defaults";
 import type { PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
+import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { createKickFetcher } from "@lurkloot/core/kick";
 import { kickAdapter } from "../helpers/adapters";
@@ -26,13 +27,16 @@ const KICK_PAGE_ORIGIN = "https://kick.com/drops/inventory";
 // Kick behind an HTTP challenge from the service worker, wired to the real
 // page-context fallback with a browser whose tabs stay open until removed.
 // `page.works` decides whether the in-page fetch is challenged too.
-function challengedKickPageContext() {
+function challengedKickPageContext(options: { workerIdentityWorks?: boolean } = {}) {
   vi.useFakeTimers();
   vi.stubGlobal(
     "fetch",
-    vi.fn(
-      async () =>
-        new Response("<!doctype html><title>Just a moment…</title>private-body", { status: 403 }),
+    vi.fn(async (input: RequestInfo | URL) =>
+      options.workerIdentityWorks && String(input) === "https://kick.com/api/v1/user"
+        ? Response.json({ id: 42 })
+        : new Response("<!doctype html><title>Just a moment…</title>private-body", {
+            status: 403,
+          }),
     ),
   );
   vi.stubGlobal("document", { cookie: "", contentType: "text/html" });
@@ -85,26 +89,25 @@ function challengedKickPageContext() {
     env.deps.loadState.mockImplementation(async () =>
       mergeSchedulerState(structuredClone(env.state)),
     );
-    const kick = kickAdapter(
-      createKickFetcher({
-        background: (url, init) => fetchKickInBackgroundWith({}, url, init),
-        pageFetch: (url, init) =>
-          fetchJsonInPageWithBrowser(env.tabRegistry, browser, KICK_PAGE_ORIGIN, url, init, {
-            retainPageContext: { platform: "kick" },
-            inspectDocument: page.usable
-              ? inspectKickDocument
-              : () => ({ usable: false, failure: { kind: "invalid_response" } }),
-            challengeError: kickHttpChallenge,
-            openReason: "background_rejected",
-          }),
-      }),
-    );
+    const fetcher = createKickFetcher({
+      background: (url, init) => fetchKickInBackgroundWith({}, url, init),
+      pageFetch: (url, init) =>
+        fetchJsonInPageWithBrowser(env.tabRegistry, browser, KICK_PAGE_ORIGIN, url, init, {
+          retainPageContext: { platform: "kick" },
+          inspectDocument: page.usable
+            ? inspectKickDocument
+            : () => ({ usable: false, failure: { kind: "invalid_response" } }),
+          challengeError: kickHttpChallenge,
+          openReason: "background_rejected",
+        }),
+    });
+    const kick = kickAdapter(fetcher);
     const probeOwnership: (number | undefined)[] = [];
     vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) => {
       probeOwnership.push(env.tabRegistry.retainedPageContextTabs.get("kick")?.tabId);
       return kick.checkAuthHealth(signal);
     });
-    return { env, probeOwnership, tick: () => env.controller.tick(["kick"], "alarm") };
+    return { env, fetcher, probeOwnership, tick: () => env.controller.tick(["kick"], "alarm") };
   }
   return {
     ...boot(),
@@ -155,6 +158,99 @@ describe("background controller", () => {
       }
     },
   );
+
+  it("commits the watch when a Kick effect opens a page context after direct auth succeeds", async () => {
+    const browser = challengedKickPageContext({ workerIdentityWorks: true });
+    browser.page.works = true;
+    const { env, fetcher, tick } = browser;
+    env.kick.claimChallenges = vi.fn(async () => {
+      await fetcher.fetchJson("https://web.kick.com/api/v1/drops/progress");
+      return [];
+    });
+
+    await tick();
+
+    expect(env.state.authHealth.kick.status).toBe("healthy");
+    expect(browser.create).toHaveBeenCalledOnce();
+    expect(env.watchTabs.kick.open).toHaveBeenCalledOnce();
+    expect(env.watchTabs.kick.stop).not.toHaveBeenCalled();
+    expect(env.state.sessions.kick.status).toBe("watching");
+    expect(env.state.criticalHealth?.kick?.managedTabOpens).toEqual([
+      new Date().toISOString(),
+      new Date().toISOString(),
+    ]);
+    expect(env.state.criticalHealth?.kick?.records.map(({ kind }) => kind).sort()).toEqual([
+      "context_open",
+      "watch_tab_open",
+    ]);
+  });
+
+  it("releases the breaker in the same worker when rejected opens age out", async () => {
+    const browser = challengedKickPageContext();
+    browser.page.works = true;
+    const now = Date.now();
+    const initial = mergeSchedulerState({
+      criticalHealth: {
+        kick: {
+          ...DEFAULT_CRITICAL_HEALTH,
+          breakerOpen: true,
+          rejectedPageContextOpens: [170, 140, 110, 80, 50].map((minutes) =>
+            new Date(now - minutes * 60_000).toISOString(),
+          ),
+        },
+      },
+    });
+    const worker = browser.boot(initial);
+
+    await worker.tick();
+    expect(worker.env.state.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(browser.create).not.toHaveBeenCalled();
+
+    for (let minute = 1; minute <= 20 && browser.create.mock.calls.length === 0; minute += 1) {
+      vi.advanceTimersByTime(60_000);
+      await worker.tick();
+    }
+
+    expect(worker.env.state.criticalHealth?.kick?.breakerOpen).toBe(false);
+    expect(worker.env.state.criticalHealth?.kick?.rejectedPageContextOpens).toHaveLength(4);
+    expect(browser.create).toHaveBeenCalledOnce();
+    expect(worker.env.state.authHealth.kick.status).toBe("healthy");
+  });
+
+  it("stops standalone probes from creating more contexts once the same worker trips the breaker", async () => {
+    const browser = challengedKickPageContext();
+    for (let probe = 1; probe <= 8; probe += 1) {
+      await browser.env.controller.checkAuthHealth("kick");
+      expect(browser.create).toHaveBeenCalledTimes(Math.min(probe, 5));
+      const tabId = browser.env.state.managedPageContextTabs?.kick?.tabId;
+      if (tabId !== undefined) {
+        browser.openTabs.delete(tabId);
+        await browser.env.controller.handleTabRemoved(tabId);
+      }
+      vi.advanceTimersByTime(31 * 60_000);
+    }
+    expect(browser.env.state.criticalHealth?.kick).toMatchObject({
+      status: "flagged",
+      reason: "page_context_churn",
+      breakerOpen: true,
+    });
+  });
+
+  it("persists the removal of a newly opened context rejected during a standalone probe", async () => {
+    const browser = challengedKickPageContext();
+    browser.page.usable = false;
+
+    await browser.env.controller.checkAuthHealth("kick");
+
+    expect(
+      browser.env.deps.saveState.mock.calls.some(
+        ([state]) => state.managedPageContextTabs?.kick?.tabId === 41,
+      ),
+    ).toBe(true);
+    expect(browser.remove).toHaveBeenCalledExactlyOnceWith(41);
+    expect(browser.env.tabRegistry.retainedPageContextTabs.has("kick")).toBe(false);
+    expect(browser.env.state.managedPageContextTabs?.kick).toBeUndefined();
+  });
 
   it("keeps the rapid churn window across cold probes, even when the new tabs work", async () => {
     const browser = challengedKickPageContext();

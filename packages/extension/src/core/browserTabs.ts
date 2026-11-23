@@ -19,6 +19,7 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
 import {
   ManagedPageContextBlockedError,
+  ManagedPageContextCleanupError,
   SafeFetchError,
   safeFetchFailure,
   type SafeFetchFailure,
@@ -981,7 +982,7 @@ async function mintTwitchIntegrity(
             ? "proactive_integrity_refresh"
             : reason === "readiness"
               ? "integrity_readiness"
-              : undefined,
+              : "integrity_rejection_recovery",
       },
       signal,
     );
@@ -1184,7 +1185,7 @@ async function acquirePageContextTab(
   signal?.throwIfAborted();
   let entry = registry.pageContextTabs.get(origin);
   if (entry?.abort.signal.aborted) {
-    throw new Error("Managed page context cleanup is already in progress");
+    throw new ManagedPageContextCleanupError();
   }
   let promise: Promise<PageContextTab>;
   if (entry) {
@@ -1285,7 +1286,11 @@ async function releasePageContextTab(
     return;
   }
 
-  entry.abort.abort();
+  if (shouldClosePageContext(pageContext, discardRetainedContext)) {
+    entry.abort.abort();
+  } else if (registry.pageContextTabs.get(origin) === entry) {
+    registry.pageContextTabs.delete(origin);
+  }
   try {
     await disposePageContextTab(
       registry,
@@ -1300,6 +1305,13 @@ async function releasePageContextTab(
   }
 }
 
+function shouldClosePageContext(
+  pageContext: PageContextTab,
+  discardRetainedContext: boolean,
+): boolean {
+  return pageContext.createdByExtension && (!pageContext.retainedContext || discardRetainedContext);
+}
+
 async function disposePageContextTab(
   registry: TabRegistry,
   browserApi: BrowserTabApi,
@@ -1308,14 +1320,15 @@ async function disposePageContextTab(
   emit: EventEmitter,
   discardRetainedContext: boolean,
 ): Promise<void> {
-  if (!pageContext.createdByExtension) return;
-  if (pageContext.retainedContext && !discardRetainedContext) {
-    diagnostic(
-      emit,
-      "debug",
-      `Retained managed page context on ${new URL(pageContext.retainedContext.origin).host} because it may still be required`,
-      pageContext.retainedContext.platform,
-    );
+  if (!shouldClosePageContext(pageContext, discardRetainedContext)) {
+    if (pageContext.retainedContext) {
+      diagnostic(
+        emit,
+        "debug",
+        `Retained managed page context on ${new URL(pageContext.retainedContext.origin).host} because it may still be required`,
+        pageContext.retainedContext.platform,
+      );
+    }
     return;
   }
   const closed = await closeOwnedPageContext(
@@ -1352,7 +1365,7 @@ async function closeOwnedPageContext(
   if (registry.tabClosures.has(tabId)) {
     return {
       outcome: "open",
-      error: new Error("Managed page context cleanup is already in progress"),
+      error: new ManagedPageContextCleanupError(),
     };
   }
   const closed = await closeOwnedTab(registry, browserApi, tabId, reason, signal);
@@ -1492,7 +1505,7 @@ async function findOrCreatePageContextTab(
       signal?.throwIfAborted();
     }
     if (registry.tabClosures.has(retained.tabId)) {
-      throw new Error("Managed page context cleanup is already in progress");
+      throw new ManagedPageContextCleanupError();
     }
     openReason = "managed_context_unusable";
     const closed = await closeOwnedPageContext(
@@ -1509,7 +1522,7 @@ async function findOrCreatePageContextTab(
         `Kept unusable managed page context on ${new URL(origin).host} because it could not be closed: ${errorMessage(closed.error)}`,
         retained.platform,
       );
-      throw new Error(
+      throw new ManagedPageContextCleanupError(
         `Did not replace the managed page context on ${new URL(origin).host} while it is still open`,
       );
     }

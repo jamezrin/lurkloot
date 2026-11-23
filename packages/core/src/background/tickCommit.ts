@@ -1,4 +1,6 @@
+import type { ActivityEvent } from "@lurkloot/shared/events";
 import type { Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import { rebaseCriticalHealth } from "../core/criticalHealth";
 import { isPlaybackTelemetryHealthy, preserveClaimedRewards } from "../core/scheduler";
 import { jsonEquivalent, SCHEDULER_STATE_MERGE } from "./platformState";
 
@@ -27,7 +29,7 @@ const HEARTBEAT_FIELDS = new Set<keyof WatchSession>([
 const TELEMETRY_FIELDS = new Set<keyof WatchSession>(["playback", "playbackChecks"]);
 
 export type TickRebase =
-  | { readonly status: "current"; readonly state: SchedulerState }
+  | { readonly status: "current"; readonly state: SchedulerState; readonly event?: ActivityEvent }
   | { readonly status: "conflict"; readonly reason: string };
 
 function changedFields(from: WatchSession, to: WatchSession): (keyof WatchSession)[] {
@@ -74,6 +76,7 @@ export function rebaseTickState(
   platform: Platform,
 ): TickRebase {
   const result: Record<string, unknown> = { ...draft };
+  let event: ActivityEvent | undefined;
   for (const [key, kind] of Object.entries(SCHEDULER_STATE_MERGE) as [
     keyof SchedulerState,
     string,
@@ -106,6 +109,15 @@ export function rebaseTickState(
       value = preserveClaimedRewards(draft.campaigns[platform], latest.campaigns[platform]);
     } else if (key === "gamification") {
       value = newestCheck(draft.gamification?.[platform], latest.gamification?.[platform]);
+    } else if (key === "criticalHealth") {
+      const health = latest.criticalHealth?.[platform];
+      // A user dismissal resets the evidence and must beat a stale observation.
+      if (!health || health.dismissedAt !== before.criticalHealth?.[platform]?.dismissedAt) {
+        return { status: "conflict", reason: "critical health was reset" };
+      }
+      const rebased = rebaseCriticalHealth(draft, before, health, platform, Date.now());
+      value = rebased.state.criticalHealth?.[platform];
+      event = rebased.event;
     } else if (key === "managedPageContextTabs") {
       // commitPlatformSnapshot takes the live page-context registry instead.
       value = draftValue;
@@ -117,7 +129,7 @@ export function rebaseTickState(
     else record[platform] = value;
     result[key] = record;
   }
-  return { status: "current", state: result as unknown as SchedulerState };
+  return { status: "current", state: result as unknown as SchedulerState, event };
 }
 
 // What a tick whose decision went stale still records: rewards it claimed, the

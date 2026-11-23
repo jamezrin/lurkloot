@@ -669,6 +669,16 @@ export function createTickRun<S extends EngineSettings>(
             return;
           }
           const tickState = rebased.state;
+          if (latest.criticalHealth?.[platform]?.status === "flagged") {
+            // A concurrent accounting commit already reported the flag it owns.
+            for (let index = events.length - 1; index >= eventsBeforeTick; index -= 1) {
+              const event = events[index];
+              if (event.platform === platform && event.code === "critical_failure_detected") {
+                events.splice(index, 1);
+              }
+            }
+          }
+          if (rebased.event) emit(rebased.event);
           for (const schedulerPlatform of schedulerPlatforms) {
             if (discoverySnapshot(schedulerPlatform).lastAttempt?.complete === true) {
               discoveryComplete.add(schedulerPlatform);

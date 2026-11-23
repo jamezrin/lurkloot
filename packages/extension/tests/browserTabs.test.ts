@@ -45,7 +45,8 @@ import {
   type PageFetchOptions,
 } from "../src/core/browserTabs";
 import { inspectKickDocument } from "../src/core/kickPageDocument";
-import { isSafeFetchError } from "@lurkloot/core/fetchError";
+import { createKickFetcher } from "@lurkloot/core/kick";
+import { isSafeFetchError, ManagedPageContextCleanupError } from "@lurkloot/core/fetchError";
 import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import {
   KICK_BEARER_NEAR_MISS_CASES,
@@ -543,9 +544,13 @@ describe("tab manager", () => {
         undefined,
         kickPageOptions({ retainPageContext: { platform: "kick" } }),
       );
-    await expect(useContext()).rejects.toThrow(
-      "Managed page context cleanup is already in progress",
-    );
+    await expect(useContext()).rejects.toBeInstanceOf(ManagedPageContextCleanupError);
+    const workerChallenge = kickHttpChallenge(403);
+    const fetcher = createKickFetcher({
+      background: vi.fn().mockRejectedValue(workerChallenge),
+      pageFetch: useContext,
+    });
+    await expect(fetcher.fetchJson("https://kick.com/api/v1/user")).rejects.toBe(workerChallenge);
     expect(browser.tabs.create).not.toHaveBeenCalled();
     expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
     removal.resolve(undefined);
@@ -1760,15 +1765,24 @@ describe("tab manager", () => {
       },
     });
 
+    const retainedEntryHeld = vi.fn();
     await fetchJsonInPageWithBrowser(
       registry,
       browser,
       "https://www.twitch.tv/drops/inventory",
       "https://gql.twitch.tv/gql",
       undefined,
-      { retainPageContext: { platform: "twitch" } },
+      {
+        retainPageContext: { platform: "twitch" },
+        emit: (event) => {
+          if (event.category === "diagnostic" && event.message.startsWith("Retained managed")) {
+            retainedEntryHeld(registry.pageContextTabs.has("https://www.twitch.tv"));
+          }
+        },
+      },
     );
 
+    expect(retainedEntryHeld).toHaveBeenCalledExactlyOnceWith(false);
     expect(browser.tabs.get).toHaveBeenCalledWith(14);
     expect(browser.tabs.create).not.toHaveBeenCalled();
     expect(browser.tabs.remove).not.toHaveBeenCalled();
@@ -1920,6 +1934,40 @@ describe("tab manager", () => {
     expect(remaining).toEqual({ kick });
     expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
   });
+
+  it.each([
+    { lookupError: "The tab API is temporarily unavailable", stillOwned: true },
+    { lookupError: "No tab with id: 14.", stillOwned: false },
+  ])(
+    "keeps ownership after a failed close according to the lookup result ($lookupError)",
+    async ({ lookupError, stillOwned }) => {
+      const browser = browserMock();
+      browser.tabs.get.mockRejectedValueOnce(new Error(lookupError));
+      browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+      const kick = {
+        platform: "kick" as const,
+        tabId: 14,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true as const,
+      };
+      registerManagedPageContextTabs(registry, { kick });
+
+      const remaining = await stopManagedPageContextTabsWithBrowser(
+        registry,
+        browser,
+        { kick },
+        {
+          platforms: ["kick"],
+          reason: "authentication_unhealthy",
+        },
+      );
+
+      expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(14);
+      expect(remaining?.kick).toEqual(stillOwned ? kick : undefined);
+      expect(currentManagedPageContextTabs(registry).kick).toEqual(stillOwned ? kick : undefined);
+    },
+  );
 
   it("does not close an existing user tab reused for a page-context fetch", async () => {
     const browser = {

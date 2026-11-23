@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { DropCampaign, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { rebaseTickState, tickEffectFacts } from "@lurkloot/core/background/tickCommit";
+import {
+  dismissCriticalFailure,
+  observeCriticalHealth,
+  recordManagedTabOpen,
+  recordRejectedManagedPageContext,
+} from "@lurkloot/core/criticalHealth";
 import { DEFAULT_STATE } from "../src/core/storage";
 
 // The scheduler tick's commit (#599): a three-way merge of the state the tick
@@ -155,6 +161,98 @@ describe("tick commit rebase", () => {
       status: "conflict",
       reason: "the watch session changed",
     });
+  });
+
+  it("keeps the tick observation and a concurrently committed rejection flag", () => {
+    const now = Date.now();
+    const pageContext = {
+      source: "page_context",
+      reason: "integrity_rejection_recovery",
+    } as const;
+    let baseline = before;
+    for (const minutes of [120, 90, 60, 30]) {
+      const at = now - minutes * 60_000;
+      baseline = recordManagedTabOpen(baseline, "twitch", at, pageContext).state;
+      baseline = recordRejectedManagedPageContext(baseline, "twitch", at).state;
+    }
+    const tick = observeCriticalHealth(
+      recordManagedTabOpen({ ...draft, criticalHealth: baseline.criticalHealth }, "twitch", now, {
+        source: "watch_tab",
+      }).state,
+      "twitch",
+      { at: now, failing: false, progressed: true, preconditionBroke: false, watchedMinutes: 7 },
+    ).state;
+    const latest = recordRejectedManagedPageContext(
+      recordManagedTabOpen(baseline, "twitch", now - 1, pageContext).state,
+      "twitch",
+      now - 1,
+    ).state;
+    const rebased = rebaseTickState(tick, baseline, latest, "twitch");
+    expect(rebased).toMatchObject({
+      status: "current",
+      state: {
+        sessions: draft.sessions,
+        criticalHealth: {
+          twitch: {
+            status: "flagged",
+            reason: "page_context_churn",
+            flaggedAt: new Date(now - 1).toISOString(),
+            breakerOpen: true,
+            lastWatchedMinutes: 7,
+            managedTabOpens: [new Date(now - 1).toISOString(), new Date(now).toISOString()],
+            rejectedPageContextOpens: latest.criticalHealth?.twitch?.rejectedPageContextOpens,
+            records: [
+              ...latest.criticalHealth!.twitch!.records,
+              { kind: "watch_tab_open", at: new Date(now).toISOString() },
+            ],
+          },
+        },
+      },
+    });
+    expect(rebased.status === "current" && rebased.event).toBeUndefined();
+  });
+
+  it("trips the breaker when opens committed separately reach the shared limit", () => {
+    const now = Date.now();
+    const pageContext = { source: "page_context", reason: "background_rejected" } as const;
+    const baseline = [3, 2, 1].reduce(
+      (state, seconds) =>
+        recordManagedTabOpen(state, "twitch", now - seconds * 1000, pageContext).state,
+      before,
+    );
+    const tick = recordManagedTabOpen(
+      { ...draft, criticalHealth: baseline.criticalHealth },
+      "twitch",
+      now,
+      { source: "watch_tab" },
+    ).state;
+    const latest = recordManagedTabOpen(baseline, "twitch", now, pageContext).state;
+    expect(tick.criticalHealth?.twitch?.breakerOpen).toBe(false);
+    expect(latest.criticalHealth?.twitch?.breakerOpen).toBe(false);
+    expect(rebaseTickState(tick, baseline, latest, "twitch")).toMatchObject({
+      status: "current",
+      state: {
+        criticalHealth: { twitch: { breakerOpen: true, reason: "page_context_churn" } },
+      },
+      event: { code: "critical_failure_detected", data: { reason: "page_context_churn" } },
+    });
+  });
+
+  it("keeps a dismissal when a tick observed critical health before it was reset", () => {
+    const now = Date.now();
+    const baseline = [4, 3, 2, 1, 0].reduce(
+      (state, seconds) =>
+        recordManagedTabOpen(state, "twitch", now - seconds * 1000, { source: "watch_tab" }).state,
+      before,
+    );
+    const tick = observeCriticalHealth(baseline, "twitch", {
+      at: now,
+      failing: true,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+    const latest = dismissCriticalFailure(baseline, "twitch", now).state;
+    expect(rebaseTickState(tick, baseline, latest, "twitch")).toMatchObject({ status: "conflict" });
   });
 
   it("carries another writer's claim into the tick's inventory", () => {

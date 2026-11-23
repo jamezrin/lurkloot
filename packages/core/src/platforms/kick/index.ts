@@ -12,7 +12,11 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import type { DiscoverySignalController } from "../../core/discoverySignals";
 import { isKickHttpChallenge, KickWafBlockedError } from "../../core/transport";
-import { authHealthFromError, ManagedPageContextBlockedError } from "../../core/fetchError";
+import {
+  authHealthFromError,
+  ManagedPageContextBlockedError,
+  ManagedPageContextCleanupError,
+} from "../../core/fetchError";
 import type { WebSocketFactory } from "../../core/webSocket";
 import {
   diagnostic,
@@ -342,8 +346,13 @@ export function createKickFetcher(deps: {
           try {
             result = await pageFetch(url, init);
           } catch (fallbackError) {
-            // A local breaker did not change the identity endpoint's verdict.
-            if (fallbackError instanceof ManagedPageContextBlockedError) throw error;
+            // Local tab admission and cleanup are separate from the endpoint's verdict.
+            if (
+              fallbackError instanceof ManagedPageContextBlockedError
+              || fallbackError instanceof ManagedPageContextCleanupError
+            ) {
+              throw error;
+            }
             throw fallbackError;
           }
           routeState.report(
