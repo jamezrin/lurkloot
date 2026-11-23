@@ -60,6 +60,9 @@ body { background: #000; }
 ::selection { background: #ededed; color: #000; }
 
 /* ---------- header: the site's bar, with search ---------- */
+/* The same gutter as the site's header (.sg-edge in signal.css). */
+:root { --sl-nav-pad-x: 24px; }
+@media (max-width: 640px) { :root { --sl-nav-pad-x: 16px; } }
 header.header { backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4); }
 /* The bar's own styles are in signal.css (.sg-bar). In the guide it fills
    Starlight's header, and on narrow screens gives way to Starlight's search

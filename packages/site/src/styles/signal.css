@@ -39,6 +39,10 @@
 .signal p { color: var(--sg-muted); }
 .signal a:focus-visible, .signal button:focus-visible, .signal summary:focus-visible { outline: 2px solid #ededed; outline-offset: 3px; border-radius: 6px; }
 .sg-wrap { width: min(100% - 48px, 1280px); margin-inline: auto; }
+/* The header spans the window, as the guide's does, so it sits in the same
+   place on every page at every width. Its gutter matches the guide's
+   (--sl-nav-pad-x in guide.css). */
+.sg-edge { width: calc(100% - 48px); margin-inline: auto; }
 .sg-section { padding-block: clamp(96px, 11vw, 160px); }
 .sg-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .sg-skip { position: absolute; left: 24px; top: -100px; z-index: 100; padding: 10px 16px; border-radius: 6px; background: #ededed; color: #000; font-weight: 500; }
@@ -489,7 +493,7 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
 }
 @media (max-width: 640px) {
   .signal { font-size: 15px; }
-  .sg-wrap { width: calc(100% - 32px); }
+  .sg-wrap, .sg-edge { width: calc(100% - 32px); }
   .sg-nav__inner, .sg-bar { min-height: 56px; gap: 12px; }
   /* The sections row waits until the hero is scrolled past, then slides in.
      It scrolls sideways edge to edge, fading where it is cut off. */
