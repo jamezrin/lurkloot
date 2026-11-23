@@ -17,8 +17,14 @@ import type {
 } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
-import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
+import {
+  ManagedPageContextBlockedError,
+  SafeFetchError,
+  safeFetchFailure,
+  type SafeFetchFailure,
+} from "@lurkloot/core/fetchError";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "@lurkloot/core/timestamps";
+import type { PageContextOpenAccountingReason } from "@lurkloot/core/criticalHealth";
 import { withAbortSignal } from "@lurkloot/core/abort";
 import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import {
@@ -27,8 +33,8 @@ import {
 } from "@lurkloot/core/transport";
 import {
   describeContextBoot,
-  forgetManagedPageContextTabs,
   forgetOpeningWatchTab,
+  forgetRemovedPageContextTab,
   forgetTabClosure,
   hasReplacementTwitchIntegrity,
   hasValidTwitchIntegrity,
@@ -102,6 +108,10 @@ type OwnedTabClose =
 // A close can fail while the tab stays open ("Tabs cannot be edited right
 // now"). Only a tab that is really gone may be forgotten: forgetting an open one
 // orphans it, and the next caller opens a replacement beside it (#794).
+function isMissingTabError(error: unknown): boolean {
+  return /no tab with id|invalid tab id/i.test(errorMessage(error));
+}
+
 async function closeOwnedTab(
   registry: TabRegistry,
   browserApi: BrowserTabApi,
@@ -117,8 +127,11 @@ async function closeOwnedTab(
     try {
       const tab = await withAbortSignal(browserApi.tabs.get(tabId), signal);
       if (tab?.id === tabId) return { outcome: "open", error };
-    } catch {
+    } catch (lookupError) {
       signal?.throwIfAborted();
+      if (!isMissingTabError(lookupError)) {
+        return { outcome: "open", error };
+      }
     }
     return { outcome: "gone" };
   }
@@ -722,7 +735,8 @@ export interface PageFetchOptions {
   // controller still needs to account for every extension-owned context it
   // opens in the managed-tab churn breaker.
   emitPageContextActivity?: boolean;
-  onManagedPageContextOpen?: () => void | Promise<void>;
+  onManagedPageContextOpen?: TwitchIntegrityRequest["onManagedPageContextOpen"];
+  accountingReason?: PageContextOpenAccountingReason;
   // Demands a context that is about to boot the SPA from scratch, because the
   // caller is waiting for the page to issue something (see ensureTwitchIntegrity-
   // WithBrowser). An already-loaded user tab is idle and would only time out, and
@@ -845,7 +859,7 @@ function startTwitchIntegrityAcquisition(
   rejectedToken: string | undefined,
   forceRefresh: boolean,
   reason: NonNullable<TwitchIntegrityRequest["reason"]>,
-  onManagedPageContextOpen?: () => void | Promise<void>,
+  onManagedPageContextOpen?: TwitchIntegrityRequest["onManagedPageContextOpen"],
   callerSignal?: AbortSignal,
 ): Promise<TwitchIntegrityAcquisitionResult | undefined> {
   if (twitchMintHeld(registry)) {
@@ -930,7 +944,7 @@ async function mintTwitchIntegrity(
   // only ever time out.
   forceRefresh: boolean,
   reason: NonNullable<TwitchIntegrityRequest["reason"]>,
-  onManagedPageContextOpen?: () => void | Promise<void>,
+  onManagedPageContextOpen?: TwitchIntegrityRequest["onManagedPageContextOpen"],
   signal?: AbortSignal,
 ): Promise<TwitchIntegrityAcquisitionResult | undefined> {
   const failureLevel = reason === "proactive_refresh" ? "debug" : "warn";
@@ -962,6 +976,12 @@ async function mintTwitchIntegrity(
         requireFreshPageContext: forceRefresh,
         emitPageContextActivity: reason === "rejection_recovery",
         onManagedPageContextOpen,
+        accountingReason:
+          reason === "proactive_refresh"
+            ? "proactive_integrity_refresh"
+            : reason === "readiness"
+              ? "integrity_readiness"
+              : undefined,
       },
       signal,
     );
@@ -1106,7 +1126,7 @@ export async function fetchJsonInPageWithBrowser<T>(
       // means the context tab was closed or navigated away before injection.
       // Surface that clearly instead of dereferencing undefined.
       if (!result) throw new Error(`Page context for ${origin} returned no script result`);
-      return unwrapPageFetchResult<T>(result.result, options?.challengeError);
+      return await unwrapPageFetchResult<T>(result.result, pageContext, options?.challengeError);
     }
 
     if (runtimeBrowser.tabs.executeScript) {
@@ -1114,7 +1134,7 @@ export async function fetchJsonInPageWithBrowser<T>(
       const execution = runtimeBrowser.tabs.executeScript(pageContext.tabId, { code });
       const results = await withAbortSignal(execution, signal);
       const result = results?.[0];
-      return unwrapPageFetchResult<T>(result, options?.challengeError);
+      return await unwrapPageFetchResult<T>(result, pageContext, options?.challengeError);
     }
 
     throw new Error("No supported page script execution API is available");
@@ -1136,21 +1156,19 @@ function pageFetchInitJson(init?: RequestInit): string | null {
   return JSON.stringify(serializableInit);
 }
 
-function unwrapPageFetchResult<T>(
+async function unwrapPageFetchResult<T>(
   candidate: unknown,
+  pageContext: PageContextTab,
   challengeError?: PageFetchOptions["challengeError"],
-): T {
+): Promise<T> {
   if (!candidate || typeof candidate !== "object") return candidate as T;
   const envelope = candidate as Record<string, unknown>;
   if (envelope.__lurklootPageFetch !== true) return candidate as T;
   if (envelope.ok === true) return envelope.data as T;
   const failure = safeFetchFailure(envelope.error);
-  if (
-    challengeError
-    && envelope.challenge === true
-    && (failure.status === 401 || failure.status === 403)
-  ) {
-    throw challengeError(failure.status);
+  if (envelope.challenge === true && (failure.status === 401 || failure.status === 403)) {
+    await pageContext.recordRejection?.();
+    if (challengeError) throw challengeError(failure.status);
   }
   throw new SafeFetchError(failure);
 }
@@ -1165,6 +1183,9 @@ async function acquirePageContextTab(
 ): Promise<PageContextTab> {
   signal?.throwIfAborted();
   let entry = registry.pageContextTabs.get(origin);
+  if (entry?.abort.signal.aborted) {
+    throw new Error("Managed page context cleanup is already in progress");
+  }
   let promise: Promise<PageContextTab>;
   if (entry) {
     // Inherited from a concurrent caller: this tab has already served its own
@@ -1199,7 +1220,6 @@ async function acquirePageContextTab(
   } catch (error) {
     entry.refs -= 1;
     if (entry.refs === 0 && registry.pageContextTabs.get(origin) === entry) {
-      registry.pageContextTabs.delete(origin);
       entry.abort.abort(signal?.aborted ? signal.reason : error);
       const abandoned = entry;
       // Aborting the creation signal handles work still in progress. If the
@@ -1220,6 +1240,10 @@ async function acquirePageContextTab(
           );
         } catch {
           // A failed creation cleans up its own newly opened tab.
+        } finally {
+          if (registry.pageContextTabs.get(origin) === abandoned) {
+            registry.pageContextTabs.delete(origin);
+          }
         }
       })();
     }
@@ -1261,15 +1285,19 @@ async function releasePageContextTab(
     return;
   }
 
-  registry.pageContextTabs.delete(origin);
-  await disposePageContextTab(
-    registry,
-    browserApi,
-    origin,
-    pageContext,
-    emit,
-    discardRetainedContext,
-  );
+  entry.abort.abort();
+  try {
+    await disposePageContextTab(
+      registry,
+      browserApi,
+      origin,
+      pageContext,
+      emit,
+      discardRetainedContext,
+    );
+  } finally {
+    if (registry.pageContextTabs.get(origin) === entry) registry.pageContextTabs.delete(origin);
+  }
 }
 
 async function disposePageContextTab(
@@ -1282,11 +1310,6 @@ async function disposePageContextTab(
 ): Promise<void> {
   if (!pageContext.createdByExtension) return;
   if (pageContext.retainedContext && !discardRetainedContext) {
-    registry.retainedPageContextTabs.set(
-      pageContext.retainedContext.platform,
-      pageContext.retainedContext,
-    );
-    registry.retainedPageContextRevision += 1;
     diagnostic(
       emit,
       "debug",
@@ -1295,33 +1318,46 @@ async function disposePageContextTab(
     );
     return;
   }
-  if (pageContext.retainedContext) {
-    const retained = registry.retainedPageContextTabs.get(pageContext.retainedContext.platform);
-    if (retained?.tabId === pageContext.tabId) {
-      registry.retainedPageContextTabs.delete(pageContext.retainedContext.platform);
-      registry.retainedPageContextRevision += 1;
-    }
-  }
-  if (!browserApi.tabs.remove) return;
-
-  try {
-    await closeTab(registry, browserApi, pageContext.tabId, "extension-cleanup");
+  const closed = await closeOwnedPageContext(
+    registry,
+    browserApi,
+    pageContext.tabId,
+    "extension-cleanup",
+  );
+  const host = new URL(origin).host;
+  if (closed.outcome === "closed") {
     diagnostic(
       emit,
       "debug",
-      `Closed temporary page context tab ${pageContext.tabId} on ${new URL(origin).host}`,
+      `Closed temporary page context tab ${pageContext.tabId} on ${host}`,
       platformForOrigin(origin),
     );
-  } catch (error) {
-    // The temporary context tab may have been closed manually before cleanup.
-    const message = errorMessage(error);
+  } else if (closed.outcome === "open") {
     diagnostic(
       emit,
       "warn",
-      `Could not close temporary page context tab ${pageContext.tabId} on ${new URL(origin).host}: ${message}`,
+      `Could not close temporary page context tab ${pageContext.tabId} on ${host}: ${errorMessage(closed.error)}`,
       platformForOrigin(origin),
     );
   }
+}
+
+async function closeOwnedPageContext(
+  registry: TabRegistry,
+  browserApi: BrowserTabApi,
+  tabId: number,
+  reason: Exclude<TabClosureOrigin, "user">,
+  signal?: AbortSignal,
+): Promise<OwnedTabClose> {
+  if (registry.tabClosures.has(tabId)) {
+    return {
+      outcome: "open",
+      error: new Error("Managed page context cleanup is already in progress"),
+    };
+  }
+  const closed = await closeOwnedTab(registry, browserApi, tabId, reason, signal);
+  if (closed.outcome !== "open") forgetRemovedPageContextTab(registry, {}, tabId);
+  return closed;
 }
 
 async function findOrCreatePageContextTab(
@@ -1334,10 +1370,16 @@ async function findOrCreatePageContextTab(
 ): Promise<PageContextTab> {
   signal?.throwIfAborted();
   const retain = options?.retainPageContext;
+  const retainCreatedContext = retain !== undefined && retain.retainCreatedPageContext !== false;
+  const contextPlatform = retain?.platform ?? platformForOrigin(origin);
+  if (contextPlatform) {
+    const preparation = registry.managedPageContexts?.prepare(contextPlatform);
+    if (preparation) await withAbortSignal(preparation, signal);
+  }
   let openReason = options?.openReason ?? "background_rejected";
   const retained =
     retain?.managedContext
-    ?? (retain ? registry.retainedPageContextTabs.get(retain.platform) : undefined);
+    ?? (contextPlatform ? registry.retainedPageContextTabs.get(contextPlatform) : undefined);
   const tabs = await withAbortSignal(browserApi.tabs.query({ url: `${origin}/*` }), signal);
   const retainedIds = new Set(
     [...registry.retainedPageContextTabs.values(), retained]
@@ -1357,17 +1399,8 @@ async function findOrCreatePageContextTab(
   }
   if (tabId != null) {
     if (retained?.origin === origin) {
-      registry.retainedPageContextTabs.delete(retained.platform);
-      registry.retainedPageContextRevision += 1;
-      if (!browserApi.tabs.remove) {
-        diagnostic(
-          options?.emit ?? ignoreEvent,
-          "debug",
-          `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`,
-          retained.platform,
-        );
-      } else {
-        const closed = await closeOwnedTab(
+      if (!registry.tabClosures.has(retained.tabId)) {
+        const closed = await closeOwnedPageContext(
           registry,
           browserApi,
           retained.tabId,
@@ -1390,8 +1423,6 @@ async function findOrCreatePageContextTab(
             retained.platform,
           );
         } else {
-          registry.retainedPageContextTabs.set(retained.platform, retained);
-          registry.retainedPageContextRevision += 1;
           diagnostic(
             options?.emit ?? ignoreEvent,
             "warn",
@@ -1415,7 +1446,9 @@ async function findOrCreatePageContextTab(
     try {
       const tab = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
       if (
-        tab?.id
+        !retained.cleanupPending
+        && !registry.tabClosures.has(retained.tabId)
+        && tab?.id === retained.tabId
         && tab.url?.startsWith(origin)
         && !(await pageContextFailure(browserApi, tab.id, options?.inspectDocument, signal))
       ) {
@@ -1458,10 +1491,11 @@ async function findOrCreatePageContextTab(
     } catch {
       signal?.throwIfAborted();
     }
-    registry.retainedPageContextTabs.delete(retained.platform);
-    registry.retainedPageContextRevision += 1;
+    if (registry.tabClosures.has(retained.tabId)) {
+      throw new Error("Managed page context cleanup is already in progress");
+    }
     openReason = "managed_context_unusable";
-    const closed = await closeOwnedTab(
+    const closed = await closeOwnedPageContext(
       registry,
       browserApi,
       retained.tabId,
@@ -1469,8 +1503,6 @@ async function findOrCreatePageContextTab(
       signal,
     );
     if (closed.outcome === "open") {
-      registry.retainedPageContextTabs.set(retained.platform, retained);
-      registry.retainedPageContextRevision += 1;
       diagnostic(
         options?.emit ?? ignoreEvent,
         "warn",
@@ -1502,91 +1534,118 @@ async function findOrCreatePageContextTab(
   // The breaker is open: this platform kept reopening a managed tab. Opening
   // another one is exactly the user-hostile behaviour we detected, so the fetch
   // fails instead. It closes on its own once the churn evidence ages out.
-  const contextPlatform = retain?.platform ?? platformForOrigin(origin);
-  if (contextPlatform && registry.openManagedTabBreakers.has(contextPlatform)) {
-    throw new SafeFetchError({
-      kind: "security_policy_blocked",
-      reason: "Managed tab creation is suspended after repeated reopening",
-    });
+  if (contextPlatform && managedTabBreakerOpen(registry, contextPlatform)) {
+    throw new ManagedPageContextBlockedError();
   }
 
   signal?.throwIfAborted();
-  const createdAt = Date.now();
-  const tab = (await browserApi.tabs.create({ url: originUrl, pinned: false, active: false })) as {
-    id?: number;
-  };
-  if (tab.id == null) {
+  const tab = await browserApi.tabs.create({ url: originUrl, pinned: false, active: false });
+  if (tab?.id == null) {
     signal?.throwIfAborted();
     throw new Error(`Could not open page context for ${originUrl}`);
   }
-  noteExtensionCreatedTab(registry, tab.id);
-  if (contextPlatform === "twitch") registry.twitchContextBoot = { tabId: tab.id, createdAt };
-  try {
-    signal?.throwIfAborted();
-    await withAbortSignal(browserApi.tabs.update(tab.id, { muted: true, active: false }), signal);
-    await waitForTabReady(browserApi, tab.id, origin, signal);
-    if (registry.twitchContextBoot?.tabId === tab.id)
-      registry.twitchContextBoot.readyAt = Date.now();
-    const failure = await pageContextFailure(browserApi, tab.id, options?.inspectDocument, signal);
-    if (failure) throw new SafeFetchError(failure);
-    // Accounting can wait on controller state locks. Keep it within the new
-    // tab's cleanup scope and abort its wait too, or cancellation can discard
-    // the acquiring entry while leaving this already-created tab unowned.
-    try {
-      await withAbortSignal(Promise.resolve(options?.onManagedPageContextOpen?.()), signal);
-    } catch {
-      signal?.throwIfAborted();
-      if (contextPlatform) {
-        diagnostic(
-          options?.emit ?? ignoreEvent,
-          "warn",
-          `Could not account for a managed page context opened on ${new URL(origin).host}`,
-          contextPlatform,
-        );
-      }
-    }
-    signal?.throwIfAborted();
-  } catch (error) {
-    try {
-      if (browserApi.tabs.remove) await closeTab(registry, browserApi, tab.id, "extension-cleanup");
-    } catch {
-      // The unusable page may already have been closed.
-    }
-    throw error;
-  }
-  if (retain && retain.retainCreatedPageContext !== false) {
-    const retainedContext: ManagedPageContextTab = {
-      platform: retain.platform,
-      tabId: tab.id,
+  const createdAt = Date.now();
+  const tabIdCreated = tab.id;
+  noteExtensionCreatedTab(registry, tabIdCreated);
+  if (contextPlatform === "twitch") registry.twitchContextBoot = { tabId: tabIdCreated, createdAt };
+  let context: ManagedPageContextTab | undefined;
+  let recordRejection: PageContextTab["recordRejection"];
+  if (contextPlatform) {
+    context = {
+      platform: contextPlatform,
+      tabId: tabIdCreated,
       originUrl,
       origin,
       ownedByExtension: true,
+      ...(retainCreatedContext ? {} : { cleanupPending: true }),
     };
-    registry.retainedPageContextTabs.set(retain.platform, retainedContext);
+    registry.retainedPageContextTabs.set(contextPlatform, context);
     registry.retainedPageContextRevision += 1;
+    let rejection: Promise<void> | undefined;
+    recordRejection = () =>
+      (rejection ??= Promise.resolve(
+        registry.managedPageContexts?.rejected(contextPlatform, createdAt),
+      ).catch(() =>
+        diagnostic(
+          options?.emit ?? ignoreEvent,
+          "warn",
+          `Could not record a rejected managed page context on ${new URL(origin).host}`,
+          contextPlatform,
+        ),
+      ));
+  }
+  const created: PageContextTab = {
+    tabId: tabIdCreated,
+    createdByExtension: true,
+    openedForRequest: true,
+    source: "created",
+    recordRejection,
+  };
+  try {
+    // Account for the physical open before the document is inspected or the
+    // request can give up this tab. A caller abort can stop waiting for the
+    // commit, but the open happened and the commit still runs.
+    try {
+      const accounting = options?.onManagedPageContextOpen
+        ? options.onManagedPageContextOpen(createdAt)
+        : contextPlatform
+          && registry.managedPageContexts?.opened(
+            contextPlatform,
+            createdAt,
+            options?.accountingReason ?? openReason,
+          );
+      if (accounting) await withAbortSignal(Promise.resolve(accounting), signal);
+    } catch {
+      signal?.throwIfAborted();
+      diagnostic(
+        options?.emit ?? ignoreEvent,
+        "warn",
+        `Could not account for a managed page context opened on ${new URL(origin).host}`,
+        contextPlatform,
+      );
+    }
+    signal?.throwIfAborted();
+    await withAbortSignal(
+      browserApi.tabs.update(tabIdCreated, { muted: true, active: false }),
+      signal,
+    );
+    await waitForTabReady(browserApi, tabIdCreated, origin, signal);
+    if (registry.twitchContextBoot?.tabId === tabIdCreated)
+      registry.twitchContextBoot.readyAt = Date.now();
+    const failure = await pageContextFailure(
+      browserApi,
+      tabIdCreated,
+      options?.inspectDocument,
+      signal,
+    );
+    if (failure) {
+      await recordRejection?.();
+      throw new SafeFetchError(failure);
+    }
+  } catch (error) {
+    await disposePageContextTab(
+      registry,
+      browserApi,
+      origin,
+      created,
+      options?.emit ?? ignoreEvent,
+      true,
+    );
+    throw error;
+  }
+  if (context && retainCreatedContext) {
     if (options?.emitPageContextActivity !== false) {
       options?.emit?.({
         category: "activity",
         code: "page_context_opened",
         level: "info",
-        platform: retain.platform,
+        platform: context.platform,
         data: { host: new URL(origin).host, reason: openReason },
       });
     }
-    return {
-      tabId: tab.id,
-      createdByExtension: true,
-      retainedContext,
-      openedForRequest: true,
-      source: "created",
-    };
+    return { ...created, retainedContext: context };
   }
-  return {
-    tabId: tab.id,
-    createdByExtension: true,
-    openedForRequest: true,
-    source: "created",
-  };
+  return created;
 }
 
 async function pageContextFailure(
@@ -1631,21 +1690,16 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
 ): Promise<boolean> {
   const step = observePageContextRecovery(registry, platform, observation, requiredSuccesses, emit);
   if (step.kind !== "recovered") return step.kind === "retained";
-  const { context, updated } = step;
+  const { context } = step;
 
   const verificationRevision = registry.retainedPageContextRevision;
   let retainedTab: Awaited<ReturnType<BrowserTabApi["tabs"]["get"]>>;
   try {
     retainedTab = await browserApi.tabs.get(context.tabId);
-  } catch {
-    registry.retainedPageContextTabs.delete(platform);
-    registry.retainedPageContextRevision += 1;
-    diagnostic(
-      emit,
-      "debug",
-      `Forgot managed page context on ${new URL(context.origin).host} because the retained tab was already gone`,
-      platform,
-    );
+  } catch (error) {
+    if (isMissingTabError(error)) {
+      forgetRemovedPageContextTab(registry, {}, context.tabId);
+    }
     return true;
   }
   if (
@@ -1706,13 +1760,13 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
     );
     return true;
   }
-  // Release ownership synchronously before the asynchronous close. A fallback
-  // that starts from this point onward must acquire a fresh managed context,
-  // so this recovery attempt cannot delete or close its replacement.
-  registry.retainedPageContextTabs.delete(platform);
-  registry.retainedPageContextRevision += 1;
-  try {
-    await closeTab(registry, browserApi, context.tabId, "extension-recovery");
+  const closed = await closeOwnedPageContext(
+    registry,
+    browserApi,
+    context.tabId,
+    "extension-recovery",
+  );
+  if (closed.outcome === "closed") {
     emit({
       category: "activity",
       code: "page_context_closed",
@@ -1720,11 +1774,7 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
       platform,
       data: { host: new URL(context.origin).host, reason: "background_recovered" },
     });
-  } catch {
-    if (!registry.retainedPageContextTabs.has(platform)) {
-      registry.retainedPageContextTabs.set(platform, updated);
-      registry.retainedPageContextRevision += 1;
-    }
+  } else if (closed.outcome === "open") {
     diagnostic(
       emit,
       "debug",
@@ -1742,23 +1792,18 @@ export async function stopManagedPageContextTabsWithBrowser(
   options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
 ): Promise<SchedulerManagedPageContexts> {
   const platforms = options.platforms ?? ["twitch", "kick"];
-  const forgotten: Platform[] = [];
+  const remaining = { ...contexts };
   for (const platform of platforms) {
     const context = contexts[platform];
     if (!context) continue;
-    if (!browserApi.tabs.remove) {
-      diagnostic(
-        options.emit ?? ignoreEvent,
-        "debug",
-        `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`,
-        platform,
-      );
-      forgotten.push(platform);
-      continue;
-    }
-    const closed = await closeOwnedTab(registry, browserApi, context.tabId, "extension-cleanup");
+    const closed = await closeOwnedPageContext(
+      registry,
+      browserApi,
+      context.tabId,
+      "extension-cleanup",
+    );
     if (closed.outcome === "open") {
-      if (registry.retainedPageContextTabs.get(platform)?.tabId !== context.tabId) {
+      if (!registry.retainedPageContextTabs.has(platform)) {
         registry.retainedPageContextTabs.set(platform, context);
         registry.retainedPageContextRevision += 1;
       }
@@ -1770,7 +1815,7 @@ export async function stopManagedPageContextTabsWithBrowser(
       );
       continue;
     }
-    forgotten.push(platform);
+    delete remaining[platform];
     if (closed.outcome === "closed") {
       options.emit?.({
         category: "activity",
@@ -1791,7 +1836,7 @@ export async function stopManagedPageContextTabsWithBrowser(
       );
     }
   }
-  return forgetManagedPageContextTabs(registry, contexts, { ...options, platforms: forgotten });
+  return remaining;
 }
 
 // Injected into a page's MAIN world via executeScript to fetch with the page's

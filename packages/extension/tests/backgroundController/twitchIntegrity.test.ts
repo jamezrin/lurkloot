@@ -952,6 +952,43 @@ describe("background controller", () => {
       );
     });
 
+    it("accounts an adapter-triggered integrity context and honours a saved breaker", async () => {
+      const origin = "https://www.twitch.tv/drops/inventory";
+      const browser = {
+        tabs: {
+          get: vi.fn<BrowserTabApi["tabs"]["get"]>(async () => ({
+            id: 42,
+            url: origin,
+            status: "complete",
+          })),
+          update: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined),
+          query: vi.fn(async () => []),
+          create: vi.fn(async () => ({ id: 42 })),
+        },
+      } satisfies BrowserTabApi;
+
+      const env = harness();
+      const acquire = (registry = env.tabRegistry) =>
+        ensureTwitchIntegrityWithBrowser(registry, browser, origin, 50, undefined, {
+          reason: "rejection_recovery",
+          forceRefresh: true,
+        });
+      await expect(acquire()).resolves.toBe(false);
+      expect(env.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
+      expect(env.state.criticalHealth?.twitch?.records).toEqual([
+        expect.objectContaining({ kind: "context_open" }),
+      ]);
+      expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(42);
+      browser.tabs.get.mockResolvedValue(undefined);
+
+      const saved = structuredClone(env.state);
+      saved.criticalHealth!.twitch!.breakerOpen = true;
+      const restarted = harness(undefined, { initialState: saved });
+      await expect(acquire(restarted.tabRegistry)).resolves.toBe(false);
+      expect(browser.tabs.create).toHaveBeenCalledOnce();
+    });
+
     it("correlates nested Twitch integrity accounting diagnostics with their scheduler tick", async () => {
       const env = harness(undefined, {
         ensureTwitchIntegrity: async (_emit, request) => {

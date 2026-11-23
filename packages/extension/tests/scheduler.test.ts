@@ -26,7 +26,6 @@ import {
   createTabRegistry,
   forgetManagedPageContextTabs,
   managedTabBreakerOpen,
-  syncManagedTabBreakers,
   type TabRegistry,
 } from "@lurkloot/core/tabRegistry";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
@@ -6679,24 +6678,6 @@ describe("scheduler managed tab circuit breaker", () => {
 
     expect(twitch.prepareWatchTab).toHaveBeenCalled();
     expect(result.state.sessions.twitch.status).toBe("watching");
-  });
-
-  it("clears the page-context registry when the prompt is disabled", async () => {
-    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
-    // A breaker latched before the kill switch was flipped would otherwise keep
-    // blocking page-context creation forever: observations no longer run to
-    // release it, and the popup no longer offers the panel that dismisses it.
-    syncManagedTabBreakers(tabRegistry, { criticalHealth: { twitch: openBreakerHealth() } });
-    expect(managedTabBreakerOpen(tabRegistry, "twitch")).toBe(true);
-
-    await runSchedulerTick(
-      { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
-      breakerSettings({ criticalFailurePromptEnabled: false }),
-      { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"], tabRegistry },
-    );
-
-    expect(managedTabBreakerOpen(tabRegistry, "twitch")).toBe(false);
   });
 
   it("records each newly created managed watch tab", async () => {

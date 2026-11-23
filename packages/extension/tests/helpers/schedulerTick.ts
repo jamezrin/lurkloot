@@ -37,7 +37,12 @@ import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
 import { registerSupplementalTargetEffect } from "@lurkloot/core/background/supplementalSources";
 import { authHealthFromError } from "@lurkloot/core/fetchError";
 import { isTimestampStale } from "@lurkloot/core/timestamps";
-import { createTabRegistry, type TabRegistry } from "@lurkloot/core/tabRegistry";
+import {
+  createTabRegistry,
+  hydrateManagedPageContextTabs,
+  syncManagedTabBreakers,
+  type TabRegistry,
+} from "@lurkloot/core/tabRegistry";
 
 // The scheduler tick never discovers campaigns and never calls an adapter
 // (#599): the controller hands it a committed discovery snapshot and runs its
@@ -130,6 +135,13 @@ export async function runSchedulerTick(
   options: SchedulerTickTestOptions = {},
 ): Promise<SchedulerTickResult> {
   const platforms = options.platforms ?? ["twitch", "kick"];
+  const tabRegistry = options.tabRegistry ?? createTabRegistry();
+  hydrateManagedPageContextTabs(tabRegistry, state.managedPageContextTabs ?? {}, platforms);
+  syncManagedTabBreakers(
+    tabRegistry,
+    settings.criticalFailurePromptEnabled ? state : {},
+    platforms,
+  );
   const browserTabs = options.browserTabs ?? true;
   const selectSupplementalWatchTarget = options.selectSupplementalWatchTarget;
   const discovery: Partial<Record<Platform, SchedulerTickDiscovery>> = { ...options.discovery };
@@ -156,7 +168,7 @@ export async function runSchedulerTick(
       };
     }
   }
-  return await runSchedulerTickEffects(
+  const result = await runSchedulerTickEffects(
     {
       state,
       settings,
@@ -199,7 +211,13 @@ export async function runSchedulerTick(
     {
       adapters,
       settings,
-      tabRegistry: options.tabRegistry ?? createTabRegistry(),
+      tabRegistry,
     },
   );
+  syncManagedTabBreakers(
+    tabRegistry,
+    settings.criticalFailurePromptEnabled ? result.state : {},
+    platforms,
+  );
+  return result;
 }

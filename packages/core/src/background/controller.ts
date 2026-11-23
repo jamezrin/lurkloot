@@ -18,6 +18,7 @@ import { createFarmingSessions } from "./farmingSessions";
 import { createAccountProgress } from "./accountProgress";
 import { createKickRuntime } from "./kickRuntime";
 import { createLifecycle } from "./lifecycle";
+import { bindManagedPageContexts } from "./managedPageContexts";
 import { createManualWatch } from "./manualWatch";
 import { createMessageHandler } from "./messages";
 import { createReporting } from "./reporting";
@@ -144,7 +145,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createKickRuntime(ports, transaction, { lifecycleSlice }, calls),
     ...createAccountProgress(ports, { lifecycleSlice }, calls),
     ...createFarmingSessions(ports, calls),
-    ...createAuthHealth(ports, calls),
+    ...createAuthHealth(ports, tabRegistry, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
     ...createSupplementalSources(ports),
     ...createClaimService(ports, transaction, { lifecycleSlice }, calls),
@@ -156,6 +157,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createLifecycle(ports, { lifecycleSlice, tabRegistry }, calls),
     ...createMessageHandler(calls),
   } satisfies ControllerCalls<S>);
+
+  if (capabilities.browserTabs)
+    bindManagedPageContexts(tabRegistry, ports.storage, transaction, lifecycleSlice, calls);
 
   // Prime the in-memory integrity token from storage (twitchIntegrity.ts).
   calls.startInitialTwitchIntegrityLoad();

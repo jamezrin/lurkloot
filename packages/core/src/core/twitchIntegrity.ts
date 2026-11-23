@@ -25,7 +25,7 @@ export interface TwitchIntegrityRequest {
   // running; only cancelAcquisition stops that.
   signal?: AbortSignal;
   reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
-  onManagedPageContextOpen?: () => void | Promise<void>;
+  onManagedPageContextOpen?: (at?: number) => void | Promise<void>;
   onIntegrityCaptured?: (value: TwitchIntegrity) => void;
   rejectedToken?: string;
 }

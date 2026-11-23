@@ -360,6 +360,8 @@ export interface ManagedPageContextTab {
   originUrl: string;
   origin: string;
   ownedByExtension: true;
+  // A temporary tab that needs cleanup before replacement.
+  cleanupPending?: true;
   lastFallbackAt?: string;
   fallbackHost?: string;
   backgroundSuccesses?: number;

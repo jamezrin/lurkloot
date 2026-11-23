@@ -505,7 +505,7 @@ describe("tab manager", () => {
     });
   });
 
-  it("does not erase a replacement context created while the recovered tab is closing", async () => {
+  it("waits for the recovered tab to be gone before allowing a replacement", async () => {
     const browser = browserMock();
     const removal = deferred<undefined>();
     browser.tabs.query.mockResolvedValue([{ id: 14, url: "https://kick.com", status: "complete" }]);
@@ -534,17 +534,26 @@ describe("tab manager", () => {
       1,
     );
     await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledOnce());
-    await fetchJsonInPageWithBrowser(
-      registry,
-      browserWithScripting,
-      "https://kick.com/drops/inventory",
-      "https://web.kick.com/api/v1/drops/progress",
-      undefined,
-      kickPageOptions({ retainPageContext: { platform: "kick" } }),
+    const useContext = () =>
+      fetchJsonInPageWithBrowser(
+        registry,
+        browserWithScripting,
+        "https://kick.com/drops/inventory",
+        "https://web.kick.com/api/v1/drops/progress",
+        undefined,
+        kickPageOptions({ retainPageContext: { platform: "kick" } }),
+      );
+    await expect(useContext()).rejects.toThrow(
+      "Managed page context cleanup is already in progress",
     );
-    recordManagedPageContextFallback(registry, "kick", "web.kick.com");
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
     removal.resolve(undefined);
     await recovery;
+
+    browser.tabs.query.mockResolvedValue([]);
+    await useContext();
+    recordManagedPageContextFallback(registry, "kick", "web.kick.com");
 
     expect(browser.tabs.create).toHaveBeenCalledOnce();
     expect(executeScript).toHaveBeenCalledWith(expect.objectContaining({ target: { tabId: 15 } }));
@@ -2165,6 +2174,11 @@ describe("twitch integrity refresh", () => {
     it("reports why a temporary integrity tab could not be closed", async () => {
       const browser = browserMock();
       browser.tabs.create.mockResolvedValue({ id: 64 });
+      browser.tabs.get.mockResolvedValue({
+        id: 64,
+        url: "https://www.twitch.tv",
+        status: "complete",
+      });
       browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
       const events: EngineEvent[] = [];
       const pending = ensureTwitchIntegrityWithBrowser(
@@ -2635,7 +2649,7 @@ describe("twitch integrity refresh", () => {
       expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(65);
     });
 
-    it("does not discard a replacement acquisition while closing a cancelled context", async () => {
+    it("holds Twitch replacement acquisition until the cancelled tab is closed", async () => {
       const browser = browserMock();
       browser.tabs.create.mockResolvedValueOnce({ id: 66 }).mockResolvedValueOnce({ id: 67 });
       const accountingStarted = deferred<void>();
@@ -2665,6 +2679,22 @@ describe("twitch integrity refresh", () => {
       await expect(owner).rejects.toBe(reason);
 
       try {
+        await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledWith(66));
+        await expect(
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+          ),
+        ).resolves.toBe(false);
+        expect(browser.tabs.create).toHaveBeenCalledOnce();
+        expect(currentManagedPageContextTabs(registry).twitch?.tabId).toBe(66);
+
+        closingGate.resolve();
+        await vi.waitFor(() =>
+          expect(currentManagedPageContextTabs(registry).twitch).toBeUndefined(),
+        );
         const replacement = ensureTwitchIntegrityWithBrowser(
           registry,
           browser,

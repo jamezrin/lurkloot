@@ -4,10 +4,8 @@ import {
   isValidTwitchIntegrity,
   noteTwitchGqlRequest,
   setTwitchIntegrity,
-  syncManagedTabBreakers,
   twitchMintHeld,
 } from "../core/tabRegistry";
-import { recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import {
@@ -76,10 +74,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     tabRegistry,
     policySlice,
   }: Pick<ControllerSlices<S>, "lifecycleSlice" | "tabRegistry" | "policySlice">,
-  calls: Pick<
-    ControllerCalls<S>,
-    "persistAndReport" | "reportBestEffort" | "withEventCollector" | "withStateLock"
-  >,
+  calls: Pick<ControllerCalls<S>, "reportBestEffort" | "withEventCollector">,
 ): Pick<
   ControllerCalls<S>,
   | "clearTwitchIntegrityAlarmBestEffort"
@@ -93,8 +88,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   | "awaitInitialTwitchIntegrityLoad"
   | "resetTwitchIntegrity"
 > {
-  const { persistAndReport, reportBestEffort, withEventCollector, withStateLock } =
-    lateBound(calls);
+  const { reportBestEffort, withEventCollector } = lateBound(calls);
   const integrityPort = ports.twitch.integrity;
   const integritySlice: TwitchIntegrityState = {
     bookkeeping: Promise.resolve(),
@@ -476,8 +470,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
             forceRefresh: true,
             reason: "proactive_refresh",
             ...(integrity ? { rejectedToken: integrity.integrity } : {}),
-            onManagedPageContextOpen: () =>
-              recordTwitchIntegrityManagedTabOpen("proactive_integrity_refresh"),
+            onManagedPageContextOpen: (at) =>
+              recordTwitchIntegrityManagedTabOpen("proactive_integrity_refresh", at),
             signal: abort.signal,
           });
           if (!ready && !abort.signal.aborted) {
@@ -612,27 +606,11 @@ export function createTwitchIntegrity<S extends EngineSettings>(
 
   async function recordTwitchIntegrityManagedTabOpen(
     reason: "integrity_readiness" | "proactive_integrity_refresh",
+    at = Date.now(),
     tickContext?: TickDiagnosticContext,
   ): Promise<void> {
     try {
-      await withStateLock(() =>
-        withEventCollector(async (emit, events) => {
-          if (!lifecycleAdmits()) return;
-          const settings = await ports.storage.loadSettings();
-          if (!lifecycleAdmits() || !settings.criticalFailurePromptEnabled) return;
-          const state = await ports.storage.loadState();
-          const transition = recordManagedTabOpen(state, "twitch", Date.now(), {
-            source: "page_context",
-            reason,
-          });
-          if (transition.event) emit(transition.event);
-          syncManagedTabBreakers(tabRegistry, transition.state, ["twitch"]);
-          await persistAndReport(
-            transition.state,
-            tickContext ? correlateTickDiagnostics(events, tickContext) : events,
-          );
-        }),
-      );
+      await tabRegistry.managedPageContexts?.opened("twitch", at, reason, tickContext);
     } catch {
       await reportBestEffort([
         {
@@ -722,9 +700,10 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         const ready = await port.ensure(emit, {
           signal,
           reason: due ? "proactive_refresh" : "readiness",
-          onManagedPageContextOpen: () =>
+          onManagedPageContextOpen: (at) =>
             recordTwitchIntegrityManagedTabOpen(
               due ? "proactive_integrity_refresh" : "integrity_readiness",
+              at,
               tickContext,
             ),
           ...(due

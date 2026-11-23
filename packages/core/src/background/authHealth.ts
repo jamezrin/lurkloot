@@ -1,6 +1,6 @@
 import type { EngineSettings, Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { INTEGRITY_REFRESH_TIMEOUT_MS } from "../core/tabRegistry";
+import { INTEGRITY_REFRESH_TIMEOUT_MS, type TabRegistry } from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { lateBound } from "./context";
@@ -23,6 +23,7 @@ const DEFAULT_AUTH_PROBE_TIMEOUT_MS = INTEGRITY_REFRESH_TIMEOUT_MS + 5_000;
 // them.
 export function createAuthHealth<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  tabRegistry: TabRegistry,
   calls: Pick<
     ControllerCalls<S>,
     | "createAdapter"
@@ -149,7 +150,13 @@ export function createAuthHealth<S extends EngineSettings>(
             (state) => {
               const transition = applyPlatformAuthHealth(state, platform, health);
               if (transition.event) emit(transition.event);
-              return transition.state;
+              if (!tabRegistry.managedPageContexts) return transition.state;
+              const context = tabRegistry.retainedPageContextTabs.get(platform);
+              if (!context && !state.managedPageContextTabs?.[platform]) return transition.state;
+              const managedPageContextTabs = { ...transition.state.managedPageContextTabs };
+              if (context) managedPageContextTabs[platform] = context;
+              else delete managedPageContextTabs[platform];
+              return { ...transition.state, managedPageContextTabs };
             },
             { writeEquivalent: true },
           );
@@ -227,6 +234,10 @@ export function createAuthHealth<S extends EngineSettings>(
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
     const results = await Promise.allSettled(
       enabled.map(async (platform) => {
+        await tabRegistry.managedPageContexts?.prepare(
+          platform,
+          settings.criticalFailurePromptEnabled,
+        );
         const result = await withEventCollector(async (emit, events) => {
           let setupFailure: AuthProbeSetupError | undefined;
           let health: PlatformAuthHealth;

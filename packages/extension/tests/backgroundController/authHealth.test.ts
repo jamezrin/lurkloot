@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveCompatibility } from "@lurkloot/core";
-import type { PlatformAuthHealth } from "@lurkloot/shared/models";
+import { mergeSchedulerState } from "@lurkloot/core/defaults";
+import type { PlatformAuthHealth, SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { createKickFetcher } from "@lurkloot/core/kick";
 import { kickAdapter } from "../helpers/adapters";
@@ -13,6 +14,7 @@ import { channel, deferred, farming, harness } from "../helpers/backgroundContro
 import {
   fetchJsonInPageWithBrowser,
   pageFetchJson,
+  stopManagedPageContextTabsWithBrowser,
   type BrowserTabApi,
 } from "../../src/core/browserTabs";
 import { inspectKickDocument } from "../../src/core/kickPageDocument";
@@ -34,7 +36,6 @@ function challengedKickPageContext() {
     ),
   );
   vi.stubGlobal("document", { cookie: "", contentType: "text/html" });
-  const env = harness(farming(DEFAULT_SETTINGS));
   const openTabs = new Set<number>();
   let nextTabId = 40;
   const create = vi.fn(async () => {
@@ -48,7 +49,7 @@ function challengedKickPageContext() {
   const get = vi.fn(async (tabId: number) =>
     openTabs.has(tabId) ? { id: tabId, url: KICK_PAGE_ORIGIN, status: "complete" } : undefined,
   );
-  const page = { works: false };
+  const page = { works: false, usable: true };
   const executeScript = vi.fn<
     NonNullable<NonNullable<BrowserTabApi["scripting"]>["executeScript"]>
   >(async (details) => {
@@ -64,7 +65,9 @@ function challengedKickPageContext() {
   });
   const browser = {
     tabs: {
-      query: vi.fn(async () => []),
+      query: vi.fn(async () =>
+        [...openTabs].map((id) => ({ id, url: KICK_PAGE_ORIGIN, status: "complete" })),
+      ),
       create,
       remove,
       get,
@@ -72,21 +75,41 @@ function challengedKickPageContext() {
     },
     scripting: { executeScript },
   } as unknown as BrowserTabApi;
-  const kick = kickAdapter(
-    createKickFetcher({
-      background: (url, init) => fetchKickInBackgroundWith({}, url, init),
-      pageFetch: (url, init) =>
-        fetchJsonInPageWithBrowser(env.tabRegistry, browser, KICK_PAGE_ORIGIN, url, init, {
-          retainPageContext: { platform: "kick" },
-          inspectDocument: inspectKickDocument,
-          challengeError: kickHttpChallenge,
-          openReason: "background_rejected",
-        }),
-    }),
-  );
-  vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) => kick.checkAuthHealth(signal));
+  function boot(initialState?: SchedulerState) {
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      initialState,
+      stopPageContextTabs: (contexts, options) =>
+        stopManagedPageContextTabsWithBrowser(env.tabRegistry, browser, contexts, options),
+    });
+    // Match extension storage's round trip even within one worker.
+    env.deps.loadState.mockImplementation(async () =>
+      mergeSchedulerState(structuredClone(env.state)),
+    );
+    const kick = kickAdapter(
+      createKickFetcher({
+        background: (url, init) => fetchKickInBackgroundWith({}, url, init),
+        pageFetch: (url, init) =>
+          fetchJsonInPageWithBrowser(env.tabRegistry, browser, KICK_PAGE_ORIGIN, url, init, {
+            retainPageContext: { platform: "kick" },
+            inspectDocument: page.usable
+              ? inspectKickDocument
+              : () => ({ usable: false, failure: { kind: "invalid_response" } }),
+            challengeError: kickHttpChallenge,
+            openReason: "background_rejected",
+          }),
+      }),
+    );
+    const probeOwnership: (number | undefined)[] = [];
+    vi.mocked(env.kick.checkAuthHealth).mockImplementation((signal) => {
+      probeOwnership.push(env.tabRegistry.retainedPageContextTabs.get("kick")?.tabId);
+      return kick.checkAuthHealth(signal);
+    });
+    return { env, probeOwnership, tick: () => env.controller.tick(["kick"], "alarm") };
+  }
   return {
-    env,
+    ...boot(),
+    boot,
+    openTabs,
     create,
     remove,
     page,
@@ -94,7 +117,6 @@ function challengedKickPageContext() {
       executeScript.mock.calls.filter(
         ([details]) => (details as { func?: unknown }).func === pageFetchJson,
       ).length,
-    tick: () => env.controller.tick(["kick"], "alarm"),
   };
 }
 
@@ -102,6 +124,101 @@ describe("background controller", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it.each([true, false])(
+    "stops reopening rejected Kick page contexts across nine worker starts (document usable: %s)",
+    async (usable) => {
+      const browser = challengedKickPageContext();
+      browser.page.usable = usable;
+      let worker = browser.boot();
+      for (let attempt = 0; attempt < 9; attempt += 1) {
+        await worker.tick();
+        const health = worker.env.state.criticalHealth?.kick;
+        const expectedOpens = Math.min(attempt + 1, 5);
+        expect(browser.create).toHaveBeenCalledTimes(expectedOpens);
+        expect(health?.records.filter((record) => record.kind === "context_open")).toHaveLength(
+          expectedOpens,
+        );
+        expect(health?.managedTabOpens).toEqual(attempt < 5 ? [new Date().toISOString()] : []);
+        expect(health?.breakerOpen).toBe(attempt >= 4);
+        if (attempt >= 4) expect(health?.reason).toBe("page_context_churn");
+        const tabId = worker.env.state.managedPageContextTabs?.kick?.tabId;
+        if (tabId !== undefined) {
+          browser.openTabs.delete(tabId);
+          await worker.env.controller.handleTabRemoved(tabId);
+          expect(worker.env.state.managedPageContextTabs?.kick).toBeUndefined();
+        }
+        expect(browser.openTabs.size).toBe(0);
+        vi.advanceTimersByTime(31 * 60_000);
+        worker = browser.boot(structuredClone(worker.env.state));
+      }
+    },
+  );
+
+  it("keeps the rapid churn window across cold probes, even when the new tabs work", async () => {
+    const browser = challengedKickPageContext();
+    browser.page.works = true;
+    let worker = browser.boot();
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      await worker.env.controller.checkAuthHealth("kick");
+      const { criticalHealth, managedPageContextTabs } = worker.env.state;
+      expect(criticalHealth?.kick?.managedTabOpens).toHaveLength(attempt);
+      const tabId = managedPageContextTabs!.kick!.tabId;
+      browser.openTabs.delete(tabId);
+      await worker.env.controller.handleTabRemoved(tabId);
+      vi.advanceTimersByTime(60_000);
+      worker = browser.boot(structuredClone(worker.env.state));
+    }
+    expect(worker.env.state.criticalHealth?.kick?.reason).toBe("page_context_churn");
+    await worker.env.controller.checkAuthHealth("kick");
+    expect(browser.create).toHaveBeenCalledTimes(5);
+  });
+
+  it("reuses the same challenged managed tab after seven worker restarts", async () => {
+    const browser = challengedKickPageContext();
+    let worker = browser.boot();
+    await worker.tick();
+    const owned = worker.env.state.managedPageContextTabs?.kick;
+    expect(owned?.tabId).toBe(41);
+    for (let restart = 0; restart < 7; restart += 1) {
+      vi.advanceTimersByTime(31 * 60_000);
+      worker = browser.boot(structuredClone(worker.env.state));
+      expect(worker.env.tabRegistry.retainedPageContextTabs.size).toBe(0);
+      await worker.tick();
+      expect(worker.probeOwnership).toEqual([owned?.tabId]);
+      expect(worker.env.state.managedPageContextTabs?.kick).toEqual(owned);
+    }
+    expect(browser.create).toHaveBeenCalledOnce();
+    expect(browser.pageFetches()).toBe(8);
+  });
+
+  it("honours the persisted breaker before the first Kick identity probe", async () => {
+    const browser = challengedKickPageContext();
+    await browser.tick();
+    const saved = structuredClone(browser.env.state);
+    saved.managedPageContextTabs = {};
+    saved.criticalHealth!.kick!.breakerOpen = true;
+    browser.openTabs.clear();
+    const restarted = browser.boot(saved);
+    await restarted.tick();
+    expect(browser.create).toHaveBeenCalledOnce();
+    expect(browser.pageFetches()).toBe(1);
+    expect(restarted.env.state.authHealth.kick.reasonCode).toBe("request_challenged");
+  });
+
+  it("retains ownership of an inspected tab if cleanup fails, including across a restart", async () => {
+    const browser = challengedKickPageContext();
+    browser.page.usable = false;
+    browser.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+    await browser.tick();
+    expect(browser.env.state.managedPageContextTabs?.kick?.tabId).toBe(41);
+    vi.advanceTimersByTime(31 * 60_000);
+    const restarted = browser.boot(structuredClone(browser.env.state));
+    await restarted.tick();
+    expect(browser.create).toHaveBeenCalledOnce();
+    expect(restarted.env.state.managedPageContextTabs?.kick?.tabId).toBe(41);
+    expect(browser.pageFetches()).toBe(0);
   });
 
   it("backs off a Kick HTML challenge at the identity endpoint and resumes after a healthy probe", async () => {

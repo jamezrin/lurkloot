@@ -12,7 +12,6 @@ import type {
   SnapshotSelectionResult,
 } from "../core/scheduler";
 import { syncManagedTabBreakers } from "../core/tabRegistry";
-import { recordManagedTabOpen } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
 import {
   adapterFromDiscoverySnapshot,
@@ -264,6 +263,11 @@ export function createTickRun<S extends EngineSettings>(
     await reportUnsupportedSettings(settings, tickContext);
     const requestedPlatforms = platforms ?? PLATFORMS;
     const excludedPlatforms = new Set<Platform>();
+    for (const platform of requestedPlatforms)
+      await tabRegistry.managedPageContexts?.prepare(
+        platform,
+        settings.criticalFailurePromptEnabled,
+      );
     if (isFarmingActive(settings)) {
       // A platform's own service may hold it out of the tick until it is
       // ready (#696): Twitch integrity, before Twitch is farmed.
@@ -691,24 +695,6 @@ export function createTickRun<S extends EngineSettings>(
           signal.throwIfAborted();
           assertSelectionsCurrent();
           nextState = tickState;
-          if (settings.criticalFailurePromptEnabled) {
-            // Page-context tabs are created deep inside tabs.ts, which has no access
-            // to scheduler state, and their events come from the adapters' own
-            // emitter rather than the tick's. Reading them back off this tick's
-            // collected events catches every emitter, not just the wrapped one.
-            for (const event of events.slice(eventsBeforeTick)) {
-              if (event.category !== "activity" || event.code !== "page_context_opened") continue;
-              const transition = recordManagedTabOpen(nextState, event.platform, Date.now(), {
-                source: "page_context",
-                reason: event.data.reason,
-              });
-              nextState = transition.state;
-              if (transition.event) emit(transition.event);
-            }
-            // Keep the registry that gates page-context creation in step with the
-            // state we are about to persist, so the very next fetch is suppressed.
-            syncManagedTabBreakers(tabRegistry, nextState, schedulerPlatforms);
-          }
         } catch (error) {
           try {
             if (signal.aborted) {
@@ -773,6 +759,11 @@ export function createTickRun<S extends EngineSettings>(
             await commitFacts(await loadLatest(), staleSelection.message, factEvents);
             return;
           }
+          syncManagedTabBreakers(
+            tabRegistry,
+            settings.criticalFailurePromptEnabled ? nextState : {},
+            schedulerPlatforms,
+          );
           afterCommit = {
             heartbeat,
             adFocus: nextState,

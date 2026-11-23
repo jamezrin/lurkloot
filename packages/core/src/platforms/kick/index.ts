@@ -12,7 +12,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import type { DiscoverySignalController } from "../../core/discoverySignals";
 import { isKickHttpChallenge, KickWafBlockedError } from "../../core/transport";
-import { authHealthFromError } from "../../core/fetchError";
+import { authHealthFromError, ManagedPageContextBlockedError } from "../../core/fetchError";
 import type { WebSocketFactory } from "../../core/webSocket";
 import {
   diagnostic,
@@ -339,7 +339,13 @@ export function createKickFetcher(deps: {
           // CLI transports have no page fallback and retain their original error.
           if (!pageFetch || isOriginIndependentKickFailure(error)) throw error;
           init?.signal?.throwIfAborted();
-          result = await pageFetch(url, init);
+          try {
+            result = await pageFetch(url, init);
+          } catch (fallbackError) {
+            // A local breaker did not change the identity endpoint's verdict.
+            if (fallbackError instanceof ManagedPageContextBlockedError) throw error;
+            throw fallbackError;
+          }
           routeState.report(
             emit,
             host,
