@@ -158,7 +158,6 @@
 
 /* User guide (/guide) — reuses .document-* for the page and adds the index cards, page nav and pager. */
 .document-label a { color: inherit; }
-.guide-nav > p:not(:first-child) { margin-top: 16px; }
 .guide-nav a[aria-current="page"] { background: #1a1a1a; color: #ededed; }
 .guide-index { display: grid; gap: 56px; }
 .guide-index__section h2 { margin: 0 0 18px; font-size: clamp(22px, 2vw, 28px); letter-spacing: -.04em; color: #ededed; }
@@ -208,3 +207,19 @@
 .document-prose .code-copy:focus-visible { outline: 2px solid #ededed; outline-offset: 2px; }
 .document-prose .code-frame pre.astro-code { margin: 0; padding: 16px 18px; background-color: transparent !important; font: 13.5px/1.7 var(--font-mono); overflow-x: auto; overflow-wrap: normal; tab-size: 2; }
 .document-prose .code-frame pre code { padding: 0; border-radius: 0; background: none; box-shadow: none; font: inherit; color: inherit; }
+
+/* Guide sidebar: one collapsible group per section, with only the current
+   section open, so the list fits beside the article without scrolling. */
+.guide-nav { gap: 2px; }
+.guide-nav-section > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; border-radius: 6px; list-style: none; font-size: 13px; color: var(--sg-faint); cursor: pointer; transition: background .15s, color .15s; }
+.guide-nav-section > summary::-webkit-details-marker { display: none; }
+.guide-nav-section > summary::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .2s var(--sg-ease); }
+.guide-nav-section[open] > summary::after { transform: rotate(45deg); }
+.guide-nav-section > summary:hover { background: #1a1a1a; color: #ededed; }
+.guide-nav-section[open] > summary { color: #ededed; }
+.guide-nav-section > summary:focus-visible { outline: 2px solid #ededed; outline-offset: -2px; }
+.guide-nav-section > a { margin-left: 8px; padding-left: 12px; border-left: 1px solid var(--sg-line); border-radius: 0 6px 6px 0; }
+.guide-nav-section > a[aria-current="page"] { border-left-color: #ededed; }
+.guide-nav-section[open] { padding-bottom: 6px; }
+.guide-nav-section > summary { padding-block: 6px; }
+.guide-nav-section > a { padding-block: 5px; font-size: 13.5px; }

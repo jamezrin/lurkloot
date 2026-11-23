@@ -51,12 +51,12 @@ const supportRows = entry.data.supportTable
           <summary>All guide pages</summary>
           <nav class="document-toc guide-nav" aria-label="Guide pages">
           {sections.map((section) => (
-            <>
-              <p>{section.title}</p>
+            <details class="guide-nav-section" open={section.id === entry.data.section}>
+              <summary>{section.title}</summary>
               {section.pages.map((page) => (
                 <a href={guideHref(page)} aria-current={page.id === entry.id ? "page" : undefined}>{page.data.title}</a>
               ))}
-            </>
+            </details>
           ))}
           </nav>
         </details>
