@@ -4,7 +4,12 @@ import type {
   SchedulerManagedPageContexts,
   TabClosureOrigin,
 } from "@lurkloot/shared/models";
-import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
+import type {
+  DiagnosticEvent,
+  EventEmitter,
+  PageContextCloseReason,
+} from "@lurkloot/shared/events";
+import type { PageContextOpenAccountingReason } from "./criticalHealth";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity, TwitchIntegrityRequest } from "./twitchIntegrity";
 export type { TwitchIntegrityRequest } from "./twitchIntegrity";
@@ -39,6 +44,7 @@ export interface PageContextTab {
   createdByExtension: boolean;
   retainedContext?: ManagedPageContextTab;
   openedForRequest?: boolean;
+  recordRejection?: () => Promise<void>;
   source?: PageContextSource;
 }
 
@@ -55,6 +61,18 @@ export interface PageContextEntry {
 // handed the same instance.
 export interface TabRegistry {
   pageContextTabs: Map<string, PageContextEntry>;
+  // Controller-owned persistence, called by the browser tab owner for all
+  // acquisitions, regardless of which adapter operation requested one.
+  managedPageContexts?: {
+    prepare(platform: Platform, criticalFailurePromptEnabled?: boolean): Promise<void>;
+    opened(
+      platform: Platform,
+      at: number,
+      reason: PageContextOpenAccountingReason,
+      tickContext?: Required<Pick<DiagnosticEvent, "globalTickId" | "platformTickId">>,
+    ): Promise<void>;
+    rejected(platform: Platform, at: number): Promise<void>;
+  };
   retainedPageContextTabs: Map<Platform, ManagedPageContextTab>;
   // Tabs the engine is closing or has closed, and why (#598). Recorded before
   // the browser call, so the removal event that follows it finds the entry.
@@ -538,7 +556,10 @@ export function registerManagedPageContextTabs(
   for (const platform of platforms) {
     registry.retainedPageContextTabs.delete(platform);
     const context = contexts[platform];
-    if (context) registry.retainedPageContextTabs.set(platform, context);
+    if (context) {
+      registry.retainedPageContextTabs.set(platform, context);
+      noteExtensionCreatedTab(registry, context.tabId);
+    }
     registry.retainedPageContextRevision += 1;
   }
 }
@@ -560,6 +581,7 @@ export function hydrateManagedPageContextTabs(
     const context = contexts[platform];
     if (!context) continue;
     registry.retainedPageContextTabs.set(platform, context);
+    noteExtensionCreatedTab(registry, context.tabId);
     registry.retainedPageContextRevision += 1;
   }
   return true;

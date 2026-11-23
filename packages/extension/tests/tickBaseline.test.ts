@@ -104,7 +104,8 @@ describe("extension scheduler tick baseline", () => {
         // 6 + 1: a fresh controller that finds a running tabless watch reads the
         // settings once to decide chat presence (restart recovery, chatPresence.ts).
         settingsLoads: 7,
-        stateLoads: 8,
+        // One cold-worker read restores page-context ownership and the breaker.
+        stateLoads: 9,
         stateSaves: 3,
         eventPublications: 6,
       });
@@ -140,7 +141,7 @@ describe("extension scheduler tick baseline", () => {
         adapterConstructions: 1,
         settingsLoads: 5,
         // 5 + 1: the first reported batch reads the state to stamp farming sessions.
-        stateLoads: 6,
+        stateLoads: 7,
         stateSaves: 2,
         eventPublications: 6,
         watcherReconciliations: 0,
@@ -176,7 +177,7 @@ describe("extension scheduler tick baseline", () => {
       adapterConstructions: 1,
       settingsLoads: 5,
       // 5 + 1: the first reported batch reads the state to stamp farming sessions.
-      stateLoads: 6,
+      stateLoads: 7,
       stateSaves: 2,
       watcherReconciliations: 1,
     });
@@ -213,7 +214,7 @@ describe("extension scheduler tick baseline", () => {
       adapterConstructions: 1,
       settingsLoads: 5,
       // 5 + 1: the first reported batch reads the state to stamp farming sessions.
-      stateLoads: 6,
+      stateLoads: 7,
       stateSaves: 2,
       watcherReconciliations: 1,
     });

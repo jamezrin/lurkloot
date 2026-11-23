@@ -23,6 +23,9 @@ export const MIN_FAILING_TICKS = 6;
 export const MAX_TICK_DELTA_MS = 5 * 60 * 1000;
 export const TAB_CHURN_WINDOW_MS = 10 * 60 * 1000;
 export const TAB_CHURN_LIMIT = 5;
+// A failing page can be reopened at the 30-minute backoff cap. Five such
+// rejections are evidence of a loop even though they never share ten minutes.
+const REJECTED_CONTEXT_WINDOW_MS = 3 * 60 * 60 * 1000;
 export const COOLDOWN_MS = FAILING_WINDOW_MS;
 
 export interface CriticalHealthObservation {
@@ -74,10 +77,16 @@ export interface CriticalHealthTransition {
 
 // A managed tab this extension opened. Only page contexts carry a PageContextOpenReason,
 // so the union keeps watch-tab opens from having to invent one.
+export type PageContextOpenAccountingReason =
+  | PageContextOpenReason
+  | "integrity_rejection_recovery"
+  | "integrity_readiness"
+  | "proactive_integrity_refresh";
+
 export type ManagedTabOpen =
   | {
       source: "page_context";
-      reason: PageContextOpenReason | "integrity_readiness" | "proactive_integrity_refresh";
+      reason: PageContextOpenAccountingReason;
     }
   | { source: "watch_tab" };
 
@@ -119,20 +128,26 @@ function inCooldown(health: CriticalHealthState, at: number): boolean {
 // constant: keeping exactly TAB_CHURN_LIMIT stamps is enough to trip and to keep the
 // breaker open. If either the limit or that comparison changes, this must change in step
 // or the trim silently discards evidence.
-function pruneOpens(opens: readonly string[], at: number): string[] {
-  return opens
-    .filter((stamp) => at - Date.parse(stamp) <= TAB_CHURN_WINDOW_MS)
-    .slice(-TAB_CHURN_LIMIT);
+function pruneOpens(
+  opens: readonly string[],
+  at: number,
+  windowMs = TAB_CHURN_WINDOW_MS,
+): string[] {
+  return opens.filter((stamp) => at - Date.parse(stamp) <= windowMs).slice(-TAB_CHURN_LIMIT);
 }
 
 // While flagged the breaker stays open until the user dismisses. While unflagged it is
 // held open only by live churn evidence, so the window drains on its own — an open
 // breaker suppresses new opens — and the platform recovers without a prompt. This never
 // opens the breaker; only crossing the threshold in recordManagedTabOpen, or
-// holdManagedTabBreaker on a flagged platform, does that.
-function releaseBreaker(health: CriticalHealthState, opens: readonly string[]): boolean {
+// recordRejectedManagedPageContext, or holdManagedTabBreaker on a flagged platform, does that.
+function releaseBreaker(
+  health: CriticalHealthState,
+  opens: readonly string[],
+  rejectedOpens: readonly string[],
+): boolean {
   if (health.status === "flagged") return health.breakerOpen;
-  return health.breakerOpen && opens.length > 0;
+  return health.breakerOpen && (opens.length > 0 || rejectedOpens.length >= TAB_CHURN_LIMIT);
 }
 
 function flag(
@@ -166,11 +181,16 @@ export function observeCriticalHealth(
   const health = current(state, platform);
   const records = appendRecord(health.records, platform, observation.at, observation.record);
   const lastObservedAt = health.lastObservedAt ? Date.parse(health.lastObservedAt) : undefined;
-  // Re-evaluated every tick, driven purely by open timestamps ageing out of the window.
+  // Re-evaluated every tick as open timestamps age out of their windows.
   // Deliberately NOT driven by the tick looking clean: an open breaker pauses the
   // platform, so ticks look clean by construction and that would undo the mitigation.
   const managedTabOpens = pruneOpens(health.managedTabOpens, observation.at);
-  const breakerOpen = releaseBreaker(health, managedTabOpens);
+  const rejectedPageContextOpens = pruneOpens(
+    health.rejectedPageContextOpens ?? [],
+    observation.at,
+    REJECTED_CONTEXT_WINDOW_MS,
+  );
+  const breakerOpen = releaseBreaker(health, managedTabOpens, rejectedPageContextOpens);
 
   // Any of these means the platform is not in a continuous no-value episode.
   if (!observation.failing || observation.progressed || observation.preconditionBroke) {
@@ -180,6 +200,7 @@ export function observeCriticalHealth(
       failingMs: 0,
       failingTicks: 0,
       managedTabOpens,
+      ...(health.rejectedPageContextOpens ? { rejectedPageContextOpens } : {}),
       breakerOpen,
       records,
       // An inconclusive observation clears the stamp instead of advancing it.
@@ -214,6 +235,7 @@ export function observeCriticalHealth(
     failingTicks: health.failingTicks + 1,
     lastObservedAt: new Date(observation.at).toISOString(),
     managedTabOpens,
+    ...(health.rejectedPageContextOpens ? { rejectedPageContextOpens } : {}),
     breakerOpen,
     records,
   };
@@ -251,11 +273,129 @@ export function recordManagedTabOpen(
     records: appendRecord(health.records, platform, at, breadcrumb(open)),
   };
 
-  if (!churning || next.status === "flagged" || inCooldown(next, at)) {
-    return { state: withHealth(state, platform, next) };
+  return applyChurnFlag(state, platform, at, next, churning);
+}
+
+// The owner calls this at most once for a newly created context, when document
+// inspection or a page challenge rejects it. Reusing it never adds evidence.
+export function recordRejectedManagedPageContext(
+  state: SchedulerState,
+  platform: Platform,
+  at: number,
+): CriticalHealthTransition {
+  const health = current(state, platform);
+  const rejectedPageContextOpens = pruneOpens(
+    [...(health.rejectedPageContextOpens ?? []), new Date(at).toISOString()],
+    at,
+    REJECTED_CONTEXT_WINDOW_MS,
+  );
+  const churning = rejectedPageContextOpens.length >= TAB_CHURN_LIMIT;
+  return applyChurnFlag(
+    state,
+    platform,
+    at,
+    {
+      ...health,
+      rejectedPageContextOpens,
+      breakerOpen: health.breakerOpen || churning,
+    },
+    churning,
+  );
+}
+
+// Entries can share a timestamp. Subtract occurrences present at the start of
+// the tick so two physical opens at the same time still count twice.
+function newEntries<T>(before: readonly T[], latest: readonly T[], key: (entry: T) => string): T[] {
+  const counts = new Map<string, number>();
+  for (const entry of before) {
+    const id = key(entry);
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return latest.filter((entry) => {
+    const id = key(entry);
+    const count = counts.get(id) ?? 0;
+    if (count === 0) return true;
+    counts.set(id, count - 1);
+    return false;
+  });
+}
+
+// Keep the tick's observation and add only the new page-context evidence
+// persisted during its effects. Older entries may have aged out in the tick.
+export function rebaseCriticalHealth(
+  draft: SchedulerState,
+  before: SchedulerState,
+  latest: CriticalHealthState,
+  platform: Platform,
+  at: number,
+): CriticalHealthTransition {
+  const health = current(draft, platform);
+  const baseline = current(before, platform);
+  const mergeOpens = (
+    prior: readonly string[],
+    tick: readonly string[],
+    saved: readonly string[],
+  ) =>
+    [...tick, ...newEntries(prior, saved, (stamp) => stamp)].sort(
+      (left, right) => Date.parse(left) - Date.parse(right),
+    );
+  const managedTabOpens = pruneOpens(
+    mergeOpens(baseline.managedTabOpens, health.managedTabOpens, latest.managedTabOpens),
+    at,
+  );
+  const rejectedPageContextOpens = pruneOpens(
+    mergeOpens(
+      baseline.rejectedPageContextOpens ?? [],
+      health.rejectedPageContextOpens ?? [],
+      latest.rejectedPageContextOpens ?? [],
+    ),
+    at,
+    REJECTED_CONTEXT_WINDOW_MS,
+  );
+  const contextRecords = newEntries(
+    baseline.records.filter(({ kind }) => kind === "context_open"),
+    latest.records.filter(({ kind }) => kind === "context_open"),
+    ({ at, code }) => JSON.stringify([at, code]),
+  );
+  const records = [...health.records, ...contextRecords]
+    .sort((left, right) => Date.parse(left.at) - Date.parse(right.at))
+    .slice(-CRITICAL_HEALTH_RECORD_LIMIT);
+  // A watch tab from the tick and a page context from the separate commit can
+  // cross the churn limit together even when neither did so on its own.
+  const churning =
+    managedTabOpens.length >= TAB_CHURN_LIMIT || rejectedPageContextOpens.length >= TAB_CHURN_LIMIT;
+  return applyChurnFlag(
+    draft,
+    platform,
+    at,
+    {
+      ...health,
+      ...(latest.status === "flagged"
+        ? { status: latest.status, reason: latest.reason, flaggedAt: latest.flaggedAt }
+        : {}),
+      managedTabOpens,
+      ...(health.rejectedPageContextOpens || latest.rejectedPageContextOpens
+        ? { rejectedPageContextOpens }
+        : {}),
+      breakerOpen: health.breakerOpen || latest.breakerOpen || churning,
+      records,
+    },
+    churning,
+  );
+}
+
+function applyChurnFlag(
+  state: SchedulerState,
+  platform: Platform,
+  at: number,
+  health: CriticalHealthState,
+  churning: boolean,
+): CriticalHealthTransition {
+  if (!churning || health.status === "flagged" || inCooldown(health, at)) {
+    return { state: withHealth(state, platform, health) };
   }
 
-  const flagged = flag(next, platform, at, "page_context_churn");
+  const flagged = flag(health, platform, at, "page_context_churn");
   return { state: withHealth(state, platform, flagged.health), event: flagged.event };
 }
 

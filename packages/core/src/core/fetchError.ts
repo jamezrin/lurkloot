@@ -65,6 +65,20 @@ export class SafeFetchError extends Error {
   }
 }
 
+export class ManagedPageContextBlockedError extends Error {
+  constructor() {
+    super("Managed tab creation is suspended after repeated reopening");
+    this.name = "ManagedPageContextBlockedError";
+  }
+}
+
+export class ManagedPageContextCleanupError extends Error {
+  constructor(message = "Managed page context cleanup is already in progress") {
+    super(message);
+    this.name = "ManagedPageContextCleanupError";
+  }
+}
+
 export function isSafeFetchError(error: unknown): error is SafeFetchError {
   return error instanceof SafeFetchError;
 }
