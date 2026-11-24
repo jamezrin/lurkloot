@@ -1,5 +1,7 @@
 import { favouriteCategoryIndex } from "./categories";
 import type { DropCampaign, EngineSettings } from "./models";
+import { campaignRewardFilter, rewardMatchesFilter } from "./rewardFilter";
+import { isRewardAvailableToEarn, rewardFeasibility } from "./rewards";
 import { isCampaignUnlinked } from "./unlinkedCampaigns";
 
 // Which layer placed a campaign in the list. The popup labels its group
@@ -55,6 +57,39 @@ function endScore(campaign: DropCampaign): number {
   return Number.isFinite(endsAt) ? endsAt : Number.MAX_SAFE_INTEGER;
 }
 
+// Whether the campaign has a reward earned once per window (a Twitch reward
+// campaign group earned on six days, #1118) whose current window is open now,
+// among the rewards the user farms for this campaign. A missed window cannot
+// be made up, so the campaign's end date says nothing about how urgent it is.
+// Once the window's grant is in, the platform reports when the next one opens
+// (availableFrom), and the reward stops counting until then.
+export function hasOpenRepeatWindow(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+  now = Date.now(),
+): boolean {
+  const repeating = campaign.rewards.filter(
+    (reward) =>
+      reward.repeat !== undefined
+      && reward.repeat.times > 1
+      && reward.repeat.grantCount < reward.repeat.times
+      && reward.preconditionsMet !== false
+      && isRewardAvailableToEarn(reward, now)
+      // As the scheduler's activeReward judges it, so the popup never ranks
+      // first a window the engine would skip as unfinishable.
+      && rewardFeasibility(
+        campaign,
+        reward,
+        settings.skipUnfinishableRewards,
+        settings.deadlineSafetyMarginMinutes,
+        now,
+      ).kind !== "insufficient_time",
+  );
+  if (repeating.length === 0) return false;
+  const filter = campaignRewardFilter(campaign, settings);
+  return repeating.some((reward) => rewardMatchesFilter(reward, filter));
+}
+
 // The single ranking every surface uses: the scheduler picks what to farm from
 // it, the popup renders it, and the keep-watching comparison reads it, so the
 // number on a card is the position the engine actually acts on.
@@ -67,10 +102,28 @@ function endScore(campaign: DropCampaign): number {
 //     by the same strategy, so they are farmed only once no linked campaign
 //     above them can be.
 //
+// Inside tiers 2–4, a campaign whose once-per-window reward has its window
+// open (hasOpenRepeatWindow) goes ahead of the strategy: it needs little time
+// each window, and a window it misses is lost for good. Pin order is never
+// changed.
+//
 // Ranking never decides whether a campaign may be farmed. Eligibility runs
 // first (see isEligible/evaluateCampaignFarming), so a pin can never rescue a
 // campaign an exclusion, a block or a class filter already refused.
-export function rankCampaigns(campaigns: DropCampaign[], settings: EngineSettings): DropCampaign[] {
+export function rankCampaigns(
+  campaigns: DropCampaign[],
+  settings: EngineSettings,
+  now = Date.now(),
+): DropCampaign[] {
+  const openWindow = new Map<string, boolean>();
+  const windowOpen = (campaign: DropCampaign): boolean => {
+    let open = openWindow.get(campaign.id);
+    if (open === undefined) {
+      open = hasOpenRepeatWindow(campaign, settings, now);
+      openWindow.set(campaign.id, open);
+    }
+    return open;
+  };
   return [...campaigns].sort((left, right) => {
     const leftTier = campaignRankTier(left, settings);
     const rightTier = campaignRankTier(right, settings);
@@ -81,6 +134,9 @@ export function rankCampaigns(campaigns: DropCampaign[], settings: EngineSetting
       const favourites = favouriteIndex(left, settings) - favouriteIndex(right, settings);
       if (favourites !== 0) return favourites;
     }
+
+    const windows = Number(windowOpen(right)) - Number(windowOpen(left));
+    if (windows !== 0) return windows;
 
     if (settings.priorityMode === "lowest_availability") {
       const availability = availabilityScore(left) - availabilityScore(right);

@@ -1121,6 +1121,19 @@ acts on. Four tiers, in order:
    above it has a channel, and it gives way, mid-reward, as soon as one does,
    as any lower-ranked watch does.
 
+Inside tiers 2–4, a campaign with an open repeat window (`hasOpenRepeatWindow`)
+goes ahead of the strategy (#1118). That is a reward earned once per window,
+such as a Twitch reward-campaign group earned one hour a day on six days, that
+the user's reward filter farms, whose window is open now and which still has
+grants to earn. A missed window cannot be made up, and each window needs little
+time, so the campaign's end date is the wrong urgency for it: by end date the
+GTA VI campaign ranked 56th and was never reached. Once the window's grant is
+in, the parser sets `availableFrom` to the next window, the reward is no longer
+available to earn, and the campaign falls back to its strategy position until
+then. Pin order is never changed. `rankCampaigns` takes `now`, so the order is
+a function of time; `ranking.test.ts` and `twitchRewardCampaigns.test.ts`
+cover the climb, the fall back after a grant, the filter, and the tiers.
+
 Eligibility is always decided before ranking (`evaluateCampaignFarming`), so a
 pin can never rescue a campaign an exclusion, a block or a class filter refused.
 The one place a campaign's ranking group feeds eligibility is the reward kinds
