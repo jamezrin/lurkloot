@@ -3,12 +3,15 @@ import { createRequire, isBuiltin, Module } from "node:module";
 import { dirname, join, relative, isAbsolute } from "node:path";
 import { isSea } from "node:sea";
 import type initCycleTLSType from "cycletls";
+import type * as ImpitModule from "impit";
 
 // The standalone `lurkloot` executable (#1022) is Node's single-executable
 // application: one binary with the CLI bundle inside and no node_modules
 // beside it. What the bundle would find beside dist/index.mjs, it finds beside
-// the executable instead: the app UI in app/, and the cycletls package in
-// cycletls/. cycletls (GPL-3.0) is not compiled into the executable: its
+// the executable instead: the app UI in app/, the impit package in impit/, and
+// the cycletls package in cycletls/. impit's native add-on cannot be loaded
+// from inside the executable, so its JavaScript and the add-on for this
+// platform ship in impit/. cycletls (GPL-3.0) is not compiled into the executable: its
 // unmodified JavaScript, its runtime dependencies and its Go binary ship as
 // separate files there, as the Docker image keeps them in node_modules, and
 // the executable loads them at run time. Everywhere else (node
@@ -133,6 +136,39 @@ export function loadStandaloneCycleTls(
 // so up front instead. Windows starts it without a shell.
 // Letters outside ASCII are fine; whitespace and shell syntax are not.
 const SHELL_UNSAFE = /[\s`$&;|<>()*?[\]{}!'"\\]/;
+
+// The impit package folder beside the executable: its package.json and
+// JavaScript, with this platform's native add-on beside them, where impit's own
+// loader looks first.
+export const IMPIT_DIR = "impit";
+
+/** Locates the impit package directory in a standalone install. */
+export function standaloneImpitDir(
+  runtime: ExecutableRuntime = currentRuntime(),
+): string | undefined {
+  const dir = standaloneDir(runtime);
+  return dir === undefined ? undefined : join(dir, IMPIT_DIR);
+}
+
+export class MissingImpitError extends Error {}
+
+/** Loads the adjacent impit package and its native add-on from disk in a SEA. */
+export function loadStandaloneImpit(
+  dir: string | undefined = standaloneImpitDir(),
+  requireFrom: (path: string) => NodeJS.Require = createRequire,
+): typeof ImpitModule {
+  if (dir === undefined) {
+    throw new MissingImpitError("impit is loaded from beside the executable only inside one");
+  }
+  if (!existsSync(join(dir, "package.json"))) {
+    throw new MissingImpitError(
+      `The impit folder is missing beside the executable (${dir}); unpack the whole archive and keep impit/ next to lurkloot`,
+    );
+  }
+  const root = realpathSync(dir);
+  confineRequires(root);
+  return requireFrom(join(root, "package.json"))(root) as typeof ImpitModule;
+}
 
 /** Refuses paths the CycleTLS wrapper would split or expand when starting its helper. */
 export function assertCycleTlsPathStartable(path: string, platform: NodeJS.Platform): void {

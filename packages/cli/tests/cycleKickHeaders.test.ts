@@ -3,7 +3,7 @@ import {
   KICK_BEARER_NEAR_MISS_CASES,
   KICK_BEARER_POSITIVE_CASES,
 } from "@lurkloot/core/kickBearerCases";
-import { kickHeaders } from "../src/transport/cycle";
+import { kickHeaders } from "../src/transport/kick";
 import type { PlatformCredentials } from "../src/authStore";
 
 const creds: PlatformCredentials = {
@@ -18,7 +18,7 @@ describe("kickHeaders", () => {
 
   // This transport is the one copy that reaches Kick over wss, not just https —
   // the viewer WebSocket goes through this same header builder (see
-  // createNodeKickWebSocketFactory in ../src/transport/cycle.ts).
+  // createNodeKickWebSocketFactory in ../src/transport/kick.ts).
   it("attaches the session token to websockets.kick.com over wss", () => {
     expect(kickHeaders("wss://websockets.kick.com/viewer", undefined, creds).authorization).toBe(
       "Bearer sess 789",

@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { createImpersonateTransport } from "../src/transport/impersonate";
-import { createTvLinkAuthenticator } from "../src/transport/cycle";
+import { createCycleClient } from "../src/transport/cycle";
+import { createTvLinkAuthenticator } from "../src/transport/kick";
 import { CHROME_JA3 } from "../src/transport/common";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
@@ -433,7 +434,7 @@ describe("createTvLinkAuthenticator", () => {
       calls.push({ url, options, method });
       return Promise.resolve({ status: 200, data: { token: "tv-session" } });
     });
-    const result = await createTvLinkAuthenticator(client)("ABC-UUID", "123456");
+    const result = await createTvLinkAuthenticator(createCycleClient(client))("ABC-UUID", "123456");
     expect(result.token).toBe("tv-session");
 
     expect(calls).toHaveLength(1);
@@ -449,7 +450,7 @@ describe("createTvLinkAuthenticator", () => {
     const client = fakeClient(() =>
       Promise.resolve({ status: 403, data: '{"message":"Invalid setup UUID and Key"}' }),
     );
-    const authenticate = createTvLinkAuthenticator(client);
+    const authenticate = createTvLinkAuthenticator(createCycleClient(client));
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });
   });

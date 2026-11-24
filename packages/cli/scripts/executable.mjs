@@ -32,6 +32,14 @@ export function cycleTlsUpstreamName(platform, arch) {
   return name;
 }
 
+/** Lists impit's native binding packages for a platform and architecture, every libc. */
+export function impitBindingPackages(manifest, platform, arch) {
+  const prefix = `impit-${platform}-${arch}`;
+  return Object.keys(manifest.optionalDependencies ?? {})
+    .filter((name) => name === prefix || name.startsWith(`${prefix}-`))
+    .sort();
+}
+
 /** Gives the executable its platform-specific filename in the archive. */
 export function executableName(platform) {
   return platform === "win32" ? "lurkloot.exe" : "lurkloot";
@@ -115,6 +123,7 @@ export function renderNotice({
   version,
   nodeVersion,
   nodeLicense,
+  impit,
   cycleTls,
   packages,
   appLicenses,
@@ -135,6 +144,10 @@ export function renderNotice({
     `- The lurkloot executable is the Node.js ${nodeVersion} runtime with the Lurkloot CLI`,
     "  embedded as a single-executable application. Node.js is under the MIT license and",
     "  bundles further components under their own licenses, reproduced below.",
+    `- impit/ is the unmodified impit ${impit.version} npm package, under the ${impit.license}`,
+    "  (https://github.com/apify/impit): its JavaScript, and its native add-on for this platform",
+    `  (${impit.addons.join(", ")}) from the matching impit binding package. The executable`,
+    "  loads both from that folder at run time.",
     `- cycletls/ is the unmodified cycletls ${cycleTls.version} npm package, under the GNU`,
     "  General Public License v3.0 (cycletls/LICENSE, reproduced below): its JavaScript, and",
     `  its Go binary as cycletls/${cycleTls.file}, which runs as a separate process. The`,
@@ -159,6 +172,10 @@ export function renderNotice({
     lines.push("", "=".repeat(78), title, "=".repeat(78), "", text.trimEnd());
   };
   section(`Node.js ${nodeVersion}`, nodeLicense);
+  section(
+    `impit ${impit.version}`,
+    `Licensed under ${impit.license}; the package ships no license file. The Apache License,\nVersion 2.0 text is in LICENSE beside this file.`,
+  );
   section(`cycletls ${cycleTls.version}`, cycleTls.license);
   for (const pkg of [...cycleTlsDependencies, ...packages]) {
     section(

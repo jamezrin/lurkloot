@@ -8,6 +8,7 @@ import {
   type Sleep,
 } from "../auth/deviceLogin";
 import { startKickDeviceLogin } from "../auth/kickDeviceFlow";
+import type { ImpersonationBackend } from "../transport/impersonation";
 import {
   completeTwitchBrowserLogin,
   TWITCH_BROWSER_LOGIN_REDIRECT_URI,
@@ -67,6 +68,9 @@ export interface AuthFlowsOptions {
   logger: Logger;
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
+  // The impersonating library the Kick TV-link sign-in sends through, picked
+  // from the running transport (default impit).
+  kickSignInBackend?: ImpersonationBackend;
   startDeviceLogin?: Partial<Record<Platform, (signal: AbortSignal) => Promise<DeviceLoginFlow>>>;
   sleep?: Sleep;
   now?: () => number;
@@ -104,7 +108,9 @@ export function createAuthFlows(options: AuthFlowsOptions): AuthFlows {
     twitch:
       options.startDeviceLogin?.twitch
       ?? (() => startTwitchDeviceLogin(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {})),
-    kick: options.startDeviceLogin?.kick ?? (() => startKickDeviceLogin()),
+    kick:
+      options.startDeviceLogin?.kick
+      ?? (() => startKickDeviceLogin({ backend: options.kickSignInBackend })),
   };
 
   const environmentOverride = (platform: Platform) =>
@@ -165,7 +171,7 @@ export function createAuthFlows(options: AuthFlowsOptions): AuthFlows {
         );
       }
     } finally {
-      // Disposing (Kick's cycletls exit) can reject a poll still in flight;
+      // Disposing (Kick's impersonating client) can reject a poll still in flight;
       // that is the cancel, not a failure.
       await flow.dispose().catch((error: unknown) => logger.debug(errorMessage(error), "serve"));
     }

@@ -1,154 +1,67 @@
-import initCycleTLS, { type CycleTLSClient } from "cycletls";
-import WebSocket, { type ClientOptions } from "ws";
-import { kickHttpError, needsKickSessionBearer } from "@lurkloot/core/transport";
-import type { PageFetcher } from "@lurkloot/core/adapter";
-import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
-import type { PlatformCredentials } from "../authStore";
+import type { CycleTLSClient } from "cycletls";
 import { assertCycleTlsPathStartable, standaloneCycleTlsPath } from "../runtime/standalone";
-import { CHROME_HTTP2, CHROME_JA3, CHROME_UA, hasHeader, headersToObject } from "./common";
+import { CHROME_HTTP2, CHROME_JA3 } from "./common";
+import type { ImpersonatedResponse, ImpersonatingClient } from "./impersonation";
 
 export type { CycleTLSClient } from "cycletls";
-
-// wss:, not just https:, because the viewer WebSocket (websockets.kick.com)
-// goes through this same header builder — see createNodeKickWebSocketFactory.
-// This is the only Kick transport that needs the widened protocol set: the
-// engine's own callers of needsKickSessionBearer never reach wss.
-const KICK_BEARER_PROTOCOLS = ["https:", "wss:"];
 
 /** Starts CycleTLS using the shipped helper in a standalone install or the package default. */
 export async function initCycle(
   executablePath = standaloneCycleTlsPath(),
 ): Promise<CycleTLSClient> {
+  // Imported here, not at the top, so a CLI on another backend never loads
+  // cycletls's (GPL-3.0) JavaScript.
+  const { default: initCycleTLS } = await import("cycletls");
   if (executablePath === undefined) return initCycleTLS();
   assertCycleTlsPathStartable(executablePath, process.platform);
   return initCycleTLS({ executablePath });
 }
 
-export function kickHeaders(
-  url: string,
-  init: RequestInit | undefined,
-  creds: PlatformCredentials,
-): Record<string, string> {
-  const headers = headersToObject(init?.headers);
-  headers.Origin ??= "https://kick.com";
-  headers.Referer ??= "https://kick.com/";
-  const sessionToken = creds.kick?.sessionToken;
-  if (
-    sessionToken
-    && needsKickSessionBearer(url, { protocols: KICK_BEARER_PROTOCOLS })
-    && !hasHeader(headers, "authorization")
-  ) {
-    headers.authorization = `Bearer ${decodeURIComponent(sessionToken)}`;
-  }
-  return headers;
+function bodyText(data: unknown): string {
+  if (Buffer.isBuffer(data)) return data.toString("utf8");
+  if (typeof data === "string") return data;
+  return JSON.stringify(data ?? "");
 }
 
-// cycletls-backed Kick PageFetcher: carries a Chrome JA3/HTTP-2 fingerprint past
-// Cloudflare's WAF (pure-Node fetch 403s). Shared by the impersonate and browser
-// transports, which both reach Kick this way. CycleTLS 2.x has no per-request
-// cancellation primitive: its only interruption API is process-wide exit(),
-// which would terminate sibling requests and the shared transport. The
-// controller deadline therefore bounds the caller while an aborted host request
-// finishes in CycleTLS.
-export function createCycleKickFetcher(
-  cycleTLS: CycleTLSClient,
-  creds: PlatformCredentials,
-): PageFetcher {
+function headerRecord(headers: unknown): Record<string, string | string[]> {
+  if (!headers || typeof headers !== "object") return {};
+  const out: Record<string, string | string[]> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (typeof value === "string" || Array.isArray(value)) out[key] = value;
+  }
+  return out;
+}
+
+// The cycletls backend: sends the pinned Chrome 124 JA3/HTTP-2 fingerprint
+// (common.ts) with every request. CycleTLS 2.x has no per-request cancellation
+// (its only interruption is a process-wide exit(), which would end sibling
+// requests), so a request's signal is not passed on.
+export function createCycleClient(cycleTLS: CycleTLSClient): ImpersonatingClient {
   return {
-    async fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-      const method = (init?.method ?? "GET").toLowerCase() as "get" | "post";
+    backend: "cycletls",
+    async request(url, request): Promise<ImpersonatedResponse> {
       const response = await cycleTLS(
         url,
         {
           ja3: CHROME_JA3,
           http2Fingerprint: CHROME_HTTP2,
-          userAgent: CHROME_UA,
-          headers: kickHeaders(url, init, creds),
-          body: typeof init?.body === "string" ? init.body : undefined,
+          userAgent: request.userAgent,
+          headers: request.headers,
+          body: request.body,
+          ...(request.redirect === "manual" ? { disableRedirect: true } : {}),
         },
-        method,
+        request.method,
       );
-
-      if (response.status >= 400) {
-        const text =
-          typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
-        throw kickHttpError(response.status, text);
-      }
-
-      const data = response.data;
-      if (data != null && typeof data === "object") return data as T;
-      // Non-JSON (e.g. a channel page) — return the same { html } shape the
-      // engine's page fetcher produces so the Kick adapter's HTML fallbacks work.
-      if (typeof data === "string") {
-        try {
-          return JSON.parse(data) as T;
-        } catch {
-          return { html: data } as T;
-        }
-      }
-      return { html: "" } as T;
+      const finalUrl = typeof response.finalUrl === "string" ? response.finalUrl.trim() : "";
+      return {
+        status: response.status,
+        headers: headerRecord(response.headers),
+        body: bodyText(response.data),
+        ...(finalUrl ? { finalUrl } : {}),
+      };
+    },
+    close: async () => {
+      await cycleTLS.exit();
     },
   };
-}
-
-// The TV-link device-login authenticate endpoint (kick.com/api/tv/link/
-// authenticate/<uuid>) sits behind Cloudflare's WAF, handled by the Chrome
-// JA3/HTTP-2 fingerprint. Kick no longer issues an XSRF-TOKEN from its
-// /sanctum/csrf-cookie endpoint, and this TV endpoint accepts the POST without
-// that cookie.
-// Returns the token only once the user has approved the link; before that Kick
-// answers 403 "Invalid setup UUID and Key" (token-less), which we surface as "no
-// token yet" so the caller keeps polling rather than treating it as a failure.
-const TV_LINK_AUTHENTICATE = "https://kick.com/api/tv/link/authenticate";
-
-export function createTvLinkAuthenticator(
-  cycleTLS: CycleTLSClient,
-): (uuid: string, code: string) => Promise<{ token?: string }> {
-  return async (uuid: string, code: string) => {
-    const response = await cycleTLS(
-      `${TV_LINK_AUTHENTICATE}/${encodeURIComponent(uuid)}`,
-      {
-        ja3: CHROME_JA3,
-        http2Fingerprint: CHROME_HTTP2,
-        userAgent: CHROME_UA,
-        headers: {
-          "content-type": "application/json",
-          accept: "application/json",
-          Origin: "https://kick.com",
-          Referer: "https://kick.com/",
-        },
-        body: JSON.stringify({ key: code }),
-      },
-      "post",
-    );
-    const data = response.data;
-    const parsed = typeof data === "string" ? safeJsonParse(data) : data;
-    const token =
-      parsed && typeof parsed === "object" ? (parsed as { token?: string }).token : undefined;
-    return { token: typeof token === "string" && token ? token : undefined };
-  };
-}
-
-function safeJsonParse(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
-}
-
-// CycleTLS's ws() currently enters its generic request path and never resolves
-// a live viewer connection. The Node WebSocket client completes Kick's handshake
-// with the same session bearer and origin headers; it also implements the
-// WebSocketLike event surface the watcher expects.
-export function createNodeKickWebSocketFactory(
-  creds: PlatformCredentials,
-  createSocket: (url: string, options: ClientOptions) => WebSocketLike = (url, options) =>
-    new WebSocket(url, options) as unknown as WebSocketLike,
-): WebSocketFactory {
-  return (url) =>
-    createSocket(url, {
-      headers: { ...kickHeaders(url, undefined, creds), "User-Agent": CHROME_UA },
-      handshakeTimeout: 10_000,
-    });
 }

@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
 #
-# Headless Lurkloot CLI image. Both transports (http, impersonate) use
-# Node + cycletls; Kick's viewer connection uses ws. No browser is needed.
+# Headless Lurkloot CLI image. The impersonate and impit transports send Kick
+# through impit (a native add-on from its prebuilt binding package for the
+# image's platform), cycletls through its Go helper, and http through Node's own
+# fetch; Kick's viewer connection uses ws. No browser is needed.
 # `serve` also serves the app UI, built here and shipped as static files.
 
 # --- Build stage: install the CLI's workspace subtree, bundle the CLI and build the app UI ---
@@ -22,8 +24,8 @@ COPY packages/locales/package.json packages/locales/
 COPY packages/popup-ui/package.json packages/popup-ui/
 COPY packages/app-ui/package.json packages/app-ui/
 COPY packages/cli/package.json packages/cli/
-# --ignore-scripts: cycletls and esbuild both ship working prebuilt binaries in
-# their tarballs, so no install scripts are needed — and skipping them avoids
+# --ignore-scripts: cycletls and esbuild ship working prebuilt binaries in their
+# tarballs, and impit in platform packages, so no install scripts are needed — and skipping them avoids
 # pnpm 10's interactive build-approval gate in a non-interactive build.
 RUN pnpm install --frozen-lockfile --ignore-scripts --filter @lurkloot/cli...
 
@@ -38,7 +40,7 @@ COPY packages/cli/ packages/cli/
 RUN pnpm --filter @lurkloot/cli build
 
 # Produce a self-contained /app: the bundle plus the production node_modules for
-# the externalized runtime deps (cycletls and ws).
+# the externalized runtime deps (impit, cycletls and ws).
 RUN pnpm --filter @lurkloot/cli deploy --legacy --prod /app
 
 # --- Runtime stage ---

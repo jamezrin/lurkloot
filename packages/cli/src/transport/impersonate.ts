@@ -3,15 +3,14 @@ import type { KickRealtimeConnection } from "@lurkloot/core/kick/realtime";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
 import { createNodeKickRealtime } from "./kickRealtime";
+import { createCycleClient, type CycleTLSClient } from "./cycle";
+import { createImpersonatedKickFetcher, createNodeKickWebSocketFactory } from "./kick";
 import {
-  createCycleKickFetcher,
-  createNodeKickWebSocketFactory,
-  initCycle,
-  type CycleTLSClient,
-} from "./cycle";
+  createImpersonatingClient,
+  type ImpersonatingClient,
+  type ImpersonationBackend,
+} from "./impersonation";
 import {
-  CHROME_HTTP2,
-  CHROME_JA3,
   createCliAdapters,
   headersToObject,
   twitchHeartbeatFailure,
@@ -32,24 +31,43 @@ function responseLocation(headers: Record<string, unknown> | undefined): string 
   return undefined;
 }
 
+// A fetch redirect mode as the client takes it: "error" and "manual" both stop
+// at the 3xx, which the heartbeat then reads itself.
+function redirectMode(redirect: RequestRedirect | undefined): "manual" | undefined {
+  return redirect === "error" || redirect === "manual" ? "manual" : undefined;
+}
+
 export interface ImpersonateDeps {
-  // Injectable for tests; defaults to spawning the real cycletls subprocess.
+  // The browser-impersonating library to send Kick and the Twitch heartbeat
+  // through. Default "impit".
+  backend?: ImpersonationBackend;
+  // Injectable for tests: a ready client, used in place of the backend's.
+  createClient?: () => Promise<ImpersonatingClient>;
+  // Injectable for tests: a cycletls client (implies the cycletls backend).
   initClient?: () => Promise<CycleTLSClient>;
 }
 
-// Impersonate transport: routes Kick over cycletls with a real Chrome JA3 /
-// HTTP-2 fingerprint so Cloudflare's WAF — which fingerprints the TLS/HTTP-2
-// stack, not headers — lets the request through (pure Node fetch gets 403). The
-// viewer WebSocket uses Node's ws client with the Kick session bearer; Kick's
-// handshake accepts it. Twitch has no such WAF, so its GQL uses plain fetch.
+async function openClient(deps: ImpersonateDeps): Promise<ImpersonatingClient> {
+  if (deps.createClient) return deps.createClient();
+  if (deps.initClient) return createCycleClient(await deps.initClient());
+  return createImpersonatingClient(deps.backend ?? "impit");
+}
+
+// Impersonate transport: routes Kick over a browser-impersonating client
+// (impit by default, or cycletls) with a real Chrome TLS/HTTP-2 fingerprint so
+// Cloudflare's WAF — which fingerprints the TLS/HTTP-2 stack, not headers —
+// lets the request through (pure Node fetch can get 403). The viewer WebSocket
+// uses Node's ws client with the Kick session bearer; Kick's handshake accepts
+// it. Twitch has no such WAF, so its GQL uses plain fetch; the Twitch HLS
+// heartbeat rides the same client as Kick.
 export async function createImpersonateTransport(
   creds: PlatformCredentials,
   _enabled: EnabledPlatforms,
   deps: ImpersonateDeps = {},
   twitchIntegrity?: CliTwitchIntegrity,
 ): Promise<TransportHandle> {
-  const cycleTLS = await (deps.initClient ?? initCycle)();
-  const kickFetcher = createCycleKickFetcher(cycleTLS, creds);
+  const client = await openClient(deps);
+  const kickFetcher = createImpersonatedKickFetcher(client, creds);
   let kickRealtime: KickRealtimeConnection | undefined;
   const built = createCliAdapters(creds, {
     twitchIntegrity,
@@ -60,42 +78,30 @@ export async function createImpersonateTransport(
     twitchHeartbeat: (identity) => ({
       heartbeatFetchText: async (url, init) => {
         const response = await withHeartbeatTimeout(
-          () =>
-            cycleTLS(
-              url,
-              {
-                ja3: CHROME_JA3,
-                http2Fingerprint: CHROME_HTTP2,
-                userAgent: identity.userAgent,
-                headers: headersToObject(init?.headers),
-                body: typeof init?.body === "string" ? init.body : undefined,
-                disableRedirect: init?.redirect === "error" || init?.redirect === "manual",
-              },
-              (init?.method ?? "GET").toLowerCase() as "get" | "post",
-            ),
+          (signal) =>
+            client.request(url, {
+              method: (init?.method ?? "GET").toLowerCase() === "post" ? "post" : "get",
+              userAgent: identity.userAgent,
+              headers: headersToObject(init?.headers),
+              body: typeof init?.body === "string" ? init.body : undefined,
+              redirect: redirectMode(init?.redirect),
+              signal,
+            }),
           init?.signal,
         );
-        return Buffer.isBuffer(response.data)
-          ? response.data.toString("utf8")
-          : typeof response.data === "string"
-            ? response.data
-            : JSON.stringify(response.data ?? "");
+        return response.body;
       },
       heartbeatPost: async (url, init) => {
         const response = await withHeartbeatTimeout(
-          () =>
-            cycleTLS(
-              url,
-              {
-                ja3: CHROME_JA3,
-                http2Fingerprint: CHROME_HTTP2,
-                userAgent: identity.userAgent,
-                headers: headersToObject(init.headers),
-                body: typeof init.body === "string" ? init.body : undefined,
-                disableRedirect: init.redirect === "error" || init.redirect === "manual",
-              },
-              "post",
-            ),
+          (signal) =>
+            client.request(url, {
+              method: "post",
+              userAgent: identity.userAgent,
+              headers: headersToObject(init.headers),
+              body: typeof init.body === "string" ? init.body : undefined,
+              redirect: redirectMode(init.redirect),
+              signal,
+            }),
           init.signal,
         );
         return { status: response.status };
@@ -104,30 +110,20 @@ export async function createImpersonateTransport(
         const method = (init.method ?? "GET").toLowerCase() === "head" ? "head" : "get";
         try {
           const response = await withHeartbeatTimeout(
-            () =>
-              cycleTLS(
-                url,
-                {
-                  ja3: CHROME_JA3,
-                  http2Fingerprint: CHROME_HTTP2,
-                  userAgent: identity.userAgent,
-                  headers: headersToObject(init.headers),
-                  disableRedirect: init.redirect === "error" || init.redirect === "manual",
-                },
+            (signal) =>
+              client.request(url, {
                 method,
-              ),
+                userAgent: identity.userAgent,
+                headers: headersToObject(init.headers),
+                redirect: redirectMode(init.redirect),
+                signal,
+              }),
             init.signal,
           );
           const redirecting = response.status >= 300 && response.status < 400;
           const body =
-            method === "head" || redirecting || response.status === 0
-              ? ""
-              : Buffer.isBuffer(response.data)
-                ? response.data.toString("utf8")
-                : typeof response.data === "string"
-                  ? response.data
-                  : JSON.stringify(response.data ?? "");
-          const reportedUrl = typeof response.finalUrl === "string" ? response.finalUrl.trim() : "";
+            method === "head" || redirecting || response.status === 0 ? "" : response.body;
+          const reportedUrl = response.finalUrl?.trim() ?? "";
           const location = responseLocation(response.headers);
           return {
             status: response.status,
@@ -149,7 +145,7 @@ export async function createImpersonateTransport(
     ...built,
     async dispose() {
       await kickRealtime?.stop();
-      await cycleTLS.exit();
+      await client.close();
     },
   };
 }

@@ -234,7 +234,7 @@ describe("parseConfig", () => {
   });
 
   it("accepts every known transport", () => {
-    for (const transport of ["http", "impersonate"] as const) {
+    for (const transport of ["http", "impersonate", "impit", "cycletls"] as const) {
       expect(parseConfig({ transport }, CONFIG_PATH).transport).toBe(transport);
     }
   });

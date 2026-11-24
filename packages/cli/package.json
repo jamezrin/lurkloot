@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm run build:bundle && pnpm run build:app",
-    "build:bundle": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --main-fields=module,main --outfile=dist/index.mjs --external:cycletls --external:ws",
+    "build:bundle": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node22 --main-fields=module,main --outfile=dist/index.mjs --external:cycletls --external:impit --external:ws",
     "build:app": "pnpm --filter @lurkloot/app-ui build && node scripts/copyAppUi.mjs",
     "build:executable": "pnpm run build:app && node scripts/buildExecutable.mjs",
     "cli": "pnpm build && node dist/index.mjs",
@@ -19,6 +19,7 @@
     "@lurkloot/core": "workspace:*",
     "@lurkloot/shared": "workspace:*",
     "cycletls": "^2.0.5",
+    "impit": "0.14.9",
     "jsonc-parser": "^3.3.1",
     "ws": "8.23.0",
     "yargs": "^18.0.0"

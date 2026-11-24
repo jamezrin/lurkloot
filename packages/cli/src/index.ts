@@ -27,6 +27,7 @@ import {
 import {
   createCredentialRefreshingTransport,
   createTransport,
+  signInBackendOf,
   type EnabledPlatforms,
 } from "./transport";
 import { runLoop } from "./runtime/run";
@@ -389,7 +390,7 @@ const serveCommand: CommandModule = {
         runCredentialAvailability(config.authDir, platform),
       diagnosticSecrets: () => diagnosticCredentialValues(creds),
       describeCredentials: () => describeCredentialHealth(config.authDir),
-      auth: { authDir: config.authDir },
+      auth: { authDir: config.authDir, kickSignInBackend: signInBackendOf(transport) },
       ...(argv.readyJson ? { readyOutput: process.stdout } : {}),
       ...(argv.exitWithStdin ? { exitWithInput: process.stdin } : {}),
     });
@@ -426,9 +427,9 @@ function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
           describe: loginBrief,
           handler: async (argv) => {
             const logger = loggerOf(argv);
-            const { authDir } = configOf(argv, logger);
+            const { authDir, transport } = configOf(argv, logger);
             if (platform === "twitch") await twitchDeviceLogin(authDir, logger);
-            else await kickDeviceLogin(authDir, logger);
+            else await kickDeviceLogin(authDir, logger, signInBackendOf(transport));
           },
         })
         // Twitch only: Kick has no equivalent sign-in (see twitchBrowserLogin.ts).

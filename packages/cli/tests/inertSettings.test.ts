@@ -9,7 +9,8 @@ import {
 import type { CycleTLSClient } from "cycletls";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
-import { parseConfig, type Transport } from "../src/config";
+import { parseConfig, TRANSPORTS as TRANSPORT_NAMES, type Transport } from "../src/config";
+import { impersonationBackendOf } from "../src/transport";
 import {
   TWITCH_ANDROID_CLIENT_ID,
   TWITCH_SMARTBOX_CLIENT_ID,
@@ -25,7 +26,7 @@ import type { Logger } from "../src/logger";
 // something on the CLI, or is a known gap the runtime warns about and that
 // names the issue fixing it. Adding an accepted key with no mapping fails here.
 
-const TRANSPORTS = ["http", "impersonate"] as const satisfies readonly Transport[];
+const TRANSPORTS = TRANSPORT_NAMES satisfies readonly Transport[];
 const TWITCH_SIGN_INS = [
   { signIn: "web", clientId: TWITCH_WEB_CLIENT_ID },
   { signIn: "android", clientId: TWITCH_ANDROID_CLIENT_ID },
@@ -177,6 +178,16 @@ function fakeCycleClient(): CycleTLSClient {
   return client;
 }
 
+// Every impersonating transport builds the same adapters over its client; the
+// impit ones get an impit-shaped fake, cycletls its own.
+function fakeImpitClient() {
+  return {
+    backend: "impit" as const,
+    request: vi.fn(async () => ({ status: 200, headers: {}, body: "{}" })),
+    close: vi.fn(async () => undefined),
+  };
+}
+
 function credentials(clientId: string) {
   return { twitch: { authToken: "token", clientId }, kick: { sessionToken: "session" } };
 }
@@ -242,12 +253,17 @@ describe("CLI settings guard (#1090)", () => {
     const { name, platform, transport, clientId } = entry;
     const enabled = { twitch: true, kick: true };
     const creds = credentials(clientId);
+    const backend = impersonationBackendOf(transport);
     const handle =
-      transport === "http"
+      backend === undefined
         ? createHttpTransport(creds, enabled)
-        : await createImpersonateTransport(creds, enabled, {
-            initClient: async () => fakeCycleClient(),
-          });
+        : await createImpersonateTransport(
+            creds,
+            enabled,
+            backend === "cycletls"
+              ? { initClient: async () => fakeCycleClient() }
+              : { createClient: async () => fakeImpitClient() },
+          );
     try {
       const settings = toEngineSettings(settingsWithSamples(Object.keys(WARNING_SAMPLES)));
       const { adapters } = handle.createAdapters(() => {}, settings);

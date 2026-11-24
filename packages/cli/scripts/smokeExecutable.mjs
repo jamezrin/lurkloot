@@ -5,13 +5,15 @@
 //   node scripts/smokeExecutable.mjs <archive or directory> [--require-kick]
 //
 // - `serve` on a free loopback port must answer 200 on /v1/session and serve
-//   the app at /. Its default transport starts cycletls, loaded from the
-//   cycletls/ folder beside the executable.
+//   the app at /. Its default transport (impersonate) loads impit from the
+//   impit/ folder beside the executable.
 // - `discover` with only Kick enabled and no credentials then makes a Kick
-//   request through cycletls. Kick's WAF may challenge a datacenter address,
-//   so a failure is a warning unless --require-kick is given.
-// - With cycletls/ moved away, `serve` must stop with the error naming it,
-//   not hang or fall back to a copy elsewhere.
+//   request through each impersonating library, impit and cycletls. Kick's WAF
+//   may challenge a datacenter address, so a failure is a warning unless
+//   --require-kick is given.
+// - With either library's folder moved away, `serve` on that library must stop
+//   with the error naming it, not hang or fall back to a copy elsewhere, and
+//   `serve` on the other library must still start.
 import { spawn } from "node:child_process";
 import {
   cpSync,
@@ -124,7 +126,7 @@ async function waitFor(check, { timeoutMs, exited }) {
   throw new Error(stopped ? "the executable exited early" : `timed out: ${last?.message ?? last}`);
 }
 
-/** Stops serve before the next command uses CycleTLS's default port. */
+/** Stops serve before the next command (CycleTLS uses a fixed default port). */
 async function stop(run) {
   if (run.child.exitCode !== null || run.child.signalCode !== null) return;
   run.child.kill(windows ? undefined : "SIGTERM");
@@ -146,6 +148,8 @@ try {
     join(dir, "cycletls", "LICENSE"),
     join(dir, "cycletls", "node_modules", "ws", "package.json"),
     join(dir, "cycletls", windows ? "cycletls.exe" : "cycletls"),
+    join(dir, "impit", "package.json"),
+    join(dir, "impit", "index.js"),
     join(dir, "app", "index.html"),
     join(dir, "LICENSE"),
     join(dir, "NOTICE"),
@@ -165,64 +169,97 @@ try {
   delete env.LURKLOOT_SERVE_TOKEN;
   delete env.NODE_OPTIONS;
 
-  const port = await freePort();
-  const serve = start(
-    executable,
-    ["serve", "--port", String(port), "--config", "config.json"],
-    work,
-    env,
-  );
-  try {
-    const base = `http://127.0.0.1:${port}`;
-    const session = await waitFor(() => get(`${base}/v1/session`), {
-      timeoutMs: 60_000,
-      exited: serve.exited,
-    });
-    if (session.status !== 200) fail(`/v1/session answered ${session.status}`);
-    const app = await get(`${base}/`);
-    if (app.status !== 200 || !app.type.startsWith("text/html"))
-      fail(`/ answered ${app.status} ${app.type}`);
-    process.stdout.write(`smoke: /v1/session ${session.status}, / ${app.status} ${app.type}\n`);
-  } finally {
-    await stop(serve);
-  }
-
-  const discover = start(
-    executable,
-    ["discover", "--config", "config.json", "--log", "debug"],
-    work,
-    env,
-  );
-  const code = await Promise.race([discover.exited, delay(90_000, "timeout", { ref: false })]);
-  if (code === "timeout") discover.child.kill("SIGKILL");
-  if (/Kick fetch \S+ → background transport OK/.test(discover.output())) {
-    process.stdout.write("smoke: a Kick request through cycletls succeeded\n");
-  } else if (requireKick) {
-    fail(`no Kick request through cycletls succeeded (discover ${code})`);
-  } else {
-    process.stdout.write(
-      `::warning::No Kick request through cycletls succeeded from this runner (discover ${code})\n`,
+  /** Starts serve on one transport and reports whether its session endpoint answered. */
+  async function serveAnswers(transport) {
+    const port = await freePort();
+    const serve = start(
+      executable,
+      ["serve", "--port", String(port), "--config", "config.json", "--transport", transport],
+      work,
+      env,
     );
+    try {
+      const base = `http://127.0.0.1:${port}`;
+      const session = await waitFor(() => get(`${base}/v1/session`), {
+        timeoutMs: 60_000,
+        exited: serve.exited,
+      });
+      if (session.status !== 200) fail(`/v1/session answered ${session.status} on ${transport}`);
+      const app = await get(`${base}/`);
+      if (app.status !== 200 || !app.type.startsWith("text/html"))
+        fail(`/ answered ${app.status} ${app.type} on ${transport}`);
+      process.stdout.write(
+        `smoke: ${transport}: /v1/session ${session.status}, / ${app.status} ${app.type}\n`,
+      );
+    } catch (error) {
+      fail(`serve on ${transport}: ${error.message}`);
+    } finally {
+      await stop(serve);
+    }
   }
 
-  renameSync(join(dir, "cycletls"), join(dir, "cycletls-moved"));
-  const missing = start(
-    executable,
-    ["serve", "--port", String(await freePort()), "--config", "config.json"],
-    work,
-    env,
-  );
-  const missingCode = await Promise.race([
-    missing.exited,
-    delay(30_000, "timeout", { ref: false }),
-  ]);
-  if (missingCode === "timeout") missing.child.kill("SIGKILL");
-  if (missingCode === 0 || missingCode === "timeout") {
-    fail(`serve without cycletls/ did not fail (${missingCode})`);
-  } else if (!/The cycletls folder is missing beside the executable/.test(missing.output())) {
-    fail("serve without cycletls/ failed without naming the missing folder");
-  } else {
-    process.stdout.write("smoke: without cycletls/, serve stops and names the missing folder\n");
+  await serveAnswers("impersonate");
+
+  const libraries = ["impit", "cycletls"];
+  for (const library of libraries) {
+    const discover = start(
+      executable,
+      ["discover", "--config", "config.json", "--log", "debug", "--transport", library],
+      work,
+      env,
+    );
+    const code = await Promise.race([discover.exited, delay(90_000, "timeout", { ref: false })]);
+    if (code === "timeout") discover.child.kill("SIGKILL");
+    if (/Kick fetch \S+ → background transport OK/.test(discover.output())) {
+      process.stdout.write(`smoke: a Kick request through ${library} succeeded\n`);
+    } else if (requireKick) {
+      fail(`no Kick request through ${library} succeeded (discover ${code})`);
+    } else {
+      process.stdout.write(
+        `::warning::No Kick request through ${library} succeeded from this runner (discover ${code})\n`,
+      );
+    }
+  }
+
+  for (const library of libraries) {
+    const other = libraries.find((name) => name !== library);
+    renameSync(join(dir, library), join(dir, `${library}-moved`));
+    try {
+      const missing = start(
+        executable,
+        [
+          "serve",
+          "--port",
+          String(await freePort()),
+          "--config",
+          "config.json",
+          "--transport",
+          library,
+        ],
+        work,
+        env,
+      );
+      const missingCode = await Promise.race([
+        missing.exited,
+        delay(30_000, "timeout", { ref: false }),
+      ]);
+      if (missingCode === "timeout") missing.child.kill("SIGKILL");
+      if (missingCode === 0 || missingCode === "timeout") {
+        fail(`serve without ${library}/ did not fail (${missingCode})`);
+      } else if (
+        !new RegExp(`The ${library} folder is missing beside the executable`).test(missing.output())
+      ) {
+        fail(`serve without ${library}/ failed without naming the missing folder`);
+      } else {
+        process.stdout.write(
+          `smoke: without ${library}/, serve stops and names the missing folder\n`,
+        );
+      }
+      // Each library loads only when its transport is used.
+      await serveAnswers(other);
+    } finally {
+      renameSync(join(dir, `${library}-moved`), join(dir, library));
+    }
   }
 } catch (error) {
   fail(error.message);

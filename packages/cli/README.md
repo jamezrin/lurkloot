@@ -35,15 +35,24 @@ An archive unpacks to one folder:
 
 - `lurkloot` (`lurkloot.exe` on Windows): the CLI, built as a Node.js
   [single executable application](https://nodejs.org/api/single-executable-applications.html).
+- `impit/`: the [impit](https://github.com/apify/impit) package (Apache-2.0)
+  that carries Kick requests past Cloudflare on the default transport. It holds
+  the unmodified package's `package.json` and JavaScript, with this platform's
+  native add-on (`impit-node.<platform>.node`) beside them. Its add-on cannot
+  load from inside `lurkloot`, so the CLI loads it from this folder, as the
+  Docker image loads it from `node_modules`. Keep the folder next to `lurkloot`.
+  If it is missing, `run`, `serve` and `discover` on the default `impersonate`
+  (or `impit`) transport, and `auth kick device-login` on any transport but
+  `cycletls`, stop with an error naming the folder.
 - `cycletls/`: the [cycletls](https://github.com/Danny-Dasilva/CycleTLS)
-  package that carries Kick requests past Cloudflare. It holds the unmodified
+  package, the `cycletls` transport's alternative to impit. It holds the unmodified
   package (its JavaScript, `package.json` and GPL-3.0 `LICENSE`), its runtime
   dependencies in `node_modules/`, and its Go helper as `cycletls`
   (`cycletls.exe`). It is not compiled into `lurkloot`: the CLI loads it from
   this folder, as the Docker image loads it from `node_modules`. Keep the
-  folder next to `lurkloot`. If it is missing, `run`, `serve` and `discover`
-  with the default `impersonate` transport, and `auth kick device-login` with
-  any transport, stop with an error naming the folder.
+  folder next to `lurkloot`. If it is missing, `run`, `serve`, `discover` and
+  `auth kick device-login` on the `cycletls` transport stop with an error
+  naming the folder; other transports never load it.
 - `app/`: the app `lurkloot serve` serves at `/`.
 - `LICENSE` and `NOTICE`. The NOTICE lists the third-party software in the
   archive, with its licenses.
@@ -63,13 +72,14 @@ in that folder. Every command below works the same with `lurkloot` in place of
 `--config` points (`config.json` in the current directory by default), not
 beside the executable, so an upgrade is unpacking the new archive.
 
-- **Path:** on Linux and macOS, keep the folder at a path without spaces or
-  shell characters. cycletls is started through the shell there, and the CLI
-  refuses such a path with an error rather than hang.
+- **Path:** on the `cycletls` transport, on Linux and macOS, keep the folder at
+  a path without spaces or shell characters. cycletls is started through the
+  shell there, and the CLI refuses such a path with an error rather than hang.
 - **macOS:** the binaries are signed ad hoc, not notarized. A browser download
   is quarantined, so Gatekeeper blocks the first start; clear the flag with
   `xattr -dr com.apple.quarantine lurkloot-cli-<version>-macos-arm64`, or allow
-  `lurkloot` and `cycletls/cycletls` under System Settings → Privacy & Security.
+  `lurkloot`, `impit/impit-node.darwin-*.node` and `cycletls/cycletls` under
+  System Settings → Privacy & Security.
 - **Windows:** the executables are not code-signed, so SmartScreen may warn on
   the first start (More info → Run anyway).
 - **Linux:** built on the GitHub-hosted Ubuntu runners against the official
@@ -199,7 +209,7 @@ every host, with a deprecation warning.
 
 ```jsonc
 {
-  "transport": "impersonate",   // default; use "http" for Twitch-only setups
+  "transport": "impersonate",   // default (impit); also "impit", "cycletls", or "http" for Twitch-only setups
   "authDir": "auth",            // resolved relative to this file
   "settings": {                 // CLI settings schema, merged over defaults
     "pollIntervalMinutes": 5,
@@ -275,8 +285,10 @@ these notifications remain unverified for CLI sign-ins. See
 
 | Transport | Twitch | Kick | Notes |
 |---|---|---|---|
-| `http` | ✅ plain Node fetch | ❌ Cloudflare WAF (403) | Lightest; Twitch-only in practice. |
-| `impersonate` | ✅ | ✅ **cycletls Chrome JA3/HTTP-2** | Recommended default. Reaches both with no browser. |
+| `http` | ✅ plain Node fetch | ⚠️ Cloudflare WAF may refuse it (403) | Lightest; Twitch-only in practice. |
+| `impersonate` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | Recommended default. Reaches both with no browser. Names the default library, impit today. |
+| `impit` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | impit by name, in process (a native add-on). |
+| `cycletls` | ✅ | ✅ **cycletls Chrome 124 JA3/HTTP-2** | The previous default, kept as a fallback. Runs cycletls's Go helper as a separate process. |
 
 New Twitch device logins use the **SMARTBOX (Smart TV) client**. Previously
 issued Android tokens retain their recorded client ID. Twitch may hide its
@@ -287,17 +299,22 @@ dashboard request was verified live. Twitch drop claiming with the CLI alone
 still needs an account-level live test.
 
 Kick's Cloudflare WAF inspects the TLS/JA3 + HTTP-2 fingerprint, so a plain Node
-request is rejected (HTTP 403). The `impersonate` transport sends a real Chrome
-fingerprint via [cycletls](https://github.com/Danny-Dasilva/CycleTLS) and reaches
-Kick's API without a browser. The viewer socket uses Node's WebSocket client
-with the same Kick session bearer.
+request can be rejected (HTTP 403), most often from datacenter addresses. The
+`impersonate` transport sends a real Chrome fingerprint through
+[impit](https://github.com/apify/impit) and reaches Kick's API without a
+browser; `cycletls` sends the pinned Chrome 124 fingerprint through
+[cycletls](https://github.com/Danny-Dasilva/CycleTLS) instead. Both send the
+same Chrome user agent to Kick, and impit's client hints are made to match it.
+The Twitch HLS heartbeat rides the same library. The viewer socket uses Node's
+WebSocket client with the same Kick session bearer. `auth kick device-login`
+uses the configured library, and impit when the transport is `http`.
 
 On `http`, a Kick 401 or 403 with a non-empty, non-JSON body is reported as a WAF
 challenge. At the identity endpoint, this makes the account check report Kick
 as temporarily unavailable, and farming retries with platform backoff. JSON
 credential rejections still ask you to sign in again.
 
-On `impersonate`, set `platform.kick.alwaysEnterChat` to `true` to join the
+On `impersonate`, `impit` and `cycletls`, set `platform.kick.alwaysEnterChat` to `true` to join the
 channel's chat while watching. The CLI opens the chat socket only when needed,
 and `serve` reports presence in `state.chatPresence.kick` in the snapshot.
 Drop discovery signals use their own Pusher connection with the existing
@@ -624,7 +641,7 @@ such as the desktop app. Both are off by default, and `run` has neither.
   `--port 0` it carries the port the OS picked; on a wildcard bind it names
   `127.0.0.1`. It never carries the token. The human log line is still written.
   Lurkloot's own logger writes to stderr, but other output can reach stdout: a
-  transport's helper process (cycletls) shares it. Read stdout line by line
+  transport's helper process (cycletls, on the `cycletls` transport) shares it. Read stdout line by line
   and take the first line that parses as JSON with `"event":"ready"`; do not
   assume it is the first or only line. With `--exit-with-stdin`, `serve` skips
   the ready line if it observes EOF before announcing readiness. Pipe EOF can

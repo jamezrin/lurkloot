@@ -341,7 +341,7 @@ describe("serve launcher options", () => {
 });
 
 // The built CLI as a launcher runs it. Bundled into its own directory under
-// node_modules (where cycletls and ws resolve), not dist/, which another test
+// node_modules (where cycletls, impit and ws resolve), not dist/, which another test
 // file builds at the same time.
 const CLI_PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
 let bundleDir = "";
@@ -360,7 +360,7 @@ beforeAll(async () => {
     target: "node22",
     mainFields: ["module", "main"],
     outfile: bundle,
-    external: ["cycletls", "ws"],
+    external: ["cycletls", "impit", "ws"],
     logLevel: "silent",
   });
 }, 60_000);

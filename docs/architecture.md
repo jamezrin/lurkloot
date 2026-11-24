@@ -8,7 +8,7 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 
 - `packages/extension` — the WXT extension shell (`entrypoints/`, browser-specific `src/`, `wxt.config.ts`, `public/`, `tests/`). Builds to `packages/extension/.output/{chrome-mv3,firefox-mv2}`.
 - `packages/core` — the browser-free farming engine (`@lurkloot/core`): scheduler, background controller, platform adapters/parsers, tab/watch abstractions, tabless watch logic, and Twitch integrity helpers. It is consumed by both the extension and CLI.
-- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`. `build` bundles `dist/index.mjs` (ESM, `cycletls` and `ws` left in `node_modules`) and copies the app UI to `dist/app`; `build:executable` builds the standalone executable (see "Standalone CLI executable" below).
+- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`. `build` bundles `dist/index.mjs` (ESM, `impit`, `cycletls` and `ws` left in `node_modules`) and copies the app UI to `dist/app`; `build:executable` builds the standalone executable (see "Standalone CLI executable" below).
 - `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
 - `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
 - `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
@@ -652,7 +652,7 @@ platform.kick.alwaysEnterChat has no effect”. The tick owns this warning.
 
 `packages/cli/tests/inertSettings.test.ts` maps every CLI setting to how it takes effect.
 For adapter-backed settings the guard uses the production transports and checks every
-Twitch sign-in (web, Android, Smart TV) on both `http` and `impersonate`, plus Kick on
+Twitch sign-in (web, Android, Smart TV) on every transport (`http`, `impersonate`, `impit`, `cycletls`), plus Kick on
 each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
 where it is missing. Narrow a row's cases when support lands for some combinations,
 and remove the row when all its cases gain support. The Kick chat gap applies to
@@ -783,18 +783,52 @@ never reads one, the sign-in routes answer with presence, source and the Twitch 
 health and the credential store's presence reading, never by spreading objects, so it carries no
 account id either. A `getSnapshot` answer is the popup's full snapshot, account id included.
 
+### CLI transports and impersonating clients
+
+`config.json`'s `transport` picks how the CLI reaches the platforms. `http` uses Node's own
+fetch. `impit` and `cycletls` send Kick, the Kick TV-link sign-in and the Twitch HLS heartbeat
+through a library that presents a browser's TLS and HTTP/2 fingerprint, which Kick's Cloudflare
+WAF inspects. `impersonate`, the default, names the default library, impit, and is resolved in
+`src/transport/index.ts` (`impersonationBackendOf`), never rewritten in `config.json`. Twitch GQL
+always uses plain fetch.
+
+Every caller talks to the library through one interface, `ImpersonatingClient`
+(`src/transport/impersonation.ts`): a request with method, headers, body, an optional user agent,
+redirect mode and abort signal, answered with status, headers, body text and final URL. The Kick
+fetcher, the TV-link authenticator and the viewer socket's headers live once in
+`src/transport/kick.ts` over that interface, so the 401/403 classification (`kickHttpError`) is the
+same on both libraries. The backends are `src/transport/impit.ts` (impit's `chrome124` profile, pinned to `CHROME_UA`'s version and bounded by a 30 s request timeout, in
+process, cancellable by the signal) and `src/transport/cycle.ts` (the pinned Chrome 124 JA3/HTTP-2
+strings in `common.ts`, through cycletls's Go helper, which cannot cancel one request). Every Kick
+request sends `CHROME_UA` on either library, the user agent the viewer socket sends. impit's
+defaults are those of a page navigation, so its backend sends each request as a page's `fetch()`
+would (cors mode, empty destination, the site relation of the request's Origin) and rewrites its
+client hints to describe the user agent sent, or drops them for a non-browser one such as the
+Twitch Android app's.
+
+Each library is imported only inside its backend, dynamically, so a CLI on impit never loads
+cycletls's GPL-3.0 JavaScript and a CLI on cycletls or `http` never loads impit's native add-on.
+`packages/cli/tests/impersonationBackends.test.ts` scans the sources to enforce that. `auth kick
+device-login` and `serve`'s sign-in route use the configured library (`signInBackendOf`), and
+impit under `http`, whose plain fetch the TV-link endpoint can refuse.
+
 ### Standalone CLI executable (#1022)
 
 The release also ships the CLI as a standalone `lurkloot` executable per OS, for users without
 Node and as the desktop app's sidecar (#981). `packages/cli/scripts/buildExecutable.mjs` bundles
-`src/index.ts` a second time, as CommonJS with every dependency inside but cycletls (a
+`src/index.ts` a second time, as CommonJS with every dependency inside but impit and cycletls (a
 single-executable application's main script can only `require` built-ins), and injects it into a
 copy of the building Node binary with postject. cycletls is GPL-3.0, so it is never compiled in:
 the build aliases `cycletls` to `src/runtime/cycleTlsStandalone.ts` and refuses a bundle that
 still contains cycletls code. The archive puts the cycletls package beside the executable in
 `cycletls/`, as the Docker image keeps it in `node_modules`: its unmodified `package.json`,
 `LICENSE` and `dist/index.js`, its runtime dependency closure flat in `cycletls/node_modules`, and
-the platform's Go binary as `cycletls`/`cycletls.exe`. Beside them go the app UI (`app/`),
+the platform's Go binary as `cycletls`/`cycletls.exe`. impit's native add-on cannot load from inside
+the executable either, so the build aliases `impit` to `src/runtime/impitStandalone.ts` and ships
+`impit/`: the package's `package.json` and JavaScript, unmodified, and this platform's add-on
+(`impit-node.<platform>.node`, every libc build installed) beside them, where impit's own loader
+looks before its binding packages. `loadStandaloneImpit` loads it on the first impit client, under
+the same `confineRequires`, and a missing folder is a `MissingImpitError` naming it. Beside them go the app UI (`app/`),
 `LICENSE` and a generated `NOTICE`. The NOTICE links to CycleTLS's exact source commit and the
 build rejects an installed version that differs from the source pin. It also includes the app UI's
 license reports. Vite lists the bundled JavaScript packages and the app build adds the CSS and
@@ -804,7 +838,7 @@ The `dist/index.mjs` build and the Docker image still import the real CycleTLS p
 What `node dist/index.mjs` finds beside the bundle or in `node_modules`, the executable finds
 beside itself. `packages/cli/src/runtime/standalone.ts` is the one place that decides this: it
 answers `undefined` unless `node:sea`'s `isSea()` is true, and then resolves paths from
-`dirname(process.execPath)`. In the executable, the shim's `initCycleTLS` loads the package
+`dirname(process.execPath)`. In the executable, the cycletls shim's `initCycleTLS` loads the package
 from `cycletls/` with `createRequire` on first use (`loadStandaloneCycleTls`), so commands that
 never start cycletls run without the folder, and a missing folder is a `MissingCycleTlsError`
 naming it rather than a fallback to some other copy. Nothing the package requires may come from
@@ -812,15 +846,16 @@ outside that folder: Node would otherwise look for a missing dependency in every
 above the install (`~/Downloads/node_modules`, say). `confineRequires` makes any resolution from
 inside `cycletls/` to a file outside it fail as `MODULE_NOT_FOUND`, and `WS_NO_BUFFER_UTIL` and
 `WS_NO_UTF_8_VALIDATE` stop ws from looking for its unshipped native add-ons at all. `initCycle` (`src/transport/cycle.ts`, the
-only `initCycleTLS` call, used by the impersonate transport and the Kick TV link) passes the Go
+only `initCycleTLS` call, used by the `cycletls` transport and the Kick TV link on it) passes the Go
 binary in that folder as cycletls's `executablePath`, and `defaultAppRoot`
 (`src/runtime/appAssets.ts`) serves that `app/`. The build
 machine's paths never reach the binary. cycletls starts its binary through `sh -c` outside
 Windows, so a standalone path with spaces or shell characters is refused up front rather than
 left to hang. `packages/cli/tests/standalone.test.ts` guards the resolution in both modes, and
 `scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI. It extracts
-archives and copies directory inputs into scratch space so the missing-`cycletls/` probe can
-rename the folder without changing the supplied build. #1031 replaces the cycletls wrapper with a
+archives and copies directory inputs into scratch space so the missing-folder probes can
+rename `impit/` and `cycletls/` without changing the supplied build. It makes a Kick request through
+each library, and checks that `serve` on one library starts with the other's folder gone. #1031 replaces the cycletls wrapper with a
 client of our own.
 
 ### Characterization coverage
@@ -1285,7 +1320,7 @@ which set their headers directly:
 ## Kick Integration
 
 `KickAdapter` uses Kick JSON APIs. Native fetch (the CLI's `http` transport and
-the extension background) and CycleTLS share `kickHttpError`. A non-empty,
+the extension background) and the CLI's impersonated Kick fetcher share `kickHttpError`. A non-empty,
 non-JSON 401 or 403 becomes a `KickWafBlockedError` with `challenge: true`, the
 HTTP status and a fixed message. JSON credential rejections and empty 401 or
 403 responses map to `authentication_rejected`. JSON security-policy blocks
@@ -1505,14 +1540,14 @@ Some rewards need the account in the watched channel's chat: NoPixelV credits da
 
 The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat independently of Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect, from the tick's unsupported-settings report (`adapterSettings.ts`, #1090) including Kick on the CLI's `http` transport (#1099). See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
 
-On the CLI's `impersonate` transport, the Kick adapter offers
+On the CLI's impersonating transports (`impersonate`, `impit`, `cycletls`), the Kick adapter offers
 `createChatPresenceClient` and asks for the transport-owned realtime connection
 only when the controller starts chat presence. The connection is reused across
 adapters and negotiates and authenticates through the existing `PageFetcher`.
 Drop discovery keeps its own Pusher-only connection pending a live check that
 discovery signals arrive over the negotiated realtime connection. The presence
 observer releases its subscription on shutdown, and transport disposal also
-stops the realtime connection before releasing CycleTLS. The CLI tests cover
+stops the realtime connection before closing the impersonating client. The CLI tests cover
 socket cleanup on SIGTERM, stdin EOF and `run --once`.
 
 ## Playback Telemetry and Control

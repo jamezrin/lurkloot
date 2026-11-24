@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { WebSocketLike } from "@lurkloot/core/webSocket";
-import { createNodeKickWebSocketFactory } from "../src/transport/cycle";
+import { createNodeKickWebSocketFactory } from "../src/transport/kick";
 
 describe("Kick WebSocket transport", () => {
   it("opens a viewer socket with the Kick session and browser origin", () => {

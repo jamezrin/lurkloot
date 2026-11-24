@@ -101,6 +101,9 @@ describe("reward campaign scheduling (#904)", () => {
   });
 
   it("looks for channels only in the categories the settings allow", async () => {
+    // The fixture campaign has a fixed end date, so the test runs on a fixed clock.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(T0);
     const twitch = adapter(() => [rewardCampaign()]);
     const decision = await chooseCampaignDecision(
       "twitch",
