@@ -78,14 +78,14 @@ export async function createImpersonateTransport(
     twitchHeartbeat: (identity) => ({
       heartbeatFetchText: async (url, init) => {
         const response = await withHeartbeatTimeout(
-          () =>
+          (signal) =>
             client.request(url, {
               method: (init?.method ?? "GET").toLowerCase() === "post" ? "post" : "get",
               userAgent: identity.userAgent,
               headers: headersToObject(init?.headers),
               body: typeof init?.body === "string" ? init.body : undefined,
               redirect: redirectMode(init?.redirect),
-              signal: init?.signal ?? undefined,
+              signal,
             }),
           init?.signal,
         );
@@ -93,14 +93,14 @@ export async function createImpersonateTransport(
       },
       heartbeatPost: async (url, init) => {
         const response = await withHeartbeatTimeout(
-          () =>
+          (signal) =>
             client.request(url, {
               method: "post",
               userAgent: identity.userAgent,
               headers: headersToObject(init.headers),
               body: typeof init.body === "string" ? init.body : undefined,
               redirect: redirectMode(init.redirect),
-              signal: init.signal ?? undefined,
+              signal,
             }),
           init.signal,
         );
@@ -110,13 +110,13 @@ export async function createImpersonateTransport(
         const method = (init.method ?? "GET").toLowerCase() === "head" ? "head" : "get";
         try {
           const response = await withHeartbeatTimeout(
-            () =>
+            (signal) =>
               client.request(url, {
                 method,
                 userAgent: identity.userAgent,
                 headers: headersToObject(init.headers),
                 redirect: redirectMode(init.redirect),
-                signal: init.signal ?? undefined,
+                signal,
               }),
             init.signal,
           );

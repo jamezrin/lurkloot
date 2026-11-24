@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { Impit } from "impit";
 import { KickWafBlockedError } from "@lurkloot/core/transport";
@@ -113,24 +113,40 @@ describe("impit client", () => {
       headers: { location: "https://kick.com/next" },
       url: "https://kick.com/start",
     });
-    const signal = new AbortController().signal;
+    const caller = new AbortController();
     const response = await createImpitClient(impit).request("https://kick.com/start", {
       method: "post",
       headers: { "content-type": "application/json" },
       body: "{}",
       redirect: "manual",
-      signal,
+      signal: caller.signal,
     });
     expect(fetch).toHaveBeenCalledWith(
       "https://kick.com/start",
-      expect.objectContaining({ method: "POST", body: "{}", redirect: "manual", signal }),
+      expect.objectContaining({ method: "POST", body: "{}", redirect: "manual" }),
     );
+    // impit gets the caller's signal combined with the whole-request deadline.
+    const sent = fetch.mock.calls[0]![1]!.signal as AbortSignal;
+    expect(sent.aborted).toBe(false);
+    caller.abort();
+    expect(sent.aborted).toBe(true);
     expect(response).toEqual({
       status: 302,
       headers: { location: "https://kick.com/next" },
       body: "moved",
       finalUrl: "https://kick.com/start",
     });
+  });
+
+  it("bounds a request without a caller signal by the whole-request deadline", async () => {
+    const { impit, fetch } = fakeImpit({ status: 200, body: "" });
+    await createImpitClient(impit).request("https://kick.com/api/tv/link/x", {
+      method: "post",
+      headers: {},
+    });
+    const sent = fetch.mock.calls[0]![1]!.signal as AbortSignal;
+    expect(sent).toBeInstanceOf(AbortSignal);
+    expect(sent.aborted).toBe(false);
   });
 
   it("reads no body for a HEAD", async () => {
@@ -217,7 +233,7 @@ describe("impersonating libraries load lazily", () => {
       const dynamicIn: string[] = [];
       for (const file of sourceFiles(SRC)) {
         const text = readFileSync(file, "utf8");
-        const rel = relative(SRC, file);
+        const rel = relative(SRC, file).split(sep).join("/");
         if (valueImport.test(text)) offenders.push(rel);
         if (dynamicImport.test(text)) dynamicIn.push(rel);
       }

@@ -8,8 +8,10 @@ import type { ImpersonatedResponse, ImpersonatingClient } from "./impersonation"
 // "chrome" alias could move under an impit upgrade.
 export const IMPIT_BROWSER = "chrome124" satisfies ImpitOptions["browser"];
 
-// No request waits longer than this, even without a caller's signal (the Kick
-// TV-link poll has none). Callers with a deadline of their own cut earlier.
+// No request waits longer than this, redirects included, even without a
+// caller's signal (the Kick TV-link poll has none). impit's own timeout covers
+// one hop, so the client also bounds the whole request with this deadline.
+// Callers with a deadline of their own cut earlier.
 export const IMPIT_TIMEOUT_MS = 30_000;
 
 type ImpitModule = { Impit: new (options?: ImpitOptions) => Impit };
@@ -120,12 +122,14 @@ export function createImpitClient(impit: Impit): ImpersonatingClient {
   return {
     backend: "impit",
     async request(url, request): Promise<ImpersonatedResponse> {
+      const deadline = AbortSignal.timeout(IMPIT_TIMEOUT_MS);
+      const signal = request.signal ? AbortSignal.any([request.signal, deadline]) : deadline;
       const response = await impit.fetch(url, {
         method: request.method.toUpperCase() as "GET" | "POST" | "HEAD",
         headers: impitHeaders(url, request.headers, request.userAgent),
         ...(request.body !== undefined ? { body: request.body } : {}),
         ...(request.redirect ? { redirect: request.redirect } : {}),
-        ...(request.signal ? { signal: request.signal } : {}),
+        signal,
       });
       const body = request.method === "head" ? "" : await response.text();
       return {
