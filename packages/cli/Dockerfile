@@ -11,7 +11,7 @@ FROM node:24-slim AS build
 WORKDIR /repo
 # Node 25 and later no longer bundle corepack, so install pnpm directly. Keep the
 # version in step with the pnpm/action-setup version in the workflows.
-RUN npm install -g pnpm@12.16.1
+RUN npm install -g pnpm@12.21.0
 # cycletls downloads a small Go helper binary on install; needs CA certs.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
