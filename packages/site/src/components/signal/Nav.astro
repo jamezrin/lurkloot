@@ -120,14 +120,16 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
       }).observe(hero);
     } else header.setAttribute("data-past-hero", "");
 
-    // Marks the section in the middle of the screen, and keeps its link in
-    // view when the row scrolls sideways.
+    // Marks the last listed section whose top has passed a line just under
+    // the header, like a table of contents, and keeps its link in view when
+    // the row scrolls sideways. A page can have sections the row does not list
+    // (the landing pages do), so the mark stays on the last one passed rather
+    // than clearing between them.
     const row = subnav.querySelector<HTMLElement>(".sg-subnav__inner");
     const links = new Map(
       [...subnav.querySelectorAll<HTMLAnchorElement>("a")].map((link) => [link.hash.slice(1), link]),
     );
     const order = [...links.keys()];
-    const visible = new Set<string>();
     // One underline slides between links rather than each link drawing its
     // own, so moving between sections reads as one tab bar.
     const underline = subnav.querySelector<HTMLElement>(".sg-subnav__mark");
@@ -150,7 +152,10 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
       underline.setAttribute("data-on", "");
     };
     if (row) new ResizeObserver(placeUnderline).observe(row);
+    let currentId: string | undefined;
     const mark = (id: string | undefined) => {
+      if (id === currentId) return;
+      currentId = id;
       current = id ? links.get(id) : undefined;
       placeUnderline();
       for (const [key, link] of links) {
@@ -167,19 +172,31 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
         }
       }
     };
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) visible.add(entry.target.id);
-          else visible.delete(entry.target.id);
-        }
-        mark(order.find((id) => visible.has(id)));
-      },
-      { rootMargin: "-45% 0px -50% 0px" },
-    );
-    for (const id of order) {
-      const section = document.getElementById(id);
-      if (section) observer.observe(section);
-    }
+    const sections = order
+      .map((id) => document.getElementById(id))
+      .filter((section): section is HTMLElement => section !== null);
+    let pending = false;
+    const update = () => {
+      pending = false;
+      // Just under the header, where the section being read starts, whatever
+      // the window's height.
+      const line = header.getBoundingClientRect().bottom + 96;
+      let id: string | undefined;
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= line) id = section.id;
+      }
+      // A last section too short to reach the line still gets marked at the end.
+      const atEnd = innerHeight + scrollY >= document.documentElement.scrollHeight - 2;
+      if (atEnd && sections.length > 0) id = sections[sections.length - 1].id;
+      mark(id);
+    };
+    const schedule = () => {
+      if (pending) return;
+      pending = true;
+      requestAnimationFrame(update);
+    };
+    addEventListener("scroll", schedule, { passive: true });
+    addEventListener("resize", schedule);
+    update();
   }
 </script>
