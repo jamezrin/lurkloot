@@ -17,7 +17,7 @@ The [privacy policy](/privacy) has the full details.
 
 ## Exporting your sign-ins
 
-**Settings → Export credentials** saves your Twitch and Kick sign-ins to a file, to set up the CLI. Only you can start it, and the browser asks you to confirm.
+**Settings → Export credentials** saves your Twitch and Kick sign-ins to a file, to set up the CLI. Only you can start it, and Lurkloot asks you to confirm first.
 
 Treat that file like a password. Anyone who has it can use your Twitch and Kick accounts. Do not share it, upload it or attach it to a bug report. Delete it once the CLI has imported it.
 

@@ -2,7 +2,7 @@ Lurkloot farmt Twitch- und Kick-Drops für dich, damit du In-Game-Belohnungen er
 
 Standardmäßig läuft ein ressourcenschonender Modus ohne Tab, der Watch-Signale im Hintergrund sendet, statt einen Video-Tab offen zu halten – das spart dir Bandbreite und Systemressourcen. Es verfolgt den richtigen Kanal für den gewünschten Drop, wechselt automatisch, wenn Kampagnen enden, und sichert dir jede berechtigte Belohnung. Wenn der Fortschritt stockt, weicht es auf einen angepinnten, stummgeschalteten Tab aus, damit deine Drops weiterlaufen.
 
-Deine Daten bleiben deine: keine Passwörter, kein Export von Cookies oder Tokens, und alles bleibt auf deinem Gerät.
+Deine Daten bleiben deine: keine Passwörter, und alles bleibt auf deinem Gerät.
 
 Über das Popup kannst du jede Plattform aktivieren, die Kampagnen und Spiele priorisieren, die dir wichtig sind, Watchlists und ausgeschlossene Kanäle pro Plattform verwalten und Auto-Claim sowie Benachrichtigungen umschalten.
 
