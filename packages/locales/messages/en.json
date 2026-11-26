@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv can remove it from the address bar almost at once. Before you sign in, open the browser's developer tools on the Network tab and turn on Preserve log. Then sign in, filter for access_token, and copy the location header of the id.twitch.tv redirect. Paste that here instead."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Sign in to Twitch in the window that opens. It closes by itself when you're done."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Sign in to Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Waiting for you to finish signing in…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "The sign-in window was closed before you finished."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "The sign-in window couldn't read Twitch's answer on this system. Use the steps below instead."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Paste the address instead"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Sign in with a code"
   },

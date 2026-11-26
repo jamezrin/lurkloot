@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv bisa menghapus bagian itu dari bilah alamat hampir seketika. Sebelum masuk, buka DevTools browser pada tab Network dan aktifkan Preserve log. Lalu masuk, filter dengan access_token, dan salin nilai location dari redirect id.twitch.tv. Tempel nilai itu di sini sebagai gantinya."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Masuk ke Twitch di jendela yang terbuka. Jendela akan tertutup sendiri saat Anda selesai."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Masuk ke Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Menunggu Anda menyelesaikan masuk…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Jendela masuk ditutup sebelum Anda selesai."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Jendela masuk tidak dapat membaca jawaban Twitch di sistem ini. Gunakan langkah di bawah sebagai gantinya."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Tempel alamat sebagai gantinya"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Masuk dengan kode"
   },

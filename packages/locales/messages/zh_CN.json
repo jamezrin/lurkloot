@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv 可能几乎立刻就把它从地址栏中移除。登录前，请打开浏览器的开发者工具，切换到 Network 标签页并开启 Preserve log。然后登录，按 access_token 过滤，并复制 id.twitch.tv 重定向的 location 响应头，改为将其粘贴到这里。"
   },
+  "appTwitchSignInWindowStep": {
+    "message": "在弹出的窗口中登录 Twitch。完成后窗口会自动关闭。"
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "登录 Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "正在等待你完成登录…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "登录窗口在你完成登录前已被关闭。"
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "登录窗口无法在此系统上读取 Twitch 的响应。请改用下面的步骤。"
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "改为粘贴地址"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "使用代码登录"
   },

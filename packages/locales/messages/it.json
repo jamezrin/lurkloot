@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv può rimuoverla dalla barra degli indirizzi quasi subito. Prima di accedere, apri gli strumenti per sviluppatori del browser nella scheda Network e attiva Preserve log. Poi accedi, filtra per access_token e copia l’header location del reindirizzamento id.twitch.tv. Incollalo qui invece."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Accedi a Twitch nella finestra che si apre. Si chiude da sola quando hai finito."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Accedi a Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "In attesa che tu completi l’accesso…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "La finestra di accesso è stata chiusa prima che tu completassi l’accesso."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "La finestra di accesso non è riuscita a leggere la risposta di Twitch su questo sistema. Usa invece i passaggi qui sotto."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Incolla invece l’indirizzo"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Accedi con un codice"
   },

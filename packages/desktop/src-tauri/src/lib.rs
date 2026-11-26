@@ -7,9 +7,11 @@
 
 pub mod navigation;
 pub mod ready;
+mod serve_api;
 pub mod sidecar;
 pub mod token;
 mod tray;
+pub mod twitch_sign_in;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -27,8 +29,10 @@ use url::Url;
 
 use navigation::{Navigation, Site};
 use sidecar::{SidecarEvents, SidecarSpec, Supervisor};
+use twitch_sign_in::{Redirect, SignInResult};
 
 const MAIN_WINDOW: &str = "main";
+const SIGN_IN_WINDOW: &str = "twitch-sign-in";
 /// How long Quit waits for serve to save its state and exit before it kills it.
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(20);
 /// Failures in a row before the window says serve keeps stopping.
@@ -38,6 +42,14 @@ const FAILURES_BEFORE_ERROR: u32 = 3;
 struct Shell {
     /// The running serve's origin; the only remote origin the window may load.
     serve: Mutex<Option<Site>>,
+    /// The running serve's address, for the shell's own calls to it.
+    serve_url: Mutex<Option<Url>>,
+    /// This launch's token for serve.
+    token: OnceLock<String>,
+    /// A Twitch sign-in is starting or its window is open.
+    signing_in: AtomicBool,
+    /// What the sign-in window was sent to at the redirect URI, if anything.
+    sign_in_outcome: Mutex<Option<Redirect>>,
     /// The shell's own pages (`tauri://localhost` or `http://tauri.localhost`).
     shell_url: OnceLock<Url>,
     supervisor: OnceLock<Supervisor>,
@@ -100,8 +112,11 @@ pub fn run() {
             setup(app.handle(), &shell)?;
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
+        .on_window_event(|window, event| match event {
+            WindowEvent::Destroyed if window.label() == SIGN_IN_WINDOW => {
+                sign_in_window_closed(window.app_handle());
+            }
+            WindowEvent::CloseRequested { api, .. } if window.label() == MAIN_WINDOW => {
                 let shell = window.state::<Arc<Shell>>();
                 // Checked again now: a Linux tray can go away while the app
                 // runs, and hiding the window with no tray would leave no way
@@ -113,8 +128,15 @@ pub fn run() {
                     // Farming goes on in the tray.
                     api.prevent_close();
                     let _ = window.hide();
+                } else if !shell.quitting.load(Ordering::SeqCst) {
+                    // No tray: closing the window quits, through the one
+                    // shutdown path, even while a sign-in window is open
+                    // (the app would otherwise wait for that one to close).
+                    api.prevent_close();
+                    quit(window.app_handle());
                 }
             }
+            _ => {}
         })
         .build(tauri::generate_context!())
         .expect("the desktop app could not start");
@@ -141,6 +163,7 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     let log_dir = app.path().app_log_dir()?;
     std::fs::create_dir_all(&data_dir)?;
     let token = token::generate_token();
+    let _ = shell.token.set(token.clone());
 
     let window = main_window(app, shell, &token)?;
     if let Ok(url) = window.url() {
@@ -190,7 +213,7 @@ fn main_window(app: &AppHandle, shell: &Arc<Shell>, token: &str) -> tauri::Resul
     .on_navigation(move |url| match navigate_shell.decide(url) {
         Navigation::Allow => true,
         Navigation::OpenExternally => {
-            open_externally(&navigate_app, url);
+            open_link(&navigate_app, url);
             false
         }
         Navigation::Refuse => false,
@@ -199,15 +222,179 @@ fn main_window(app: &AppHandle, shell: &Arc<Shell>, token: &str) -> tauri::Resul
     // window inside the app.
     .on_new_window(move |url, _features| {
         if navigation::external(&url) == Navigation::OpenExternally {
-            open_externally(&popup_app, &url);
+            open_link(&popup_app, &url);
         }
         NewWindowResponse::Deny
     })
     .build()
 }
 
+/// A link the app UI opened: Twitch's sign-in page marked for the sign-in
+/// window goes to the shell's own window (#1026), everything else to the
+/// system browser.
+fn open_link(app: &AppHandle, url: &Url) {
+    if twitch_sign_in::wants_sign_in_window(url) {
+        start_twitch_sign_in(app);
+    } else {
+        open_externally(app, url);
+    }
+}
+
 fn open_externally(app: &AppHandle, url: &Url) {
     let _ = app.opener().open_url(url.as_str(), None::<&str>);
+}
+
+/// Opens Twitch's sign-in page in a private window of the shell's own, from
+/// the link serve gives the shell (never the one the page sent). One at a
+/// time: asking again brings the open one forward.
+fn start_twitch_sign_in(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window(SIGN_IN_WINDOW) {
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    if shell.quitting.load(Ordering::SeqCst) || shell.signing_in.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    *shell.sign_in_outcome.lock().unwrap() = None;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let serve = shell.serve_url.lock().unwrap().clone();
+        let (Some(serve), Some(token)) = (serve, shell.token.get()) else {
+            shell.signing_in.store(false, Ordering::SeqCst);
+            report_sign_in(
+                &app,
+                &SignInResult::failed(None, "network_error", "lurkloot serve is not running"),
+            );
+            return;
+        };
+        let link = match serve_api::sign_in_link(&serve, token) {
+            // A fresh state per sign-in: only a redirect that brings it back
+            // is posted.
+            Ok(link) => twitch_sign_in::with_state(&link, &token::generate_token()),
+            Err(result) => {
+                shell.signing_in.store(false, Ordering::SeqCst);
+                report_sign_in(&app, &result);
+                return;
+            }
+        };
+        // Quit may have started while the link was fetched.
+        if shell.quitting.load(Ordering::SeqCst) {
+            shell.signing_in.store(false, Ordering::SeqCst);
+            return;
+        }
+        match sign_in_window(&app, &shell, link) {
+            // Built hidden, then checked: a Quit that started before this
+            // check is seen here, and one after it finds the window and
+            // closes it. Destroying it reports the sign-in as cancelled.
+            Ok(window) if shell.quitting.load(Ordering::SeqCst) => {
+                let _ = window.destroy();
+            }
+            Ok(window) => {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            Err(error) => {
+                shell.signing_in.store(false, Ordering::SeqCst);
+                report_sign_in(
+                    &app,
+                    &SignInResult::failed(
+                        None,
+                        "internal_error",
+                        format!("Could not open the sign-in window: {error}"),
+                    ),
+                );
+            }
+        }
+    });
+}
+
+fn sign_in_window(app: &AppHandle, shell: &Arc<Shell>, link: Url) -> tauri::Result<WebviewWindow> {
+    let state = link
+        .query_pairs()
+        .find(|(key, _)| key == "state")
+        .map(|(_, value)| value.into_owned())
+        .unwrap_or_default();
+    let navigate_shell = Arc::clone(shell);
+    let navigate_app = app.clone();
+    let popup_app = app.clone();
+    WebviewWindowBuilder::new(app, SIGN_IN_WINDOW, WebviewUrl::External(link))
+        .title("Sign in to Twitch")
+        // Shown by start_twitch_sign_in once it has checked Quit has not started.
+        .visible(false)
+        .inner_size(480.0, 720.0)
+        // A throwaway web data store, discarded when the window closes:
+        // Twitch's cookies never persist in the app.
+        .incognito(true)
+        // No initialization script: this window never gets serve's token.
+        .on_navigation(
+            move |url| match twitch_sign_in::read_navigation(url, &state) {
+                Redirect::Elsewhere => twitch_sign_in::sign_in_window_may_load(url),
+                // The redirect URI: never loaded. Keep Twitch's answer (only the
+                // first) and close the window, which reports the outcome.
+                outcome => {
+                    let mut stored = navigate_shell.sign_in_outcome.lock().unwrap();
+                    if stored.is_none() {
+                        *stored = Some(outcome);
+                    }
+                    drop(stored);
+                    let app = navigate_app.clone();
+                    let _ = navigate_app.run_on_main_thread(move || {
+                        if let Some(window) = app.get_webview_window(SIGN_IN_WINDOW) {
+                            let _ = window.close();
+                        }
+                    });
+                    false
+                }
+            },
+        )
+        .on_new_window(move |url, _features| {
+            if navigation::external(&url) == Navigation::OpenExternally {
+                open_externally(&popup_app, &url);
+            }
+            NewWindowResponse::Deny
+        })
+        .build()
+}
+
+/// The sign-in window is gone: closed early (cancelled), or closed by the
+/// shell at the redirect URI. Twitch's answer goes to serve, and the main
+/// window hears the outcome.
+fn sign_in_window_closed(app: &AppHandle) {
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    let outcome = shell.sign_in_outcome.lock().unwrap().take();
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let result = match outcome {
+            None | Some(Redirect::Elsewhere) => SignInResult::Cancelled,
+            Some(Redirect::Unreadable) => SignInResult::unreadable(),
+            Some(Redirect::Unverified) => SignInResult::unverified(),
+            Some(Redirect::Answer(address)) => {
+                let serve = shell.serve_url.lock().unwrap().clone();
+                match (serve, shell.token.get()) {
+                    (Some(serve), Some(token)) if !shell.quitting.load(Ordering::SeqCst) => {
+                        serve_api::complete(&serve, token, &address)
+                    }
+                    _ => {
+                        SignInResult::failed(None, "network_error", "lurkloot serve is not running")
+                    }
+                }
+            }
+        };
+        shell.signing_in.store(false, Ordering::SeqCst);
+        report_sign_in(&app, &result);
+    });
+}
+
+/// Tells the main window's app UI how a sign-in ended.
+fn report_sign_in(app: &AppHandle, result: &SignInResult) {
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        let _ = window.eval(twitch_sign_in::result_script(result));
+        if !app.state::<Arc<Shell>>().quitting.load(Ordering::SeqCst) {
+            show_main(app);
+        }
+    }
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -258,6 +445,9 @@ fn quit(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let _ = window.hide();
     }
+    if let Some(window) = app.get_webview_window(SIGN_IN_WINDOW) {
+        let _ = window.close();
+    }
     let app = app.clone();
     std::thread::spawn(move || {
         if let Some(supervisor) = shell.supervisor.get() {
@@ -277,6 +467,7 @@ impl SidecarEvents for WindowEvents {
     fn ready(&self, url: Url) {
         let shell = self.app.state::<Arc<Shell>>();
         *shell.serve.lock().unwrap() = Some(Site::of(&url));
+        *shell.serve_url.lock().unwrap() = Some(url.clone());
         if let Some(window) = self.app.get_webview_window(MAIN_WINDOW) {
             let _ = window.navigate(url);
         }
@@ -286,6 +477,7 @@ impl SidecarEvents for WindowEvents {
         let shell = self.app.state::<Arc<Shell>>();
         // That serve is gone; its port may be anyone's now.
         *shell.serve.lock().unwrap() = None;
+        *shell.serve_url.lock().unwrap() = None;
         let state = if failures >= FAILURES_BEFORE_ERROR {
             "failed"
         } else {

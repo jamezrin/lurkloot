@@ -943,6 +943,27 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   address open in the system browser; anything else is refused (`navigation.rs`). Restarting
   serve gives it a new port, which becomes the only allowed serve origin. Remote pages get no
   Tauri commands (no capabilities are granted).
+- **Twitch sign-in window (#1026).** In the desktop app Twitch's browser sign-in needs no paste.
+  The main window's initialization script also defines `window.lurklootDesktop`
+  (`{ twitchSignInWindow: true }`), and the app UI's Twitch card then shows one **Sign in to
+  Twitch** button (`packages/app-ui/src/desktopHost.ts`). It opens the sign-in link marked with
+  `#lurkloot-sign-in-window`; the shell catches that in `on_new_window`, takes the link from
+  serve's `GET /v1/session/auth/twitch/browser-login` itself (never the page's), adds a fresh
+  `state`, and opens it in a second, incognito window with no token script, whose web data is
+  discarded when it closes. That window may load any https page and `about:blank` frames, since
+  Twitch's sign-in spans several hosts. Every navigation to the redirect URI,
+  `https://www.twitch.tv/` exactly, is stopped (`twitch_sign_in.rs`). Only an answer that carries
+  the sign-in's `state` back is kept; the shell closes the window and posts that one address to
+  serve's `POST` route, the one the paste flow uses, over loopback HTTP with the launch token and
+  no proxy (`serve_api.rs`). The main window is told the outcome with a `lurkloot:twitch-sign-in`
+  event (signed in as whom, cancelled when the window was closed early, or serve's refusal), which
+  never carries the token or the address. An answer the web view hid (no fragment) or one without
+  this sign-in's `state` is not posted, and the app UI switches to the paste steps, whose unmarked
+  link opens in the system browser. In a plain browser there is no signal and nothing changes.
+  Checked on WebKitGTK: the navigation handler sees the fragment after a 302 and after a script
+  redirect, Twitch's login page renders in the private window and carries `state` through, and
+  nothing from it reaches the app-data folder. Not yet checked on WebView2 or WKWebView; the
+  paste fallback covers a web view that hides the fragment.
 - **Data.** `config.json` lives in the OS's app-data folder for the bundle identifier
   `name.jamezrin.lurkloot`; serve keeps `auth/` and `state.json` beside it. The identifier fixes
   that path, so it must never change (#1028 updates keep it).
@@ -959,12 +980,14 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   stdin pipe and serve saves and exits on its own; the job has no kill-on-close limit, so that
   holds on Windows too. Every exit's status goes to `serve.log`.
 - **Tests.** `cargo test` in `packages/desktop/src-tauri` covers the ready-line parser, the
-  navigation rules, the token script and the supervisor against a stand-in serve (ready URL,
+  navigation rules, the token script, the sign-in redirect matcher and its `state` check, the
+  calls to serve against a stand-in (only the address is posted), and the supervisor against a stand-in serve (ready URL,
   stdin-close shutdown, killing a tree that will not stop, restart and failure counting). The
   `build-desktop` CI workflow runs it with clippy on Linux, macOS and Windows.
   `desktopBoundary.test.ts`, which runs in `pnpm check` on every pull request, also keeps the
   names the shell repeats from TypeScript in step: the sessionStorage key, `LURKLOOT_SERVE_TOKEN`,
-  serve's flags and the ready line.
+  serve's flags, the ready line, and the sign-in window's host signal, event, link fragment, route
+  and redirect URI.
 
 ### Characterization coverage
 

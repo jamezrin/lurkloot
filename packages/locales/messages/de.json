@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv kann ihn fast sofort aus der Adressleiste entfernen. Öffne vor dem Anmelden die Entwicklertools des Browsers, wechsle zum Tab Network und aktiviere Preserve log. Melde dich dann an, filtere nach access_token und kopiere den location-Header der Weiterleitung von id.twitch.tv. Füge diesen stattdessen hier ein."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Melde dich in dem Fenster, das sich öffnet, bei Twitch an. Es schließt sich von selbst, wenn du fertig bist."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Bei Twitch anmelden"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Warten, bis du die Anmeldung abgeschlossen hast…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Das Anmeldefenster wurde geschlossen, bevor du die Anmeldung abgeschlossen hast."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Das Anmeldefenster konnte auf diesem System Twitchs Antwort nicht lesen. Verwende stattdessen die Schritte unten."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Stattdessen die Adresse einfügen"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Mit einem Code anmelden"
   },

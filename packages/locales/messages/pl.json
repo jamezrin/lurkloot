@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv może usunąć ją z paska adresu niemal od razu. Zanim się zalogujesz, otwórz narzędzia deweloperskie przeglądarki na karcie Network i włącz Preserve log. Następnie zaloguj się, filtruj po access_token i skopiuj nagłówek location przekierowania id.twitch.tv. Wklej go tutaj."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Zaloguj się do Twitcha w oknie, które się otworzy. Po zakończeniu zamknie się samo."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Zaloguj się do Twitcha"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Oczekiwanie na zakończenie logowania…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Okno logowania zostało zamknięte, zanim zakończono logowanie."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Okno logowania nie mogło odczytać odpowiedzi Twitcha w tym systemie. Użyj zamiast tego poniższych kroków."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Wklej zamiast tego adres"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Zaloguj się kodem"
   },

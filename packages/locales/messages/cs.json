@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv ji může z adresního řádku odstranit téměř okamžitě. Před přihlášením otevřete vývojářské nástroje prohlížeče na kartě Network a zapněte Preserve log. Pak se přihlaste, vyfiltrujte podle access_token a zkopírujte hlavičku location přesměrování id.twitch.tv. Vložte ji sem."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Přihlaste se k Twitchi v okně, které se otevře. Po dokončení se samo zavře."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Přihlásit se k Twitchi"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Čekání, až dokončíte přihlášení…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Přihlašovací okno bylo zavřeno dříve, než jste přihlášení dokončili."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Přihlašovacímu oknu se na tomto systému nepodařilo přečíst odpověď Twitche. Použijte místo toho postup níže."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Místo toho vložit adresu"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Přihlaste se kódem"
   },

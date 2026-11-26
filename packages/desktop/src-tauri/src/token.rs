@@ -25,12 +25,17 @@ pub fn generate_token() -> String {
 pub fn token_script(token: &str) -> String {
     let key = serde_json::to_string(TOKEN_STORAGE_KEY).expect("a string serializes");
     let value = serde_json::to_string(token).expect("a string serializes");
+    // Tells the app UI it runs in the desktop app, which opens Twitch's
+    // sign-in in a window of its own (#1026).
+    let host = serde_json::to_string(crate::twitch_sign_in::DESKTOP_HOST_PROPERTY)
+        .expect("a string serializes");
     format!(
         r#"(function () {{
   var loc = window.location;
   if (loc.protocol !== "http:") return;
   if (loc.hostname !== "127.0.0.1" && loc.hostname !== "localhost" && loc.hostname !== "[::1]") return;
   try {{ window.sessionStorage.setItem({key}, {value}); }} catch (error) {{}}
+  Object.defineProperty(window, {host}, {{ value: Object.freeze({{ twitchSignInWindow: true }}) }});
 }})();"#
     )
 }
@@ -54,6 +59,9 @@ mod tests {
         assert!(script.contains(r#"setItem("lurkloot.app.serveToken", "abc123")"#));
         assert!(script.contains(r#"loc.protocol !== "http:""#));
         assert!(script.contains(r#"loc.hostname !== "127.0.0.1""#));
+        assert!(script.contains(
+            r#"Object.defineProperty(window, "lurklootDesktop", { value: Object.freeze({ twitchSignInWindow: true }) });"#
+        ));
     }
 
     #[test]

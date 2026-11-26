@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv उस हिस्से को लगभग तुरंत एड्रेस बार से हटा सकता है। साइन इन करने से पहले, ब्राउज़र के डेवलपर टूल्स में Network टैब खोलें और Preserve log चालू करें। फिर साइन इन करें, access_token से फ़िल्टर करें, और id.twitch.tv रीडायरेक्ट का location हेडर कॉपी करें। इसके बजाय उसे यहाँ पेस्ट करें।"
   },
+  "appTwitchSignInWindowStep": {
+    "message": "जो विंडो खुलती है उसमें Twitch में साइन इन करें। हो जाने पर वह अपने-आप बंद हो जाएगी।"
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Twitch में साइन इन करें"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "आपके साइन इन पूरा करने का इंतज़ार है…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "साइन इन पूरा करने से पहले ही साइन-इन विंडो बंद हो गई।"
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "साइन-इन विंडो इस सिस्टम पर Twitch का जवाब नहीं पढ़ सकी। इसके बजाय नीचे दिए चरणों का उपयोग करें।"
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "इसके बजाय पता पेस्ट करें"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "कोड से साइन इन करें"
   },

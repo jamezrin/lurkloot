@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv는 거의 즉시 주소 표시줄에서 그 부분을 제거할 수 있습니다. 로그인하기 전에 브라우저 개발자 도구를 열고 Network 탭으로 이동한 뒤 Preserve log를 켜세요. 그다음 로그인하고 access_token으로 필터링한 뒤 id.twitch.tv 리디렉션의 location 헤더를 복사하세요. 대신 그것을 여기에 붙여넣으세요."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "열리는 창에서 Twitch에 로그인하세요. 완료되면 창이 자동으로 닫힙니다."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Twitch 로그인"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "로그인을 마칠 때까지 기다리는 중…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "로그인을 마치기 전에 로그인 창이 닫혔습니다."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "이 시스템에서 로그인 창이 Twitch의 응답을 읽을 수 없었습니다. 대신 아래 단계를 사용하세요."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "대신 주소 붙여넣기"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "코드로 로그인"
   },

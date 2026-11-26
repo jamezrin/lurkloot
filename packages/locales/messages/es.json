@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv puede quitarla de la barra de direcciones casi de inmediato. Antes de iniciar sesión, abre las herramientas de desarrollador del navegador en la pestaña Network y activa Preserve log. Luego inicia sesión, filtra por access_token y copia el encabezado location de la redirección de id.twitch.tv. Pégalo aquí en su lugar."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Inicia sesión en Twitch en la ventana que se abre. Se cierra sola cuando termines."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Iniciar sesión en Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Esperando a que termines de iniciar sesión…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "La ventana de inicio de sesión se cerró antes de que terminaras."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "La ventana de inicio de sesión no pudo leer la respuesta de Twitch en este sistema. Usa los pasos de abajo."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Pegar la dirección en su lugar"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Inicia sesión con un código"
   },

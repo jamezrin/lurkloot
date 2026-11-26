@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv bunu adres çubuğundan neredeyse hemen kaldırabilir. Oturum açmadan önce tarayıcının geliştirici araçlarını açın, Network sekmesine geçin ve Preserve log seçeneğini açın. Sonra oturum açın, access_token ile filtreleyin ve id.twitch.tv yönlendirmesinin location başlığını kopyalayıp buraya yapıştırın."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Açılan pencerede Twitch'e oturum açın. İşiniz bitince pencere kendiliğinden kapanır."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Twitch'e oturum aç"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Oturum açmanız bekleniyor…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Oturum açma penceresi, işlemi tamamlamadan kapatıldı."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Oturum açma penceresi bu sistemde Twitch'in yanıtını okuyamadı. Bunun yerine aşağıdaki adımları kullanın."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Bunun yerine adresi yapıştır"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Kodla oturum açın"
   },

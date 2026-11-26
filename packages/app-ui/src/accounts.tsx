@@ -4,13 +4,19 @@ import { encode } from "uqr";
 import { ExternalLink, KeyRound, LogOut, MonitorSmartphone, X } from "lucide-react";
 import { accountStatusDisplay, cn, openHttpsLink, usePopupRuntime, useT } from "@lurkloot/popup-ui";
 import type { Platform } from "@lurkloot/shared/models";
-import { isControlPlaneError } from "./api";
+import { ControlPlaneError, isControlPlaneError } from "./api";
 import {
   isDeviceLoginFinished,
   type AuthApi,
   type DeviceLogin,
   type PlatformAuthView,
 } from "./auth";
+import {
+  hasTwitchSignInWindow,
+  onTwitchSignIn,
+  SIGN_IN_WINDOW_FRAGMENT,
+  type TwitchSignInResult,
+} from "./desktopHost";
 import type { Translate } from "./i18n";
 
 // How often the Accounts view re-reads the masked status, and a device login
@@ -324,21 +330,73 @@ function KickAccount({
 
 /** Twitch's browser sign-in: open the link, sign in, paste back the address
  * Twitch ended on. The pasted address holds the token, so it leaves the input
- * as soon as it is sent, whatever the answer, and is never stored or shown. */
+ * as soon as it is sent, whatever the answer, and is never stored or shown.
+ *
+ * In the desktop app (#1026) the same link opens in a sign-in window of the
+ * app's own, which reads the redirect and finishes the sign-in itself: there
+ * is nothing to paste unless that window cannot read Twitch's answer. */
 function BrowserLogin({ api, onChanged }: { api: AuthApi; onChanged(): void }): React.ReactElement {
   const t = useT();
   const { adapter } = usePopupRuntime();
   const inputRef = useRef<HTMLInputElement>(null);
+  const signInWindow = useMemo(() => hasTwitchSignInWindow(), []);
+  const [pasteFlow, setPasteFlow] = useState(!signInWindow);
+  const [waiting, setWaiting] = useState(false);
   const [hasAddress, setHasAddress] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | undefined>();
   const [environmentOverride, setEnvironmentOverride] = useState(false);
 
-  const openLink = async () => {
+  const signedIn = useCallback(
+    (login: string | undefined, override: boolean) => {
+      setEnvironmentOverride(override);
+      setNotice({
+        tone: "ok",
+        text: login ? t("appTwitchBrowserLoginDoneAs", login) : t("appTwitchBrowserLoginDone"),
+      });
+      onChanged();
+    },
+    [onChanged, t],
+  );
+
+  useEffect(() => {
+    if (!signInWindow) return undefined;
+    return onTwitchSignIn((result: TwitchSignInResult) => {
+      setWaiting(false);
+      if (result.status === "signedIn") {
+        signedIn(result.login, result.environmentOverride);
+      } else if (result.status === "cancelled") {
+        setNotice({ tone: "error", text: t("appTwitchSignInWindowCancelled") });
+      } else if (
+        result.error.code === "redirect_unreadable"
+        || result.error.code === "redirect_unverified"
+      ) {
+        // The window could not read Twitch's answer, or got one that was not
+        // for this sign-in: paste the address instead.
+        setPasteFlow(true);
+        setNotice({ tone: "error", text: t("appTwitchSignInWindowUnreadable") });
+      } else {
+        const { status, code, message } = result.error;
+        setNotice({
+          tone: "error",
+          text: describeAuthError(new ControlPlaneError(status ?? 0, code, message), t, "twitch"),
+        });
+      }
+    });
+  }, [signInWindow, signedIn, t]);
+
+  // The desktop app opens its sign-in window for the link marked with
+  // SIGN_IN_WINDOW_FRAGMENT; the unmarked link of the paste steps goes to the
+  // system browser, where the address can be copied.
+  const openLink = async (inWindow: boolean) => {
     setNotice(undefined);
     try {
       const link = await api.browserLoginLink();
-      openHttpsLink(link.authorizeUrl, adapter.openLink);
+      openHttpsLink(
+        inWindow ? `${link.authorizeUrl}#${SIGN_IN_WINDOW_FRAGMENT}` : link.authorizeUrl,
+        adapter.openLink,
+      );
+      if (inWindow) setWaiting(true);
     } catch (error) {
       setNotice({ tone: "error", text: describeAuthError(error, t, "twitch") });
     }
@@ -358,14 +416,7 @@ function BrowserLogin({ api, onChanged }: { api: AuthApi; onChanged(): void }): 
     setNotice(undefined);
     try {
       const result = await api.completeBrowserLogin(address);
-      setEnvironmentOverride(result.environmentOverride);
-      setNotice({
-        tone: "ok",
-        text: result.login
-          ? t("appTwitchBrowserLoginDoneAs", result.login)
-          : t("appTwitchBrowserLoginDone"),
-      });
-      onChanged();
+      signedIn(result.login, result.environmentOverride);
     } catch (error) {
       setNotice({ tone: "error", text: describeAuthError(error, t, "twitch") });
     } finally {
@@ -380,60 +431,106 @@ function BrowserLogin({ api, onChanged }: { api: AuthApi; onChanged(): void }): 
       badge={t("appRecommended")}
       description={t("appTwitchBrowserLoginDescription")}
     >
-      <ol className="list-decimal space-y-2 ps-4 text-[12px] leading-relaxed text-zinc-600 marker:text-zinc-400 dark:text-zinc-300">
-        <li>
-          <span>{t("appTwitchBrowserLoginStepOpen")}</span>{" "}
-          <button
-            type="button"
-            data-browser-login-open
-            onClick={() => void openLink()}
-            className={cn(SECONDARY_BUTTON, "ms-1 py-1")}
-          >
-            <ExternalLink size={12} aria-hidden />
-            {t("appTwitchBrowserLoginOpen")}
-          </button>
-        </li>
-        <li>{t("appTwitchBrowserLoginStepCopy", "https://www.twitch.tv/#access_token=…")}</li>
-        <li>
-          <form onSubmit={(event) => void submit(event)} className="mt-1 flex gap-2">
-            <input
-              ref={inputRef}
-              data-browser-login-address
-              // Masked: the address carries the Twitch token.
-              type="password"
-              name="twitch-redirect"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              aria-label={t("appTwitchBrowserLoginAddressLabel")}
-              placeholder={t("appTwitchBrowserLoginAddressLabel")}
-              onChange={(event) => setHasAddress(Boolean(event.target.value.trim()))}
-              className={INPUT}
-            />
+      {signInWindow ? (
+        <div data-sign-in-window className="space-y-2 text-[12px] leading-relaxed">
+          <p className="text-zinc-600 dark:text-zinc-300">{t("appTwitchSignInWindowStep")}</p>
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              type="submit"
-              data-browser-login-submit
-              disabled={busy || !hasAddress}
+              type="button"
+              data-sign-in-window-open
+              // Not disabled while waiting: asking again brings the open
+              // sign-in window forward, and if a web view never opened one
+              // there is still a way to try again.
+              onClick={() => void openLink(true)}
               className={PRIMARY_BUTTON}
             >
-              {t("appTwitchBrowserLoginSubmit")}
+              <KeyRound size={12} aria-hidden />
+              {t("appTwitchSignInWindowOpen")}
             </button>
-          </form>
-        </li>
-      </ol>
+            {pasteFlow ? null : (
+              <button
+                type="button"
+                data-browser-login-paste
+                onClick={() => setPasteFlow(true)}
+                className="text-[12px] font-medium text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+              >
+                {t("appTwitchSignInWindowPasteInstead")}
+              </button>
+            )}
+          </div>
+          {waiting ? (
+            <p
+              data-sign-in-window-waiting
+              role="status"
+              className="text-zinc-500 dark:text-zinc-400"
+            >
+              {t("appTwitchSignInWindowWaiting")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {pasteFlow ? pasteSteps() : null}
       <NoticeLine notice={notice} />
       {environmentOverride ? <EnvironmentNote /> : null}
-      <details className="group rounded-lg border border-dashed border-zinc-200 px-3 py-2 text-[12px] dark:border-zinc-700">
-        <summary className="cursor-pointer font-semibold text-zinc-700 marker:text-zinc-400 dark:text-zinc-200">
-          {t("appTwitchBrowserLoginFallbackTitle")}
-        </summary>
-        <p className="mt-1.5 leading-relaxed text-zinc-500 dark:text-zinc-400">
-          {t("appTwitchBrowserLoginFallbackBody")}
-        </p>
-      </details>
     </Method>
   );
+
+  function pasteSteps(): React.ReactElement {
+    return (
+      <>
+        <ol className="list-decimal space-y-2 ps-4 text-[12px] leading-relaxed text-zinc-600 marker:text-zinc-400 dark:text-zinc-300">
+          <li>
+            <span>{t("appTwitchBrowserLoginStepOpen")}</span>{" "}
+            <button
+              type="button"
+              data-browser-login-open
+              onClick={() => void openLink(false)}
+              className={cn(SECONDARY_BUTTON, "ms-1 py-1")}
+            >
+              <ExternalLink size={12} aria-hidden />
+              {t("appTwitchBrowserLoginOpen")}
+            </button>
+          </li>
+          <li>{t("appTwitchBrowserLoginStepCopy", "https://www.twitch.tv/#access_token=…")}</li>
+          <li>
+            <form onSubmit={(event) => void submit(event)} className="mt-1 flex gap-2">
+              <input
+                ref={inputRef}
+                data-browser-login-address
+                // Masked: the address carries the Twitch token.
+                type="password"
+                name="twitch-redirect"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                aria-label={t("appTwitchBrowserLoginAddressLabel")}
+                placeholder={t("appTwitchBrowserLoginAddressLabel")}
+                onChange={(event) => setHasAddress(Boolean(event.target.value.trim()))}
+                className={INPUT}
+              />
+              <button
+                type="submit"
+                data-browser-login-submit
+                disabled={busy || !hasAddress}
+                className={PRIMARY_BUTTON}
+              >
+                {t("appTwitchBrowserLoginSubmit")}
+              </button>
+            </form>
+          </li>
+        </ol>
+        <details className="group rounded-lg border border-dashed border-zinc-200 px-3 py-2 text-[12px] dark:border-zinc-700">
+          <summary className="cursor-pointer font-semibold text-zinc-700 marker:text-zinc-400 dark:text-zinc-200">
+            {t("appTwitchBrowserLoginFallbackTitle")}
+          </summary>
+          <p className="mt-1.5 leading-relaxed text-zinc-500 dark:text-zinc-400">
+            {t("appTwitchBrowserLoginFallbackBody")}
+          </p>
+        </details>
+      </>
+    );
+  }
 }
 
 /** Whether this screen has a touch input, where a link meant for a phone app
