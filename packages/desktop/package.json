@@ -1,0 +1,17 @@
+{
+  "name": "@lurkloot/desktop",
+  "description": "Desktop app: a Tauri shell that runs the bundled lurkloot serve and shows its app UI.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "sidecar": "node scripts/prepareSidecar.mjs",
+    "dev": "node scripts/prepareSidecar.mjs && tauri dev",
+    "bundle": "node scripts/prepareSidecar.mjs && tauri build",
+    "test:rust": "cargo test --locked --manifest-path src-tauri/Cargo.toml",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.5"
+  }
+}
