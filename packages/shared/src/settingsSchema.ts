@@ -1,3 +1,4 @@
+import { PLATFORMS } from "./models";
 import { normalizePlatformWatchSourcePriority } from "./watchSources";
 import { isRecord } from "./records";
 
@@ -120,7 +121,7 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     }
   }
 
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const block = platformBlock(raw, platform);
     if (!block) continue;
     renameProperty(
@@ -216,7 +217,7 @@ function migrateToV4(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   delete raw.running;
   if (wasRunning !== false) return raw;
   const disabled: string[] = [];
-  for (const key of ["twitch", "kick"]) {
+  for (const key of PLATFORMS) {
     const block = platformBlock(raw, key);
     if (!block || block.enabled === false) continue;
     block.enabled = false;
@@ -244,7 +245,7 @@ function migrateToV4(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 // carry over untouched, so a later switch to exclude and back restores the same
 // include priority ordering.
 function migrateToV5(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const block = platformBlock(raw, platform);
     if (!block || !Object.hasOwn(block, "farmAllCategories")) continue;
     const legacy = block.farmAllCategories;
@@ -265,7 +266,7 @@ function migrateToV5(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 // Materializes complete per-platform source orders so hosts persist the new
 // shape once, including the legacy preference for watching Idle first.
 function migrateToV6(raw: Record<string, unknown>, _diagnose: Diagnose): Record<string, unknown> {
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const block = ensurePlatformBlock(raw, platform);
     if (block && !Object.hasOwn(block, "watchSourcePriority")) {
       block.watchSourcePriority = normalizePlatformWatchSourcePriority(
@@ -321,7 +322,7 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     if (!Object.hasOwn(raw, "farmPinnedOnly")) raw.farmPinnedOnly = true;
   }
 
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const block = platformBlock(raw, platform);
     if (!block || block.categoryMode !== "exclude") continue;
     const listed = block.categories;
@@ -410,7 +411,7 @@ function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   }
   const skipsSubscriptions = legacyEligibility.farmSubscriptionCampaigns === false;
 
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const existing = platformBlock(raw, platform);
     const derived: Record<string, unknown> = {};
     if (existing && Object.hasOwn(existing, "farmRewardTypes")) {
@@ -469,7 +470,7 @@ function rewardFilterFromFarmTypes(types: unknown, platform: string): Record<str
 // legacy value moves across as it is, so normalization (or the CLI's
 // validation) judges it, as renameProperty does.
 function migrateToV9(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const block = platformBlock(raw, platform);
     if (!block || !Object.hasOwn(block, "farmUnlinkedCampaigns")) continue;
     const legacy = block.farmUnlinkedCampaigns;
@@ -490,7 +491,7 @@ function migrateToV9(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 // its watch-source id becomes "watchlist", keeping its place in the order. A
 // current key always wins, as renameProperty does.
 function migrateToV10(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const block = platformBlock(raw, platform);
     if (!block) continue;
     const prefix = `platform.${platform}.`;
@@ -529,7 +530,7 @@ function migrateToV11(raw: Record<string, unknown>, diagnose: Diagnose): Record<
       replacements: [`platform.twitch.${key}`, `platform.kick.${key}`],
       message: `${key} moved to platform.twitch.${key} and platform.kick.${key}`,
     });
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       const block = ensurePlatformBlock(raw, platform);
       if (block && !Object.hasOwn(block, key))
         block[key] = Array.isArray(legacy) ? [...legacy] : legacy;
@@ -552,7 +553,7 @@ const EVERY_REWARD_KIND = ["item", "badge", "emote"];
 const REWARD_KIND_LISTS = ["kinds", "pinnedKinds", "favouriteKinds"] as const;
 
 function migrateToV12(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const block = platformBlock(raw, platform);
     if (!block) continue;
     const stored = block.rewardFilter;

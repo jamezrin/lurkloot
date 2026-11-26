@@ -1,14 +1,15 @@
-import type {
-  AdFocusMode,
-  ChannelCandidate,
-  ManagedPageContextTab,
-  ManagedWatchTab,
-  Platform,
-  PreparedWatchTab,
-  SchedulerManagedPageContexts,
-  TabClosureOrigin,
-  WatchSession,
-  WatchTabOptions,
+import {
+  PLATFORMS,
+  type AdFocusMode,
+  type ChannelCandidate,
+  type ManagedPageContextTab,
+  type ManagedWatchTab,
+  type Platform,
+  type PreparedWatchTab,
+  type SchedulerManagedPageContexts,
+  type TabClosureOrigin,
+  type WatchSession,
+  type WatchTabOptions,
 } from "@lurkloot/shared/models";
 import type {
   EventEmitter,
@@ -1801,9 +1802,13 @@ export async function stopManagedPageContextTabsWithBrowser(
   registry: TabRegistry,
   browserApi: BrowserTabApi,
   contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
+  options: {
+    platforms?: readonly Platform[];
+    reason?: PageContextCloseReason;
+    emit?: EventEmitter;
+  } = {},
 ): Promise<SchedulerManagedPageContexts> {
-  const platforms = options.platforms ?? ["twitch", "kick"];
+  const platforms = options.platforms ?? PLATFORMS;
   const remaining = { ...contexts };
   for (const platform of platforms) {
     const context = contexts[platform];

@@ -4,7 +4,7 @@ import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "yargs";
 import { hideBin } from "yargs/helpers";
-import type { DropCampaign, Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type DropCampaign, type Platform } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { KickWafBlockedError } from "@lurkloot/core/transport";
 import {
@@ -246,7 +246,7 @@ const discoverCommand: CommandModule = {
     const enabled = enabledPlatforms(config);
     const handle = await createTransport(transport, creds, config.authDir, enabled);
     try {
-      for (const platform of ["twitch", "kick"] as Platform[]) {
+      for (const platform of PLATFORMS) {
         if (!enabled[platform]) {
           logger.info("disabled in config — skipping", platform);
           continue;
@@ -412,7 +412,7 @@ const twitchBrowserLoginCommand: CommandModule = {
 
 // `auth <platform> device-login | logout` — declared explicitly per platform so
 // each verb gets its own --help entry and shows up in shell completion.
-function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
+function platformAuthCommand(platform: Platform): CommandModule {
   const loginBrief =
     platform === "twitch"
       ? "Twitch device-code OAuth (no browser)"

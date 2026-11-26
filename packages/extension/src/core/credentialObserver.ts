@@ -1,4 +1,4 @@
-import type { Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type Platform } from "@lurkloot/shared/models";
 
 export interface CredentialCookieChange {
   cookie: {
@@ -34,8 +34,6 @@ export interface CredentialHealthController {
   invalidateAuthHealth(platform: Platform): Promise<void>;
   checkAuthHealth(platform: Platform): Promise<void>;
 }
-
-const CREDENTIAL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 
 function normalizedDomain(domain: string): string {
   return domain.replace(/^\./, "").toLowerCase();
@@ -136,7 +134,7 @@ export function createCredentialObserver(deps: CredentialObserverDeps): () => vo
   };
 
   deps.onChanged.addListener(listener);
-  for (const platform of CREDENTIAL_PLATFORMS) check(platform, true);
+  for (const platform of PLATFORMS) check(platform, true);
 
   return () => {
     disposed = true;

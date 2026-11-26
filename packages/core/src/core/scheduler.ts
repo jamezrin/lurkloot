@@ -3,23 +3,24 @@ import {
   type ClaimedChallenge,
   type PlatformAdapter,
 } from "../platforms/adapter";
-import type {
-  CampaignSearchBackoff,
-  ChannelCandidate,
-  DropCampaign,
-  DropReward,
-  EngineSettings,
-  ManagedWatchTab,
-  Platform,
-  PlaybackTelemetry,
-  PreparedWatchTab,
-  SchedulerManagedPageContexts,
-  SchedulerState,
-  SupplementalWatchTarget,
-  WatchDecision,
-  WatchReasonCode,
-  WatchSession,
-  WatchSourceId,
+import {
+  PLATFORMS,
+  type CampaignSearchBackoff,
+  type ChannelCandidate,
+  type DropCampaign,
+  type DropReward,
+  type EngineSettings,
+  type ManagedWatchTab,
+  type Platform,
+  type PlaybackTelemetry,
+  type PreparedWatchTab,
+  type SchedulerManagedPageContexts,
+  type SchedulerState,
+  type SupplementalWatchTarget,
+  type WatchDecision,
+  type WatchReasonCode,
+  type WatchSession,
+  type WatchSourceId,
 } from "@lurkloot/shared/models";
 import { campaignForWatching, campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
@@ -95,7 +96,6 @@ import {
   type IdleWatchlistStreakPlan,
 } from "./watchStreaks";
 
-const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
 export { MANUAL_WATCH_TTL_MS } from "./manualWatch";
 
@@ -1384,7 +1384,11 @@ export interface SchedulerTickResult {
 // the real tabs.
 export type StopPageContextTabs = (
   contexts: SchedulerManagedPageContexts,
-  options?: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter },
+  options?: {
+    platforms?: readonly Platform[];
+    reason?: PageContextCloseReason;
+    emit?: EventEmitter;
+  },
 ) => Promise<SchedulerManagedPageContexts> | SchedulerManagedPageContexts;
 
 // Every side effect a scheduler tick can ask for (#599). The tick only names
@@ -1491,7 +1495,7 @@ export interface SchedulerTickDiscovery {
 export interface SchedulerTickInput {
   state: SchedulerState;
   settings: EngineSettings;
-  platforms?: Platform[];
+  platforms?: readonly Platform[];
   // Required for every ticked platform: the tick never discovers campaigns.
   discovery: Partial<Record<Platform, SchedulerTickDiscovery>>;
   selectionViews: Partial<Record<Platform, SelectionView>>;

@@ -1,12 +1,13 @@
-import type {
-  AccountProgressPoll,
-  EngineSettings,
-  Platform,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type AccountProgressPoll,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { ACCOUNT_PROGRESS_ALARM_NAME, PLATFORMS } from "./constants";
+import { ACCOUNT_PROGRESS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { BackgroundJob } from "./jobs";

@@ -208,7 +208,7 @@ export function createAuthHealth<S extends EngineSettings>(
   }
 
   async function refreshAuthHealth(
-    platforms: Platform[],
+    platforms: readonly Platform[],
     loadedSettings?: S,
     reportCompatibility = false,
     signal?: AbortSignal,

@@ -1,6 +1,6 @@
-import type { CompatibilitySettings } from "./models";
+import type { CompatibilitySettings, Platform } from "./models";
 
-export type CompatibilityPlatform = "twitch" | "kick";
+export type CompatibilityPlatform = Platform;
 export type CompatibilityHost = "extension" | "cli";
 export type TwitchIdentity = "web" | "android";
 

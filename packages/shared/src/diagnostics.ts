@@ -2,7 +2,7 @@ import type { DiagnosticEvent } from "./events";
 import { farmingSettingsEntries, watchSessionEntries } from "./failureReport";
 import { LOG_LEVELS, type LogLevel } from "./logging";
 import type { RuntimeSnapshot } from "./messages";
-import type { EngineSettings, Platform } from "./models";
+import { PLATFORMS, type EngineSettings, type Platform } from "./models";
 import { isRecord } from "./records";
 
 export type DiagnosticRecord = Pick<
@@ -123,7 +123,7 @@ export function buildDiagnosticsExport(input: DiagnosticsExportInput): {
       ] as const
     ).map(field),
   ].join("\n");
-  const platforms: readonly Platform[] = platform ? [platform] : ["twitch", "kick"];
+  const platforms: readonly Platform[] = platform ? [platform] : PLATFORMS;
   const context = snapshot
     ? platforms.map((id) =>
         [

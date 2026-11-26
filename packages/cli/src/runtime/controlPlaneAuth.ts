@@ -1,4 +1,4 @@
-import type { Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type Platform } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import { describeCredentialHealth, forgetCredentials, saveCredentials } from "../authStore";
 import {
@@ -32,7 +32,6 @@ import {
 // (whose uuid and code let anyone collect the token once approved) goes to the
 // caller only, never to the log.
 
-const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 const PLATFORM_LABEL: Record<Platform, string> = { twitch: "Twitch", kick: "Kick" };
 // The redirect address is a URL; anything longer is not one.
 const MAX_ADDRESS_LENGTH = 8 * 1024;

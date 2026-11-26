@@ -4,11 +4,12 @@ import { runSchedulerTick, type SchedulerTestAdapter } from "./helpers/scheduler
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import type {
-  DropCampaign,
-  Platform,
-  SchedulerState,
-  SupplementalWatchTarget,
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type Platform,
+  type SchedulerState,
+  type SupplementalWatchTarget,
 } from "@lurkloot/shared/models";
 
 function setup(platform: Platform = "twitch") {
@@ -85,7 +86,7 @@ function setup(platform: Platform = "twitch") {
 }
 
 describe("watch-source scheduler policy", () => {
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "selects Idle first on %s and preserves watchlist channel order",
     async (platform) => {
       const s = setup(platform);
@@ -133,7 +134,7 @@ describe("watch-source scheduler policy", () => {
     expect(result.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
   });
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "applies active source reordering on %s without losing drop progress",
     async (platform) => {
       const s = setup(platform);
@@ -166,7 +167,7 @@ describe("watch-source scheduler policy", () => {
   });
 
   it.each(
-    (["twitch", "kick"] as const).flatMap((platform) => [
+    PLATFORMS.flatMap((platform) => [
       // "replacement" ends sooner, so it ranks first and takes over.
       {
         platform,
@@ -354,7 +355,7 @@ describe("watch-source scheduler policy", () => {
     expect(result.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
   });
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "yields a failing Watchlist-first source to eligible Drops on %s",
     async (platform) => {
       const s = setup(platform);
@@ -399,7 +400,7 @@ describe("watch-source scheduler policy", () => {
     },
   );
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "revalidates removed Idle channels during incomplete discovery on %s",
     async (platform) => {
       const s = setup(platform);
@@ -422,7 +423,7 @@ describe("watch-source scheduler policy", () => {
     },
   );
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "revalidates Idle channel order during incomplete discovery on %s",
     async (platform) => {
       const s = setup(platform);
@@ -445,7 +446,7 @@ describe("watch-source scheduler policy", () => {
     },
   );
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "lets newly discovered higher Drops preempt healthy Idle during incomplete discovery on %s",
     async (platform) => {
       const s = setup(platform);
