@@ -1,8 +1,9 @@
-import type {
-  EngineSettings,
-  Platform,
-  SchedulerState,
-  WatchSession,
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+  type WatchSession,
 } from "@lurkloot/shared/models";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { isFarmingActive } from "@lurkloot/shared/settings";
@@ -17,7 +18,6 @@ import {
   adapterFromDiscoverySnapshot,
   selectionAdapterFromDiscoverySnapshot,
 } from "../core/discoverySnapshot";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, farmingLifecycleEvents } from "./helpers";
@@ -251,7 +251,7 @@ export function createTickRun<S extends EngineSettings>(
 
   async function runTick(
     tickContext: TickDiagnosticContext,
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     signal: AbortSignal,
     trigger: TickTrigger,
     tickAdapters: Partial<Record<Platform, TickAdapterHandle<S>>>,

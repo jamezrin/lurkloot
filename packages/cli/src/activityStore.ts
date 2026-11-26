@@ -19,7 +19,7 @@ import type { ActivityEvent, EngineEvent, StoredEngineEvent } from "@lurkloot/sh
 import { isActivityTimelineEvent } from "@lurkloot/shared/farmingSessions";
 import type { FarmingSessionSummary } from "@lurkloot/shared/farmingSessions";
 import type { ActivityPage, ActivityQuery } from "@lurkloot/shared/messages";
-import type { Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type Platform } from "@lurkloot/shared/models";
 import { readJsonSidecar, writeJsonAtomically } from "./storage";
 
 // The CLI's activity history (#1088): the extension's history, kept in one
@@ -116,7 +116,7 @@ function prune(file: ActivityFile, now: number): ActivityFile {
     .sort(compareActivityRecords)
     .slice(-MAX_ACTIVITY_RECORDS_PER_CATEGORY);
   const sessions: FarmingSessionSummary[] = [];
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const retained = file.sessions
       .filter((session) => session.platform === platform && activitySessionRetained(session, now))
       .sort((left, right) => right.startedAt.localeCompare(left.startedAt));
