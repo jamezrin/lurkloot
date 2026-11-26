@@ -239,7 +239,6 @@ function mountCampaignList(
         value={{
           t: (key) =>
             ({
-              completedCampaigns: "Completed",
               finished: "Finished",
               later: "later",
               search: "Search",

@@ -209,14 +209,8 @@
   "settingsSearchNoResults": {
     "message": "Немає налаштувань за запитом «$1»."
   },
-  "settingsPlatformSettings": {
-    "message": "Налаштування $1"
-  },
   "settingsShowAdvancedTitle": {
     "message": "Показати додаткові налаштування"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Перейти до розділу"
   },
   "settingsSectionAdvancedActions": {
     "message": "Додаткові дії"
@@ -227,9 +221,6 @@
   "activityTitle": {
     "message": "Активність"
   },
-  "activeStatus": {
-    "message": "Активно"
-  },
   "pausedStatus": {
     "message": "На паузі"
   },
@@ -239,26 +230,14 @@
   "openInventory": {
     "message": "Відкрити інвентар"
   },
-  "openActivity": {
-    "message": "Відкрити активність"
-  },
-  "closeActivity": {
-    "message": "Закрити активність"
-  },
   "openSettings": {
     "message": "Відкрити налаштування"
-  },
-  "closeSettings": {
-    "message": "Закрити налаштування"
   },
   "back": {
     "message": "Назад"
   },
   "loading": {
     "message": "Завантаження"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Список перегляду"
@@ -458,9 +437,6 @@
   "campaignSearchNoResults": {
     "message": "Немає кампаній за запитом «$1»."
   },
-  "closeSearch": {
-    "message": "Закрити пошук"
-  },
   "search": {
     "message": "Пошук"
   },
@@ -502,9 +478,6 @@
   },
   "notLinked": {
     "message": "Не прив’язано"
-  },
-  "subscriptionCampaigns": {
-    "message": "Кампанії за підпискою"
   },
   "subscriptionRequired": {
     "message": "Потрібна підписка"
@@ -584,9 +557,6 @@
   "finished": {
     "message": "Завершені"
   },
-  "completedCampaigns": {
-    "message": "Завершені"
-  },
   "upcomingPill": {
     "message": "Незабаром"
   },
@@ -656,9 +626,6 @@
   "viewerCount": {
     "message": "$1 глядачів"
   },
-  "settingsGeneralTitle": {
-    "message": "Загальні налаштування"
-  },
   "settingsGeneralDescription": {
     "message": "Мова, запуск і поведінка спливаючого вікна."
   },
@@ -677,9 +644,6 @@
   "autoStartDescription": {
     "message": "Починає фарм одразу після завантаження розширення."
   },
-  "notificationsTitle": {
-    "message": "Сповіщення"
-  },
   "notificationsDescription": {
     "message": "Сповіщення, коли нагороди готові або кампанії завершуються."
   },
@@ -697,9 +661,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Сповіщати, коли всі активні кампанії вичерпані."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Отримання, доступність, пріоритети та видимість кампаній."
@@ -725,23 +686,11 @@
   "lowAvailabilityFirst": {
     "message": "Спочатку низька доступність"
   },
-  "watchlistSettingsTitle": {
-    "message": "Список перегляду"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Резервні канали, коли немає доступних дропів."
-  },
   "preferKnownChannelsTitle": {
     "message": "Надавати перевагу підписаним каналам і каналам зі списку перегляду"
   },
   "preferKnownChannelsDescription": {
     "message": "Коли дроп доступний на кількох каналах, обирає той, на який ви підписані або який є у списку перегляду, а не незнайомий."
-  },
-  "platformSettingsTitle": {
-    "message": "Налаштування платформи"
-  },
-  "farmingTabsTitle": {
-    "message": "Вкладки фарму"
   },
   "farmingTabsDescription": {
     "message": "Керування фармом через відеовкладки. Налаштування вкладок вимкнено, поки увімкнено режим без вкладок із низьким споживанням."
@@ -814,9 +763,6 @@
   },
   "tabAndWindow": {
     "message": "Вкладка + вікно"
-  },
-  "advancedTitle": {
-    "message": "Додатково"
   },
   "advancedDescription": {
     "message": "Змінюйте лише якщо розумієте наслідки — це низькорівневі налаштування планувальника та журналу."
@@ -959,17 +905,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "Зараз жодну нагороду цієї кампанії не можна фармити."
   },
-  "automationSectionTitle": {
-    "message": "Автоматизація"
-  },
-  "farmOnPlatform": {
-    "message": "Фармить дропи та дивиться канали зі списку перегляду на $1."
-  },
   "enabled": {
     "message": "Увімкнено"
-  },
-  "watchlistEditHint": {
-    "message": "Редагуйте їх на вкладці «Список перегляду» після вибору $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Автозабір балів каналу"
@@ -1064,9 +1001,6 @@
   "includeCategoriesInstruction": {
     "message": "На $1 фармляться лише ці категорії."
   },
-  "categoriesToFarm": {
-    "message": "Категорії для фарму"
-  },
   "noCategoriesSelected": {
     "message": "Категорії не обрано — на $1 нічого не фармитиметься. Додайте категорії нижче."
   },
@@ -1084,15 +1018,6 @@
   },
   "noCategoriesFound": {
     "message": "Категорій не знайдено."
-  },
-  "alreadyAdded": {
-    "message": "Вже додано."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Рівні журналу активності"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Оберіть рівні для журналу активності. Помилки завжди зберігаються."
   },
   "rewardFilterTitle": {
     "message": "Нагороди для фарму"
@@ -1421,9 +1346,6 @@
   "cliExportTitle": {
     "message": "CLI без браузера"
   },
-  "cliExportDescription": {
-    "message": "Запускайте фарм дропів на сервері або в Docker через Lurkloot CLI, використовуючи сесію цього браузера."
-  },
   "cliExportHint": {
     "message": "Експортує токени сесій Twitch і Kick, щоб «login --import» у CLI міг їх використати. Тримайте файл у секреті — хто має його, може використовувати ваші сесії."
   },
@@ -1537,9 +1459,6 @@
   },
   "activitySessionOutside": {
     "message": "Поза сесією"
-  },
-  "activitySessionEarlier": {
-    "message": "Раніше"
   },
   "activitySessionEmpty": {
     "message": "Поки нічого не отримано. Нагороди та бали з'являтимуться тут у міру надходження."
@@ -2147,9 +2066,6 @@
   "campaignRewardsProgress": {
     "message": "$1 з $2 нагород"
   },
-  "campaignTimeLeft": {
-    "message": "Залишилося $1"
-  },
   "campaignFactStarts": {
     "message": "Початок"
   },
@@ -2365,9 +2281,6 @@
   },
   "gamesNoMoreResults": {
     "message": "Інших ігор не знайдено."
-  },
-  "navBeta": {
-    "message": "Beta"
   },
   "navExtensions": {
     "message": "Розширення"

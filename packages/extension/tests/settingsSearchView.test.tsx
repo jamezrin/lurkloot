@@ -14,10 +14,8 @@ import type { PopupAdapter } from "../../popup-ui/src/types";
 // cleanly, so keep this in sync with settingsRegistry.tsx.
 const labels: Record<string, string> = {
   search: "Search",
-  closeSearch: "Close search",
   settingsSearchPlaceholder: "Search settings…",
   settingsSearchNoResults: "No settings match",
-  settingsPlatformSettings: "$1",
   settingsShowAdvancedTitle: "Show advanced settings",
   settingsSectionAdvancedActions: "Advanced actions",
   settingsSectionAdvancedActionsDescription: "Import, export, or reset Lurkloot settings.",

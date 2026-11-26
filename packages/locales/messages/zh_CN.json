@@ -209,14 +209,8 @@
   "settingsSearchNoResults": {
     "message": "未找到与“$1”匹配的设置。"
   },
-  "settingsPlatformSettings": {
-    "message": "$1 设置"
-  },
   "settingsShowAdvancedTitle": {
     "message": "显示高级设置"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "跳转到设置分组"
   },
   "settingsSectionAdvancedActions": {
     "message": "高级操作"
@@ -227,9 +221,6 @@
   "activityTitle": {
     "message": "运行记录"
   },
-  "activeStatus": {
-    "message": "活动中"
-  },
   "pausedStatus": {
     "message": "已暂停"
   },
@@ -239,26 +230,14 @@
   "openInventory": {
     "message": "打开掉宝库存"
   },
-  "openActivity": {
-    "message": "打开运行记录"
-  },
-  "closeActivity": {
-    "message": "关闭运行记录"
-  },
   "openSettings": {
     "message": "打开设置"
-  },
-  "closeSettings": {
-    "message": "关闭设置"
   },
   "back": {
     "message": "返回"
   },
   "loading": {
     "message": "加载中"
-  },
-  "dropsTab": {
-    "message": "掉宝"
   },
   "watchlistTab": {
     "message": "观看列表"
@@ -458,9 +437,6 @@
   "campaignSearchNoResults": {
     "message": "未找到与“$1”匹配的掉宝活动。"
   },
-  "closeSearch": {
-    "message": "关闭搜索"
-  },
   "search": {
     "message": "搜索"
   },
@@ -502,9 +478,6 @@
   },
   "notLinked": {
     "message": "未关联"
-  },
-  "subscriptionCampaigns": {
-    "message": "订阅活动"
   },
   "subscriptionRequired": {
     "message": "需要订阅"
@@ -584,9 +557,6 @@
   "finished": {
     "message": "已完成"
   },
-  "completedCampaigns": {
-    "message": "已完成"
-  },
   "upcomingPill": {
     "message": "即将开始"
   },
@@ -656,9 +626,6 @@
   "viewerCount": {
     "message": "$1 名观众"
   },
-  "settingsGeneralTitle": {
-    "message": "常规设置"
-  },
   "settingsGeneralDescription": {
     "message": "语言、启动和弹窗行为。"
   },
@@ -677,9 +644,6 @@
   "autoStartDescription": {
     "message": "扩展加载后立即开始挂机。"
   },
-  "notificationsTitle": {
-    "message": "通知"
-  },
   "notificationsDescription": {
     "message": "奖励可领取或掉宝活动结束时提醒你。"
   },
@@ -697,9 +661,6 @@
   },
   "noDropsLeftDescription": {
     "message": "所有进行中的掉宝活动都已无奖励可挂机时通知你。"
-  },
-  "dropsSettingsTitle": {
-    "message": "掉宝"
   },
   "dropsSettingsDescription": {
     "message": "领取、参与资格、优先级和掉宝活动显示设置。"
@@ -725,23 +686,11 @@
   "lowAvailabilityFirst": {
     "message": "可用频道较少的优先"
   },
-  "watchlistSettingsTitle": {
-    "message": "观看列表"
-  },
-  "watchlistSettingsDescription": {
-    "message": "没有符合条件的掉宝时使用的备用频道。"
-  },
   "preferKnownChannelsTitle": {
     "message": "优先选择已关注和观看列表中的频道"
   },
   "preferKnownChannelsDescription": {
     "message": "当某个掉宝可在多个频道获取时，优先选择你已关注或已加入观看列表的频道，而非陌生频道。"
-  },
-  "platformSettingsTitle": {
-    "message": "平台设置"
-  },
-  "farmingTabsTitle": {
-    "message": "挂机标签页"
   },
   "farmingTabsDescription": {
     "message": "视频标签页挂机相关设置。启用无标签页低资源模式时，标签页专用设置将不可用。"
@@ -814,9 +763,6 @@
   },
   "tabAndWindow": {
     "message": "标签页 + 窗口"
-  },
-  "advancedTitle": {
-    "message": "高级"
   },
   "advancedDescription": {
     "message": "只有在了解其作用时才更改这些设置——它们控制底层调度和日志行为。"
@@ -959,17 +905,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "此掉宝活动目前没有可挂机获取的奖励。"
   },
-  "automationSectionTitle": {
-    "message": "自动挂机"
-  },
-  "farmOnPlatform": {
-    "message": "在 $1 上挂机获取掉宝，并观看观看列表中的频道。"
-  },
   "enabled": {
     "message": "已启用"
-  },
-  "watchlistEditHint": {
-    "message": "选择 $1 后，可在“观看列表”标签页中编辑。"
   },
   "autoClaimChannelPointsTitle": {
     "message": "自动领取频道点数"
@@ -1064,9 +1001,6 @@
   "includeCategoriesInstruction": {
     "message": "在 $1 上只挂机这些分类。"
   },
-  "categoriesToFarm": {
-    "message": "要挂机的分类"
-  },
   "noCategoriesSelected": {
     "message": "未选择分类：不会在 $1 上挂机获取掉宝。请在下方添加分类。"
   },
@@ -1084,15 +1018,6 @@
   },
   "noCategoriesFound": {
     "message": "未找到分类。"
-  },
-  "alreadyAdded": {
-    "message": "已添加。"
-  },
-  "activityLogLevelsTitle": {
-    "message": "运行记录级别"
-  },
-  "activityLogLevelsDescription": {
-    "message": "选择运行记录中保存哪些级别；错误记录始终保留。"
   },
   "rewardFilterTitle": {
     "message": "要挂机的奖励"
@@ -1421,9 +1346,6 @@
   "cliExportTitle": {
     "message": "无界面 CLI"
   },
-  "cliExportDescription": {
-    "message": "使用 Lurkloot CLI 在服务器或 Docker 中挂机获取掉宝，并复用此浏览器的登录会话。"
-  },
   "cliExportHint": {
     "message": "导出你的 Twitch 和 Kick 会话令牌，供 CLI 的“login --import”命令使用。请妥善保管文件——任何获得文件的人都能使用你的登录会话。"
   },
@@ -1537,9 +1459,6 @@
   },
   "activitySessionOutside": {
     "message": "不在挂机期间"
-  },
-  "activitySessionEarlier": {
-    "message": "更早"
   },
   "activitySessionEmpty": {
     "message": "尚未获得任何内容。奖励和点数会在获得后显示在这里。"
@@ -2147,9 +2066,6 @@
   "campaignRewardsProgress": {
     "message": "$1/$2 个奖励"
   },
-  "campaignTimeLeft": {
-    "message": "剩余 $1"
-  },
   "campaignFactStarts": {
     "message": "开始"
   },
@@ -2365,9 +2281,6 @@
   },
   "gamesNoMoreResults": {
     "message": "未找到其他游戏。"
-  },
-  "navBeta": {
-    "message": "测试版"
   },
   "navExtensions": {
     "message": "扩展"

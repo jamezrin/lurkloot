@@ -209,14 +209,8 @@
   "settingsSearchNoResults": {
     "message": "कोई सेटिंग “$1” से मेल नहीं खाती।"
   },
-  "settingsPlatformSettings": {
-    "message": "$1 सेटिंग्स"
-  },
   "settingsShowAdvancedTitle": {
     "message": "उन्नत सेटिंग्स दिखाएँ"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "अनुभाग पर जाएँ"
   },
   "settingsSectionAdvancedActions": {
     "message": "उन्नत कार्रवाइयाँ"
@@ -227,9 +221,6 @@
   "activityTitle": {
     "message": "गतिविधि"
   },
-  "activeStatus": {
-    "message": "सक्रिय"
-  },
   "pausedStatus": {
     "message": "रुका हुआ"
   },
@@ -239,26 +230,14 @@
   "openInventory": {
     "message": "इन्वेंटरी खोलें"
   },
-  "openActivity": {
-    "message": "गतिविधि खोलें"
-  },
-  "closeActivity": {
-    "message": "गतिविधि बंद करें"
-  },
   "openSettings": {
     "message": "सेटिंग्स खोलें"
-  },
-  "closeSettings": {
-    "message": "सेटिंग्स बंद करें"
   },
   "back": {
     "message": "वापस"
   },
   "loading": {
     "message": "लोड हो रहा है"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "वॉचलिस्ट"
@@ -458,9 +437,6 @@
   "campaignSearchNoResults": {
     "message": "कोई अभियान “$1” से मेल नहीं खाता।"
   },
-  "closeSearch": {
-    "message": "खोज बंद करें"
-  },
   "search": {
     "message": "खोजें"
   },
@@ -502,9 +478,6 @@
   },
   "notLinked": {
     "message": "लिंक नहीं"
-  },
-  "subscriptionCampaigns": {
-    "message": "सदस्यता अभियान"
   },
   "subscriptionRequired": {
     "message": "सदस्यता आवश्यक है"
@@ -584,9 +557,6 @@
   "finished": {
     "message": "पूर्ण"
   },
-  "completedCampaigns": {
-    "message": "पूर्ण"
-  },
   "upcomingPill": {
     "message": "आगामी"
   },
@@ -656,9 +626,6 @@
   "viewerCount": {
     "message": "$1 दर्शक"
   },
-  "settingsGeneralTitle": {
-    "message": "सामान्य सेटिंग्स"
-  },
   "settingsGeneralDescription": {
     "message": "भाषा, स्टार्टअप और पॉप-अप व्यवहार।"
   },
@@ -677,9 +644,6 @@
   "autoStartDescription": {
     "message": "एक्सटेंशन लोड होते ही फ़ार्मिंग शुरू करें।"
   },
-  "notificationsTitle": {
-    "message": "सूचनाएँ"
-  },
   "notificationsDescription": {
     "message": "रिवॉर्ड तैयार होने या अभियान समाप्त होने पर अलर्ट।"
   },
@@ -697,9 +661,6 @@
   },
   "noDropsLeftDescription": {
     "message": "सभी सक्रिय कैंपेन समाप्त होने पर सूचित करें।"
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "क्लेम करना, पात्रता, प्राथमिकताएँ और अभियान दृश्यता।"
@@ -725,23 +686,11 @@
   "lowAvailabilityFirst": {
     "message": "कम उपलब्धता पहले"
   },
-  "watchlistSettingsTitle": {
-    "message": "वॉचलिस्ट"
-  },
-  "watchlistSettingsDescription": {
-    "message": "साझा फ़ॉलबैक वॉचलिस्ट व्यवहार।"
-  },
   "preferKnownChannelsTitle": {
     "message": "फ़ॉलो किए गए और वॉचलिस्ट चैनलों को प्राथमिकता दें"
   },
   "preferKnownChannelsDescription": {
     "message": "जब कोई drop कई चैनलों पर उपलब्ध हो, तो किसी अनजान चैनल के बजाय ऐसा चैनल चुनता है जिसे आप फ़ॉलो करते हैं या जो आपकी वॉचलिस्ट में है।"
-  },
-  "platformSettingsTitle": {
-    "message": "प्लेटफ़ॉर्म सेटिंग्स"
-  },
-  "farmingTabsTitle": {
-    "message": "फ़ार्मिंग टैब"
   },
   "farmingTabsDescription": {
     "message": "वीडियो-टैब फ़ार्मिंग के नियंत्रण। टैबलेस लो-रिसोर्स मोड में टैब-विशिष्ट नियंत्रण अक्षम रहते हैं।"
@@ -814,9 +763,6 @@
   },
   "tabAndWindow": {
     "message": "टैब + विंडो"
-  },
-  "advancedTitle": {
-    "message": "उन्नत"
   },
   "advancedDescription": {
     "message": "इन्हें तभी बदलें जब आप जानते हों: ये low-level scheduler और logging नियंत्रित करते हैं।"
@@ -959,17 +905,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "इस कैंपेन का कोई रिवॉर्ड अभी फ़ार्म नहीं किया जा सकता।"
   },
-  "automationSectionTitle": {
-    "message": "ऑटोमेशन"
-  },
-  "farmOnPlatform": {
-    "message": "$1 पर drops फ़ार्म करें और वॉचलिस्ट देखें।"
-  },
   "enabled": {
     "message": "सक्षम"
-  },
-  "watchlistEditHint": {
-    "message": "$1 चुनने के बाद वॉचलिस्ट टैब से संपादित करें।"
   },
   "autoClaimChannelPointsTitle": {
     "message": "चैनल पॉइंट अपने आप क्लेम करें"
@@ -1064,9 +1001,6 @@
   "includeCategoriesInstruction": {
     "message": "$1 पर केवल ये श्रेणियाँ फ़ार्म की जाती हैं।"
   },
-  "categoriesToFarm": {
-    "message": "फ़ार्म करने की श्रेणियाँ"
-  },
   "noCategoriesSelected": {
     "message": "कोई श्रेणी चयनित नहीं: $1 पर कुछ फ़ार्म नहीं होगा। नीचे श्रेणियाँ जोड़ें।"
   },
@@ -1084,15 +1018,6 @@
   },
   "noCategoriesFound": {
     "message": "कोई श्रेणी नहीं मिली।"
-  },
-  "alreadyAdded": {
-    "message": "पहले से जोड़ा गया।"
-  },
-  "activityLogLevelsTitle": {
-    "message": "गतिविधि लॉग स्तर"
-  },
-  "activityLogLevelsDescription": {
-    "message": "गतिविधि लॉग में कौन से स्तर रिकॉर्ड हों चुनें। त्रुटियाँ हमेशा रखी जाती हैं।"
   },
   "rewardFilterTitle": {
     "message": "फ़ार्म करने वाले रिवॉर्ड"
@@ -1421,9 +1346,6 @@
   "cliExportTitle": {
     "message": "हेडलेस CLI"
   },
-  "cliExportDescription": {
-    "message": "Lurkloot CLI के साथ किसी सर्वर या Docker में ड्रॉप फ़ार्मिंग चलाएँ, इस ब्राउज़र के लॉग-इन सत्र का उपयोग करते हुए।"
-  },
   "cliExportHint": {
     "message": "आपके Twitch और Kick सत्र टोकन निर्यात करता है ताकि CLI का “login --import” उन्हें पुनः उपयोग कर सके। फ़ाइल को निजी रखें — जिसके पास यह होगी वह आपके सत्रों का उपयोग कर सकता है।"
   },
@@ -1537,9 +1459,6 @@
   },
   "activitySessionOutside": {
     "message": "सत्र के बाहर"
-  },
-  "activitySessionEarlier": {
-    "message": "पहले"
   },
   "activitySessionEmpty": {
     "message": "अभी तक कुछ भी नहीं मिला है। रिवॉर्ड और पॉइंट्स मिलते ही यहाँ दिखेंगे।"
@@ -2147,9 +2066,6 @@
   "campaignRewardsProgress": {
     "message": "$2 में से $1 इनाम"
   },
-  "campaignTimeLeft": {
-    "message": "$1 बाकी"
-  },
   "campaignFactStarts": {
     "message": "शुरू"
   },
@@ -2365,9 +2281,6 @@
   },
   "gamesNoMoreResults": {
     "message": "कोई और गेम नहीं मिला।"
-  },
-  "navBeta": {
-    "message": "बीटा"
   },
   "navExtensions": {
     "message": "एक्सटेंशन"

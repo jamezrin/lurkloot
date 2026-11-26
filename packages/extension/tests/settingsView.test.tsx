@@ -87,7 +87,6 @@ const labels: Record<string, string> = {
   subscriptionModeSkipHint: "Rewards that need a subscription are not farmed.",
   subscriptionModeOnlyHint: "Only rewards that need a subscription are farmed.",
   notLinked: "Not linked",
-  subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",

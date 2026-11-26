@@ -209,14 +209,8 @@
   "settingsSearchNoResults": {
     "message": "“$1”과(와) 일치하는 설정이 없습니다."
   },
-  "settingsPlatformSettings": {
-    "message": "$1 설정"
-  },
   "settingsShowAdvancedTitle": {
     "message": "고급 설정 표시"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "섹션으로 이동"
   },
   "settingsSectionAdvancedActions": {
     "message": "고급 작업"
@@ -227,9 +221,6 @@
   "activityTitle": {
     "message": "활동"
   },
-  "activeStatus": {
-    "message": "활성"
-  },
   "pausedStatus": {
     "message": "일시 중지됨"
   },
@@ -239,26 +230,14 @@
   "openInventory": {
     "message": "인벤토리 열기"
   },
-  "openActivity": {
-    "message": "활동 열기"
-  },
-  "closeActivity": {
-    "message": "활동 닫기"
-  },
   "openSettings": {
     "message": "설정 열기"
-  },
-  "closeSettings": {
-    "message": "설정 닫기"
   },
   "back": {
     "message": "뒤로"
   },
   "loading": {
     "message": "로딩 중"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "시청 목록"
@@ -458,9 +437,6 @@
   "campaignSearchNoResults": {
     "message": "“$1”과(와) 일치하는 캠페인이 없습니다."
   },
-  "closeSearch": {
-    "message": "검색 닫기"
-  },
   "search": {
     "message": "검색"
   },
@@ -502,9 +478,6 @@
   },
   "notLinked": {
     "message": "연결되지 않음"
-  },
-  "subscriptionCampaigns": {
-    "message": "구독 캠페인"
   },
   "subscriptionRequired": {
     "message": "구독 필요"
@@ -584,9 +557,6 @@
   "finished": {
     "message": "완료"
   },
-  "completedCampaigns": {
-    "message": "완료됨"
-  },
   "upcomingPill": {
     "message": "예정"
   },
@@ -656,9 +626,6 @@
   "viewerCount": {
     "message": "시청자 $1명"
   },
-  "settingsGeneralTitle": {
-    "message": "일반 설정"
-  },
   "settingsGeneralDescription": {
     "message": "언어, 시작, 팝업 동작."
   },
@@ -677,9 +644,6 @@
   "autoStartDescription": {
     "message": "확장 프로그램이 로드되면 바로 파밍을 시작합니다."
   },
-  "notificationsTitle": {
-    "message": "알림"
-  },
   "notificationsDescription": {
     "message": "보상을 받을 수 있거나 캠페인이 끝날 때 알립니다."
   },
@@ -697,9 +661,6 @@
   },
   "noDropsLeftDescription": {
     "message": "활성 캠페인이 모두 소진되면 알립니다."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "수령, 자격, 우선순위, 캠페인 표시."
@@ -725,23 +686,11 @@
   "lowAvailabilityFirst": {
     "message": "채널 적음 우선"
   },
-  "watchlistSettingsTitle": {
-    "message": "시청 목록"
-  },
-  "watchlistSettingsDescription": {
-    "message": "적격 드롭이 없을 때 사용하는 대체 채널."
-  },
   "preferKnownChannelsTitle": {
     "message": "팔로우 및 시청 목록 채널 우선"
   },
   "preferKnownChannelsDescription": {
     "message": "여러 채널에서 드롭이 가능할 때, 모르는 채널보다 팔로우하거나 시청 목록에 있는 채널을 선택합니다."
-  },
-  "platformSettingsTitle": {
-    "message": "플랫폼 설정"
-  },
-  "farmingTabsTitle": {
-    "message": "파밍 탭"
   },
   "farmingTabsDescription": {
     "message": "동영상 탭 파밍 제어. 탭 없는 저자원 모드가 켜져 있으면 탭 관련 제어는 비활성화됩니다."
@@ -814,9 +763,6 @@
   },
   "tabAndWindow": {
     "message": "탭 + 창"
-  },
-  "advancedTitle": {
-    "message": "고급"
   },
   "advancedDescription": {
     "message": "무엇을 하는지 알 때만 변경하세요 — 스케줄러와 로깅의 저수준 동작을 제어합니다."
@@ -959,17 +905,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "이 캠페인에서 지금 파밍할 수 있는 보상이 없습니다."
   },
-  "automationSectionTitle": {
-    "message": "자동화"
-  },
-  "farmOnPlatform": {
-    "message": "$1에서 드롭을 파밍하고 시청 목록 채널을 시청합니다."
-  },
   "enabled": {
     "message": "켜짐"
-  },
-  "watchlistEditHint": {
-    "message": "$1을(를) 선택한 뒤 시청 목록 탭에서 편집하세요."
   },
   "autoClaimChannelPointsTitle": {
     "message": "채널 포인트 자동 수령"
@@ -1064,9 +1001,6 @@
   "includeCategoriesInstruction": {
     "message": "$1에서는 이 카테고리만 파밍합니다."
   },
-  "categoriesToFarm": {
-    "message": "파밍할 카테고리"
-  },
   "noCategoriesSelected": {
     "message": "선택된 카테고리 없음 — $1에서 파밍할 항목이 없습니다. 아래에서 카테고리를 추가하세요."
   },
@@ -1084,15 +1018,6 @@
   },
   "noCategoriesFound": {
     "message": "카테고리를 찾을 수 없습니다."
-  },
-  "alreadyAdded": {
-    "message": "이미 추가됨."
-  },
-  "activityLogLevelsTitle": {
-    "message": "활동 로그 수준"
-  },
-  "activityLogLevelsDescription": {
-    "message": "활동 로그에 기록할 수준을 선택하세요. 오류는 항상 보관됩니다."
   },
   "rewardFilterTitle": {
     "message": "파밍할 보상"
@@ -1421,9 +1346,6 @@
   "cliExportTitle": {
     "message": "헤드리스 CLI"
   },
-  "cliExportDescription": {
-    "message": "이 브라우저의 로그인 세션으로 Lurkloot CLI를 사용해 서버나 Docker에서 드롭 파밍을 실행합니다."
-  },
   "cliExportHint": {
     "message": "Twitch와 Kick 세션 토큰을 내보내 CLI의 “login --import”가 재사용할 수 있게 합니다. 파일은 비공개로 보관하세요 — 누구든 세션을 사용할 수 있습니다."
   },
@@ -1537,9 +1459,6 @@
   },
   "activitySessionOutside": {
     "message": "세션 밖"
-  },
-  "activitySessionEarlier": {
-    "message": "이전"
   },
   "activitySessionEmpty": {
     "message": "아직 획득한 것이 없습니다. 보상과 포인트는 획득하는 대로 여기에 표시됩니다."
@@ -2147,9 +2066,6 @@
   "campaignRewardsProgress": {
     "message": "보상 $1/$2"
   },
-  "campaignTimeLeft": {
-    "message": "$1 남음"
-  },
   "campaignFactStarts": {
     "message": "시작"
   },
@@ -2365,9 +2281,6 @@
   },
   "gamesNoMoreResults": {
     "message": "다른 게임을 찾을 수 없습니다."
-  },
-  "navBeta": {
-    "message": "Beta"
   },
   "navExtensions": {
     "message": "확장 프로그램"
