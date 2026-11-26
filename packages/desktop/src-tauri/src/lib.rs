@@ -5,6 +5,7 @@
 //! its ready line and closing its stdin. See docs/architecture.md, "Desktop
 //! app".
 
+mod autostart;
 pub mod navigation;
 pub mod ready;
 mod serve_api;
@@ -25,7 +26,6 @@ use tauri::webview::NewWindowResponse;
 use tauri::{
     AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry,
 };
-use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
@@ -116,15 +116,6 @@ pub fn run() {
             show_main(app)
         }))
         .plugin(tauri_plugin_opener::init())
-        // Registers nothing by itself: the entry exists only while Launch at
-        // startup is on (#1027). The page gets none of its commands, since
-        // no capability grants them.
-        .plugin(
-            tauri_plugin_autostart::Builder::new()
-                .app_name("Lurkloot")
-                .arg(shell_settings::AUTOSTART_ARG)
-                .build(),
-        )
         .manage(Arc::clone(&shell))
         .setup(move |app| {
             setup(app.handle(), &shell)?;
@@ -184,11 +175,13 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     let _ = shell.token.set(token.clone());
 
     let settings_file = SettingsFile::in_dir(&app.path().app_config_dir()?);
-    let settings = settings_file.load();
-    if settings.launch_at_startup {
-        // Written again on every launch, so the entry follows the app when
-        // it moves (an AppImage, a reinstall elsewhere).
-        let _ = app.autolaunch().enable();
+    let mut settings = settings_file.load();
+    // The OS entry is never written on launch, only from the tray, so a user
+    // who switched it off in the OS stays switched off. One they removed
+    // entirely turns the setting off to match.
+    if settings.launch_at_startup && matches!(autostart::is_registered(), Ok(false)) {
+        settings.launch_at_startup = false;
+        let _ = settings_file.save(&settings);
     }
     let launch_at_startup = settings.launch_at_startup;
     *shell.settings.lock().unwrap() = settings;
@@ -482,47 +475,52 @@ fn build_tray(app: &AppHandle, launch_at_startup: bool) -> tauri::Result<()> {
     Ok(())
 }
 
-/// The tray's "Launch at startup": registers or removes the OS's startup
-/// entry, then saves the choice. When the OS refuses, nothing is saved and
-/// the check goes back to what is really there.
+/// The tray's "Launch at startup": registers or removes this user's startup
+/// entry, then saves the choice. Off the GUI thread, one change at a time.
+/// Whatever fails, the check and the saved choice end up showing what the
+/// OS really has.
 fn toggle_launch_at_startup(app: &AppHandle) {
-    let shell = app.state::<Arc<Shell>>();
-    let mut settings = shell.settings.lock().unwrap();
-    let wanted = !settings.launch_at_startup;
-    let autolaunch = app.autolaunch();
-    let changed = if wanted {
-        autolaunch.enable()
-    } else {
-        autolaunch.disable()
-    };
-    let saved = changed.is_ok() && {
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    std::thread::spawn(move || {
+        let mut settings = shell.settings.lock().unwrap();
+        let wanted = !settings.launch_at_startup;
+        let file = shell.settings_file.get();
+        let changed = if wanted {
+            autostart::current_program().and_then(|program| autostart::register(&program))
+        } else {
+            autostart::unregister()
+        };
         let mut next = settings.clone();
         next.launch_at_startup = wanted;
-        let written = shell
-            .settings_file
-            .get()
-            .is_some_and(|file| file.save(&next).is_ok());
-        if written {
+        let saved = changed.is_ok() && file.is_some_and(|file| file.save(&next).is_ok());
+        if saved {
             *settings = next;
         } else {
-            // Not saved: put the entry back as it was, so the two agree.
-            let _ = if wanted {
-                autolaunch.disable()
-            } else {
-                autolaunch.enable()
+            let reason = match &changed {
+                Err(error) => error.to_string(),
+                Ok(()) => "the setting could not be saved".to_owned(),
             };
+            eprintln!(
+                "Launch at startup could not be turned {}: {reason}",
+                if wanted { "on" } else { "off" }
+            );
+            if wanted {
+                // Not saved: take the entry back out so the two agree.
+                let _ = autostart::unregister();
+            }
+            if let Ok(registered) = autostart::is_registered() {
+                if registered != settings.launch_at_startup {
+                    settings.launch_at_startup = registered;
+                    if let Some(file) = file {
+                        let _ = file.save(&settings);
+                    }
+                }
+            }
         }
-        written
-    };
-    if !saved {
-        eprintln!(
-            "Launch at startup could not be turned {}",
-            if wanted { "on" } else { "off" }
-        );
-    }
-    if let Some(item) = shell.launch_at_startup_item.get() {
-        let _ = item.set_checked(settings.launch_at_startup);
-    }
+        if let Some(item) = shell.launch_at_startup_item.get() {
+            let _ = item.set_checked(settings.launch_at_startup);
+        }
+    });
 }
 
 fn show_main(app: &AppHandle) {

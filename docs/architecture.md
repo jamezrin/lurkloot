@@ -972,12 +972,17 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   the session bus (`tray.rs`), checked at start and again on each close; without one, closing
   the window quits instead. A second launch
   focuses the running window (the single-instance plugin).
-- **Launch at startup (#1027).** A shell setting, not a farming one: the tray's check item writes
-  `desktop.json` in the app's config folder (`shell_settings.rs`), which serve never reads, and
-  registers or removes the OS's startup entry through `tauri-plugin-autostart`. No capability
-  grants the plugin's commands, so only the tray can change it. The entry passes `--autostart`; a
-  launch with it builds the main window hidden when a tray exists and shown when none does. The
-  entry is rewritten on each launch while the setting is on, and a refused change saves nothing.
+- **Launch at startup (#1027).** This is a shell setting, not a farming one. The tray's check item
+  writes `desktop.json` in the app's config folder (`shell_settings.rs`), which serve never reads.
+  It also registers or removes this user's startup entry (`autostart.rs`):
+  - Windows: the HKCU Run value, never HKLM or `StartupApproved`.
+  - macOS: a LaunchAgent plist written with XML escaping.
+  - Linux: an XDG autostart entry with its `Exec` path quoted to the Desktop Entry spec.
+
+  No plugin is involved, so the page has no command for it. The entry passes `--autostart`. A
+  launch with it builds the main window hidden when a registered tray host exists, and shown
+  otherwise. A launch never writes the entry, so an OS-side opt-out stands. A failed toggle
+  leaves the check and `desktop.json` showing the OS's real state.
 - **Quit.** Every way out (tray Quit, the last window closed without a tray, the OS's quit)
   goes through one path: hide the window, close serve's stdin, wait up to 20 s for it to save
   and exit, then kill its process tree and exit. serve runs in its own process group on Linux

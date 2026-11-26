@@ -26,13 +26,20 @@ sources or cycletls, and it farms only through `serve`.
 - Quit closes serve's stdin and waits up to 20 s for it to save and exit. If it hasn't, the
   shell kills serve's whole process tree, cycletls included.
 - A second launch focuses the running window.
-- **Launch at startup** (#1027), off by default, adds the app to the OS's sign-in items: a Run key
-  entry on Windows, a LaunchAgent on macOS, an XDG autostart entry on Linux. That entry starts it
-  with `--autostart`, which farms from the tray with no window until **Open Lurkloot**. With no
-  tray, it opens the window. The choice is a shell setting, saved in `desktop.json` in the app's
-  config folder, never in serve's `config.json`. While it is on, each launch writes the entry
-  again, so it follows an AppImage that moved. If the OS refuses the change, nothing is saved and
-  the check goes back to what is really there.
+- **Launch at startup** (#1027), off by default, adds the app to this user's sign-in items
+  (`src/autostart.rs`):
+  - Windows: a `Lurkloot` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+  - macOS: `~/Library/LaunchAgents/name.jamezrin.lurkloot.plist`.
+  - Linux: `name.jamezrin.lurkloot.desktop` in `$XDG_CONFIG_HOME/autostart`, or
+    `~/.config/autostart`. It points at the AppImage itself when the app runs from one.
+
+  The entry starts the app with `--autostart`, which farms from the tray with no window until
+  **Open Lurkloot**. When there's no tray, or no panel has registered to show it, the window opens.
+  The choice is a shell setting, saved in `desktop.json` in the app's config folder, never in
+  serve's `config.json`. Only the tray writes the entry, never a launch. A user who switches it off
+  in the OS (Task Manager, Login Items) stays switched off, and an entry removed outside the app
+  turns the setting off. After a failed change, the check shows what the OS really has. An
+  AppImage moved after turning it on needs it turned off and on again.
 - Signs in to Twitch without pasting (#1026). **Sign in to Twitch** opens Twitch's sign-in page in
   a private window of the app's own. Its cookies are discarded when it closes. When Twitch sends
   that window back with the token, the app closes it and finishes the sign-in through serve, the
