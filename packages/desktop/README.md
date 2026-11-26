@@ -20,11 +20,19 @@ sources or cycletls, and it farms only through `serve`.
 - Keeps the window on serve's own address. Links and `window.open` go to the system browser.
 - If serve exits unexpectedly, starts it again after a backoff of 1 s up to 60 s. After three
   failures in a row it shows an error.
-- Closing the window keeps farming in the tray, which has **Open Lurkloot** and **Quit**. On a
+- Closing the window keeps farming in the tray, which has **Open Lurkloot**, **Launch at startup**
+  and **Quit**. On a
   Linux desktop with no tray, closing the window quits instead.
 - Quit closes serve's stdin and waits up to 20 s for it to save and exit. If it hasn't, the
   shell kills serve's whole process tree, cycletls included.
 - A second launch focuses the running window.
+- **Launch at startup** (#1027), off by default, adds the app to the OS's sign-in items: a Run key
+  entry on Windows, a LaunchAgent on macOS, an XDG autostart entry on Linux. That entry starts it
+  with `--autostart`, which farms from the tray with no window until **Open Lurkloot**. With no
+  tray, it opens the window. The choice is a shell setting, saved in `desktop.json` in the app's
+  config folder, never in serve's `config.json`. While it is on, each launch writes the entry
+  again, so it follows an AppImage that moved. If the OS refuses the change, nothing is saved and
+  the check goes back to what is really there.
 - Signs in to Twitch without pasting (#1026). **Sign in to Twitch** opens Twitch's sign-in page in
   a private window of the app's own. Its cookies are discarded when it closes. When Twitch sends
   that window back with the token, the app closes it and finishes the sign-in through serve, the
