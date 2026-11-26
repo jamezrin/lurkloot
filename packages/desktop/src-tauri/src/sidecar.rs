@@ -269,11 +269,12 @@ fn run_once(
         let mut state = inner.state.lock().unwrap();
         state.killer = Some(Arc::clone(&killer));
         // A shutdown that came while it started: its stdin is dropped at once.
-        state.stdin = if state.stopping {
-            None
+        let stdin = child.stdin.take();
+        if state.stopping {
+            drop(stdin);
         } else {
-            child.stdin.take()
-        };
+            state.stdin = stdin;
+        }
     }
     let (ready_tx, ready_rx) = mpsc::channel();
     let readers = [

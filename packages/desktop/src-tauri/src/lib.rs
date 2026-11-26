@@ -42,26 +42,39 @@ struct Shell {
     shell_url: OnceLock<Url>,
     supervisor: OnceLock<Supervisor>,
     has_tray: AtomicBool,
+    /// Quit has started: serve is being stopped.
     quitting: AtomicBool,
+    /// serve is stopped; only now may the app exit.
+    shutdown_done: AtomicBool,
 }
 
 impl Shell {
-    /// Remembers the address of the shell's own pages. Tauri serves them from
-    /// `tauri://localhost`, or `http://tauri.localhost` on Windows, so it is
-    /// read from the window rather than written here. A web view that has not
-    /// committed its first page yet may report `about:blank`; that is not it.
-    fn learn_shell_url(&self, url: &Url) {
-        if url.host_str().is_some() && matches!(url.scheme(), "tauri" | "http" | "https") {
+    /// Remembers the address of the shell's own pages, read from the window.
+    /// Tauri serves them from `tauri://localhost`, or `http(s)://tauri.localhost`
+    /// on Windows; only those are taken, never `about:blank` (a web view that has
+    /// not committed its first page yet) or any other address. Returns whether
+    /// `url` is the shell's own page.
+    fn learn_shell_url(&self, url: &Url) -> bool {
+        let is_shell = match (url.scheme(), url.host_str()) {
+            ("tauri", Some("localhost")) => true,
+            ("http" | "https", Some("tauri.localhost")) => url.port().is_none(),
+            _ => false,
+        };
+        if is_shell {
             let _ = self.shell_url.set(url.clone());
         }
+        is_shell
     }
 
     fn decide(&self, url: &Url) -> Navigation {
         let Some(shell_url) = self.shell_url.get() else {
-            // Only the window's first page, the shell's own, loads before its
-            // address is known: serve is not started until it is.
-            self.learn_shell_url(url);
-            return Navigation::Allow;
+            // Before the shell's address is known, only the shell's own first
+            // page may load.
+            return if self.learn_shell_url(url) {
+                Navigation::Allow
+            } else {
+                Navigation::Refuse
+            };
         };
         let serve = self.serve.lock().unwrap().clone();
         navigation::decide(url, serve.as_ref(), Some(&Site::of(shell_url)))
@@ -103,9 +116,10 @@ pub fn run() {
     app.run(|app, event| match event {
         RunEvent::ExitRequested { api, .. } => {
             let shell = app.state::<Arc<Shell>>();
-            if !shell.quitting.load(Ordering::SeqCst) {
+            if !shell.shutdown_done.load(Ordering::SeqCst) {
                 // Every way out (the last window closed with no tray, the
-                // OS's own quit) stops serve first.
+                // OS's own quit, a second quit while the first one waits)
+                // stops serve first; quit() exits once it has.
                 api.prevent_exit();
                 quit(app);
             }
@@ -243,6 +257,7 @@ fn quit(app: &AppHandle) {
         if let Some(supervisor) = shell.supervisor.get() {
             supervisor.shutdown(SHUTDOWN_GRACE);
         }
+        shell.shutdown_done.store(true, Ordering::SeqCst);
         app.exit(0);
     });
 }
@@ -298,9 +313,15 @@ mod tests {
             "http://tauri.localhost/index.html#starting",
         ] {
             let shell = Shell::default();
-            shell.learn_shell_url(&url("about:blank"));
+            for other in [
+                "about:blank",
+                "http://127.0.0.1:49152/",
+                "https://evil.example/",
+            ] {
+                assert!(!shell.learn_shell_url(&url(other)));
+            }
             assert!(shell.shell_url.get().is_none());
-            shell.learn_shell_url(&url(page));
+            assert!(shell.learn_shell_url(&url(page)));
             let restarting = shell.status_page("restarting").unwrap();
             assert_eq!(restarting.fragment(), Some("restarting"));
             assert_eq!(restarting.path(), "/index.html");
@@ -315,6 +336,15 @@ mod tests {
     #[test]
     fn learns_it_from_the_first_navigation_when_the_window_did_not_say() {
         let shell = Shell::default();
+        // Nothing else loads before it is known, serve's address included.
+        assert_eq!(
+            shell.decide(&url("http://127.0.0.1:49152/")),
+            Navigation::Refuse
+        );
+        assert_eq!(
+            shell.decide(&url("https://www.twitch.tv/")),
+            Navigation::Refuse
+        );
         assert_eq!(
             shell.decide(&url("http://tauri.localhost/index.html#starting")),
             Navigation::Allow
