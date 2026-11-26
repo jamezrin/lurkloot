@@ -40,7 +40,7 @@ import type { SchedulerState } from "@lurkloot/shared/models";
 import { createHttpTransport } from "../src/transport/http";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import type { TransportHandle } from "../src/transport";
-import type { CycleTLSClient } from "../src/transport/cycle";
+import { fakeCycleTls } from "./helpers/fakeCycleTls";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 import { runLoop } from "../src/runtime/run";
 import type { Logger } from "../src/logger";
@@ -54,18 +54,8 @@ const logger: Logger = {
   error() {},
 };
 
-function fakeCycleClient(): CycleTLSClient {
-  const client = async () => ({ status: 200, data: {} });
-  return Object.assign(client, {
-    exit: async () => undefined,
-    ws: async () => ({
-      send() {},
-      close() {},
-      onMessage() {},
-      onClose() {},
-      onError() {},
-    }),
-  }) as unknown as CycleTLSClient;
+function fakeCycleClient() {
+  return fakeCycleTls();
 }
 
 const transports: Array<[string, () => Promise<TransportHandle>]> = [

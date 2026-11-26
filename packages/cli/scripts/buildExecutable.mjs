@@ -2,9 +2,9 @@
 // (#1022): Node's single-executable application, with the CLI bundled inside,
 // so it runs where no Node is installed. Beside it go the impit package in
 // impit/ (its JavaScript and this platform's native add-on, which cannot load
-// from inside the executable), the cycletls package in cycletls/ (its
-// unmodified JavaScript, runtime dependencies and this platform's Go binary,
-// loaded at run time and never compiled in, as cycletls is GPL-3.0), the app
+// from inside the executable), CycleTLS's Go binary in cycletls/ (GPL-3.0, a
+// separate program the CLI starts and talks to over a socket; only the binary
+// and its license ship, no cycletls JavaScript), the app
 // UI in app/, LICENSE and a NOTICE, and with --archive all of it is packed
 // into the release archive for this target.
 //
@@ -26,6 +26,8 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { gplInputsIn, gplPackagesIn } from "./checkNoGplJavaScript.mjs";
+import { copyCycleTls } from "./copyCycleTls.mjs";
 import { createRequire } from "node:module";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,8 +43,6 @@ import {
   SEA_MACHO_SEGMENT,
   SEA_RESOURCE,
   bundledPackages,
-  cycleTlsUpstreamName,
-  dependencyClosure,
   impitBindingPackages,
   packageDirOf,
   executableName,
@@ -58,7 +58,6 @@ const require = createRequire(import.meta.url);
 const { platform, arch } = process;
 const target = cliExecutableTarget(platform, arch);
 const version = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")).version;
-const cycleTlsFile = platform === "win32" ? "cycletls.exe" : "cycletls";
 
 /** Reads the optional value following a named build flag. */
 function argument(name) {
@@ -86,11 +85,10 @@ rmSync(dirname(out), { recursive: true, force: true });
 mkdirSync(work, { recursive: true });
 mkdirSync(out, { recursive: true });
 
-// 1. One CommonJS file with every dependency inside but cycletls and impit: a
+// 1. One CommonJS file with every dependency inside but impit: a
 // single-executable application's main script can require only Node's built-in
-// modules. "cycletls" and "impit" are aliased to shims that load each package
-// from its folder at run time (src/runtime/cycleTlsStandalone.ts,
-// src/runtime/impitStandalone.ts). ws's
+// modules. "impit" is aliased to a shim that loads the package from its folder
+// at run time (src/runtime/impitStandalone.ts). ws's
 // optional native add-ons stay out; ws falls back without them. The banner
 // gives import.meta.url a value (the executable's own path) for code that
 // reads it in this CommonJS output.
@@ -106,7 +104,6 @@ const result = await build({
   outfile: bundle,
   external: ["bufferutil", "utf-8-validate"],
   alias: {
-    cycletls: "./src/runtime/cycleTlsStandalone.ts",
     impit: "./src/runtime/impitStandalone.ts",
   },
   banner: {
@@ -117,6 +114,11 @@ const result = await build({
   logLevel: "warning",
 });
 
+const gplInBundle = gplInputsIn(result.metafile, { root: packageRoot });
+if (gplInBundle.length > 0) {
+  process.stderr.write(`GPL JavaScript must not be compiled in: ${gplInBundle.join(", ")}\n`);
+  process.exit(1);
+}
 for (const shipped of ["cycletls", "impit"]) {
   const compiled = Object.keys(result.metafile.inputs).filter((input) => {
     const dir = packageDirOf(input);
@@ -161,39 +163,14 @@ await inject(executable, SEA_RESOURCE, readFileSync(blob), {
 });
 if (platform === "darwin") run("codesign", ["--sign", "-", executable]);
 
-// 4. The cycletls package, as the CLI loads it (src/runtime/standalone.ts):
-// cycletls/ holds its package.json, LICENSE and unmodified dist/index.js, its
-// runtime dependencies flat in node_modules, and this platform's Go binary
-// under the name the CLI passes as executablePath.
-const cycleTlsDir = realpathSync(dirname(require.resolve("cycletls/package.json")));
-const cycleTlsManifest = JSON.parse(readFileSync(join(cycleTlsDir, "package.json"), "utf8"));
-const cycleTlsOut = join(out, "cycletls");
-mkdirSync(join(cycleTlsOut, "dist"), { recursive: true });
-for (const file of ["package.json", "LICENSE"]) {
-  copyFileSync(join(cycleTlsDir, file), join(cycleTlsOut, file));
-}
-copyFileSync(join(cycleTlsDir, "dist", "index.js"), join(cycleTlsOut, "dist", "index.js"));
-const cycleTlsDependencies = dependencyClosure(cycleTlsDir, {
-  resolve: (from, name) =>
-    realpathSync(
-      dirname(createRequire(join(from, "package.json")).resolve(`${name}/package.json`)),
-    ),
-});
-for (const dependency of cycleTlsDependencies) {
-  cpSync(dependency.dir, join(cycleTlsOut, "node_modules", ...dependency.name.split("/")), {
-    recursive: true,
-    dereference: true,
-    filter: (source) => !relative(dependency.dir, source).split(sep).includes("node_modules"),
-  });
-}
-const cycleTls = join(cycleTlsOut, cycleTlsFile);
-copyFileSync(join(cycleTlsDir, "dist", cycleTlsUpstreamName(platform, arch)), cycleTls);
-chmodSync(cycleTls, 0o755);
+// 4. CycleTLS's Go binary for this platform, its license and a NOTICE, in
+// cycletls/ where the CLI starts it (src/runtime/standalone.ts).
+const cycleTls = copyCycleTls(join(out, "cycletls"), { platform, arch });
 if (platform === "darwin") {
   try {
-    execFileSync("codesign", ["--verify", cycleTls], { stdio: "ignore" });
+    execFileSync("codesign", ["--verify", cycleTls.binary], { stdio: "ignore" });
   } catch {
-    run("codesign", ["--sign", "-", cycleTls]);
+    run("codesign", ["--sign", "-", cycleTls.binary]);
   }
 }
 
@@ -258,16 +235,20 @@ writeFileSync(
       license: impitManifest.license,
       addons: impitAddons,
     },
-    cycleTls: {
-      file: cycleTlsFile,
-      version: cycleTlsManifest.version,
-      license: readFileSync(join(cycleTlsDir, "LICENSE"), "utf8"),
-      dependencies: cycleTlsDependencies,
-    },
+    cycleTls: { file: cycleTls.file, version: cycleTls.version, license: cycleTls.license },
     packages: bundledPackages(Object.keys(result.metafile.inputs), { root: packageRoot }),
     appLicenses,
   }),
 );
+// No GPL JavaScript ships beside the executable either (impit/ has no
+// node_modules today; this keeps it that way).
+const gplShipped = readdirSync(out).flatMap((name) =>
+  gplPackagesIn(join(out, name, "node_modules")),
+);
+if (gplShipped.length > 0) {
+  process.stderr.write(`GPL JavaScript must not ship: ${gplShipped.join(", ")}\n`);
+  process.exit(1);
+}
 process.stdout.write(`Built ${relative(process.cwd(), out)}\n`);
 
 // 6. The release archive: tar.gz keeps the executable bits on Linux and macOS;

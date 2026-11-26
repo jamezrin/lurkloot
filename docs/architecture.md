@@ -8,7 +8,7 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 
 - `packages/extension` — the WXT extension shell (`entrypoints/`, browser-specific `src/`, `wxt.config.ts`, `public/`, `tests/`). Builds to `packages/extension/.output/{chrome-mv3,firefox-mv2}`.
 - `packages/core` — the browser-free farming engine (`@lurkloot/core`): scheduler, background controller, platform adapters/parsers, tab/watch abstractions, tabless watch logic, and Twitch integrity helpers. It is consumed by both the extension and CLI.
-- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`. `build` bundles `dist/index.mjs` (ESM, `impit`, `cycletls` and `ws` left in `node_modules`) and copies the app UI to `dist/app`; `build:executable` builds the standalone executable (see "Standalone CLI executable" below).
+- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`. `build` bundles `dist/index.mjs` (ESM, `impit` and `ws` left in `node_modules`), copies CycleTLS's Go binary to `dist/cycletls/` and the app UI to `dist/app`; `build:executable` builds the standalone executable (see "Standalone CLI executable" below).
 - `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
 - `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
 - `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
@@ -734,7 +734,7 @@ pipe does not hold the process. `serve --ready-json` writes one JSON line,
 `{"event":"ready","url":…}`, to stdout from that hook, once the control plane listens. A failed
 write (the launcher stopped reading) is logged and farming goes on. The URL is the control
 plane's `localUrl`, which is also what its log line names. Lurkloot's logger writes to stderr, but
-stdout is not exclusive to the ready line (a transport helper such as cycletls shares it), so a
+stdout is not exclusive to the ready line, so a
 launcher scans stdout line by line for the `"event":"ready"` JSON. With either option, `serve`
 attaches a no-op error listener to stdout and stderr when the command starts
 (`tolerateClosedReader` in `logger.ts`), so a launcher that closes its readers before stdin cannot
@@ -763,7 +763,7 @@ The Twitch device-code flow and the Kick TV link share one start/poll shape
 and `serve` both drive that shape. The browser login's parse-validate-replace path is
 `completeTwitchBrowserLogin`, used the same way. `serve` keeps one device login per platform. A new
 start, a browser login, a logout or shutdown aborts the old flow's sleep and poll, and it releases the
-flow's resources (Kick's cycletls). A start claims the platform's slot before it awaits anything, so racing starts leave one flow. A poll that ignores the abort, such as a hung cycletls request, is raced against the signal, so a cancel never waits on it. A flow aborted after approval saves nothing. The routes write only
+flow's resources (Kick's cycletls process). A start claims the platform's slot before it awaits anything, so racing starts leave one flow. A poll that ignores the abort, such as a hung cycletls request, is raced against the signal, so a cancel never waits on it. A flow aborted after approval saves nothing. The routes write only
 the auth store. Auth health stays the probe's: after a change, `serve` sends `tickNow` and the probe
 reports the result.
 
@@ -799,64 +799,94 @@ fetcher, the TV-link authenticator and the viewer socket's headers live once in
 `src/transport/kick.ts` over that interface, so the 401/403 classification (`kickHttpError`) is the
 same on both libraries. The backends are `src/transport/impit.ts` (impit's `chrome124` profile, pinned to `CHROME_UA`'s version and bounded by a 30 s request timeout, in
 process, cancellable by the signal) and `src/transport/cycle.ts` (the pinned Chrome 124 JA3/HTTP-2
-strings in `common.ts`, through cycletls's Go helper, which cannot cancel one request). Every Kick
-request sends `CHROME_UA` on either library, the user agent the viewer socket sends. impit's
+strings in `common.ts`, through CycleTLS's Go binary, which cannot cancel one request; see "The
+CycleTLS binary" below). Every Kick
+request sends `CHROME_UA` on either library, and the cycletls backend sends it whenever a caller
+names no user agent, so the user agent always matches the JA3; the user agent the viewer socket sends. impit's
 defaults are those of a page navigation, so its backend sends each request as a page's `fetch()`
 would (cors mode, empty destination, the site relation of the request's Origin) and rewrites its
 client hints to describe the user agent sent, or drops them for a non-browser one such as the
 Twitch Android app's.
 
-Each library is imported only inside its backend, dynamically, so a CLI on impit never loads
-cycletls's GPL-3.0 JavaScript and a CLI on cycletls or `http` never loads impit's native add-on.
-`packages/cli/tests/impersonationBackends.test.ts` scans the sources to enforce that. `auth kick
+impit is imported only inside its backend, dynamically, so a CLI on cycletls or `http` never loads
+impit's native add-on. Nothing imports the cycletls npm package at all.
+`packages/cli/tests/impersonationBackends.test.ts` scans the sources to enforce both. `auth kick
 device-login` and `serve`'s sign-in route use the configured library (`signInBackendOf`), and
 impit under `http`, whose plain fetch the TV-link endpoint can refuse.
+
+### The CycleTLS binary (#1031)
+
+CycleTLS is GPL-3.0 and the CLI is Apache-2.0, so no CycleTLS code runs in the CLI's process. Its Go
+binary is a separate program: the CLI starts it and talks to it over its local WebSocket, through
+Lurkloot's own client, `src/transport/cycleTlsClient.ts`. The client was written from the protocol
+the binary speaks (traffic observed between the binary and the npm wrapper 2.0.5, and CycleTLS's
+documented request options), not from the wrapper's code; the file's header describes the frames.
+A request is one JSON text frame (`requestId` and `options`: URL, method, headers, body, `ja3`,
+`http2Fingerprint`, `userAgent`, optional `timeout` and `disableRedirect`, and the fixed
+proxy/TLS/protocol defaults). The answer is binary frames tagged with the request id: `response`
+(status, final URL, headers), `data` chunks, `end`, or `error` (status and reason, returned as a
+response like the wrapper did). `tests/cycleTlsClient.test.ts` compares the frames sent with the
+ones the wrapper sent for the same calls (`tests/fixtures/cycletlsWrapperFrames.json`), so the
+fingerprint is unchanged, and drives the real binary when the build-time package is installed.
+
+The client owns its process. `startCycleTls` asks the OS for a free loopback port, starts the binary
+directly with `WS_PORT` set (no shell, so any path works, spaces and shell characters included), and
+connects only to that process: if the port turns out to be taken the binary exits and the start
+fails, and it never joins an instance it did not start (the wrapper joined anything on port 9119).
+The binary's stdout and stderr are drained into a short tail for start errors, never onto the
+CLI's stdout. `close()` sends SIGTERM and SIGKILL after a grace period. As a backstop the client
+kills every binary it started on the CLI's `exit`, and on SIGINT, SIGTERM or SIGHUP when nothing
+else handles the signal (it then re-raises it with Node's default behavior). `run` and `serve`
+handle those signals themselves, `serve --exit-with-stdin` included, and close the client through
+the transport's `dispose`. Two CLIs on one machine each run their own binary. The binary itself
+listens on every interface, as it did under the wrapper; it is not exposed outside a container.
+
+The binary comes from the `cycletls` npm package, now a build-time dev dependency only.
+`scripts/copyCycleTls.mjs` (part of `build`) copies this platform's binary, CycleTLS's `LICENSE`
+and a `NOTICE` that names it a separate program and links its exact source commit into
+`dist/cycletls/`; `cycleTlsBinaryPath` (`src/runtime/standalone.ts`) finds it beside the bundle,
+or beside the executable inside one. `scripts/checkNoGplJavaScript.mjs` fails when a GPL package
+is in a shipped `node_modules` or in a bundle's esbuild metafile; the Docker build runs it on the
+image's `node_modules` and `dist/index.mjs`'s metafile, and the executable build runs both checks
+on its bundle and archive.
 
 ### Standalone CLI executable (#1022)
 
 The release also ships the CLI as a standalone `lurkloot` executable per OS, for users without
 Node and as the desktop app's sidecar (#981). `packages/cli/scripts/buildExecutable.mjs` bundles
-`src/index.ts` a second time, as CommonJS with every dependency inside but impit and cycletls (a
+`src/index.ts` a second time, as CommonJS with every dependency inside but impit (a
 single-executable application's main script can only `require` built-ins), and injects it into a
-copy of the building Node binary with postject. cycletls is GPL-3.0, so it is never compiled in:
-the build aliases `cycletls` to `src/runtime/cycleTlsStandalone.ts` and refuses a bundle that
-still contains cycletls code. The archive puts the cycletls package beside the executable in
-`cycletls/`, as the Docker image keeps it in `node_modules`: its unmodified `package.json`,
-`LICENSE` and `dist/index.js`, its runtime dependency closure flat in `cycletls/node_modules`, and
-the platform's Go binary as `cycletls`/`cycletls.exe`. impit's native add-on cannot load from inside
+copy of the building Node binary with postject. The build refuses a bundle with GPL code in it.
+The archive puts CycleTLS's Go binary beside the executable in `cycletls/`
+(`cycletls`/`cycletls.exe`, its `LICENSE` and `NOTICE`), the same folder the Docker image has in
+`dist/cycletls/`, and no cycletls JavaScript. impit's native add-on cannot load from inside
 the executable either, so the build aliases `impit` to `src/runtime/impitStandalone.ts` and ships
 `impit/`: the package's `package.json` and JavaScript, unmodified, and this platform's add-on
 (`impit-node.<platform>.node`, every libc build installed) beside them, where impit's own loader
 looks before its binding packages. `loadStandaloneImpit` loads it on the first impit client, under
 the same `confineRequires`, and a missing folder is a `MissingImpitError` naming it. Beside them go the app UI (`app/`),
-`LICENSE` and a generated `NOTICE`. The NOTICE links to CycleTLS's exact source commit and the
-build rejects an installed version that differs from the source pin. It also includes the app UI's
+`LICENSE` and a generated `NOTICE`. The NOTICE describes the CycleTLS binary as a separate program,
+links to its exact source commit, and the build rejects an installed version that differs from the
+source pin. It also includes the app UI's
 license reports. Vite lists the bundled JavaScript packages and the app build adds the CSS and
 font licenses from the popup's styles. Both reports go with `dist/app`, including in Docker.
-The `dist/index.mjs` build and the Docker image still import the real CycleTLS package.
 
 What `node dist/index.mjs` finds beside the bundle or in `node_modules`, the executable finds
 beside itself. `packages/cli/src/runtime/standalone.ts` is the one place that decides this: it
 answers `undefined` unless `node:sea`'s `isSea()` is true, and then resolves paths from
-`dirname(process.execPath)`. In the executable, the cycletls shim's `initCycleTLS` loads the package
-from `cycletls/` with `createRequire` on first use (`loadStandaloneCycleTls`), so commands that
-never start cycletls run without the folder, and a missing folder is a `MissingCycleTlsError`
-naming it rather than a fallback to some other copy. Nothing the package requires may come from
-outside that folder: Node would otherwise look for a missing dependency in every `node_modules`
-above the install (`~/Downloads/node_modules`, say). `confineRequires` makes any resolution from
-inside `cycletls/` to a file outside it fail as `MODULE_NOT_FOUND`, and `WS_NO_BUFFER_UTIL` and
-`WS_NO_UTF_8_VALIDATE` stop ws from looking for its unshipped native add-ons at all. `initCycle` (`src/transport/cycle.ts`, the
-only `initCycleTLS` call, used by the `cycletls` transport and the Kick TV link on it) passes the Go
-binary in that folder as cycletls's `executablePath`, and `defaultAppRoot`
-(`src/runtime/appAssets.ts`) serves that `app/`. The build
-machine's paths never reach the binary. cycletls starts its binary through `sh -c` outside
-Windows, so a standalone path with spaces or shell characters is refused up front rather than
-left to hang. `packages/cli/tests/standalone.test.ts` guards the resolution in both modes, and
+`dirname(process.execPath)`. `cycleTlsBinaryPath` points at `cycletls/` there, and a missing binary
+is a `MissingCycleTlsError` naming it rather than a fallback to some other copy; commands that never
+start cycletls run without it. `loadStandaloneImpit` loads impit from `impit/`, and nothing it
+requires may come from outside that folder: Node would otherwise look for a missing dependency in
+every `node_modules` above the install (`~/Downloads/node_modules`, say). `confineRequires` makes
+any resolution from inside the folder to a file outside it fail as `MODULE_NOT_FOUND`.
+`defaultAppRoot` (`src/runtime/appAssets.ts`) serves that `app/`. The build machine's paths never
+reach the binary. `packages/cli/tests/standalone.test.ts` guards the resolution in both modes, and
 `scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI. It extracts
 archives and copies directory inputs into scratch space so the missing-folder probes can
 rename `impit/` and `cycletls/` without changing the supplied build. It makes a Kick request through
-each library, and checks that `serve` on one library starts with the other's folder gone. #1031 replaces the cycletls wrapper with a
-client of our own.
+each library, checks that `serve` on one library starts with the other's folder gone, and that
+`cycletls/` holds only the binary, its `LICENSE` and `NOTICE`.
 
 ### Characterization coverage
 

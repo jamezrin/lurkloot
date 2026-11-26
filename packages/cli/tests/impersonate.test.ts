@@ -3,6 +3,7 @@ import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import { createCycleClient } from "../src/transport/cycle";
+import { fakeCycleTls } from "./helpers/fakeCycleTls";
 import { createTvLinkAuthenticator } from "../src/transport/kick";
 import { CHROME_JA3 } from "../src/transport/common";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
@@ -83,17 +84,7 @@ function fakeClient(
     method: string,
   ) => Promise<{ status: number; data: unknown; headers?: Record<string, unknown> }>,
 ) {
-  const client: any = (url: string, options: Captured["options"], method: string) =>
-    handler(url, options, method);
-  client.exit = vi.fn(async () => undefined);
-  client.ws = vi.fn(async () => ({
-    send: vi.fn(),
-    close: vi.fn(),
-    onMessage: () => {},
-    onClose: () => {},
-    onError: () => {},
-  }));
-  return client;
+  return fakeCycleTls(handler);
 }
 
 describe("impersonate transport", () => {

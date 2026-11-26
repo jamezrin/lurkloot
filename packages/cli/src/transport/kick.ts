@@ -104,8 +104,8 @@ function safeJsonParse(text: string): unknown {
   }
 }
 
-// Neither backend opens Kick's viewer WebSocket (CycleTLS's ws() never
-// resolved a live viewer connection; impit has no WebSocket client). The Node
+// Neither backend opens Kick's viewer WebSocket (CycleTLS's WebSocket support
+// never resolved a live viewer connection; impit has no WebSocket client). The Node
 // WebSocket client completes Kick's handshake with the same session bearer and
 // origin headers; it also implements the WebSocketLike event surface the
 // watcher expects.

@@ -6,7 +6,6 @@ import {
   inertAdapterSettings,
   type AdapterFeature,
 } from "@lurkloot/core/controller";
-import type { CycleTLSClient } from "cycletls";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { parseConfig, TRANSPORTS as TRANSPORT_NAMES, type Transport } from "../src/config";
@@ -19,6 +18,7 @@ import {
 import { cliAcceptedSettingPaths, DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createHttpTransport } from "../src/transport/http";
 import { createImpersonateTransport } from "../src/transport/impersonate";
+import { fakeCycleTls } from "./helpers/fakeCycleTls";
 import { runLoop } from "../src/runtime/run";
 import type { Logger } from "../src/logger";
 
@@ -172,10 +172,8 @@ const CORE_BACKED = new Map<string, { feature: AdapterFeature; platform: Platfor
   ),
 );
 
-function fakeCycleClient(): CycleTLSClient {
-  const client = vi.fn(async () => ({ status: 200, data: {} })) as unknown as CycleTLSClient;
-  Object.assign(client, { exit: vi.fn(async () => undefined) });
-  return client;
+function fakeCycleClient() {
+  return fakeCycleTls();
 }
 
 // Every impersonating transport builds the same adapters over its client; the

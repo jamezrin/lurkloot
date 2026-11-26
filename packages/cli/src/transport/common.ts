@@ -31,7 +31,7 @@ export interface CliTwitchIntegrity {
 }
 
 // A built set of platform adapters plus a teardown hook (e.g. to stop the
-// cycletls subprocess the impersonate transport owns). Every transport returns
+// cycletls process the impersonate transport owns). Every transport returns
 // this shape so the commands can dispose uniformly.
 export interface TransportHandle {
   adapters: Record<Platform, PlatformAdapter>;
@@ -236,7 +236,7 @@ export const CHROME_JA3 =
 export const CHROME_HTTP2 = "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p";
 
 // Normalizes the various RequestInit.headers shapes into a plain object so the
-// cycletls request options can carry them.
+// impersonating clients' request options can carry them.
 export function headersToObject(headers: HeadersInit | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!headers) return out;

@@ -13,7 +13,10 @@
 //   --require-kick is given.
 // - With either library's folder moved away, `serve` on that library must stop
 //   with the error naming it, not hang or fall back to a copy elsewhere, and
-//   `serve` on the other library must still start.
+//   `serve` on the other library must still start. The cycletls error names
+//   its missing binary.
+// - cycletls/ holds only CycleTLS's Go binary, its LICENSE and NOTICE: no
+//   cycletls JavaScript ships (#1031).
 import { spawn } from "node:child_process";
 import {
   cpSync,
@@ -126,7 +129,7 @@ async function waitFor(check, { timeoutMs, exited }) {
   throw new Error(stopped ? "the executable exited early" : `timed out: ${last?.message ?? last}`);
 }
 
-/** Stops serve before the next command (CycleTLS uses a fixed default port). */
+/** Stops serve before the next command. */
 async function stop(run) {
   if (run.child.exitCode !== null || run.child.signalCode !== null) return;
   run.child.kill(windows ? undefined : "SIGTERM");
@@ -143,10 +146,8 @@ try {
   const executable = join(dir, executableName(process.platform));
   for (const file of [
     executable,
-    join(dir, "cycletls", "package.json"),
-    join(dir, "cycletls", "dist", "index.js"),
     join(dir, "cycletls", "LICENSE"),
-    join(dir, "cycletls", "node_modules", "ws", "package.json"),
+    join(dir, "cycletls", "NOTICE"),
     join(dir, "cycletls", windows ? "cycletls.exe" : "cycletls"),
     join(dir, "impit", "package.json"),
     join(dir, "impit", "index.js"),
@@ -156,6 +157,10 @@ try {
   ]) {
     if (!existsSync(file)) throw new Error(`${basename(file)} is missing from ${dir}`);
   }
+  const cycleTlsFiles = readdirSync(join(dir, "cycletls")).sort();
+  const expectedCycleTls = ["LICENSE", "NOTICE", windows ? "cycletls.exe" : "cycletls"].sort();
+  if (cycleTlsFiles.join() !== expectedCycleTls.join())
+    fail(`cycletls/ ships more than the binary: ${cycleTlsFiles.join(", ")}`);
   const work = mkdtempSync(join(scratch, "data-"));
   writeFileSync(
     join(work, "config.json"),
@@ -201,6 +206,10 @@ try {
   await serveAnswers("impersonate");
 
   const libraries = ["impit", "cycletls"];
+  const missingMessage = {
+    impit: /The impit folder is missing beside the executable/,
+    cycletls: /The cycletls binary is missing/,
+  };
   for (const library of libraries) {
     const discover = start(
       executable,
@@ -246,9 +255,7 @@ try {
       if (missingCode === "timeout") missing.child.kill("SIGKILL");
       if (missingCode === 0 || missingCode === "timeout") {
         fail(`serve without ${library}/ did not fail (${missingCode})`);
-      } else if (
-        !new RegExp(`The ${library} folder is missing beside the executable`).test(missing.output())
-      ) {
+      } else if (!missingMessage[library].test(missing.output())) {
         fail(`serve without ${library}/ failed without naming the missing folder`);
       } else {
         process.stdout.write(

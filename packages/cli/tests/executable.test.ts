@@ -3,7 +3,6 @@ import { join, sep } from "node:path";
 import {
   bundledPackages,
   cycleTlsUpstreamName,
-  dependencyClosure,
   envWithoutNode,
   executableName,
   nodeLicenseCandidates,
@@ -65,47 +64,6 @@ describe("executable build helpers", () => {
     ]);
   });
 
-  it("collect a package's runtime dependency closure once, without type packages", () => {
-    const manifests: Record<string, string> = {
-      "/c": '{"name":"cycletls","dependencies":{"ws":"^8","form-data":"^4","@types/node":"^20"}}',
-      "/n/ws": '{"name":"ws","version":"8.22.1","license":"MIT"}',
-      "/n/form-data":
-        '{"name":"form-data","version":"4.0.6","license":"MIT","dependencies":{"mime-types":"^2"}}',
-      "/n/mime-types":
-        '{"name":"mime-types","version":"2.1.35","license":"MIT","dependencies":{"ws":"^8"}}',
-    };
-    const read = (path: string) => {
-      const dir = path.replace(/[\\/]package\.json$/, "").replaceAll("\\", "/");
-      const text = manifests[dir];
-      if (text === undefined) throw new Error(`ENOENT ${path}`);
-      return text;
-    };
-    const closure = dependencyClosure("/c", { resolve: (_from, name) => `/n/${name}`, read });
-    expect(closure.map((pkg) => `${pkg.name}@${pkg.version}`)).toEqual([
-      "form-data@4.0.6",
-      "mime-types@2.1.35",
-      "ws@8.22.1",
-    ]);
-    expect(closure[0]?.dir).toBe("/n/form-data");
-  });
-
-  it("refuse a dependency closure that needs two versions of one package", () => {
-    const manifests: Record<string, string> = {
-      "/c": '{"dependencies":{"a":"1","b":"1"}}',
-      "/a": '{"name":"a","version":"1.0.0","dependencies":{"b":"2"}}',
-      "/b1": '{"name":"b","version":"1.0.0"}',
-      "/b2": '{"name":"b","version":"2.0.0"}',
-    };
-    const read = (path: string) => {
-      const text = manifests[path.replace(/[\\/]package\.json$/, "").replaceAll("\\", "/")];
-      if (text === undefined) throw new Error(`ENOENT ${path}`);
-      return text;
-    };
-    const resolve = (from: string, name: string) =>
-      name === "a" ? "/a" : from === "/a" ? "/b2" : "/b1";
-    expect(() => dependencyClosure("/c", { resolve, read })).toThrow(/b is needed at/);
-  });
-
   it("render a NOTICE naming Node.js, cycletls's source and each bundled package", () => {
     const notice = renderNotice({
       version: "1.25.0",
@@ -116,12 +74,7 @@ describe("executable build helpers", () => {
         license: "Apache-2.0",
         addons: ["impit-node.linux-x64-gnu.node"],
       },
-      cycleTls: {
-        file: "cycletls",
-        version: "2.0.5",
-        license: "GPL text",
-        dependencies: [{ name: "form-data", version: "4.0.6", license: "MIT", text: "fd license" }],
-      },
+      cycleTls: { file: "cycletls", version: "2.0.5", license: "GPL text" },
       packages: [{ name: "ws", version: "8.22.1", license: "MIT", text: "ws license" }],
       appLicenses: "## react - 19.2.7 (MIT)\n\nReact license text",
     });
@@ -131,16 +84,17 @@ describe("executable build helpers", () => {
       "https://github.com/Danny-Dasilva/CycleTLS/tree/28f3d8b9a21470c35269fa24f3907626270ab1dc",
     );
     expect(notice).toContain("  - ws 8.22.1 (MIT)");
-    expect(notice).toContain("cycletls/ is the unmodified cycletls 2.0.5 npm package");
-    expect(notice).toContain("it is not compiled in");
+    expect(notice).toContain("- cycletls/cycletls is the unmodified Go binary of CycleTLS 2.0.5");
+    expect(notice).toContain("It is a separate program");
+    expect(notice).toContain("no CycleTLS code is loaded into Lurkloot");
+    expect(notice).not.toContain("npm package, under the GNU");
     expect(notice).toContain(
       "impit/ is the unmodified impit 0.14.9 npm package, under the Apache-2.0",
     );
     expect(notice).toContain("(impit-node.linux-x64-gnu.node)");
-    expect(notice).toContain("  - form-data 4.0.6 (MIT)");
     expect(notice).toContain("App UI (app/)");
     expect(notice).toContain("React license text");
-    for (const text of ["Node license text", "GPL text", "ws license", "fd license"])
+    for (const text of ["Node license text", "GPL text", "ws license"])
       expect(notice).toContain(text);
   });
 

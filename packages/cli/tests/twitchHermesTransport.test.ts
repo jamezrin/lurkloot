@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { tickCapabilities } from "@lurkloot/core/background/tickEffects";
-import type { CycleTLSClient } from "cycletls";
 import type { PlatformCredentials } from "../src/authStore";
 import { createHttpTransport } from "../src/transport/http";
 import { createImpersonateTransport } from "../src/transport/impersonate";
+import { fakeCycleTls } from "./helpers/fakeCycleTls";
 import { HERMES_CLOSE_TIMEOUT_MS } from "../src/transport/twitchHermes";
 import {
   TWITCH_ANDROID_CLIENT_ID,
@@ -77,10 +77,8 @@ function stubCurrentUser(): void {
   );
 }
 
-function fakeCycleClient(): CycleTLSClient {
-  const client = vi.fn(async () => ({ status: 200, data: {} })) as unknown as CycleTLSClient;
-  (client as unknown as { exit: () => Promise<void> }).exit = vi.fn(async () => undefined);
-  return client;
+function fakeCycleClient() {
+  return fakeCycleTls();
 }
 
 afterEach(() => {

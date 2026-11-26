@@ -217,29 +217,32 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-// Each library is imported only when its backend is created, so a CLI on
-// impit never loads cycletls's GPL-3.0 JavaScript, and a CLI on cycletls or
-// http never loads impit's native add-on.
+// impit is imported only when its backend is created, so a CLI on http never
+// loads impit's native add-on.
 describe("impersonating libraries load lazily", () => {
-  const allowed: Record<string, string> = {
-    cycletls: "transport/cycle.ts",
-    impit: "transport/impit.ts",
-  };
-  for (const library of Object.keys(allowed)) {
-    it(`imports ${library} as a value only from ${allowed[library]}, and only dynamically`, () => {
-      const valueImport = new RegExp(`^import\\s+(?!type\\b)[^;]*from\\s+"${library}"`, "m");
-      const dynamicImport = new RegExp(`import\\("${library}"\\)`);
-      const offenders: string[] = [];
-      const dynamicIn: string[] = [];
-      for (const file of sourceFiles(SRC)) {
-        const text = readFileSync(file, "utf8");
-        const rel = relative(SRC, file).split(sep).join("/");
-        if (valueImport.test(text)) offenders.push(rel);
-        if (dynamicImport.test(text)) dynamicIn.push(rel);
-      }
-      expect(offenders).toEqual([]);
-      // The standalone shims stand in for the package, so they never import it.
-      expect(dynamicIn).toEqual([allowed[library]]);
-    });
-  }
+  it("imports impit as a value only from transport/impit.ts, and only dynamically", () => {
+    const valueImport = /^import\s+(?!type\b)[^;]*from\s+"impit"/m;
+    const dynamicImport = /import\("impit"\)/;
+    const offenders: string[] = [];
+    const dynamicIn: string[] = [];
+    for (const file of sourceFiles(SRC)) {
+      const text = readFileSync(file, "utf8");
+      const rel = relative(SRC, file).split(sep).join("/");
+      if (valueImport.test(text)) offenders.push(rel);
+      if (dynamicImport.test(text)) dynamicIn.push(rel);
+    }
+    expect(offenders).toEqual([]);
+    expect(dynamicIn).toEqual(["transport/impit.ts"]);
+  });
+
+  // CycleTLS is a separate GPL-3.0 program the CLI starts and talks to over a
+  // socket (transport/cycleTlsClient.ts). Its npm wrapper is GPL-3.0 code and
+  // never runs in the CLI's process: nothing imports it, not even its types.
+  it("never imports the cycletls npm package", () => {
+    const anyImport = /(from\s+|import\(|require\()\s*"cycletls(\/[^"]*)?"/;
+    const offenders = sourceFiles(SRC)
+      .filter((file) => anyImport.test(readFileSync(file, "utf8")))
+      .map((file) => relative(SRC, file).split(sep).join("/"));
+    expect(offenders).toEqual([]);
+  });
 });

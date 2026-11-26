@@ -10,6 +10,12 @@ export declare function impitBindingPackages(
   platform: string,
   arch: string,
 ): string[];
+export declare const CYCLETLS_SOURCE: { version: string; commit: string };
+export declare function cycleTlsNotice(options: {
+  version: string;
+  file: string;
+  dir?: string;
+}): string[];
 export declare function executableName(platform: string): string;
 export declare function packageDirOf(file: string): string | undefined;
 
@@ -25,22 +31,12 @@ export declare function bundledPackages(
   options: { root: string; read?: (path: string) => string },
 ): BundledPackage[];
 
-export declare function dependencyClosure(
-  dir: string,
-  options: { resolve: (fromDir: string, name: string) => string; read?: (path: string) => string },
-): (BundledPackage & { dir: string })[];
-
 export declare function renderNotice(options: {
   version: string;
   nodeVersion: string;
   nodeLicense: string;
   impit: { version: string; license: string; addons: string[] };
-  cycleTls: {
-    file: string;
-    version: string;
-    license: string;
-    dependencies?: BundledPackage[];
-  };
+  cycleTls: { file: string; version: string; license: string };
   packages: BundledPackage[];
   appLicenses: string;
 }): string;
