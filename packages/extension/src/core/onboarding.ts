@@ -12,7 +12,7 @@ export async function loadPendingOnboarding(): Promise<OnboardingAudience | null
   return value === "new" || value === "returning" ? value : null;
 }
 
-export async function armPendingOnboarding(audience: OnboardingAudience = "new"): Promise<void> {
+async function armPendingOnboarding(audience: OnboardingAudience = "new"): Promise<void> {
   await browser.storage.local.set({
     [PENDING_ONBOARDING_KEY]: audience,
     [ONBOARDING_OFFERED_KEY]: true,

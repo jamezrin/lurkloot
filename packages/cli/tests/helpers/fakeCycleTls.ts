@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { type CycleTlsClient, requestFrameOptions } from "../../src/transport/cycleTlsClient";
 
-export interface FakeCycleTlsAnswer {
+interface FakeCycleTlsAnswer {
   status: number;
   data?: unknown;
   headers?: Record<string, unknown>;

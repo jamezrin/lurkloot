@@ -1,4 +1,4 @@
-import type { EngineSettings, Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type EngineSettings, type Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { EffectExecutor, driveEffects } from "../core/effectExecutor";
 import {
@@ -12,7 +12,6 @@ import {
 import { currentManagedPageContextTabs, type TabRegistry } from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { adapterOffers } from "./adapterSettings";
-import { PLATFORMS } from "./constants";
 
 // What an effect handler may use to perform a scheduler effect. It is built per
 // tick: the adapters and settings are the tick's own. Host ports are not here:

@@ -1,3 +1,4 @@
+import { PLATFORMS } from "@lurkloot/shared/models";
 import { describe, expect, it } from "vitest";
 import {
   CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -574,7 +575,7 @@ describe("schema v8 and v9", () => {
       ),
     );
 
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       // v9 then turns the copied switch into the unlinked mode, and v12 the
       // copied pinned-only switch into reward kinds only pins farm.
       expect(platformOf(migrated.settings, platform)).toMatchObject({
@@ -880,7 +881,7 @@ describe("schema v11", () => {
       withSchemaVersion({ campaignPins: ["t1", "k1"], excludedCampaignIds: ["t2"] }, 10),
     );
 
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(platformOf(migrated.settings, platform)).toEqual({
         campaignPins: ["t1", "k1"],
         excludedCampaignIds: ["t2"],

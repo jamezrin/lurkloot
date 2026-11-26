@@ -3,14 +3,14 @@ import { join } from "node:path";
 import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus } from "@lurkloot/shared/models";
 import type { CredentialAvailability } from "@lurkloot/core/controller";
 
-export interface TwitchCredentials {
+interface TwitchCredentials {
   authToken?: string;
   deviceId?: string;
   clientId?: string;
   kasadaSessionCookie?: string;
 }
 
-export interface KickCredentials {
+interface KickCredentials {
   sessionToken?: string;
 }
 
@@ -19,7 +19,7 @@ export interface PlatformCredentials {
   kick?: KickCredentials;
 }
 
-export const CREDENTIALS_FILE = "credentials.json";
+const CREDENTIALS_FILE = "credentials.json";
 
 // Loads credentials from <authDir>/credentials.json, then layers SA_* env
 // overrides on top so Docker secrets / CI win over the on-disk store. Every

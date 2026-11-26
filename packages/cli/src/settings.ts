@@ -36,14 +36,15 @@ import {
   type SettingsExportEnvelope,
 } from "@lurkloot/shared/settingsExport";
 import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
-import type {
-  CompatibilitySettings,
-  EngineSettings,
-  KickPlatformSettings,
-  Platform,
-  PlatformSettingsByPlatform,
-  PriorityMode,
-  TwitchPlatformSettings,
+import {
+  PLATFORMS,
+  type CompatibilitySettings,
+  type EngineSettings,
+  type KickPlatformSettings,
+  type Platform,
+  type PlatformSettingsByPlatform,
+  type PriorityMode,
+  type TwitchPlatformSettings,
 } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
@@ -85,7 +86,6 @@ export interface CliSettings {
 }
 
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
-const PLATFORMS: Platform[] = ["twitch", "kick"];
 
 // Defaults are derived from the shared DEFAULT_SETTINGS so there is a single
 // source of truth for values shared with the extension.
@@ -268,7 +268,7 @@ function describeOffender(key: string, diagnostics: CliSettingsDiagnostic[]): st
 // A value the CLI accepted but had to cut down to fit an engine limit. Unlike a
 // migration diagnostic, its message names what was dropped, so the user can
 // fix the config file that still lists it.
-export interface CliSettingsLimitDiagnostic {
+interface CliSettingsLimitDiagnostic {
   code: "limit_exceeded";
   path: string;
   message: string;

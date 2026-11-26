@@ -696,7 +696,7 @@ export function buildActivityTimeline(
 
 // The local day a block is listed under: a session under the day it started,
 // so its header can show just the times.
-export function timelineBlockDay(block: TimelineBlock): string {
+function timelineBlockDay(block: TimelineBlock): string {
   return block.type === "session" ? localDay(block.summary.startedAt) : block.day;
 }
 

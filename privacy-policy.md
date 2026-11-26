@@ -1,6 +1,6 @@
 # Lurkloot Privacy Policy
 
-Last updated: October 9, 2026
+Last updated: November 26, 2026
 
 Lurkloot does not send user data to the developer or analytics services, and does not sell user data. It contacts platforms and opt-in reward providers only to perform the requested farming actions.
 
@@ -20,6 +20,8 @@ To authorize requests inside that session, the extension reads certain session v
 - On Kick, it reads the `session_token` from the Kick page context and uses it as a bearer token for Kick's own API (`web.kick.com`).
 
 These values are used only to talk to each platform's own API as the logged-in user. The extension never asks for the user's password. These platform session values are not sent to the developer, analytics services, or optional reward providers. The Kick session token is not persisted; the Twitch integrity bundle is stored only transiently and expires.
+
+The one exception is **Settings → Export credentials**, which exists so the user can sign in Lurkloot's own headless command-line version. Only after the user starts the export and confirms it does the extension read the Twitch `auth-token` and `unique_id` cookies, Twitch's Kasada session cookie (`KP_UIDz-ssn`, from `k.twitchcdn.net`) and the Kick `session_token`, and save them as a JSON file on the user's device. The extension never sends that file anywhere. Anyone holding it can use those sessions, so the user should keep it private and never attach it to a bug report.
 
 ## Optional Twitch Reward Providers
 

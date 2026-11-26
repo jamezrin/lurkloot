@@ -5,15 +5,16 @@ import { join } from "node:path";
 import type { CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
-import type {
-  ChannelCandidate,
-  ChannelCheck,
-  DropCampaign,
-  EngineSettings,
-  Platform,
-  PlatformAuthHealth,
-  SchedulerState,
-  WatchSession,
+import {
+  PLATFORMS,
+  type ChannelCandidate,
+  type ChannelCheck,
+  type DropCampaign,
+  type EngineSettings,
+  type Platform,
+  type PlatformAuthHealth,
+  type SchedulerState,
+  type WatchSession,
 } from "@lurkloot/shared/models";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { HeartbeatResult, TablessWatchController } from "@lurkloot/core/tablessWatch";
@@ -262,60 +263,55 @@ describe("runLoop authentication health reporting", () => {
 });
 
 describe("CLI scheduler tick baseline", () => {
-  it.each(["twitch", "kick"] as const)(
-    "measures isolated %s heartbeat/discovery overlap",
-    async (platform) => {
-      vi.useFakeTimers();
-      vi.setSystemTime("2026-09-01T20:00:00.000Z");
-      const existingListener = vi.fn();
-      process.on("SIGINT", existingListener);
-      const sigintListenersBefore = process.listeners("SIGINT");
+  it.each(PLATFORMS)("measures isolated %s heartbeat/discovery overlap", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+    const existingListener = vi.fn();
+    process.on("SIGINT", existingListener);
+    const sigintListenersBefore = process.listeners("SIGINT");
 
-      try {
-        const result = await runCliBaselineCell(dir, platform, "heartbeatOverlap");
-        reportBaseline(result);
+    try {
+      const result = await runCliBaselineCell(dir, platform, "heartbeatOverlap");
+      reportBaseline(result);
 
-        expect(result.counts).toEqual({
-          adapterOperations: 8,
-          campaignDiscovery: 2,
-          candidateListings: 2,
-          channelChecks: 2,
-          heartbeatAttempts: 1,
-          heartbeatBlockedByDiscovery: 0,
-          discoveryBlockedByHeartbeat: 0,
-          // The non-once loop now performs one recovery pass for both providers
-          // at startup before the first discovery completes.
-          // Tick-owned adapters survive auth, discovery, and commit. Startup
-          // recovery and the independent heartbeat path retain their own bundles.
-          // Since #593 the startup reconciliation also checks the Twitch
-          // channel-points observer, as the extension's startup does. Since #590
-          // the one-minute channel-points job fires in this window too. Since
-          // #591 the CLI runs both tick jobs, like the extension, so the disabled
-          // platform's ticks construct its adapter as well. This watcher has no
-          // poll between health commits, so the watch job keeps its one-minute
-          // period and adds no wake of its own. The account-progress job builds
-          // the enabled platform's adapter once to learn whether it reads any.
-          adapterConstructions: platform === "twitch" ? 11 : 9,
-          watcherReconciliations: 1,
-        });
-        expect(result.durationsMs).toEqual({
-          discovery: 60,
-          selection: 40,
-          watcher: 5,
-          persistence: 0,
-          total: 105,
-        });
-        expect(JSON.stringify(result)).not.toMatch(
-          /credential|cookie|token|authorization|payload/i,
-        );
-        expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
-      } finally {
-        process.removeListener("SIGINT", existingListener);
-      }
-    },
-  );
+      expect(result.counts).toEqual({
+        adapterOperations: 8,
+        campaignDiscovery: 2,
+        candidateListings: 2,
+        channelChecks: 2,
+        heartbeatAttempts: 1,
+        heartbeatBlockedByDiscovery: 0,
+        discoveryBlockedByHeartbeat: 0,
+        // The non-once loop now performs one recovery pass for both providers
+        // at startup before the first discovery completes.
+        // Tick-owned adapters survive auth, discovery, and commit. Startup
+        // recovery and the independent heartbeat path retain their own bundles.
+        // Since #593 the startup reconciliation also checks the Twitch
+        // channel-points observer, as the extension's startup does. Since #590
+        // the one-minute channel-points job fires in this window too. Since
+        // #591 the CLI runs both tick jobs, like the extension, so the disabled
+        // platform's ticks construct its adapter as well. This watcher has no
+        // poll between health commits, so the watch job keeps its one-minute
+        // period and adds no wake of its own. The account-progress job builds
+        // the enabled platform's adapter once to learn whether it reads any.
+        adapterConstructions: platform === "twitch" ? 11 : 9,
+        watcherReconciliations: 1,
+      });
+      expect(result.durationsMs).toEqual({
+        discovery: 60,
+        selection: 40,
+        watcher: 5,
+        persistence: 0,
+        total: 105,
+      });
+      expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
+      expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
+    } finally {
+      process.removeListener("SIGINT", existingListener);
+    }
+  });
 
-  it.each(["twitch", "kick"] as const)("measures an idle %s one-shot tick", async (platform) => {
+  it.each(PLATFORMS)("measures an idle %s one-shot tick", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
     const result = await runCliBaselineCell(dir, platform, "idle");
@@ -361,55 +357,49 @@ describe("CLI scheduler tick baseline", () => {
     });
   });
 
-  it.each(["twitch", "kick"] as const)(
-    "uses the shared snapshot-driven %s selection lifecycle",
-    async (platform) => {
-      vi.useFakeTimers();
-      vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(PLATFORMS)("uses the shared snapshot-driven %s selection lifecycle", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-      const result = await runCliBaselineCell(dir, platform, "stable");
-      reportBaseline(result);
+    const result = await runCliBaselineCell(dir, platform, "stable");
+    reportBaseline(result);
 
-      expect(result.counts).toMatchObject({
-        // Candidate listing and validation happen once while building the
-        // committed discovery snapshot. Core selection adds no provider calls.
-        adapterOperations: 4,
-        campaignDiscovery: 1,
-        candidateListings: 1,
-        channelChecks: 1,
-        // One per tick job: the disabled platform ticks too (#591).
-        adapterConstructions: 2,
-        watcherReconciliations: 1,
-      });
-      expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
-      expect(result.durationsMs).toEqual({
-        discovery: 30,
-        selection: 20,
-        watcher: 5,
-        persistence: 0,
-        total: 55,
-      });
-    },
-  );
+    expect(result.counts).toMatchObject({
+      // Candidate listing and validation happen once while building the
+      // committed discovery snapshot. Core selection adds no provider calls.
+      adapterOperations: 4,
+      campaignDiscovery: 1,
+      candidateListings: 1,
+      channelChecks: 1,
+      // One per tick job: the disabled platform ticks too (#591).
+      adapterConstructions: 2,
+      watcherReconciliations: 1,
+    });
+    expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 20,
+      watcher: 5,
+      persistence: 0,
+      total: 55,
+    });
+  });
 
-  it.each(["twitch", "kick"] as const)(
-    "attributes slow %s work with the same controlled clock",
-    async (platform) => {
-      vi.useFakeTimers();
-      vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(PLATFORMS)("attributes slow %s work with the same controlled clock", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-      const result = await runCliBaselineCell(dir, platform, "slow");
-      reportBaseline(result);
+    const result = await runCliBaselineCell(dir, platform, "slow");
+    reportBaseline(result);
 
-      expect(result.durationsMs).toEqual({
-        discovery: 300,
-        selection: 200,
-        watcher: 5,
-        persistence: 0,
-        total: 505,
-      });
-    },
-  );
+    expect(result.durationsMs).toEqual({
+      discovery: 300,
+      selection: 200,
+      watcher: 5,
+      persistence: 0,
+      total: 505,
+    });
+  });
 
   it.each([
     ["twitch", "switch"],
@@ -443,7 +433,7 @@ describe("CLI scheduler tick baseline", () => {
     });
   });
 
-  it.each(["twitch", "kick"] as const)("measures a failed %s response", async (platform) => {
+  it.each(PLATFORMS)("measures a failed %s response", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 

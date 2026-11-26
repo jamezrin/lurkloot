@@ -1,12 +1,12 @@
 import { campaignRewardData } from "../core/rewardClaims";
-import type {
-  DropCampaign,
-  DropReward,
-  EngineSettings,
-  Platform,
-  SchedulerState,
-  WatchReasonCode,
-  WatchSession,
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type DropReward,
+  type Platform,
+  type SchedulerState,
+  type WatchReasonCode,
+  type WatchSession,
 } from "@lurkloot/shared/models";
 import type {
   ActivityEvent,
@@ -35,7 +35,7 @@ export function settingsTickTrigger(effects: SettingsEffects): TickTrigger {
     : "settings_saved";
 }
 
-export const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
+const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   automation_disabled: true,
   platform_disabled: true,
   authentication_unhealthy: true,
@@ -77,7 +77,7 @@ export function farmingLifecycleEvents(
   next: SchedulerState,
 ): ActivityEvent[] {
   const events: ActivityEvent[] = [];
-  for (const platform of ["twitch", "kick"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     const before = farmingTarget(previous, platform);
     const after = farmingTarget(next, platform);
     const sameTarget = Boolean(
@@ -137,7 +137,7 @@ export function farmingLifecycleEvents(
   return events;
 }
 
-export function farmingTarget(
+function farmingTarget(
   state: SchedulerState,
   platform: Platform,
 ):
@@ -156,7 +156,7 @@ export function farmingTarget(
   return campaign && reward ? { session, campaign, reward } : undefined;
 }
 
-export function farmingStopReason(session: WatchSession): FarmingStopReason {
+function farmingStopReason(session: WatchSession): FarmingStopReason {
   const code = session.reasonCode;
   return code && isFarmingStopReason(code)
     ? code
@@ -165,12 +165,8 @@ export function farmingStopReason(session: WatchSession): FarmingStopReason {
       : "target_changed";
 }
 
-export function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
+function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {
   return Object.prototype.hasOwnProperty.call(FARMING_STOP_REASON_CODES, code);
-}
-
-export function hasEnabledPlatform(settings: EngineSettings): boolean {
-  return (["twitch", "kick"] as Platform[]).some((platform) => settings.platform[platform].enabled);
 }
 
 export function platformLabel(platform: Platform): string {

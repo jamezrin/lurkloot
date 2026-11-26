@@ -9,7 +9,7 @@ import {
   requestedAdapterSettings,
 } from "@lurkloot/core/controller";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import type { EngineSettings, Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type EngineSettings, type Platform } from "@lurkloot/shared/models";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 
 function bareAdapter(platform: Platform): PlatformAdapter {
@@ -63,7 +63,7 @@ describe("adapter-backed settings (#1090)", () => {
       { alwaysEnterChat: true, watchlistStreakChannels: ["a"], watchStreakMaxRounds: 5 },
       { alwaysEnterChat: true },
     );
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(
         inertAdapterSettings(platform, settings, fullAdapter(platform), EXTENSION_CAPABILITIES),
       ).toEqual([]);
@@ -116,7 +116,7 @@ describe("adapter-backed settings (#1090)", () => {
   it("leaves a setting whose host capability is missing to the host-wide report", () => {
     const settings = settingsWith({ alwaysEnterChat: true }, { alwaysEnterChat: true });
     const noChat = { ...CLI_CAPABILITIES, chatPresence: false };
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(
         inertAdapterSettings(platform, settings, bareAdapter(platform), noChat).map(
           (setting) => setting.key,

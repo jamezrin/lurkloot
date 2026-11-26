@@ -1,3 +1,4 @@
+import { PLATFORMS } from "@lurkloot/shared/models";
 import { toEngineSettings } from "../src/settings";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
@@ -88,7 +89,7 @@ describe("parseConfig", () => {
 
   it("loads a top-level farmPinnedOnly with one warning, farming only pins on both platforms", () => {
     const config = parseConfig({ settings: { farmPinnedOnly: true } }, CONFIG_PATH);
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(config.settings.platform[platform].rewardFilter).toMatchObject({
         kinds: [],
         favouriteKinds: [],
@@ -176,7 +177,7 @@ describe("parseConfig", () => {
       { settings: { campaignPins: ["pin"], excludedCampaignIds: ["skip"] } },
       CONFIG_PATH,
     );
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(config.settings.platform[platform].campaignPins).toEqual(["pin"]);
       expect(config.settings.platform[platform].excludedCampaignIds).toEqual(["skip"]);
     }
@@ -388,7 +389,7 @@ describe("loadConfig", () => {
     // These gate what a headless run earns, so an omitted key is a real
     // documentation gap — and the round-trip above cannot catch it.
     const platforms = parseJsonc(defaultConfigJsonc()).settings.platform;
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
       expect(platforms[platform]).toMatchObject({
         rewardFilter: defaults.rewardFilter,

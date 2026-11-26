@@ -38,7 +38,7 @@ export interface CycleTlsRequestOptions {
   disableRedirect?: boolean;
 }
 
-export interface CycleTlsResponse {
+interface CycleTlsResponse {
   status: number;
   finalUrl: string;
   headers: Record<string, string[]>;
@@ -56,7 +56,7 @@ export interface CycleTlsClient {
   readonly port: number;
 }
 
-export class CycleTlsStartError extends Error {}
+class CycleTlsStartError extends Error {}
 
 // The fixed fields every request carries besides the caller's: what the binary
 // treats as "no proxy, verify TLS, negotiate the protocol", sent explicitly as
@@ -137,7 +137,7 @@ class FrameReader {
 }
 
 /** Reads only a frame's request id, for a frame that does not decode. */
-export function frameRequestId(buffer: Buffer): string | undefined {
+function frameRequestId(buffer: Buffer): string | undefined {
   try {
     return new FrameReader(buffer).string();
   } catch {
@@ -188,7 +188,7 @@ interface Pending {
 }
 
 /** Asks the OS for a free loopback port. */
-export async function freePort(): Promise<number> {
+async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.unref();
@@ -222,7 +222,7 @@ function killRunning(): void {
 const ENDING_SIGNALS: NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
 
 /** Tells whether anything but the backstop listens for the signal right now. */
-export function othersHandle(signal: NodeJS.Signals, self: (...args: unknown[]) => void): boolean {
+function othersHandle(signal: NodeJS.Signals, self: (...args: unknown[]) => void): boolean {
   return process.listeners(signal).some((listener) => listener !== self);
 }
 

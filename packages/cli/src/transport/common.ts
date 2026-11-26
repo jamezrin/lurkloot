@@ -59,7 +59,7 @@ export interface EnabledPlatforms {
   kick: boolean;
 }
 
-export function createLazyAdapters(
+function createLazyAdapters(
   createAdapter: (platform: Platform) => PlatformAdapter,
 ): Record<Platform, PlatformAdapter> {
   let twitch: PlatformAdapter | undefined;
@@ -217,12 +217,7 @@ export function createCliAdapters(
 // Shared engine code, so it lives in core alongside the heartbeat strategies it
 // bounds — the extension's transport uses the same helper. Re-exported here so
 // both CLI transports keep importing their transport helpers from one place.
-export {
-  HEARTBEAT_REQUEST_TIMEOUT_MS,
-  HeartbeatTimeoutError,
-  isHeartbeatTimeoutError,
-  withHeartbeatTimeout,
-} from "@lurkloot/core/twitch/heartbeat";
+export { withHeartbeatTimeout } from "@lurkloot/core/twitch/heartbeat";
 
 // Chrome 124 fingerprint for TLS/JA3 + HTTP/2 impersonation (what Cloudflare
 // inspects in front of Kick). Mirrors curl_cffi's impersonate="chrome124" used

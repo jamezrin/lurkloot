@@ -1,7 +1,6 @@
 import type React from "react";
 import { useId, useRef, useState } from "react";
 import { Checkbox } from "@base-ui/react/checkbox";
-import { CheckboxGroup } from "@base-ui/react/checkbox-group";
 import { Popover } from "@base-ui/react/popover";
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";

@@ -1,23 +1,18 @@
-import type {
-  ExtensionSettings,
-  Platform,
-  PlatformAuthStatus,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type ExtensionSettings,
+  type Platform,
+  type PlatformAuthStatus,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 
 // The toolbar icon summarises the whole extension in one glance (#900). It is
 // derived from committed settings and state only; nothing else writes the icon.
 export type ToolbarStatus = "off" | "idle" | "watching" | "paused" | "problem";
 
-export type ToolbarPlatformStatus =
-  | "watching"
-  | "idle"
-  | "paused"
-  | "signed_out"
-  | "blocked"
-  | "stuck";
+type ToolbarPlatformStatus = "watching" | "idle" | "paused" | "signed_out" | "blocked" | "stuck";
 
-export interface ToolbarPlatformLine {
+interface ToolbarPlatformLine {
   platform: Platform;
   status: ToolbarPlatformStatus;
 }
@@ -28,9 +23,7 @@ export interface ToolbarView {
   platforms: ToolbarPlatformLine[];
 }
 
-const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
-
-export const TOOLBAR_PLATFORM_NAMES: Record<Platform, string> = { twitch: "Twitch", kick: "Kick" };
+const TOOLBAR_PLATFORM_NAMES: Record<Platform, string> = { twitch: "Twitch", kick: "Kick" };
 
 // Auth states that need the user. "checking" and "unavailable" are transient
 // (a probe in flight, a network blip) and would make the icon flap.
@@ -102,7 +95,7 @@ export async function toolbarTitle(
   return [await translate("extensionName"), ...lines].join("\n");
 }
 
-export const TOOLBAR_ICON_SIZES = [16, 32] as const;
+const TOOLBAR_ICON_SIZES = [16, 32] as const;
 
 export function toolbarIconPaths(status: ToolbarStatus): Record<string, string> {
   return Object.fromEntries(

@@ -80,7 +80,8 @@ pnpm build:all      # every package
 | --- | --- |
 | `pnpm test` | Every package's test script (`pnpm -r --if-present test`). |
 | `pnpm typecheck` | `tsc --noEmit` in every package. |
-| `pnpm check` | Script tests (`cws:test`, `release:test`), workspace typechecks, package tests, and the site build. |
+| `pnpm knip` | [knip](https://knip.dev) with `knip.json`: unused files, exports, types and dependencies. |
+| `pnpm check` | Biome, knip, script tests (`cws:test`, `release:test`), workspace typechecks, package tests, and the site build. |
 | `pnpm verify` | `pnpm check` plus both browser builds. |
 
 For a change confined to one package, `pnpm test` and `pnpm typecheck` are usually enough. Run

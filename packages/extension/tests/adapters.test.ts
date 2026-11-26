@@ -3,7 +3,6 @@ import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import {
   createKickClaimCapability,
   createKickFetcher,
-  KickAdapter,
   KickClaimState,
   KickDiscoveryState,
   KickPageContextRecoveryTracker,

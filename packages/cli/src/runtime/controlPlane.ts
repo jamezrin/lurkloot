@@ -4,11 +4,12 @@ import { isIPv4, isIPv6, type AddressInfo } from "node:net";
 import { twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { InvalidActivityCursorError } from "@lurkloot/shared/activityHistory";
-import type {
-  EngineSettings,
-  Platform,
-  PlatformAuthReasonCode,
-  PlatformAuthStatus,
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type PlatformAuthReasonCode,
+  type PlatformAuthStatus,
 } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import type { CredentialSource, LocalCredentialHealth } from "../authStore";
@@ -25,13 +26,11 @@ export const SERVE_TOKEN_ENV = "LURKLOOT_SERVE_TOKEN";
 export const DEFAULT_SERVE_HOST = "127.0.0.1";
 export const DEFAULT_SERVE_PORT = 8420;
 // A token guarding a non-loopback bind must not be guessable.
-export const MIN_SERVE_TOKEN_LENGTH = 16;
-export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
+const MIN_SERVE_TOKEN_LENGTH = 16;
+const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 // One process serves one account; the id lets a later multi-account host add
 // sessions without changing the protocol.
-export const DEFAULT_SESSION_ID = "default";
-
-const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
+const DEFAULT_SESSION_ID = "default";
 
 interface MessageTraits {
   // Names a platform, which must be twitch or kick.
@@ -66,7 +65,7 @@ const SUPPORTED_MESSAGES = {
 
 export type ControlPlaneMessageType = keyof typeof SUPPORTED_MESSAGES;
 export type ControlPlaneMessage = Extract<RuntimeMessage, { type: ControlPlaneMessageType }>;
-export type ActivityHistoryMessageType = {
+type ActivityHistoryMessageType = {
   [Type in ControlPlaneMessageType]: (typeof SUPPORTED_MESSAGES)[Type] extends {
     activityHistory: true;
   }
@@ -86,7 +85,7 @@ export const SUPPORTED_MESSAGE_TYPES = Object.keys(
   SUPPORTED_MESSAGES,
 ) as readonly ControlPlaneMessageType[];
 
-export function isSupportedMessageType(type: string): type is ControlPlaneMessageType {
+function isSupportedMessageType(type: string): type is ControlPlaneMessageType {
   return Object.hasOwn(SUPPORTED_MESSAGES, type);
 }
 
@@ -135,7 +134,7 @@ export function isLoopbackHost(name: string): boolean {
 }
 
 // The host name of a Host header value, without its port.
-export function hostHeaderName(value: string): string {
+function hostHeaderName(value: string): string {
   const trimmed = value.trim();
   if (trimmed.startsWith("[")) {
     const end = trimmed.indexOf("]");
@@ -475,7 +474,7 @@ function messageFieldError(
   }
 }
 
-export function parseControlPlaneMessage(
+function parseControlPlaneMessage(
   value: unknown,
   settingsWritable = false,
   activityHistory = false,

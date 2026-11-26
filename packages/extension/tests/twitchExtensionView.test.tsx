@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // The provider switch is a Base UI Switch, which needs real pointer events.
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mergeSettings } from "@lurkloot/shared/settings";

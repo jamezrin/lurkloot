@@ -63,7 +63,7 @@ export class CliSettingsStoreError extends Error {
 // The two file operations a save performs, injectable so tests can fail either
 // one. `writeTempFile` creates `path` (it must not exist), writes `text`, makes
 // its permission bits exactly `mode` and flushes it to disk.
-export interface SettingsStoreFileSystem {
+interface SettingsStoreFileSystem {
   writeTempFile(path: string, text: string, mode: number): Promise<void>;
   rename(from: string, to: string): Promise<void>;
 }
@@ -366,7 +366,7 @@ function inCurrentSchemaForm(file: ConfigFile): boolean {
 
 // Renders the config text that holds `target`, or undefined when the file
 // already does. The result is parsed back before anything is written.
-export function renderConfigWithSettings(
+function renderConfigWithSettings(
   text: string,
   configPath: string,
   target: CliSettings,
@@ -457,10 +457,7 @@ function patchOffenders(patch: Record<string, unknown>, result: EngineSettings):
 
 // Applies a settings patch for the CLI: the shared overlay, then the rules
 // save checks. See CliSettingsStore.applyPatch.
-export function applyCliSettingsPatch(
-  current: EngineSettings,
-  patch: SettingsPatch,
-): EngineSettings {
+function applyCliSettingsPatch(current: EngineSettings, patch: SettingsPatch): EngineSettings {
   const input: unknown = patch;
   if (!isRecord(input)) {
     throw new CliSettingsStoreError("invalid", "A settings patch must be a JSON object");

@@ -5,7 +5,7 @@ import type { ControlPlaneClient } from "./api";
 // them (packages/cli/src/runtime/controlPlaneAuth.ts). The answers carry no
 // token, cookie or account id; nothing here stores one either.
 
-export type CredentialSource = "stored" | "environment" | "none";
+type CredentialSource = "stored" | "environment" | "none";
 
 export interface PlatformAuthView {
   auth: {
@@ -17,13 +17,7 @@ export interface PlatformAuthView {
   deviceLogin: DeviceLogin | null;
 }
 
-export type DeviceLoginStatus =
-  | "starting"
-  | "pending"
-  | "approved"
-  | "expired"
-  | "failed"
-  | "cancelled";
+type DeviceLoginStatus = "starting" | "pending" | "approved" | "expired" | "failed" | "cancelled";
 
 export interface DeviceLogin {
   platform: Platform;

@@ -1,9 +1,10 @@
 import type { EventEmitter } from "@lurkloot/shared/events";
-import type {
-  ChatPresenceStatus,
-  EngineSettings,
-  Platform,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type ChatPresenceStatus,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import {
   chatPresenceDecision,
@@ -12,9 +13,8 @@ import {
 } from "../core/chatPresence";
 import { hasRecentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
-import { emitHostCallbackError, platformLabel } from "./helpers";
+import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import { ObserverSlot } from "./observerSlot";
 import type { StateTransaction } from "./stateTransaction";

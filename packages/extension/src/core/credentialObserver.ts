@@ -1,4 +1,4 @@
-import type { Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type Platform } from "@lurkloot/shared/models";
 
 export interface CredentialCookieChange {
   cookie: {
@@ -35,8 +35,6 @@ export interface CredentialHealthController {
   checkAuthHealth(platform: Platform): Promise<void>;
 }
 
-const CREDENTIAL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
-
 function normalizedDomain(domain: string): string {
   return domain.replace(/^\./, "").toLowerCase();
 }
@@ -45,7 +43,7 @@ function isDomainOrSubdomain(domain: string, root: string): boolean {
   return domain === root || domain.endsWith(`.${root}`);
 }
 
-export function credentialPlatform(change: CredentialCookieChange): Platform | undefined {
+function credentialPlatform(change: CredentialCookieChange): Platform | undefined {
   const domain = normalizedDomain(change.cookie.domain);
   if (change.cookie.name === "auth-token" && isDomainOrSubdomain(domain, "twitch.tv"))
     return "twitch";
@@ -136,7 +134,7 @@ export function createCredentialObserver(deps: CredentialObserverDeps): () => vo
   };
 
   deps.onChanged.addListener(listener);
-  for (const platform of CREDENTIAL_PLATFORMS) check(platform, true);
+  for (const platform of PLATFORMS) check(platform, true);
 
   return () => {
     disposed = true;

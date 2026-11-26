@@ -6,7 +6,12 @@ import {
   KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
 } from "@lurkloot/core/controller";
-import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type DropReward,
+  type ExtensionSettings,
+} from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
@@ -104,58 +109,55 @@ describe("background controller", () => {
   });
 
   describe("manual-watch claim-only operations", () => {
-    it.each(["twitch", "kick"] as const)(
-      "claims %s drops without changing the paused session",
-      async (platform) => {
-        const env = harness(farming(DEFAULT_SETTINGS));
-        env.state.authHealth = {
-          ...env.state.authHealth,
-          [platform]: { status: "healthy", checkedAt: new Date().toISOString() },
-        };
-        env.state.sessions[platform] = {
+    it.each(PLATFORMS)("claims %s drops without changing the paused session", async (platform) => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        [platform]: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions[platform] = {
+        platform,
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+        message: "Manual watch detected",
+      };
+      env.state.manualWatch = {
+        [platform]: {
           platform,
-          status: "paused",
-          offlineChecks: 0,
-          reasonCode: "manual_watch",
-          message: "Manual watch detected",
-        };
-        env.state.manualWatch = {
-          [platform]: {
-            platform,
-            tabId: 91,
-            checkedAt: new Date().toISOString(),
-            active: true,
-          },
-        };
-        const beforeSession = structuredClone(env.state.sessions[platform]);
-        const platformAdapter = platform === "twitch" ? env.twitch : env.kick;
-        platformAdapter.refreshCampaigns = vi.fn(async () => [campaign(platform, "claimable")]);
-        platformAdapter.claimReward = vi.fn(async () => true);
+          tabId: 91,
+          checkedAt: new Date().toISOString(),
+          active: true,
+        },
+      };
+      const beforeSession = structuredClone(env.state.sessions[platform]);
+      const platformAdapter = platform === "twitch" ? env.twitch : env.kick;
+      platformAdapter.refreshCampaigns = vi.fn(async () => [campaign(platform, "claimable")]);
+      platformAdapter.claimReward = vi.fn(async () => true);
 
-        await env.controller.runDropClaims(platform);
+      await env.controller.runDropClaims(platform);
 
-        expect(platformAdapter.refreshCampaigns).toHaveBeenCalledWith(
-          beforeSession,
-          expect.objectContaining({ requireComplete: true }),
-        );
-        expect(env.state.sessions[platform]).toEqual(beforeSession);
-        expect(env.state.manualWatch?.[platform]?.active).toBe(true);
-        expect(env.state.campaigns[platform][0]?.rewards[0]?.status).toBe("claimed");
-        expect(
-          allDiagnostics(env).some((event) => event.message.includes("Manual watch detected")),
-        ).toBe(false);
-        expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
-          expect.objectContaining({
-            category: "activity",
-            code: "reward_claimed",
-            platform,
-            data: expect.objectContaining({ method: "automatic", rewardId: "reward" }),
-          }),
-        );
-        expect(env.watchTabs[platform].open).not.toHaveBeenCalled();
-        expect(env.watchTabs[platform].stop).not.toHaveBeenCalled();
-      },
-    );
+      expect(platformAdapter.refreshCampaigns).toHaveBeenCalledWith(
+        beforeSession,
+        expect.objectContaining({ requireComplete: true }),
+      );
+      expect(env.state.sessions[platform]).toEqual(beforeSession);
+      expect(env.state.manualWatch?.[platform]?.active).toBe(true);
+      expect(env.state.campaigns[platform][0]?.rewards[0]?.status).toBe("claimed");
+      expect(
+        allDiagnostics(env).some((event) => event.message.includes("Manual watch detected")),
+      ).toBe(false);
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          category: "activity",
+          code: "reward_claimed",
+          platform,
+          data: expect.objectContaining({ method: "automatic", rewardId: "reward" }),
+        }),
+      );
+      expect(env.watchTabs[platform].open).not.toHaveBeenCalled();
+      expect(env.watchTabs[platform].stop).not.toHaveBeenCalled();
+    });
 
     it("claims Kick challenges without changing the paused session", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));

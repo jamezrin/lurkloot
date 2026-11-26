@@ -6,7 +6,7 @@ import {
   inertAdapterSettings,
   type AdapterFeature,
 } from "@lurkloot/core/controller";
-import type { Platform, SchedulerState } from "@lurkloot/shared/models";
+import { PLATFORMS, type Platform, type SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { parseConfig, TRANSPORTS as TRANSPORT_NAMES, type Transport } from "../src/config";
 import { impersonationBackendOf } from "../src/transport";
@@ -141,7 +141,7 @@ const BACKING: Record<string, Backing> = {
   "twitchExtensions.fortnite.enabled": engine("supplemental source selection and driver admission"),
   "twitchExtensions.fortnite.allowTakeovers": engine("Fortnite driver takeover commands"),
   ...Object.fromEntries(
-    (["twitch", "kick"] as const).flatMap((platform) =>
+    PLATFORMS.flatMap((platform) =>
       Object.entries(PER_PLATFORM).map(([key, backing]) => [
         `platform.${platform}.${key}`,
         backing,
@@ -165,7 +165,7 @@ const BACKING: Record<string, Backing> = {
 
 // The core-owned adapter-backed keys, one per platform settings field.
 const CORE_BACKED = new Map<string, { feature: AdapterFeature; platform: Platform }>(
-  (["twitch", "kick"] as const).flatMap((platform) =>
+  PLATFORMS.flatMap((platform) =>
     ADAPTER_BACKED_SETTINGS.filter((entry) =>
       cliAcceptedSettingPaths().includes(`platform.${platform}.${entry.field}`),
     ).map((entry) => [`platform.${platform}.${entry.field}`, { feature: entry.feature, platform }]),

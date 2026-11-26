@@ -1,13 +1,14 @@
-import type {
-  ChannelCandidate,
-  EngineSettings,
-  Platform,
-  PreparedWatchTab,
-  SchedulerState,
-  SupplementalWatchTarget,
-  WatchSession,
-  WatchSourceId,
-  WatchTabOptions,
+import {
+  PLATFORMS,
+  type ChannelCandidate,
+  type EngineSettings,
+  type Platform,
+  type PreparedWatchTab,
+  type SchedulerState,
+  type SupplementalWatchTarget,
+  type WatchSession,
+  type WatchSourceId,
+  type WatchTabOptions,
 } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
@@ -54,7 +55,7 @@ import {
 // Watch tabs are the host's (#598), not the adapter's, but these tests predate
 // that and keep a fake adapter's watch-tab mocks next to its provider mocks. The
 // harness turns them into the WatchTabPort the tick calls.
-export interface WatchTabMocks {
+interface WatchTabMocks {
   prepareWatchTab?(
     channel: ChannelCandidate,
     session?: WatchSession,
@@ -134,7 +135,7 @@ export async function runSchedulerTick(
   adapters: Record<Platform, SchedulerTestAdapter>,
   options: SchedulerTickTestOptions = {},
 ): Promise<SchedulerTickResult> {
-  const platforms = options.platforms ?? ["twitch", "kick"];
+  const platforms = options.platforms ?? PLATFORMS;
   const tabRegistry = options.tabRegistry ?? createTabRegistry();
   hydrateManagedPageContextTabs(tabRegistry, state.managedPageContextTabs ?? {}, platforms);
   syncManagedTabBreakers(
