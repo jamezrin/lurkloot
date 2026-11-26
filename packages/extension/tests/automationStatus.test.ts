@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
-import { AUTH_SIGN_IN_URLS, automationPresentation } from "../../popup-ui/src/automationStatus";
+import { automationPresentation } from "../../popup-ui/src/automationStatus";
 
 function health(
   status: PlatformAuthHealth["status"],

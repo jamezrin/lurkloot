@@ -7,7 +7,6 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { runSchedulerTick, type SchedulerTestAdapter } from "./helpers/schedulerTick";
 import { heartbeatContextKey, nextHeartbeatDueAt } from "@lurkloot/core/heartbeatCadence";
 

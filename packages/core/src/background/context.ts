@@ -1,7 +1,6 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { ObserverSlot } from "./observerSlot";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshotLane } from "../core/discoverySnapshot";
@@ -164,7 +163,7 @@ export function createTickAdmissionSlice(): TickAdmissionSlice {
 // One turn of a settings commit, for a service that has to take part in it
 // rather than only react afterwards (#696): Twitch integrity holds off its
 // work from the moment a save may disable Twitch until it has reconciled.
-export interface SettingsCommitTurn<S> {
+interface SettingsCommitTurn<S> {
   // In the settings lock, once the commit is worked out and before it is saved.
   prepared(commit: PreparedSettingsCommit<S>): void;
   // After the save and the settings jobs' reschedule, or after the save failed

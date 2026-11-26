@@ -71,14 +71,14 @@ export interface SettingsRegistryContext {
   hostCapabilities?: Readonly<PopupHostCapabilities>;
 }
 
-export interface SettingsEntryDef extends SettingsEntryNode {
+interface SettingsEntryDef extends SettingsEntryNode {
   render(): React.ReactNode;
   // The host capability this setting depends on. Without it the entry is not
   // in the tree at all, so neither the view nor search can reach it.
   requires?: PopupHostCapability;
 }
 
-export interface SettingsGroupDef extends SettingsGroupNode<SettingsEntryDef> {
+interface SettingsGroupDef extends SettingsGroupNode<SettingsEntryDef> {
   // Set only by groups whose whole body is a single editor. The group header
   // then carries the editor's subtitle and count, so the editor renders bare
   // rather than repeating the heading inside a nested card.

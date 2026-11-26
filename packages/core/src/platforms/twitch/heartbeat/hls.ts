@@ -17,14 +17,14 @@ export { TWITCH_HLS_HEARTBEAT_ID };
 export const HLS_POLL_INTERVAL_MS = 10_000;
 // Successful segment URLs only. Failed ones stay out so the next poll retries
 // them, and a long broadcast cannot grow the set without bound.
-export const HLS_SEGMENT_CACHE_LIMIT = 256;
+const HLS_SEGMENT_CACHE_LIMIT = 256;
 // A live playlist lists every segment still in the window. Only the newest
 // ones prove the client is at the live edge, and the poll budget cannot cover
 // a long window of slow requests.
-export const HLS_SEGMENTS_PER_POLL = 6;
+const HLS_SEGMENTS_PER_POLL = 6;
 // Auxiliary minute-watched telemetry. It credits channel points, not drop
 // progress, and a failure must not be retried on the playlist cadence.
-export const HLS_TELEMETRY_INTERVAL_MS = 59_000;
+const HLS_TELEMETRY_INTERVAL_MS = 59_000;
 // A failed playback-token request waits this long before the next one, and
 // twice as long after each further failure. Without it every 10-second poll
 // would ask again, and an integrity rejection would mint a token each time.
@@ -47,7 +47,7 @@ export const HLS_POLL_BUDGET_MS = 8_000;
 const REQUEST_BUDGET_MS = 3_000;
 const HLS_REDIRECT_LIMIT = 3;
 
-export interface HlsHeartbeatGql {
+interface HlsHeartbeatGql {
   <T>(
     operationName: string,
     sha256Hash: string,
@@ -89,7 +89,7 @@ export function safeHlsFailure(error: unknown, fallback = "Twitch HLS watch fail
 // [{"url":"<signed request>","error":"…","error_code":"content_geoblocked"}].
 // Only the code is kept: the url carries the signed token and the error text
 // is free-form.
-export function usherErrorCode(body: string | undefined): string | undefined {
+function usherErrorCode(body: string | undefined): string | undefined {
   if (!body) return undefined;
   let parsed: unknown;
   try {

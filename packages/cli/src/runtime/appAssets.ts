@@ -12,7 +12,7 @@ import { standaloneAppRoot } from "./standalone";
 // that runs. The standalone executable has no bundle file of its own; its
 // archive puts app/ beside the executable (runtime/standalone.ts).
 
-export const APP_INDEX = "index.html";
+const APP_INDEX = "index.html";
 
 /** Locates the app bundle when present, leaving a bare CLI to serve the control plane alone. */
 export function defaultAppRoot(

@@ -13,7 +13,7 @@ export function storageOrMemory(area: () => Storage): Storage {
   }
 }
 
-export function memoryStorage(): Storage {
+function memoryStorage(): Storage {
   const items = new Map<string, string>();
   return {
     get length() {

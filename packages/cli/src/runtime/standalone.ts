@@ -34,7 +34,7 @@ export function standaloneDir(runtime: ExecutableRuntime = currentRuntime()): st
 }
 
 // The cycletls package folder beside the executable.
-export const CYCLETLS_DIR = "cycletls";
+const CYCLETLS_DIR = "cycletls";
 
 /** Gives the shipped CycleTLS helper its platform-specific filename. */
 export function cycleTlsBinaryName(platform: NodeJS.Platform): string {
@@ -80,7 +80,7 @@ const confinedRoots = new Set<string>();
  * Node can still resolve built-ins. An external file resolves as MODULE_NOT_FOUND
  * so optional dependencies can use their existing fallback.
  */
-export function confineRequires(
+function confineRequires(
   root: string,
   resolver: ModuleResolver = Module as unknown as ModuleResolver,
 ): void {
@@ -140,17 +140,15 @@ const SHELL_UNSAFE = /[\s`$&;|<>()*?[\]{}!'"\\]/;
 // The impit package folder beside the executable: its package.json and
 // JavaScript, with this platform's native add-on beside them, where impit's own
 // loader looks first.
-export const IMPIT_DIR = "impit";
+const IMPIT_DIR = "impit";
 
 /** Locates the impit package directory in a standalone install. */
-export function standaloneImpitDir(
-  runtime: ExecutableRuntime = currentRuntime(),
-): string | undefined {
+function standaloneImpitDir(runtime: ExecutableRuntime = currentRuntime()): string | undefined {
   const dir = standaloneDir(runtime);
   return dir === undefined ? undefined : join(dir, IMPIT_DIR);
 }
 
-export class MissingImpitError extends Error {}
+class MissingImpitError extends Error {}
 
 /** Loads the adjacent impit package and its native add-on from disk in a SEA. */
 export function loadStandaloneImpit(

@@ -54,7 +54,7 @@ import {
 // Watch tabs are the host's (#598), not the adapter's, but these tests predate
 // that and keep a fake adapter's watch-tab mocks next to its provider mocks. The
 // harness turns them into the WatchTabPort the tick calls.
-export interface WatchTabMocks {
+interface WatchTabMocks {
   prepareWatchTab?(
     channel: ChannelCandidate,
     session?: WatchSession,
