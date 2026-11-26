@@ -12,15 +12,10 @@ export type { CycleTlsClient } from "./cycleTlsClient";
 export async function initCycle(executablePath = cycleTlsBinaryPath()): Promise<CycleTlsClient> {
   assertCycleTlsBinary(executablePath);
   const first = await startCycleTls(executablePath);
-  let started = false;
-  return restartingCycleTls(async () => {
-    if (!started) {
-      started = true;
-      return first;
-    }
+  return restartingCycleTls(() => {
     assertCycleTlsBinary(executablePath);
     return startCycleTls(executablePath);
-  });
+  }, first);
 }
 
 // The cycletls backend: sends the pinned Chrome 124 JA3/HTTP-2 fingerprint

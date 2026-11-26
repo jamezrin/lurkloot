@@ -416,6 +416,15 @@ describe.skipIf(binary === undefined)("the cycletls binary through our client", 
     }
   });
 
+  it("ends the first binary on close even when no request was made", async () => {
+    const { initCycle } = await import("../src/transport/cycle");
+    const client = await initCycle(binary as string);
+    const pid = client.pid;
+    expect(alive(pid)).toBe(true);
+    await client.close();
+    expect(await waitUntil(() => !alive(pid))).toBe(true);
+  });
+
   it("starts a new binary when the last one died", async () => {
     const { initCycle } = await import("../src/transport/cycle");
     const client = await initCycle(binary as string);

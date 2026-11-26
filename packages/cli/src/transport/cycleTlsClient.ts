@@ -509,13 +509,17 @@ export async function startCycleTls(
 }
 
 /**
- * A client that starts the binary on first use and starts a new one when the
+ * A client that starts the binary on first use (or adopts `initial`, which it
+ * then owns and closes) and starts a new one when the
  * last exited or lost its socket (a crash, say), so a long `run` recovers on
  * its next request instead of failing every one until restarted. The dead
  * binary is ended before its replacement starts.
  */
-export function restartingCycleTls(start: () => Promise<CycleTlsClient>): CycleTlsClient {
-  let current: CycleTlsClient | undefined;
+export function restartingCycleTls(
+  start: () => Promise<CycleTlsClient>,
+  initial?: CycleTlsClient,
+): CycleTlsClient {
+  let current: CycleTlsClient | undefined = initial;
   let starting: Promise<CycleTlsClient> | undefined;
   let closed = false;
   const live = async (): Promise<CycleTlsClient> => {
