@@ -754,17 +754,20 @@ fn install_update(app: &AppHandle) {
     let app = app.clone();
     std::thread::spawn(move || {
         // A fresh manifest, so a release repaired since the last check is the
-        // one downloaded, with a deadline so a stalled download ends.
+        // one downloaded, with a deadline so a stalled download ends. The
+        // builder's timeout covers only that check: the Update it returns has
+        // none of its own, so the download's is set on it.
         let downloaded = tauri::async_runtime::block_on(async {
-            let update = app
+            let mut update = app
                 .updater_builder()
-                .timeout(updates::DOWNLOAD_TIMEOUT)
+                .timeout(updates::CHECK_TIMEOUT)
                 .build()
                 .map_err(|error| error.to_string())?
                 .check()
                 .await
                 .map_err(|error| error.to_string())?
                 .ok_or_else(|| "no update is available any more".to_owned())?;
+            update.timeout = Some(updates::DOWNLOAD_TIMEOUT);
             let bytes = update
                 .download(|_, _| {}, || {})
                 .await
