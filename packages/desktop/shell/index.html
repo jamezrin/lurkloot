@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lurkloot</title>
+    <!--
+      The shell's own page, shown until lurkloot serve is ready and while it is
+      restarting. The shell picks the message with the address's fragment:
+      #starting (the default), #restarting or #failed. It has no access to the
+      shell's commands and loads nothing from the network.
+    -->
+    <link rel="stylesheet" href="status.css" />
+  </head>
+  <body>
+    <main>
+      <div class="spinner" aria-hidden="true"></div>
+      <h1 id="title">Starting Lurkloot…</h1>
+      <p id="detail"></p>
+    </main>
+    <script src="status.js"></script>
+  </body>
+</html>

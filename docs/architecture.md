@@ -12,6 +12,7 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 - `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
 - `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
 - `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
+- `packages/desktop` — the desktop app (`@lurkloot/desktop`, #1024): a Tauri 2 shell in `src-tauri/` that runs the bundled standalone `lurkloot serve` and shows its app UI. Packaging only (see "Desktop app" below).
 - `packages/shared` — framework-agnostic models, messages, settings, i18n, and logging (`@lurkloot/shared`).
   The platform list is declared once, as `PLATFORMS` in `@lurkloot/shared/models`, and the
   `Platform` type is derived from it. Code that iterates or validates platforms uses `PLATFORMS`
@@ -898,6 +899,72 @@ archives and copies directory inputs into scratch space so the missing-folder pr
 rename `impit/` and `cycletls/` without changing the supplied build. It makes a Kick request through
 each library, checks that `serve` on one library starts with the other's folder gone, and that
 `cycletls/` holds only the binary, its `LICENSE` and `NOTICE`.
+
+### Desktop app (#1024)
+
+`packages/desktop` is a Tauri 2 shell around the standalone executable above. It is packaging
+only: it never farms, never imports `@lurkloot/core`, `@lurkloot/shared`, the CLI's sources or
+cycletls, and talks to `serve` only by starting it, reading its ready line and closing its stdin.
+`packages/extension/tests/desktopBoundary.test.ts` guards the imports and the package's
+dependencies.
+
+```
+Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
+ ├─ supervisor ── spawn, stdin pipe ───────────▶ --port 0 --ready-json --exit-with-stdin
+ │      ◀── {"event":"ready","url":…} on stdout   --config <app data>/config.json
+ │      stdout + stderr ──▶ <app log dir>/serve.log    ├─ farming loop (@lurkloot/core)
+ ├─ window ── http://127.0.0.1:<port>/ ────────▶       ├─ control plane + app UI
+ │      token in sessionStorage (init script)           └─ cycletls binary (#1031)
+ └─ tray: Open, Quit
+```
+
+- **Sidecar.** The whole executable folder ships as the app's `sidecar/` resource, not as a
+  Tauri `externalBin`, so `app/`, `impit/` and `cycletls/` stay beside `lurkloot` as the
+  executable expects. `packages/desktop/scripts/prepareSidecar.mjs` builds it with the CLI's
+  `build:executable` script and copies it to `src-tauri/sidecar/`. The supervisor
+  (`src-tauri/src/sidecar.rs`) knows nothing about Tauri. It reads both of serve's output streams
+  for its whole life into `serve.log` (truncated per launch, moved to `serve.log.1` at 8 MiB),
+  so a full pipe never stalls farming, and takes the first stdout line that parses as a ready event with a plain-HTTP
+  loopback URL (`ready.rs`). A start with no ready line in 60 s, or an exit, restarts serve after
+  1 s, doubling to at most 60 s. The count starts again once a serve ran 60 s past ready. After
+  three failures in a row the window shows the shell's status page with an error and comes
+  back from the tray; it goes on retrying.
+- **Environment.** serve runs with the shell's environment minus every `LURKLOOT_*` and `SA_*`
+  variable, so a CLI user's shell cannot point it at another token or credential override.
+  Then `LURKLOOT_SERVE_TOKEN` (32 random bytes, fresh for each app launch and kept across
+  restarts within it) is added. The token never appears
+  on a command line or in a log.
+- **Token.** A main-frame initialization script writes the token to sessionStorage under the
+  app UI's `lurkloot.app.serveToken` key, before the page loads, on plain-HTTP loopback origins
+  only. The window never asks for it, and nothing else on the machine can use the API.
+- **Navigation.** The window loads only the running serve's origin and the shell's own status
+  page (`shell/`, served from Tauri's own origin, read from the window rather than hard-coded:
+  it differs on Windows). `window.open`, `target="_blank"` and navigations to any other http(s)
+  address open in the system browser; anything else is refused (`navigation.rs`). Restarting
+  serve gives it a new port, which becomes the only allowed serve origin. Remote pages get no
+  Tauri commands (no capabilities are granted).
+- **Data.** `config.json` lives in the OS's app-data folder for the bundle identifier
+  `name.jamezrin.lurkloot`; serve keeps `auth/` and `state.json` beside it. The identifier fixes
+  that path, so it must never change (#1028 updates keep it).
+- **Window and tray.** Closing the window hides it and farming continues; the tray has Open and
+  Quit. On Linux the tray counts as present only while a StatusNotifierWatcher owns its name on
+  the session bus (`tray.rs`), checked at start and again on each close; without one, closing
+  the window quits instead. A second launch
+  focuses the running window (the single-instance plugin).
+- **Quit.** Every way out (tray Quit, the last window closed without a tray, the OS's quit)
+  goes through one path: hide the window, close serve's stdin, wait up to 20 s for it to save
+  and exit, then kill its process tree and exit. serve runs in its own process group on Linux
+  and macOS and in a job object on Windows (taskkill's tree kill when the job cannot be set up),
+  so a kill takes its cycletls helper with it. When the shell crashes, the OS closes serve's
+  stdin pipe and serve saves and exits on its own; the job has no kill-on-close limit, so that
+  holds on Windows too. Every exit's status goes to `serve.log`.
+- **Tests.** `cargo test` in `packages/desktop/src-tauri` covers the ready-line parser, the
+  navigation rules, the token script and the supervisor against a stand-in serve (ready URL,
+  stdin-close shutdown, killing a tree that will not stop, restart and failure counting). The
+  `build-desktop` CI workflow runs it with clippy on Linux, macOS and Windows.
+  `desktopBoundary.test.ts`, which runs in `pnpm check` on every pull request, also keeps the
+  names the shell repeats from TypeScript in step: the sessionStorage key, `LURKLOOT_SERVE_TOKEN`,
+  serve's flags and the ready line.
 
 ### Characterization coverage
 

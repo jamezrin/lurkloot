@@ -1,0 +1,46 @@
+name: Build desktop app
+
+# The desktop app's Tauri shell (#1024): its Rust unit tests and lints on every OS it ships for.
+# They cover the sidecar supervisor, the ready-line parser, the navigation rules and the token
+# script. Installers come with #1025.
+
+on:
+  pull_request:
+    paths:
+      - packages/desktop/**
+      - .github/workflows/build-desktop.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-desktop-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/desktop/src-tauri
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install the Linux web view and tray libraries
+        if: runner.os == 'Linux'
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - run: rustup toolchain install stable --profile minimal --component clippy,rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --all-targets -- -D warnings
+      - run: cargo test --locked

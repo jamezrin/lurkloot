@@ -1,0 +1,74 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f7f7fb;
+  --fg: #1d1b26;
+  --muted: #5d5a6b;
+  --accent: #7c3aed;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14121b;
+    --fg: #f1effa;
+    --muted: #a7a3b8;
+    --accent: #a06bff;
+  }
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 28rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+h1 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  margin: 0 auto;
+  border: 3px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+body[data-state="failed"] .spinner {
+  animation: none;
+  border-color: var(--accent);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}

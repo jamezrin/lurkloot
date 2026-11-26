@@ -12,6 +12,7 @@
     "dev:site": "pnpm --filter @lurkloot/site dev",
     "dev:app": "pnpm --filter @lurkloot/app-ui dev",
     "dev:app:fixture": "pnpm --filter @lurkloot/app-ui dev:fixture",
+    "dev:desktop": "pnpm --filter @lurkloot/desktop dev",
     "build": "pnpm --filter @lurkloot/extension build",
     "build:firefox": "pnpm --filter @lurkloot/extension build:firefox",
     "build:site": "pnpm --filter @lurkloot/site build",
