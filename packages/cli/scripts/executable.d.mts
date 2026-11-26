@@ -4,6 +4,7 @@ export declare const SEA_FUSE: string;
 export declare const SEA_RESOURCE: string;
 export declare const SEA_MACHO_SEGMENT: string;
 
+export declare function cycleTlsFileName(platform: string): string;
 export declare function cycleTlsUpstreamName(platform: string, arch: string): string;
 export declare function impitBindingPackages(
   manifest: { optionalDependencies?: Record<string, string> },

@@ -19,7 +19,7 @@ import {
 import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cycleTlsNotice, cycleTlsUpstreamName } from "./executable.mjs";
+import { cycleTlsFileName, cycleTlsNotice, cycleTlsUpstreamName } from "./executable.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -27,7 +27,7 @@ const require = createRequire(import.meta.url);
 export function copyCycleTls(outDir, { platform = process.platform, arch = process.arch } = {}) {
   const packageDir = realpathSync(dirname(require.resolve("cycletls/package.json")));
   const manifest = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8"));
-  const file = platform === "win32" ? "cycletls.exe" : "cycletls";
+  const file = cycleTlsFileName(platform);
   rmSync(outDir, { recursive: true, force: true });
   mkdirSync(outDir, { recursive: true });
   const binary = join(outDir, file);

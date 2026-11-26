@@ -25,6 +25,11 @@ export const CYCLETLS_SOURCE = {
   commit: "28f3d8b9a21470c35269fa24f3907626270ab1dc",
 };
 
+/** Names the shipped CycleTLS binary; src/runtime/standalone.ts's cycleTlsBinaryName matches it. */
+export function cycleTlsFileName(platform) {
+  return platform === "win32" ? "cycletls.exe" : "cycletls";
+}
+
 /** Maps a release target to the helper name in the upstream npm package. */
 export function cycleTlsUpstreamName(platform, arch) {
   const name = CYCLETLS_UPSTREAM[`${platform}-${arch}`];

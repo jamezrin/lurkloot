@@ -42,6 +42,7 @@ export function fakeCycleTls(
   return {
     pid: undefined,
     port: 0,
+    running: true,
     async request(options) {
       const answer = await handler(options.url, requestFrameOptions(options), options.method);
       return {

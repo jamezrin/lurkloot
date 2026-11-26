@@ -17,7 +17,13 @@ import { dirname, join } from "node:path";
 import { cycleTlsUpstreamName } from "../scripts/executable.mjs";
 import { CHROME_HTTP2, CHROME_JA3, CHROME_UA } from "../src/transport/common";
 import { createCycleClient } from "../src/transport/cycle";
-import { decodeFrame, requestFrameOptions, startCycleTls } from "../src/transport/cycleTlsClient";
+import {
+  type CycleTlsClient,
+  decodeFrame,
+  requestFrameOptions,
+  restartingCycleTls,
+  startCycleTls,
+} from "../src/transport/cycleTlsClient";
 import { fakeCycleTls } from "./helpers/fakeCycleTls";
 
 // What cycletls's npm wrapper 2.0.5 sent the binary for the calls the old
@@ -162,6 +168,55 @@ describe("decodeFrame", () => {
 
   it("refuses a truncated frame", () => {
     expect(() => decodeFrame(frame("r1", "response", u16(200)))).toThrow(/truncated/);
+  });
+});
+
+describe("restartingCycleTls", () => {
+  function fake(id: number) {
+    const state = { running: true, closed: 0 };
+    const client: CycleTlsClient = {
+      pid: id,
+      port: id,
+      get running() {
+        return state.running;
+      },
+      request: async () => ({ status: 200, finalUrl: "", headers: {}, body: Buffer.from(`${id}`) }),
+      close: async () => {
+        state.closed += 1;
+        state.running = false;
+      },
+    };
+    return { client, state };
+  }
+
+  it("starts once, then again only after the binary died, ending the dead one first", async () => {
+    const started: ReturnType<typeof fake>[] = [];
+    const client = restartingCycleTls(async () => {
+      const next = fake(started.length + 1);
+      started.push(next);
+      return next.client;
+    });
+    const ask = async () =>
+      (
+        await client.request({
+          url: "u",
+          method: "get",
+          headers: {},
+          body: "",
+          ja3: "",
+          http2Fingerprint: "",
+          userAgent: "",
+        })
+      ).body.toString();
+    expect(await Promise.all([ask(), ask()])).toEqual(["1", "1"]);
+    expect(started).toHaveLength(1);
+    const first = started[0];
+    if (first) first.state.running = false; // the binary crashed
+    expect(await ask()).toBe("2");
+    expect(first?.state.closed).toBe(1);
+    await client.close();
+    expect(started[1]?.state.closed).toBe(1);
+    await expect(ask()).rejects.toThrow(/closed/);
   });
 });
 
@@ -333,9 +388,104 @@ describe.skipIf(binary === undefined)("the cycletls binary through our client", 
     }
   });
 
+  it("gives up on a request the binary never answers, and forgets it", async () => {
+    const hang = createServer(() => {
+      // Never answers, so the binary's request stays open.
+    });
+    await new Promise<void>((resolve) => hang.listen(0, "127.0.0.1", resolve));
+    const address = hang.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const client = await startCycleTls(binary as string, { requestDeadlineMs: () => 300 });
+    try {
+      await expect(
+        createCycleClient(client).request(`http://127.0.0.1:${port}/`, {
+          method: "get",
+          headers: {},
+        }),
+      ).rejects.toThrow(/did not answer/);
+      // The client still serves the next request.
+      const next = await createCycleClient(client).request(`${origin}/after`, {
+        method: "get",
+        headers: {},
+      });
+      expect(next.status).toBe(201);
+    } finally {
+      await client.close();
+      hang.closeAllConnections();
+      await new Promise((resolve) => hang.close(resolve));
+    }
+  });
+
+  it("starts a new binary when the last one died", async () => {
+    const { initCycle } = await import("../src/transport/cycle");
+    const client = await initCycle(binary as string);
+    try {
+      const first = client.pid;
+      if (first !== undefined) process.kill(first, "SIGKILL");
+      expect(await waitUntil(() => !client.running)).toBe(true);
+      const response = await createCycleClient(client).request(`${origin}/again`, {
+        method: "get",
+        headers: {},
+      });
+      expect(response.status).toBe(201);
+      expect(client.pid).not.toBe(first);
+    } finally {
+      const last = client.pid;
+      await client.close();
+      expect(await waitUntil(() => !alive(last))).toBe(true);
+    }
+  });
+
   it("fails clearly when the binary cannot start", async () => {
     await expect(startCycleTls(join(scratch, "missing"))).rejects.toThrow(/could not start/);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "lets a command's own signal handler finish its shutdown",
+    async () => {
+      const script = join(scratch, "owner-handled.ts");
+      const clientModule = join(import.meta.dirname, "..", "src", "transport", "cycleTlsClient.ts");
+      const marker = join(scratch, "handled.txt");
+      writeFileSync(
+        script,
+        [
+          'import { writeFileSync } from "node:fs";',
+          `import { startCycleTls } from ${JSON.stringify(clientModule)};`,
+          // As run.ts does: a once handler that shuts down asynchronously.
+          `process.once("SIGTERM", () => setTimeout(async () => { await client.close(); writeFileSync(${JSON.stringify(marker)}, "done"); process.exit(0); }, 300));`,
+          `const client = await startCycleTls(${JSON.stringify(binary)});`,
+          "process.stdout.write(`${client.pid}\\n`);",
+          "setInterval(() => {}, 1000);",
+        ].join("\n"),
+      );
+      const child = spawn(
+        process.execPath,
+        ["--experimental-strip-types", "--no-warnings", script],
+        {
+          stdio: ["ignore", "pipe", "inherit"],
+        },
+      );
+      const pid = await new Promise<number>((resolve, reject) => {
+        let out = "";
+        child.stdout.on("data", (chunk) => {
+          out += chunk;
+          const line = out.split("\n")[0];
+          if (out.includes("\n") && line) resolve(Number(line));
+        });
+        child.once("exit", (code) => reject(new Error(`owner exited early (${code})`)));
+      });
+      // The binary stays up while the handler runs.
+      child.kill("SIGTERM");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(alive(pid)).toBe(true);
+      const code = await new Promise((resolve) =>
+        child.once("exit", (exitCode) => resolve(exitCode)),
+      );
+      expect(code).toBe(0);
+      expect(readFileSync(marker, "utf8")).toBe("done");
+      expect(await waitUntil(() => !alive(pid))).toBe(true);
+    },
+  );
 
   it.skipIf(process.platform === "win32").each([
     ["process.exit()", "exit"],

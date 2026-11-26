@@ -32,7 +32,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { envWithoutNode, executableName } from "./executable.mjs";
+import { cycleTlsFileName, envWithoutNode, executableName } from "./executable.mjs";
 
 const [source, ...flags] = process.argv.slice(2);
 if (!source) {
@@ -148,7 +148,7 @@ try {
     executable,
     join(dir, "cycletls", "LICENSE"),
     join(dir, "cycletls", "NOTICE"),
-    join(dir, "cycletls", windows ? "cycletls.exe" : "cycletls"),
+    join(dir, "cycletls", cycleTlsFileName(process.platform)),
     join(dir, "impit", "package.json"),
     join(dir, "impit", "index.js"),
     join(dir, "app", "index.html"),
@@ -158,7 +158,7 @@ try {
     if (!existsSync(file)) throw new Error(`${basename(file)} is missing from ${dir}`);
   }
   const cycleTlsFiles = readdirSync(join(dir, "cycletls")).sort();
-  const expectedCycleTls = ["LICENSE", "NOTICE", windows ? "cycletls.exe" : "cycletls"].sort();
+  const expectedCycleTls = ["LICENSE", "NOTICE", cycleTlsFileName(process.platform)].sort();
   if (cycleTlsFiles.join() !== expectedCycleTls.join())
     fail(`cycletls/ ships more than the binary: ${cycleTlsFiles.join(", ")}`);
   const work = mkdtempSync(join(scratch, "data-"));

@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createServer } from "node:net";
+import { constants } from "node:os";
 import WebSocket from "ws";
 
 // Lurkloot's own client for CycleTLS's Go binary (#1031). The binary is a
@@ -47,6 +48,9 @@ export interface CycleTlsResponse {
 export interface CycleTlsClient {
   request(options: CycleTlsRequestOptions): Promise<CycleTlsResponse>;
   close(): Promise<void>;
+  // False once the binary exited or its socket closed; it then takes no
+  // requests (restartingCycleTls starts a new one).
+  readonly running: boolean;
   // The started binary's process id and port, for diagnostics and tests.
   readonly pid: number | undefined;
   readonly port: number;
@@ -132,6 +136,15 @@ class FrameReader {
   }
 }
 
+/** Reads only a frame's request id, for a frame that does not decode. */
+export function frameRequestId(buffer: Buffer): string | undefined {
+  try {
+    return new FrameReader(buffer).string();
+  } catch {
+    return undefined;
+  }
+}
+
 /** Decodes one binary frame from the binary. Throws on a truncated frame. */
 export function decodeFrame(buffer: Buffer): CycleTlsFrame {
   const reader = new FrameReader(buffer);
@@ -153,7 +166,8 @@ export function decodeFrame(buffer: Buffer): CycleTlsFrame {
       return { requestId, type, status, finalUrl, headers };
     }
     case "data":
-      return { requestId, type, chunk: Buffer.from(reader.bytes(reader.u32())) };
+      // ws hands each message its own buffer, so the slice is the chunk's own.
+      return { requestId, type, chunk: reader.bytes(reader.u32()) };
     case "end":
       return { requestId, type };
     case "error":
@@ -166,6 +180,7 @@ export function decodeFrame(buffer: Buffer): CycleTlsFrame {
 interface Pending {
   resolve: (response: CycleTlsResponse) => void;
   reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
   status?: number;
   finalUrl: string;
   headers: Record<string, string[]>;
@@ -203,8 +218,13 @@ function killRunning(): void {
 // Signals that end Node by default. A command that handles one itself (run and
 // serve shut down and close the client) keeps doing so; for one that does not,
 // Node would die without an "exit" event, so the binaries are ended first and
-// the signal raised again with Node's default behavior.
+// the process ends as the signal would have ended it.
 const ENDING_SIGNALS: NodeJS.Signals[] = ["SIGINT", "SIGTERM", "SIGHUP"];
+
+/** Tells whether anything but the backstop listens for the signal right now. */
+export function othersHandle(signal: NodeJS.Signals, self: (...args: unknown[]) => void): boolean {
+  return process.listeners(signal).some((listener) => listener !== self);
+}
 
 function installExitHook(): void {
   if (exitHookInstalled) return;
@@ -212,13 +232,18 @@ function installExitHook(): void {
   process.once("exit", killRunning);
   for (const signal of ENDING_SIGNALS) {
     const onSignal = () => {
-      if (process.listenerCount(signal) > 1) return;
+      // Prepended, so this runs before a command's own process.once() handler
+      // removes itself, and sees it.
+      if (othersHandle(signal, onSignal)) return;
       killRunning();
       process.removeListener(signal, onSignal);
       process.kill(process.pid, signal);
+      // A signal the process ignores even without a handler (SIGTERM to PID 1
+      // in a container) would leave it running: end it as the signal would.
+      setTimeout(() => process.exit(128 + (constants.signals[signal] ?? 0)), 100).unref();
     };
     try {
-      process.on(signal, onSignal);
+      process.prependListener(signal, onSignal);
     } catch {
       // A signal this platform cannot listen for.
     }
@@ -251,9 +276,20 @@ export interface StartCycleTlsOptions {
   startTimeoutMs?: number;
   // How long close() waits after SIGTERM before SIGKILL. Default 2 s.
   stopGraceMs?: number;
+  // How long a request may go unanswered before the client gives up on it.
+  // Default: the request's own timeout plus 30 s, or 60 s.
+  requestDeadlineMs?: (options: CycleTlsRequestOptions) => number;
   // Injectable for tests.
   pickPort?: () => Promise<number>;
 }
+
+function defaultDeadline(options: CycleTlsRequestOptions): number {
+  return options.timeout === undefined ? 60_000 : options.timeout * 1_000 + 30_000;
+}
+
+// How long the binary must stay up after the socket opens: a binary that could
+// not bind its port exits at once, and the socket then reached another program.
+const SETTLE_MS = 150;
 
 // The tail of the binary's own output, kept for a start failure's message.
 const OUTPUT_TAIL = 2_000;
@@ -264,19 +300,28 @@ async function connect(
   port: number,
   deadline: number,
   output: () => string,
+  abandoned: () => boolean,
 ): Promise<WebSocket> {
   for (;;) {
+    if (abandoned()) throw new CycleTlsStartError("cycletls start abandoned");
     if (exited(child)) {
       throw new CycleTlsStartError(
         `cycletls exited before it listened (code ${child.exitCode ?? child.signalCode})${tail(output())}`,
       );
     }
-    const socket = new WebSocket(`ws://127.0.0.1:${port}`);
+    const socket = new WebSocket(`ws://127.0.0.1:${port}`, { handshakeTimeout: 2_000 });
     const opened = await new Promise<boolean>((resolve) => {
       socket.once("open", () => resolve(true));
       socket.once("error", () => resolve(false));
     });
-    if (opened) return socket;
+    if (opened) {
+      await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+      if (!exited(child) && socket.readyState === WebSocket.OPEN) return socket;
+      socket.terminate();
+      throw new CycleTlsStartError(
+        `cycletls did not start on port ${port}; another program answered there${tail(output())}`,
+      );
+    }
     socket.terminate();
     if (Date.now() >= deadline) {
       throw new CycleTlsStartError(
@@ -310,16 +355,30 @@ export async function startCycleTls(
     output = (output + chunk.toString("utf8")).slice(-OUTPUT_TAIL);
   };
   // Drained so the binary never blocks on a full pipe; never sent to the CLI's
-  // own stdout, which a launcher reads.
+  // own stdout, which a launcher reads. Kept only until it is up.
   child.stdout?.on("data", keep);
   child.stderr?.on("data", keep);
-  const spawnError = new Promise<Error>((resolve) => child.once("error", resolve));
+  let startFailed = false;
+  const spawnError = new Promise<Error>((resolve) =>
+    child.once("error", (error) => {
+      startFailed = true;
+      resolve(error);
+    }),
+  );
+  // A failed spawn fires "error" and "close" but never "exit".
+  child.once("close", () => running.delete(child));
   child.once("exit", () => running.delete(child));
 
   let socket: WebSocket;
   try {
     socket = await Promise.race([
-      connect(child, port, Date.now() + (options.startTimeoutMs ?? 15_000), () => output),
+      connect(
+        child,
+        port,
+        Date.now() + (options.startTimeoutMs ?? 15_000),
+        () => output,
+        () => startFailed,
+      ),
       spawnError.then((error) => {
         throw new CycleTlsStartError(
           `cycletls could not start from ${executablePath}: ${error.message}`,
@@ -327,24 +386,42 @@ export async function startCycleTls(
       }),
     ]);
   } catch (error) {
-    await stopChild(child, 0);
+    startFailed = true;
+    running.delete(child);
+    if (child.pid !== undefined) await stopChild(child, 0);
     throw error;
+  }
+  for (const stream of [child.stdout, child.stderr]) {
+    stream?.off("data", keep);
+    stream?.resume();
   }
 
   const pending = new Map<string, Pending>();
   let closed = false;
   let sequence = 0;
+  let socketOpen = true;
+  const settle = (requestId: string): Pending | undefined => {
+    const request = pending.get(requestId);
+    if (!request) return undefined;
+    pending.delete(requestId);
+    clearTimeout(request.timer);
+    return request;
+  };
   const failAll = (error: Error) => {
-    for (const request of pending.values()) request.reject(error);
-    pending.clear();
+    for (const requestId of [...pending.keys()]) settle(requestId)?.reject(error);
   };
 
   socket.on("message", (data, isBinary) => {
     if (!isBinary) return;
+    const buffer = Buffer.isBuffer(data) ? data : Buffer.concat(data as Buffer[]);
     let frame: CycleTlsFrame;
     try {
-      frame = decodeFrame(Buffer.isBuffer(data) ? data : Buffer.concat(data as Buffer[]));
+      frame = decodeFrame(buffer);
     } catch {
+      const requestId = frameRequestId(buffer);
+      if (requestId !== undefined) {
+        settle(requestId)?.reject(new Error("cycletls sent a frame that does not decode"));
+      }
       return;
     }
     const request = pending.get(frame.requestId);
@@ -359,7 +436,7 @@ export async function startCycleTls(
         request.chunks.push(frame.chunk);
         break;
       case "end":
-        pending.delete(frame.requestId);
+        settle(frame.requestId);
         request.resolve({
           status: request.status ?? 0,
           finalUrl: request.finalUrl,
@@ -368,7 +445,7 @@ export async function startCycleTls(
         });
         break;
       case "error":
-        pending.delete(frame.requestId);
+        settle(frame.requestId);
         // As the binary reports it: a failed request is a status (408 for a
         // timeout, 5xx otherwise) with the reason as its body.
         request.resolve({
@@ -378,32 +455,45 @@ export async function startCycleTls(
           body: Buffer.from(frame.message, "utf8"),
         });
         break;
+      case "unknown":
+        settle(frame.requestId);
+        request.reject(new Error(`cycletls sent an unknown frame type ${frame.name}`));
+        break;
     }
   });
-  socket.on("close", () => failAll(new Error("cycletls connection closed")));
+  socket.on("close", () => {
+    socketOpen = false;
+    failAll(new Error("cycletls connection closed"));
+  });
   socket.on("error", () => {});
   child.once("exit", (code, signal) => {
     if (!closed) failAll(new Error(`cycletls exited (${code ?? signal})`));
   });
 
+  const deadlineOf = options.requestDeadlineMs ?? defaultDeadline;
   return {
     pid: child.pid,
     port,
+    get running() {
+      return !closed && socketOpen && !exited(child);
+    },
     request(requestOptions) {
       if (closed) return Promise.reject(new Error("cycletls client is closed"));
-      if (socket.readyState !== WebSocket.OPEN || exited(child)) {
+      if (!socketOpen || socket.readyState !== WebSocket.OPEN || exited(child)) {
         return Promise.reject(new Error("cycletls is not running"));
       }
       sequence += 1;
       const requestId = `lurkloot-${child.pid}-${sequence}`;
       return new Promise<CycleTlsResponse>((resolve, reject) => {
-        pending.set(requestId, { resolve, reject, finalUrl: "", headers: {}, chunks: [] });
+        const timer = setTimeout(() => {
+          settle(requestId)?.reject(new Error("cycletls did not answer the request in time"));
+        }, deadlineOf(requestOptions));
+        timer.unref();
+        pending.set(requestId, { resolve, reject, timer, finalUrl: "", headers: {}, chunks: [] });
         socket.send(
           JSON.stringify({ requestId, options: requestFrameOptions(requestOptions) }),
           (error) => {
-            if (!error) return;
-            pending.delete(requestId);
-            reject(error);
+            if (error) settle(requestId)?.reject(error);
           },
         );
       });
@@ -414,6 +504,59 @@ export async function startCycleTls(
       failAll(new Error("cycletls client is closed"));
       socket.terminate();
       await stopChild(child, options.stopGraceMs ?? 2_000);
+    },
+  };
+}
+
+/**
+ * A client that starts the binary on first use and starts a new one when the
+ * last exited or lost its socket (a crash, say), so a long `run` recovers on
+ * its next request instead of failing every one until restarted. The dead
+ * binary is ended before its replacement starts.
+ */
+export function restartingCycleTls(start: () => Promise<CycleTlsClient>): CycleTlsClient {
+  let current: CycleTlsClient | undefined;
+  let starting: Promise<CycleTlsClient> | undefined;
+  let closed = false;
+  const live = async (): Promise<CycleTlsClient> => {
+    if (closed) throw new Error("cycletls client is closed");
+    if (current?.running) return current;
+    if (!starting) {
+      starting = (async () => {
+        const dead = current;
+        current = undefined;
+        await dead?.close();
+        const next = await start();
+        if (closed) {
+          await next.close();
+          throw new Error("cycletls client is closed");
+        }
+        current = next;
+        return next;
+      })().finally(() => {
+        starting = undefined;
+      });
+    }
+    return starting;
+  };
+  return {
+    get pid() {
+      return current?.pid;
+    },
+    get port() {
+      return current?.port ?? 0;
+    },
+    get running() {
+      return !closed && (current?.running ?? false);
+    },
+    async request(options) {
+      return (await live()).request(options);
+    },
+    async close() {
+      closed = true;
+      await starting?.catch(() => undefined);
+      await current?.close();
+      current = undefined;
     },
   };
 }

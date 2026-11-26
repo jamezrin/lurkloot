@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gplInputsIn, gplPackagesIn, isGplLicense } from "../scripts/checkNoGplJavaScript.mjs";
@@ -18,9 +18,24 @@ describe("the GPL JavaScript check", () => {
   afterAll(() => rmSync(root, { recursive: true, force: true }));
 
   it("tells GPL licenses from others", () => {
-    for (const license of ["GPL3", "GPL-3.0-only", "AGPL-3.0", "MIT OR GPL-2.0", { type: "GPL" }])
+    for (const license of [
+      "GPL3",
+      "GPL-3.0-only",
+      "AGPL-3.0",
+      "MIT OR GPL-2.0",
+      { type: "GPL" },
+      "GNU General Public License v3.0",
+      "GNU Affero General Public License",
+    ])
       expect(isGplLicense(license)).toBe(true);
-    for (const license of ["MIT", "Apache-2.0", "LGPL-3.0", "ISC", undefined])
+    for (const license of [
+      "MIT",
+      "Apache-2.0",
+      "LGPL-3.0",
+      "GNU Lesser General Public License",
+      "ISC",
+      undefined,
+    ])
       expect(isGplLicense(license)).toBe(false);
   });
 
@@ -40,6 +55,16 @@ describe("the GPL JavaScript check", () => {
     });
     expect(gplPackagesIn(nm).map((line) => line.split(" ")[0])).toEqual(["nested@2", "x@1"]);
     expect(gplPackagesIn(join(root, "missing"))).toEqual([]);
+  });
+
+  it("follows pnpm's links into a store outside the tree", () => {
+    const store = join(root, "store", "cycletls");
+    pkg(store, { name: "cycletls", version: "2.0.5", license: "GPL3" });
+    const nm = join(root, "linked", "node_modules");
+    mkdirSync(nm, { recursive: true });
+    symlinkSync(store, join(nm, "cycletls"), "junction");
+    symlinkSync(nm, join(nm, "loop"), "junction");
+    expect(gplPackagesIn(nm)).toHaveLength(1);
   });
 
   it("flags the cycletls wrapper by name, whatever its manifest says", () => {

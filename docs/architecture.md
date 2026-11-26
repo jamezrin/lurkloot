@@ -831,12 +831,19 @@ fingerprint is unchanged, and drives the real binary when the build-time package
 
 The client owns its process. `startCycleTls` asks the OS for a free loopback port, starts the binary
 directly with `WS_PORT` set (no shell, so any path works, spaces and shell characters included), and
-connects only to that process: if the port turns out to be taken the binary exits and the start
+connects only to that process: the socket must stay open while the binary is still running a
+moment after it connects, so if the port turned out to be taken (the binary then exits) the start
 fails, and it never joins an instance it did not start (the wrapper joined anything on port 9119).
+A request the binary leaves unanswered is given up after its own timeout plus 30 s (60 s without
+one), so the pending map cannot grow. `initCycle` wraps the client in `restartingCycleTls`: when
+the binary exits or its socket closes, the next request ends what is left of it and starts a new
+one, so a long `run` recovers from a crash instead of failing every request until restarted.
 The binary's stdout and stderr are drained into a short tail for start errors, never onto the
 CLI's stdout. `close()` sends SIGTERM and SIGKILL after a grace period. As a backstop the client
 kills every binary it started on the CLI's `exit`, and on SIGINT, SIGTERM or SIGHUP when nothing
-else handles the signal (it then re-raises it with Node's default behavior). `run` and `serve`
+else handles the signal (it then re-raises it with Node's default behavior, and exits with the
+signal's code if the process ignores it, as PID 1 in a container does). That listener is prepended,
+so it runs before a command's own `process.once` handler removes itself and sees it. `run` and `serve`
 handle those signals themselves, `serve --exit-with-stdin` included, and close the client through
 the transport's `dispose`. Two CLIs on one machine each run their own binary. The binary itself
 listens on every interface, as it did under the wrapper; it is not exposed outside a container.
@@ -846,7 +853,7 @@ The binary comes from the `cycletls` npm package, now a build-time dev dependenc
 and a `NOTICE` that names it a separate program and links its exact source commit into
 `dist/cycletls/`; `cycleTlsBinaryPath` (`src/runtime/standalone.ts`) finds it beside the bundle,
 or beside the executable inside one. `scripts/checkNoGplJavaScript.mjs` fails when a GPL package
-is in a shipped `node_modules` or in a bundle's esbuild metafile; the Docker build runs it on the
+(or the `cycletls` package by name) is in a shipped `node_modules`, following pnpm's links, or in a bundle's esbuild metafile; the Docker build runs it on the
 image's `node_modules` and `dist/index.mjs`'s metafile, and the executable build runs both checks
 on its bundle and archive.
 

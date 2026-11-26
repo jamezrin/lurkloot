@@ -16,6 +16,7 @@ const {
   standaloneDir,
 } = await import("../src/runtime/standalone");
 const { defaultAppRoot } = await import("../src/runtime/appAssets");
+const { cycleTlsFileName } = await import("../scripts/executable.mjs");
 const { initCycle } = await import("../src/transport/cycle");
 
 const posixExecutable = {
@@ -58,7 +59,9 @@ describe("standalone executable paths", () => {
     );
   });
 
-  it("name the cycletls binary per platform", () => {
+  it("name the cycletls binary per platform, as the build names it", () => {
+    for (const platform of ["win32", "darwin", "linux"] as const)
+      expect(cycleTlsBinaryName(platform)).toBe(cycleTlsFileName(platform));
     expect(cycleTlsBinaryName("win32")).toBe("cycletls.exe");
     expect(cycleTlsBinaryName("darwin")).toBe("cycletls");
     expect(cycleTlsBinaryName("linux")).toBe("cycletls");

@@ -1,14 +1,26 @@
 import { assertCycleTlsBinary, cycleTlsBinaryPath } from "../runtime/standalone";
 import { CHROME_HTTP2, CHROME_JA3, CHROME_UA } from "./common";
-import { type CycleTlsClient, startCycleTls } from "./cycleTlsClient";
+import { type CycleTlsClient, restartingCycleTls, startCycleTls } from "./cycleTlsClient";
 import type { ImpersonatedResponse, ImpersonatingClient } from "./impersonation";
 
 export type { CycleTlsClient } from "./cycleTlsClient";
 
-/** Starts the shipped CycleTLS binary as a separate process the CLI owns. */
+/**
+ * Starts the shipped CycleTLS binary as a separate process the CLI owns, and
+ * again if it dies (restartingCycleTls).
+ */
 export async function initCycle(executablePath = cycleTlsBinaryPath()): Promise<CycleTlsClient> {
   assertCycleTlsBinary(executablePath);
-  return startCycleTls(executablePath);
+  const first = await startCycleTls(executablePath);
+  let started = false;
+  return restartingCycleTls(async () => {
+    if (!started) {
+      started = true;
+      return first;
+    }
+    assertCycleTlsBinary(executablePath);
+    return startCycleTls(executablePath);
+  });
 }
 
 // The cycletls backend: sends the pinned Chrome 124 JA3/HTTP-2 fingerprint

@@ -8,13 +8,14 @@
 // Run from packages/cli. The Docker build runs it on the image's node_modules
 // and dist/index.mjs's metafile; the executable build runs both checks itself
 // (scripts/buildExecutable.mjs).
-import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { packageDirOf } from "./executable.mjs";
 
-// GPL, AGPL and their SPDX spellings; LGPL is a separate license and allowed.
-const GPL = /(^|[^L])\bA?GPL/i;
+// GPL and AGPL, as SPDX ids or spelled out; the LGPL ("Lesser") is a separate
+// license and allowed.
+const GPL = /(^|[^L])\bA?GPL|GNU\s+(Affero\s+)?General\s+Public/i;
 
 /** Tells whether a package.json license field names the GPL. */
 export function isGplLicense(license) {
@@ -30,11 +31,23 @@ export function isGplLicense(license) {
 /** Lists every package under a node_modules tree whose license is the GPL. */
 export function gplPackagesIn(nodeModules) {
   const found = [];
+  // pnpm links packages into its store, so links are followed; each real
+  // directory is read once, which also ends link cycles.
+  const seen = new Set();
   const visit = (dir) => {
     if (!existsSync(dir)) return;
+    const real = realpathSync(dir);
+    if (seen.has(real)) return;
+    seen.add(real);
     for (const name of readdirSync(dir)) {
       const path = join(dir, name);
-      if (!lstatSync(path).isDirectory()) continue;
+      let isDir = false;
+      try {
+        isDir = statSync(path).isDirectory();
+      } catch {
+        // A dangling link.
+      }
+      if (!isDir) continue;
       if (name.startsWith("@") || name === ".pnpm" || name === "node_modules") {
         visit(path);
         continue;
