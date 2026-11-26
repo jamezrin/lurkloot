@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createServer, type Server } from "node:http";
+import type { Socket } from "node:net";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -89,9 +90,25 @@ describe("cycletls request frames", () => {
         },
       ],
     ]);
-    expect(sent).toEqual(wrapperFrames.map((frame) => withoutWrapperFields(frame.options)));
+    // Plus Connection: close, which the wrapper never sent (see cycle.ts).
+    expect(sent).toEqual(
+      wrapperFrames.map((frame) => {
+        const options = withoutWrapperFields(frame.options);
+        return { ...options, headers: { ...(options.headers as object), Connection: "close" } };
+      }),
+    );
     expect(sent[0]?.ja3).toBe(CHROME_JA3);
     expect(sent[0]?.http2Fingerprint).toBe(CHROME_HTTP2);
+  });
+
+  it("replace a caller's own connection header with Connection: close", async () => {
+    const [frame] = await sentFrames([
+      [
+        "https://example.test/",
+        { method: "get", headers: { connection: "keep-alive", Accept: "*/*" } },
+      ],
+    ]);
+    expect(frame?.headers).toEqual({ Accept: "*/*", Connection: "close" });
   });
 
   it("send Chrome 124's user agent, matching the JA3, when the caller names none", async () => {
@@ -322,6 +339,28 @@ describe.skipIf(binary === undefined)("the cycletls binary through our client", 
       expect(manual.status).toBe(302);
       expect(manual.headers.Location).toEqual(["/final"]);
     } finally {
+      await client.close();
+    }
+  });
+
+  it("closes each request's connection once the response is read", async () => {
+    const open = new Set<Socket>();
+    const track = (socket: Socket) => {
+      open.add(socket);
+      socket.on("close", () => open.delete(socket));
+    };
+    server.on("connection", track);
+    const client = createCycleClient(await startCycleTls(binary as string));
+    try {
+      for (let i = 0; i < 3; i++) {
+        expect(
+          (await client.request(`${origin}/hello`, { method: "get", headers: {} })).status,
+        ).toBe(201);
+      }
+      // Well inside Node's 5 s keep-alive timeout, so the server does not close them for us.
+      expect(await waitUntil(() => open.size === 0, 1_000)).toBe(true);
+    } finally {
+      server.off("connection", track);
       await client.close();
     }
   });
