@@ -31,6 +31,10 @@ One exception: if [campaigns without a linked account](/guide/choosing/linked-ac
 - **Ending soonest** (default): campaigns that end first are farmed first, so fewer run out before you finish them.
 - **Low availability first**: campaigns with the fewest channels to watch go first, while you can still find one.
 
+## Rewards earned once a day
+
+Some Twitch campaigns give a reward once a day, such as a badge for an hour of watching on each of six days. A day you miss is gone for good, so while today's reward can still be earned, that campaign goes ahead of the others in its layer, whatever its end date. Once today's reward is in, it goes back to its usual place until the next day opens. This never moves a campaign above your pinned ones, and it only applies to rewards you farm under [Rewards to farm](/guide/choosing/rewards-to-farm).
+
 ## When the order changes mid-campaign
 
 Lurkloot does not drop progress lightly. If it is part-way through a reward and a campaign further up becomes watchable:

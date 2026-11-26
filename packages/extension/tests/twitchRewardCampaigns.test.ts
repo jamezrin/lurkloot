@@ -17,6 +17,7 @@ import {
   categoryListIndex,
   isCampaignCategoryBlocked,
 } from "@lurkloot/shared/categories";
+import { rankCampaigns } from "@lurkloot/shared/ranking";
 import { isBadgeReward } from "@lurkloot/shared/rewards";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, ExtensionSettings } from "@lurkloot/shared/models";
@@ -906,5 +907,39 @@ describe("twitch adapter reward campaigns (#904)", () => {
     // Backed off from 30 seconds up to the listing window.
     expect(count("RewardTrackSelections")).toBeLessThanOrEqual((hours * 60) / 5 + 6);
     expect(count("GameSlugs")).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("twitch reward campaign ranking (#1118)", () => {
+  // A drop campaign that ends a day before the reward campaign, standing in for
+  // the 55 campaigns that kept GTA VI's daily badge from ever being watched.
+  const sooner: DropCampaign = {
+    id: "sooner",
+    platform: "twitch",
+    name: "Badge drop",
+    status: "active",
+    endsAt: "2026-11-22T22:59:59.999Z",
+    rewards: [],
+  };
+
+  it("watches a daily group while its window is open, and gives way once today's grant is in", () => {
+    const open = parse(nightOut(), { g1: inProgress(0, { grantCount: 1, currentWindow: null }) });
+    expect(rankCampaigns([sooner, open], settings(), NOW).map(({ id }) => id)).toEqual([
+      "night-out",
+      "sooner",
+    ]);
+
+    const granted = parse(nightOut(), {
+      g1: inProgress(0, { grantCount: 2, nextEligibleAt: "2026-11-01T00:00:00Z" }),
+    });
+    expect(rankCampaigns([granted, sooner], settings(), NOW).map(({ id }) => id)).toEqual([
+      "sooner",
+      "night-out",
+    ]);
+    expect(
+      rankCampaigns([sooner, granted], settings(), Date.parse("2026-11-01T00:00:01Z")).map(
+        ({ id }) => id,
+      ),
+    ).toEqual(["night-out", "sooner"]);
   });
 });
