@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "Série indisponible"
   },
+  "watchStreakHistoryTitle": {
+    "message": "Séries de visionnage"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "12 dernières semaines"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "confirmés"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "jours d'affilée"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "meilleure série"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Chaînes · $1 jours"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1 : $2 confirmés"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1 : série confirmée"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1 : non confirmée"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1 : rien à conserver"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 confirmés d'affilée"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Dernière série non confirmée. $1 confirmés d'affilée avant"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Ce que Lurkloot a confirmé, pas le compteur de séries de Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Se remplit au fil des séries que Lurkloot conserve."
+  },
   "gamesModeAllDescription": {
     "message": "Tous les jeux avec des drops actifs sont farmés, sauf ceux bloqués."
   },

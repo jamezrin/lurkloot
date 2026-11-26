@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "Sequência indisponível"
   },
+  "watchStreakHistoryTitle": {
+    "message": "Sequências de visualização"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "últimas 12 semanas"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "confirmadas"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "dias seguidos"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "melhor sequência"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Canais · $1 dias"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 confirmadas"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: sequência confirmada"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: não confirmada"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: nada a manter"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 confirmadas seguidas"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Última sequência não confirmada. Antes, $1 confirmadas seguidas"
+  },
+  "watchStreakHistoryNote": {
+    "message": "O que o Lurkloot confirmou, não a contagem de sequências da Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Preenche conforme o Lurkloot mantém suas sequências."
+  },
   "gamesModeAllDescription": {
     "message": "Todo jogo com drops ativos é farmado, exceto os bloqueados."
   },

@@ -23,6 +23,8 @@ import {
 import { Tip } from "./tooltip";
 import { ViewToolbar } from "./viewToolbar";
 import { WatchSourcePlace } from "./watchSourcePriority";
+import { WatchStreakHistoryCard } from "./watchStreakHistory";
+import type { WatchStreakHistory } from "@lurkloot/shared/watchStreakHistory";
 
 /** The channel name in what the user typed or pasted: a bare name, an @name, or
  * a channel link on either platform. Undefined when nothing usable is left. */
@@ -44,6 +46,8 @@ export interface IdleWatchlistStreaks {
   statuses: Readonly<Record<string, WatchStreakRowStatus>>;
   // The watch budget an attempt gets (Advanced settings), for the hint.
   budgetMinutes: number;
+  // What Lurkloot saw of each maintained channel, per day.
+  history?: WatchStreakHistory;
   onToggle(username: string, enabled: boolean): void;
 }
 
@@ -161,6 +165,16 @@ export function IdleWatchlistPanel({
           order={watchOrder}
           onChangeOrder={onChangeOrder}
           named
+        />
+      ) : null}
+
+      {streaks && streaks.enabled.size > 0 ? (
+        <WatchStreakHistoryCard
+          history={streaks.history}
+          channels={streamers
+            .map((streamer) => streamer.id.toLowerCase())
+            .filter((channel) => streaks.enabled.has(channel))}
+          statuses={streaks.statuses}
         />
       ) : null}
 

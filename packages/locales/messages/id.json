@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "Streak tidak tersedia"
   },
+  "watchStreakHistoryTitle": {
+    "message": "Rangkaian tonton"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "12 minggu terakhir"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "terkonfirmasi"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "hari berturut-turut"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "rangkaian terbaik"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Kanal · $1 hari"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 terkonfirmasi"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: rangkaian terkonfirmasi"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: tidak terkonfirmasi"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: tidak ada yang dipertahankan"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 terkonfirmasi berturut-turut"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Rangkaian terakhir tidak terkonfirmasi. Sebelumnya $1 terkonfirmasi berturut-turut"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Yang dikonfirmasi Lurkloot, bukan hitungan rangkaian milik Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Akan terisi seiring Lurkloot menjaga rangkaianmu."
+  },
   "gamesModeAllDescription": {
     "message": "Setiap game dengan drop live di-farm, kecuali yang diblokir."
   },

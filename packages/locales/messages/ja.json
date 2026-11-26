@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "連続視聴不可"
   },
+  "watchStreakHistoryTitle": {
+    "message": "視聴ストリーク"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "直近12週間"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "確定"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "連続日数"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "最長記録"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "チャンネル · $1日"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 確定"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: ストリーク確定"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: 未確定"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: 維持対象なし"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 連続確定"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "直近のストリークは未確定です。その前は $1 連続確定"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Lurkloot が確認したもので、Twitch 独自のストリーク数ではありません。"
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Lurkloot がストリークを維持すると、ここに表示されます。"
+  },
   "gamesModeAllDescription": {
     "message": "ライブドロップのあるゲームはブロック以外すべてファームします。"
   },

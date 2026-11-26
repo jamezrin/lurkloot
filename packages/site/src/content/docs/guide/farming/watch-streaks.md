@@ -35,6 +35,16 @@ Do this for each channel whose streak you want to keep.
 | **Couldn't watch** | The stream would not play after several tries. |
 | **Streak unavailable** | Lurkloot cannot follow streaks right now, so the channel is watched as an ordinary Watchlist channel. |
 
+## Streak history
+
+Once a channel keeps a streak, a **Watch streaks** card sits above your Watchlist:
+
+- A calendar of the last 12 weeks. Each square is a day, and the brighter it is, the more channels had their streak confirmed that day. Today has an outline.
+- Three numbers under it: how many streaks were confirmed in those 12 weeks, how many days in a row ending today had at least one, and the longest such run.
+- A row for each streak channel showing its last 14 days: orange when the streak was confirmed, red when it was not, striped while Lurkloot is watching for it now. The flame number at the end counts its confirmed days in a row. Days the channel did not stream do not break it. A warning sign means the channel's latest stream was not confirmed.
+
+Hover a square to see its date. The history only counts what Lurkloot itself saw, and days older than 12 weeks drop off.
+
 ## Settings
 
 Under **Advanced** in the Twitch settings:
@@ -69,5 +79,5 @@ A channel in `watchlistStreakChannels` must also be in `watchlistChannels`, or i
 
 ## Things to know
 
-- Lurkloot does not know your streak count. It only knows whether Twitch confirmed the streak for a stream.
+- Lurkloot does not know your streak count on Twitch. It only knows whether Twitch confirmed the streak for a stream it watched, and the history counts those.
 - Kick has its own watch streak, which any Kick watching counts toward. See [Kick daily challenges and level](/guide/farming/kick-challenges).

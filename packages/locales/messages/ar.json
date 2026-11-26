@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "السلسلة غير متاحة"
   },
+  "watchStreakHistoryTitle": {
+    "message": "سلاسل المشاهدة"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "آخر 12 أسبوعًا"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "مؤكدة"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "أيام متتالية"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "أفضل سلسلة"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "القنوات · $1 يومًا"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 مؤكدة"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: السلسلة مؤكدة"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: غير مؤكدة"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: لا توجد سلسلة للحفاظ عليها"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 مؤكدة متتالية"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "آخر سلسلة غير مؤكدة. قبلها $1 مؤكدة متتالية"
+  },
+  "watchStreakHistoryNote": {
+    "message": "ما أكدته Lurkloot، وليس عدّاد Twitch الخاص بالسلاسل."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "تظهر البيانات بعد أن تحافظ Lurkloot على سلاسلك."
+  },
   "gamesModeAllDescription": {
     "message": "تُجمع كل لعبة لديها دروبس نشطة، باستثناء المحظورة."
   },

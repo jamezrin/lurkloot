@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "연속 시청 불가"
   },
+  "watchStreakHistoryTitle": {
+    "message": "시청 연속 기록"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "최근 12주"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "확인됨"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "연속 일수"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "최고 기록"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "채널 · $1일"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 확인됨"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: 연속 기록 확인됨"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: 확인되지 않음"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: 유지할 기록 없음"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 연속 확인됨"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "마지막 연속 기록이 확인되지 않았습니다. 그 전에 $1 연속 확인됨"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Twitch 자체 연속 기록 수가 아니라 Lurkloot이 확인한 기록입니다."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Lurkloot이 연속 기록을 유지하면 채워집니다."
+  },
   "gamesModeAllDescription": {
     "message": "라이브 드롭이 있는 모든 게임을 차단된 것 제외하고 파밍합니다."
   },

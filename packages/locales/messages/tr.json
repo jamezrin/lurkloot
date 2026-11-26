@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "Seri kullanılamıyor"
   },
+  "watchStreakHistoryTitle": {
+    "message": "İzleme serileri"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "son 12 hafta"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "onaylandı"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "art arda gün"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "en iyi seri"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Kanallar · $1 gün"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 onaylandı"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: seri onaylandı"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: onaylanmadı"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: korunacak bir şey yok"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 art arda onaylandı"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Son seri onaylanmadı. Ondan önce $1 art arda onaylandı"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Lurkloot'un onayladıkları, Twitch'in kendi seri sayacı değil."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Lurkloot serilerinizi korudukça dolacak."
+  },
   "gamesModeAllDescription": {
     "message": "Etkin drop'u olan her oyun farmlanır, engellenenler hariç."
   },

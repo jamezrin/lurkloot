@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "连续记录不可用"
   },
+  "watchStreakHistoryTitle": {
+    "message": "观看连续奖励"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "最近 12 周"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "已确认"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "连续天数"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "最长连续"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "频道 · $1 天"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1：已确认 $2"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1：连续奖励已确认"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1：未确认"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1：无需保持"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 次连续确认"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "最近一次连续奖励未确认。之前已连续确认 $1 次"
+  },
+  "watchStreakHistoryNote": {
+    "message": "这是 Lurkloot 确认的数据，而非 Twitch 自己的连续计数。"
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "随着 Lurkloot 保持你的连续记录，这里会逐步填充。"
+  },
   "gamesModeAllDescription": {
     "message": "所有有进行中掉宝的游戏都会挂机，已屏蔽的除外。"
   },

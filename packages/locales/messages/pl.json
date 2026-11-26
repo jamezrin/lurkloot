@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "Seria niedostępna"
   },
+  "watchStreakHistoryTitle": {
+    "message": "Serie oglądania"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "ostatnie 12 tygodni"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "potwierdzone"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "dni z rzędu"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "najdłuższa seria"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Kanały · $1 dni"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 potwierdzone"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: seria potwierdzona"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: niepotwierdzona"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: nic do utrzymania"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 potwierdzonych z rzędu"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Ostatnia seria niepotwierdzona. Przed nią $1 potwierdzonych z rzędu"
+  },
+  "watchStreakHistoryNote": {
+    "message": "To, co potwierdził Lurkloot, a nie licznik serii Twitcha."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Wypełni się, gdy Lurkloot będzie podtrzymywać twoje serie."
+  },
   "gamesModeAllDescription": {
     "message": "Każda gra z aktywnymi dropami jest farmiona, oprócz zablokowanych."
   },

@@ -2252,6 +2252,48 @@
   "watchStreakUnavailable": {
     "message": "Série nedostupná"
   },
+  "watchStreakHistoryTitle": {
+    "message": "Série sledování"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "posledních 12 týdnů"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "potvrzeno"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "dní v řadě"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "nejdelší série"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Kanály · $1 dní"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: potvrzeno $2"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: série potvrzena"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: nepotvrzeno"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: nic k udržení"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 potvrzeno v řadě"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Poslední série nepotvrzena. Před ní $1 potvrzeno v řadě"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Co potvrdil Lurkloot, ne vlastní počet sérií Twitche."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Zaplní se, jak Lurkloot udržuje vaše série."
+  },
   "gamesModeAllDescription": {
     "message": "Farmí se každá hra s aktivními drops kromě blokovaných."
   },
