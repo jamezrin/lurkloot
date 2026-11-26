@@ -55,10 +55,6 @@ export function formatMinutes(minutes: number): string {
   return mins ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
-export function formatHours(minutes: number): string {
-  return `${(minutes / 60).toFixed(1)}h`;
-}
-
 export function formatViewers(count: number): string {
   if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K`;
   return String(count);

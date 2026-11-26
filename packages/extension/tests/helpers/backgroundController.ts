@@ -86,7 +86,7 @@ export const channel = (
   ...patch,
 });
 
-export class FakeDiscoverySignalController implements DiscoverySignalController {
+class FakeDiscoverySignalController implements DiscoverySignalController {
   readonly platform: Platform;
   targetKey: string | undefined;
   starts: DiscoverySignalTarget[] = [];
@@ -129,7 +129,7 @@ export class FakeDiscoverySignalController implements DiscoverySignalController 
   }
 }
 
-export class FakeChannelPointsPushController {
+class FakeChannelPointsPushController {
   claimsSubscribed = false;
   starts = 0;
   stops = 0;
@@ -271,10 +271,7 @@ export function notFarming<T extends ExtensionSettings>(settings: T): T {
   return withPlatformsEnabled(settings, false);
 }
 
-export function withPlatformsEnabled<T extends ExtensionSettings>(
-  settings: T,
-  enabled: boolean,
-): T {
+function withPlatformsEnabled<T extends ExtensionSettings>(settings: T, enabled: boolean): T {
   return {
     ...settings,
     platform: {
@@ -285,7 +282,7 @@ export function withPlatformsEnabled<T extends ExtensionSettings>(
   };
 }
 
-export function adapter(platform: Platform): PlatformAdapter {
+function adapter(platform: Platform): PlatformAdapter {
   return {
     platform,
     checkAuthHealth: vi.fn(async () => ({ status: "healthy" as const })),
@@ -298,7 +295,7 @@ export function adapter(platform: Platform): PlatformAdapter {
 
 // The host's watch tabs, one pair of mocks per platform (#598). The flat
 // openWatchTab/stopWatchTab mocks the controller calls dispatch to these.
-export function watchTabMocks(platform: Platform) {
+function watchTabMocks(platform: Platform) {
   return {
     open: vi.fn(
       async (

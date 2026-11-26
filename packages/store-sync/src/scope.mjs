@@ -1,6 +1,6 @@
 import { validateLocaleCodes } from "./locales.mjs";
 
-export const ONLY_PARTS = Object.freeze(["descriptions", "screenshots", "global"]);
+const ONLY_PARTS = Object.freeze(["descriptions", "screenshots", "global"]);
 
 // What one run touches. The shared group belongs to no language, so it is
 // synced when the whole bundle is, or when asked for, and never as a side

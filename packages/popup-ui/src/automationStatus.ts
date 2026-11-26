@@ -5,7 +5,7 @@ import type {
   WatchSession,
 } from "@lurkloot/shared/models";
 
-export type AutomationPresentationState =
+type AutomationPresentationState =
   | "starting"
   | "stopping"
   | "paused"
@@ -16,7 +16,7 @@ export type AutomationPresentationState =
   | "blocked"
   | "unavailable";
 
-export type AutomationTone = "muted" | "accent" | "warning" | "danger";
+type AutomationTone = "muted" | "accent" | "warning" | "danger";
 
 export interface AutomationPresentation {
   state: AutomationPresentationState;
@@ -31,12 +31,12 @@ export interface AutomationPresentation {
   manualWatchChannel?: { name: string; url?: string };
 }
 
-export type AutomationAction =
+type AutomationAction =
   | { kind: "link"; labelKey: "signInToTwitch" | "signInToKick"; url: string }
   // Undoes a pause the user caused by closing the managed watch tab.
   | { kind: "resume"; labelKey: "resumeFarming" };
 
-export const AUTH_SIGN_IN_URLS: Record<Platform, string> = {
+const AUTH_SIGN_IN_URLS: Record<Platform, string> = {
   twitch: "https://www.twitch.tv/login",
   kick: "https://kick.com/login",
 };

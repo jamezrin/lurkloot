@@ -8,8 +8,6 @@ import { type ControllerSlices, lateBound } from "./context";
 import type { PreparedSettingsCommit, StateTransaction } from "./stateTransaction";
 import type { ControllerCalls, PlatformEnableCause, SettingsCommitOptions } from "./types";
 
-export { isRankingOnlyPatch } from "./stateTransaction";
-
 // Settings commits and the transitions they start.
 export function createSettingsTransitions<S extends EngineSettings>(
   transaction: StateTransaction<S>,

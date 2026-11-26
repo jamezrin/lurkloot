@@ -37,15 +37,9 @@ const PLATFORM_LABEL: Record<Platform, string> = { twitch: "Twitch", kick: "Kick
 // The redirect address is a URL; anything longer is not one.
 const MAX_ADDRESS_LENGTH = 8 * 1024;
 
-export type DeviceLoginStatus =
-  | "starting"
-  | "pending"
-  | "approved"
-  | "expired"
-  | "failed"
-  | "cancelled";
+type DeviceLoginStatus = "starting" | "pending" | "approved" | "expired" | "failed" | "cancelled";
 
-export interface DeviceLoginView {
+interface DeviceLoginView {
   platform: Platform;
   status: DeviceLoginStatus;
   startedAt: string;
@@ -56,7 +50,7 @@ export interface DeviceLoginView {
   error?: { message: string };
 }
 
-export interface CredentialChange {
+interface CredentialChange {
   platform: Platform;
   // An SA_* environment variable still supplies this platform's credential,
   // so the engine keeps using it whatever the store holds.
@@ -308,7 +302,7 @@ function parseObjectBody(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>;
 }
 
-export interface AuthPlatformView extends Omit<SessionPlatformView, "enabled"> {
+interface AuthPlatformView extends Omit<SessionPlatformView, "enabled"> {
   deviceLogin: DeviceLoginView | null;
 }
 

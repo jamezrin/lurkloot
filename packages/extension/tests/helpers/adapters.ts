@@ -8,7 +8,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import { testCompatibility } from "./compatibility";
 
 export const TWITCH_COMPAT = testCompatibility().twitch;
-export const KICK_COMPAT = testCompatibility().kick;
+const KICK_COMPAT = testCompatibility().kick;
 
 export function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   const fetchJson = vi.fn(

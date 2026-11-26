@@ -386,8 +386,6 @@ export function TwitchExtensionDrops({
   );
 }
 
-export const TWITCH_EXTENSION_PROVIDERS = PROVIDERS;
-
 /** One provider, in a destination of its own.
  *
  * The grouped list could only afford a name, a count and a couple of badges per
