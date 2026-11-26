@@ -2,7 +2,7 @@
 // sync can finish without an error while the page still shows something else,
 // so this is what turns "no error" into "correct".
 
-export function normalizeDescription(text) {
+function normalizeDescription(text) {
   return text.replace(/\r\n?/g, "\n").trim();
 }
 

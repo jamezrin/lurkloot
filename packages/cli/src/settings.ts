@@ -268,7 +268,7 @@ function describeOffender(key: string, diagnostics: CliSettingsDiagnostic[]): st
 // A value the CLI accepted but had to cut down to fit an engine limit. Unlike a
 // migration diagnostic, its message names what was dropped, so the user can
 // fix the config file that still lists it.
-export interface CliSettingsLimitDiagnostic {
+interface CliSettingsLimitDiagnostic {
   code: "limit_exceeded";
   path: string;
   message: string;

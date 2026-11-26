@@ -29,7 +29,7 @@ const AUTOMATIC_KICK: SettingsPatch = Object.freeze({
   }),
 });
 
-export function automaticPatchFor(platform: Platform): SettingsPatch {
+function automaticPatchFor(platform: Platform): SettingsPatch {
   return platform === "twitch" ? AUTOMATIC_TWITCH : AUTOMATIC_KICK;
 }
 

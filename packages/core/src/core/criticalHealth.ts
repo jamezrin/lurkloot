@@ -26,7 +26,7 @@ export const TAB_CHURN_LIMIT = 5;
 // A failing page can be reopened at the 30-minute backoff cap. Five such
 // rejections are evidence of a loop even though they never share ten minutes.
 const REJECTED_CONTEXT_WINDOW_MS = 3 * 60 * 60 * 1000;
-export const COOLDOWN_MS = FAILING_WINDOW_MS;
+const COOLDOWN_MS = FAILING_WINDOW_MS;
 
 export interface CriticalHealthObservation {
   at: number;

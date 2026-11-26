@@ -12,7 +12,7 @@ export const IMPIT_BROWSER = "chrome124" satisfies ImpitOptions["browser"];
 // caller's signal (the Kick TV-link poll has none). impit's own timeout covers
 // one hop, so the client also bounds the whole request with this deadline.
 // Callers with a deadline of their own cut earlier.
-export const IMPIT_TIMEOUT_MS = 30_000;
+const IMPIT_TIMEOUT_MS = 30_000;
 
 type ImpitModule = { Impit: new (options?: ImpitOptions) => Impit };
 

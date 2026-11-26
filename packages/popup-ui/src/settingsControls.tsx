@@ -226,24 +226,6 @@ export function SettingsSearchBox({
   );
 }
 
-export function AdvancedSettingsSwitch({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange(value: boolean): void;
-}) {
-  const t = useT();
-  return (
-    <div className="flex items-center justify-between gap-3 px-1">
-      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-        {t("settingsShowAdvancedTitle")}
-      </span>
-      <Toggle checked={checked} onChange={onChange} label={t("settingsShowAdvancedTitle")} />
-    </div>
-  );
-}
-
 export function SettingRow({
   title,
   description,

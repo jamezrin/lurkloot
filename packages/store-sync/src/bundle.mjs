@@ -45,7 +45,7 @@ export function sectionId(scope, part) {
   return `${scope}/${part}`;
 }
 
-export function parseSectionId(id) {
+function parseSectionId(id) {
   const [scope, part, ...rest] = id.split("/");
   if (rest.length > 0 || !part) throw new Error(`Section ${id} is not <scope>/<part>`);
   if (scope !== GLOBAL && !isLocaleCode(scope))

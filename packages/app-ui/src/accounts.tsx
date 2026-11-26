@@ -15,7 +15,7 @@ import type { Translate } from "./i18n";
 
 // How often the Accounts view re-reads the masked status, and a device login
 // while it waits for approval.
-export const ACCOUNTS_POLL_MS = 5000;
+const ACCOUNTS_POLL_MS = 5000;
 export const DEVICE_LOGIN_POLL_MS = 2000;
 
 const PLATFORM_LABEL: Record<Platform, string> = { twitch: "Twitch", kick: "Kick" };
@@ -325,13 +325,7 @@ function KickAccount({
 /** Twitch's browser sign-in: open the link, sign in, paste back the address
  * Twitch ended on. The pasted address holds the token, so it leaves the input
  * as soon as it is sent, whatever the answer, and is never stored or shown. */
-export function BrowserLogin({
-  api,
-  onChanged,
-}: {
-  api: AuthApi;
-  onChanged(): void;
-}): React.ReactElement {
+function BrowserLogin({ api, onChanged }: { api: AuthApi; onChanged(): void }): React.ReactElement {
   const t = useT();
   const { adapter } = usePopupRuntime();
   const inputRef = useRef<HTMLInputElement>(null);

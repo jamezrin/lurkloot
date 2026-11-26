@@ -253,7 +253,7 @@ function CategoryFilterEditor({
 // (already loaded, no network) and other categories (from a debounced live
 // search). Collapses when not focused so a long active-drops list doesn't
 // dominate the settings screen (issue #326).
-export function CategoryPickerCombobox({
+function CategoryPickerCombobox({
   platform,
   suggestions,
   selectedIds,

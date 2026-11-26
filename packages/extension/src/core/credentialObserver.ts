@@ -45,7 +45,7 @@ function isDomainOrSubdomain(domain: string, root: string): boolean {
   return domain === root || domain.endsWith(`.${root}`);
 }
 
-export function credentialPlatform(change: CredentialCookieChange): Platform | undefined {
+function credentialPlatform(change: CredentialCookieChange): Platform | undefined {
   const domain = normalizedDomain(change.cookie.domain);
   if (change.cookie.name === "auth-token" && isDomainOrSubdomain(domain, "twitch.tv"))
     return "twitch";
