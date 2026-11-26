@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv может убрать её из адресной строки почти сразу. Перед входом откройте инструменты разработчика браузера на вкладке Network и включите Preserve log. Затем войдите, отфильтруйте по access_token и скопируйте заголовок location из перенаправления id.twitch.tv. Вставьте его сюда."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Войдите в Twitch в открывшемся окне. Оно закроется само, когда вы закончите."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Войти в Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Ожидание завершения входа…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Окно входа было закрыто до завершения входа."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Окно входа не смогло прочитать ответ Twitch в этой системе. Воспользуйтесь шагами ниже."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Вставить адрес вместо этого"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Войти по коду"
   },

@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv は、ほぼすぐにアドレスバーからその部分を削除することがあります。サインインする前に、ブラウザの開発者ツールを開いて Network タブを表示し、Preserve log をオンにしてください。その後サインインし、access_token で絞り込んで、id.twitch.tv へのリダイレクトの location ヘッダーをコピーします。代わりにそれをここに貼り付けてください。"
   },
+  "appTwitchSignInWindowStep": {
+    "message": "表示されるウィンドウで Twitch にサインインしてください。完了すると自動的に閉じます。"
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Twitch にサインイン"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "サインインが完了するのを待っています…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "サインインを完了する前にサインインウィンドウが閉じられました。"
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "このシステムではサインインウィンドウが Twitch の応答を読み取れませんでした。代わりに下の手順を使用してください。"
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "代わりにアドレスを貼り付ける"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "コードでサインイン"
   },

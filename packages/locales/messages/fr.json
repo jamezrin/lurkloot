@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv peut la retirer de la barre d’adresse presque aussitôt. Avant de vous connecter, ouvrez les outils de développement du navigateur sur l’onglet Network et activez Preserve log. Connectez-vous ensuite, filtrez sur access_token et copiez l’en-tête location de la redirection id.twitch.tv. Collez-le ici à la place."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Connectez-vous à Twitch dans la fenêtre qui s’ouvre. Elle se ferme d’elle-même une fois terminé."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Se connecter à Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "En attente de la fin de votre connexion…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "La fenêtre de connexion a été fermée avant la fin de la connexion."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "La fenêtre de connexion n’a pas pu lire la réponse de Twitch sur ce système. Suivez plutôt les étapes ci-dessous."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Coller l’adresse à la place"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Se connecter avec un code"
   },

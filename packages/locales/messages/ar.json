@@ -2414,6 +2414,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "قد يزيل twitch.tv هذا الجزء من شريط العناوين تقريبًا فورًا. قبل تسجيل الدخول، افتح DevTools في المتصفح على تبويب Network وفعّل Preserve log. ثم سجّل الدخول، وفلتر بكلمة access_token، وانسخ قيمة location من إعادة توجيه id.twitch.tv. الصقها هنا بدلًا من ذلك."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "سجّل الدخول إلى Twitch في النافذة التي ستُفتح. تُغلق النافذة تلقائيًا عند الانتهاء."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "تسجيل الدخول إلى Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "في انتظار إنهاء تسجيل الدخول…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "أُغلقت نافذة تسجيل الدخول قبل أن تنتهي."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "تعذّر على نافذة تسجيل الدخول قراءة ردّ Twitch على هذا النظام. استخدم الخطوات أدناه بدلًا من ذلك."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "الصق العنوان بدلًا من ذلك"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "سجّل الدخول برمز"
   },

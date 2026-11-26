@@ -115,6 +115,35 @@ describe("@lurkloot/desktop contract with serve and the app UI", () => {
     }
   });
 
+  it("names the same host signal, sign-in event and window fragment as the app UI (#1026)", () => {
+    const shell = rust("twitch_sign_in.rs");
+    const app = ts("app-ui/src/desktopHost.ts");
+    for (const name of [
+      "DESKTOP_HOST_PROPERTY",
+      "TWITCH_SIGN_IN_EVENT",
+      "SIGN_IN_WINDOW_FRAGMENT",
+    ]) {
+      expect(rustConst(shell, name), name).toBeTruthy();
+      expect(rustConst(shell, name), name).toBe(tsConst(app, name));
+    }
+  });
+
+  it("posts to serve's browser-login route and stops at its redirect URI (#1026)", () => {
+    const shell = rust("twitch_sign_in.rs");
+    const path = rustConst(shell, "BROWSER_LOGIN_PATH");
+    expect(path).toBe("/v1/session/auth/twitch/browser-login");
+    const routes = ts("cli/src/runtime/controlPlaneAuth.ts");
+    expect(routes).toContain(`method: "POST",\n      path: "${path}"`);
+    expect(routes).toContain(`method: "GET",\n      path: "${path}"`);
+    const redirect = tsConst(
+      ts("cli/src/auth/twitchBrowserLogin.ts"),
+      "TWITCH_BROWSER_LOGIN_REDIRECT_URI",
+    );
+    expect(redirect).toBe("https://www.twitch.tv/");
+    expect(shell).toContain('url.host() == Some(Host::Domain("www.twitch.tv"))');
+    expect(shell).toContain('url.path() == "/"');
+  });
+
   it("starts serve only with options the CLI declares", () => {
     const args = /pub fn serve_args[\s\S]*?\[([^\]]*)\]/.exec(rust("sidecar.rs"))?.[1] ?? "";
     const flags = [...args.matchAll(/"--([a-z-]+)"/g)].map((match) => match[1]);
