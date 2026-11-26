@@ -25,6 +25,11 @@ sources or cycletls, and it farms only through `serve`.
 - Quit closes serve's stdin and waits up to 20 s for it to save and exit. If it hasn't, the
   shell kills serve's whole process tree, cycletls included.
 - A second launch focuses the running window.
+- Signs in to Twitch without pasting (#1026). **Sign in to Twitch** opens Twitch's sign-in page in
+  a private window of the app's own. Its cookies are discarded when it closes. When Twitch sends
+  that window back with the token, the app closes it and finishes the sign-in through serve, the
+  same way a pasted address would. Closing the window early cancels. If the window can't read
+  Twitch's answer, the app shows the paste steps instead.
 
 Config, credentials (`auth/`) and `state.json` live in the OS's app-data folder for the
 identifier `name.jamezrin.lurkloot`:
@@ -85,5 +90,8 @@ Linux, macOS and Windows.
 - `src-tauri/src/navigation.rs`: where the window may go.
 - `src-tauri/src/token.rs`: the launch token and the script that hands it to the page.
 - `src-tauri/src/tray.rs`: whether this desktop can show a tray icon.
+- `src-tauri/src/twitch_sign_in.rs`: the Twitch sign-in window's rules: which link opens it,
+  which navigation is Twitch's answer, and what the app UI is told.
+- `src-tauri/src/serve_api.rs`: the shell's own two calls to serve, for that sign-in.
 - `shell/`: the status page shown while serve starts, restarts or keeps failing.
 - `scripts/prepareSidecar.mjs`: copies the executable folder into `src-tauri/sidecar/`.
