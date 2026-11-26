@@ -45,7 +45,7 @@ export interface JobSchedulerPort {
 export const MIN_JOB_PERIOD_MINUTES = 0.5;
 
 export interface JobRunner {
-  tickAndHandOff(platforms: Platform[], trigger: "alarm"): Promise<unknown>;
+  tickAndHandOff(platforms: readonly Platform[], trigger: "alarm"): Promise<unknown>;
   runWatchHeartbeat(): Promise<void>;
   runTwitchChannelPointsClaim(): Promise<void>;
   runDropClaims(platform: Platform): Promise<void>;

@@ -1,8 +1,9 @@
-import type {
-  ManagedPageContextTab,
-  Platform,
-  SchedulerManagedPageContexts,
-  TabClosureOrigin,
+import {
+  PLATFORMS,
+  type ManagedPageContextTab,
+  type Platform,
+  type SchedulerManagedPageContexts,
+  type TabClosureOrigin,
 } from "@lurkloot/shared/models";
 import type {
   DiagnosticEvent,
@@ -156,12 +157,10 @@ export function createTabRegistry(): TabRegistry {
   return registry;
 }
 
-const ALL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
-
 export function syncManagedTabBreakers(
   registry: TabRegistry,
   state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
-  platforms: readonly Platform[] = ALL_PLATFORMS,
+  platforms: readonly Platform[] = PLATFORMS,
 ): void {
   for (const platform of platforms) {
     if (state.criticalHealth?.[platform]?.breakerOpen)
@@ -551,7 +550,7 @@ export function waitForIntegrityCapture(
 export function registerManagedPageContextTabs(
   registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
-  platforms: readonly Platform[] = ALL_PLATFORMS,
+  platforms: readonly Platform[] = PLATFORMS,
 ): void {
   for (const platform of platforms) {
     registry.retainedPageContextTabs.delete(platform);
@@ -571,7 +570,7 @@ export function registerManagedPageContextTabs(
 export function hydrateManagedPageContextTabs(
   registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
-  platforms: readonly Platform[] = ALL_PLATFORMS,
+  platforms: readonly Platform[] = PLATFORMS,
   expectedRevision?: number,
 ): boolean {
   if (expectedRevision !== undefined && expectedRevision !== registry.retainedPageContextRevision)
@@ -771,7 +770,7 @@ export function forgetRemovedPageContextTab(
 ): { contexts: SchedulerManagedPageContexts; platforms: Platform[] } {
   const next = { ...contexts };
   const platforms: Platform[] = [];
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const retained = registry.retainedPageContextTabs.get(platform);
     const stored = next[platform];
     if (retained?.tabId === tabId) {
@@ -787,9 +786,13 @@ export function forgetRemovedPageContextTab(
 export function forgetManagedPageContextTabs(
   registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
+  options: {
+    platforms?: readonly Platform[];
+    reason?: PageContextCloseReason;
+    emit?: EventEmitter;
+  } = {},
 ): SchedulerManagedPageContexts {
-  const platforms = options.platforms ?? ["twitch", "kick"];
+  const platforms = options.platforms ?? PLATFORMS;
   const next = { ...contexts };
   for (const platform of platforms) {
     if (!next[platform]) continue;

@@ -1,10 +1,11 @@
-import type {
-  Platform,
-  PlatformAuthHealth,
-  PlatformAuthMessageKey,
-  PlatformAuthReasonCode,
-  PlatformAuthStatus,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type Platform,
+  type PlatformAuthHealth,
+  type PlatformAuthMessageKey,
+  type PlatformAuthReasonCode,
+  type PlatformAuthStatus,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { isRecord } from "@lurkloot/shared/records";
@@ -180,7 +181,7 @@ function currentSessionReasonCodes(
   sessions: SchedulerState["sessions"],
 ): SchedulerState["sessions"] {
   const current = { ...sessions };
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const session = current[platform];
     if (session?.reasonCode && currentReasonCode(session.reasonCode) !== session.reasonCode)
       current[platform] = { ...session, reasonCode: currentReasonCode(session.reasonCode) };
@@ -191,7 +192,7 @@ function currentSessionReasonCodes(
 function normalizeStoredWatchStreaks(value: unknown): SchedulerState["watchStreaks"] {
   if (!isRecord(value)) return undefined;
   const normalized: NonNullable<SchedulerState["watchStreaks"]> = {};
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const entry = normalizeWatchStreakState(value[platform]);
     if (entry) normalized[platform] = entry;
   }

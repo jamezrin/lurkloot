@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { ArrowLeftRight, Check, Play, Star } from "lucide-react";
 import { LurklootMark } from "./mark";
 import { isRtlLocale } from "@lurkloot/shared/i18n";
-import type { SupportedLocale } from "@lurkloot/shared/models";
+import { PLATFORMS, type SupportedLocale } from "@lurkloot/shared/models";
 import { STORE_ARTWORK_COPY, type StoreArtworkCopy } from "./storeArtworkCopy";
 
 export type StoreStory = keyof StoreArtworkCopy["stories"];
@@ -171,7 +171,7 @@ function WatchGuide({
       <div className="store-guide-earning">
         <p>{copy.earning}</p>
         <ul className="store-earns">
-          {(["twitch", "kick"] as const).map((platform) => (
+          {PLATFORMS.map((platform) => (
             <li key={platform} data-platform={platform} data-artwork-detail>
               <b>{platform === "twitch" ? "Twitch" : "Kick"}</b>
               {copy.earns[platform].join(" · ")}
@@ -232,7 +232,7 @@ function PlatformFeatures({
         {tags(platforms.both)}
       </section>
       <div className="store-platform-pair">
-        {(["twitch", "kick"] as const).map((platform) => (
+        {PLATFORMS.map((platform) => (
           <section className="store-platform" data-platform={platform} key={platform}>
             <h2>
               <span data-dot={platform} />

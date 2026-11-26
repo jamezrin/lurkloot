@@ -1,6 +1,9 @@
 import type { CriticalHealthState } from "./criticalHealth";
 
-export type Platform = "twitch" | "kick";
+/** Every supported platform, in display order. Derive platform lists from this, never a literal copy. */
+export const PLATFORMS = ["twitch", "kick"] as const;
+
+export type Platform = (typeof PLATFORMS)[number];
 
 export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "watch_streaks" | "watchlist";
 

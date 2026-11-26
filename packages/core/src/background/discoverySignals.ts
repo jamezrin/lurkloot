@@ -1,8 +1,12 @@
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+} from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { DiscoverySignalController } from "../core/discoverySignals";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { StateTransaction } from "./stateTransaction";

@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveCompatibility } from "@lurkloot/core";
 import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
-import type { DropCampaign, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type SchedulerState,
+  type WatchSession,
+} from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { createKickFetcher } from "@lurkloot/core/kick";
@@ -1711,7 +1716,7 @@ describe("background controller", () => {
     expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
   });
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "attempts a due %s heartbeat while discovery holds the platform lock",
     async (platform) => {
       const blocked = deferred<DropCampaign[]>();
@@ -1730,7 +1735,7 @@ describe("background controller", () => {
     },
   );
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "runs %s discovery while the platform heartbeat transport is pending",
     async (platform) => {
       const blocked = deferred<{ ok: boolean; live?: boolean; message?: string }>();
@@ -2190,7 +2195,7 @@ describe("background controller", () => {
     );
   });
 
-  it.each(["twitch", "kick"] as const)(
+  it.each(PLATFORMS)(
     "rebuilds the %s watcher from its normalized session after a service-worker restart without discovery",
     async (platform) => {
       vi.useFakeTimers({ toFake: ["Date"] });
