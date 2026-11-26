@@ -996,6 +996,12 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   calls to serve against a stand-in (only the address is posted), and the supervisor against a stand-in serve (ready URL,
   stdin-close shutdown, killing a tree that will not stop, restart and failure counting). The
   `build-desktop` CI workflow runs it with clippy on Linux, macOS and Windows.
+- **Installers (#1025).** `build-desktop-installers.yml` bundles the shell with the standalone
+  executable built on the same runner, one leg per `desktopInstallerTargets` entry in
+  `scripts/release/pipeline.mjs`, and checks the sidecar is inside each installer. The candidate
+  publishes them as release assets like the CLI archives. They are unsigned; macOS is ad-hoc
+  signed. The app's version is the root manifest's: `tauri.conf.json` reads it by path and
+  `scripts/release.mjs` writes it into the crate, failing `check` when the two differ.
   `desktopBoundary.test.ts`, which runs in `pnpm check` on every pull request, also keeps the
   names the shell repeats from TypeScript in step: the sessionStorage key, `LURKLOOT_SERVE_TOKEN`,
   serve's flags, the ready line, and the sign-in window's host signal, event, link fragment, route

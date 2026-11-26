@@ -15,6 +15,12 @@ on:
       pr_number:
         type: number
         required: true
+      # A release branch's candidate is what Release ships, and Release checks it against the
+      # merged tree's own asset list. Its published set must already be that list, even when the
+      # trusted ref (main before the merge) expects fewer files.
+      release_branch:
+        type: boolean
+        default: false
     secrets:
       CRX_PRIVATE_KEY:
         required: false
@@ -115,6 +121,16 @@ jobs:
       version: ${{ inputs.version }}
       artifact_prefix: candidate-cli-${{ inputs.version }}
 
+  desktop:
+    needs: verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-desktop-installers.yml
+    with:
+      ref: ${{ inputs.ref }}
+      version: ${{ inputs.version }}
+      artifact_prefix: candidate-desktop-${{ inputs.version }}
+
   # Provenance is emitted where the bits are produced, not where they are promoted: the stable
   # release retags this exact image digest and republishes these exact asset bytes, so one
   # attestation covers both the candidate and the release. Keeping it out of build-extension.yml
@@ -122,7 +138,7 @@ jobs:
   # workflow's permission ceiling is validated in the caller even when the job is skipped, which
   # would force `id-token: write` onto pull-request validation.
   attest:
-    needs: [extension, docker, cli]
+    needs: [extension, docker, cli, desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -149,6 +165,17 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: cli-assets/lurkloot-cli-*
+      - uses: actions/download-artifact@v8
+        if: needs.desktop.outputs.has_installers == 'true'
+        with:
+          pattern: candidate-desktop-${{ inputs.version }}-*
+          path: desktop-assets
+          merge-multiple: true
+      - name: Attest the desktop installers
+        if: needs.desktop.outputs.has_installers == 'true'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: desktop-assets/lurkloot-desktop-*
       - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ghcr.io
@@ -162,7 +189,7 @@ jobs:
           push-to-registry: true
 
   publish:
-    needs: [verify, extension, docker, cli]
+    needs: [verify, extension, docker, cli, desktop]
     runs-on: ubuntu-latest
     environment: preview
     permissions:
@@ -192,11 +219,17 @@ jobs:
           pattern: candidate-cli-${{ inputs.version }}-*
           path: cli-assets
           merge-multiple: true
-      # The CLI archives join the extension's assets, and SHA256SUMS is rebuilt to cover them all,
-      # since Release checks every shipped file against it. Only archives the trusted tooling
-      # expects are added: a trusted ref from before the archives existed would otherwise refuse
-      # the whole asset set as unexpected (see RELEASING.md).
-      - name: Add the CLI executable archives
+      - uses: actions/download-artifact@v8
+        if: needs.desktop.outputs.has_installers == 'true'
+        with:
+          pattern: candidate-desktop-${{ inputs.version }}-*
+          path: desktop-assets
+          merge-multiple: true
+      # The CLI archives and desktop installers join the extension's assets, and SHA256SUMS is
+      # rebuilt to cover them all, since Release checks every shipped file against it. Only files
+      # the trusted tooling expects are added: a trusted ref from before they existed would
+      # otherwise refuse the whole asset set as unexpected (see RELEASING.md).
+      - name: Add the CLI executable archives and desktop installers
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -206,20 +239,32 @@ jobs:
             console.log(expectedReleaseAssets(process.env.VERSION).join('\n'));
           ")
           shopt -s nullglob
-          copied=0
-          for archive in cli-assets/lurkloot-cli-*; do
-            name=$(basename "$archive")
-            if grep -qxF "$name" <<< "$expected"; then
-              cp "$archive" release-assets/
-              copied=$((copied + 1))
-            else
-              echo "::warning::$name is not in the trusted release asset set; leaving it out"
-            fi
+          for kind in cli desktop; do
+            copied=0
+            for asset in "$kind"-assets/lurkloot-"$kind"-*; do
+              name=$(basename "$asset")
+              if grep -qxF "$name" <<< "$expected"; then
+                cp "$asset" release-assets/
+                copied=$((copied + 1))
+              else
+                echo "::warning::$name is not in the trusted release asset set; leaving it out"
+              fi
+            done
+            # Every file of this kind the trusted ref expects must have been built and copied.
+            wanted=$(grep -c "^lurkloot-$kind-" <<< "$expected" || true)
+            test "$copied" -eq "$wanted"
           done
-          # Every archive the trusted ref expects must have been built and copied.
-          wanted=$(grep -c '^lurkloot-cli-' <<< "$expected" || true)
-          test "$copied" -eq "$wanted"
           (cd release-assets && sha256sum lurkloot-* > SHA256SUMS)
+      - name: Require the release branch's own asset list
+        if: inputs.release_branch
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node --input-type=module -e "
+            const { readdirSync } = await import('node:fs');
+            const { assertReleaseAssets } = await import('./candidate/scripts/release/pipeline.mjs');
+            assertReleaseAssets({ names: readdirSync('release-assets'), version: process.env.VERSION });
+          "
       - name: Render candidate release notes
         working-directory: candidate
         env:
@@ -236,6 +281,12 @@ jobs:
               echo "## Run the CLI without Node"
               echo
               echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Run the CLI as a program]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/site/src/content/docs/guide/headless/executable.md)."
+            fi
+            if compgen -G '../release-assets/lurkloot-desktop-*' > /dev/null; then
+              echo
+              echo "## Install the desktop app"
+              echo
+              echo "The \`lurkloot-desktop-*\` files install the desktop app on Windows, macOS and Linux. They are not signed yet, so the first launch needs one extra step. See [Install the desktop app]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/packages/site/src/content/docs/guide/headless/desktop.md)."
             fi
           } >> ../notes.md
       - name: Create or refresh the owned GitHub prerelease
@@ -288,7 +339,7 @@ jobs:
 
   gate:
     if: always()
-    needs: [verify, extension, docker, cli, attest, publish, site, status]
+    needs: [verify, extension, docker, cli, desktop, attest, publish, site, status]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -310,13 +361,14 @@ jobs:
           EXTENSION: ${{ needs.extension.result }}
           DOCKER: ${{ needs.docker.result }}
           CLI: ${{ needs.cli.result }}
+          DESKTOP: ${{ needs.desktop.result }}
           ATTEST: ${{ needs.attest.result }}
           PUBLISH: ${{ needs.publish.result }}
           SITE: ${{ needs.site.result }}
           STATUS: ${{ needs.status.result }}
         run: |
           state=success
-          for result in "$VERIFY" "$EXTENSION" "$DOCKER" "$CLI" "$ATTEST" "$PUBLISH" "$SITE" "$STATUS"; do
+          for result in "$VERIFY" "$EXTENSION" "$DOCKER" "$CLI" "$DESKTOP" "$ATTEST" "$PUBLISH" "$SITE" "$STATUS"; do
             test "$result" = success || state=failure
           done
           node scripts/release/cli.mjs candidate-checks \

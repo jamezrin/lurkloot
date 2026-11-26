@@ -85,9 +85,20 @@ From `packages/desktop`:
 pnpm sidecar            # build the standalone CLI executable and copy it to src-tauri/sidecar/
 node scripts/prepareSidecar.mjs --skip-build   # copy the last build again
 pnpm dev                # sidecar + tauri dev
-pnpm bundle             # sidecar + tauri build (installers come with #1025)
+pnpm bundle             # sidecar + tauri build: this machine's installers
 pnpm test:rust          # cargo test: supervisor, ready line, navigation, token script
 ```
+
+## Installers
+
+`pnpm bundle` writes every installer Tauri makes for this OS under
+`src-tauri/target/release/bundle/`. The release builds only the ones it ships (#1025), with
+`pnpm tauri build --bundles "$(node scripts/collectInstallers.mjs --bundles)"`, then
+`node scripts/collectInstallers.mjs --version X.Y.Z --out <dir>` copies them out under their
+release names (`lurkloot-desktop-X.Y.Z-<target>…`). The targets and names are
+`desktopInstallerTargets` in `scripts/release/pipeline.mjs`; `RELEASING.md` covers the CI job.
+They are unsigned; macOS builds are ad-hoc signed. The version is the root `package.json`'s:
+`tauri.conf.json` points at it, and `scripts/release.mjs prepare` writes it into `Cargo.toml`.
 
 `src-tauri/sidecar/` holds the whole executable folder (`lurkloot`, `app/`, `impit/`,
 `cycletls/`, `LICENSE`, `NOTICE`), which ships as the app's `sidecar/` resource. Git ignores

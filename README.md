@@ -108,6 +108,10 @@ docker compose up -d
 
 Open http://127.0.0.1:8420 and enter the token from `.env` once per tab. The port is reachable from this machine only. Opening it from another machine safely is covered in [The CLI web app](https://lurkloot.jamezrin.com/guide/headless/app#opening-it-from-another-machine).
 
+### The desktop app
+
+The desktop app is the same app in a window of its own, with the CLI inside it, so it needs no terminal or Docker. It keeps farming from the tray when you close the window. Each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) has its installers: `lurkloot-desktop-*-windows-x64-setup.exe` or `.msi` for Windows, `.dmg` for macOS (Apple Silicon, Intel), and `.AppImage` or `.deb` for Linux (x64, arm64). They are not signed with a Windows or Apple developer certificate yet, so the first launch needs one extra step; the user guide's [Install the desktop app](https://lurkloot.jamezrin.com/guide/headless/desktop) shows it for each system.
+
 ## Your account stays yours
 
 The extension uses the Twitch and Kick sessions already in your browser. It does not ask for your password, and it does not send your activity to a Lurkloot server. There is no Lurkloot account and no telemetry. The only way session data leaves the extension is Settings → Export credentials, which you run yourself to set up the CLI. That writes a file on your machine. Details are in the [privacy policy](https://lurkloot.jamezrin.com/privacy).
