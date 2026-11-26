@@ -10,6 +10,7 @@ import {
   STORAGE_PREFIX,
 } from "../src/adapter";
 import { App } from "../src/App";
+import { DESKTOP_UPDATE_EVENT, INSTALL_UPDATE_FRAGMENT } from "../src/desktopHost";
 import { loadAppCatalogs } from "../src/i18n";
 import { createTokenPromptBridge } from "../src/tokenPrompt";
 import { resetFixture } from "../fixture/controlPlane";
@@ -277,5 +278,52 @@ describe("app over the control plane", () => {
     );
     await click(container.querySelector('[data-auth-action="kick"]'));
     await vi.waitFor(() => expect(container.querySelector("[data-accounts]")).not.toBeNull());
+  });
+});
+
+describe("desktop app updates (#1028)", () => {
+  function report(detail: unknown) {
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DESKTOP_UPDATE_EVENT, { detail }));
+    });
+  }
+
+  it("shows nothing until the desktop app reports an update", async () => {
+    const { container } = await mountApp();
+    expect(container.querySelector("[data-desktop-update]")).toBeNull();
+    // A malformed report is ignored.
+    report({ status: "ready" });
+    report({ status: "elsewhere", version: "2.1.0" });
+    expect(container.querySelector("[data-desktop-update]")).toBeNull();
+  });
+
+  it("offers the install, and asks the desktop app for it only when clicked", async () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    const { container } = await mountApp();
+    report({ status: "ready", version: "2.1.0" });
+    const bar = container.querySelector('[data-desktop-update="ready"]');
+    expect(bar?.textContent).toContain(text("appDesktopUpdateReady").replace("$1", "2.1.0"));
+    expect(open).not.toHaveBeenCalled();
+    await click(container.querySelector("[data-desktop-update-install]"));
+    expect(open).toHaveBeenCalledWith(
+      `https://lurkloot.jamezrin.com/guide/headless/desktop#${INSTALL_UPDATE_FRAGMENT}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
+
+  it("shows the install's progress and a failure that can be tried again", async () => {
+    const { container } = await mountApp();
+    report({ status: "installing", version: "2.1.0" });
+    expect(container.querySelector('[data-desktop-update="installing"]')?.textContent).toContain(
+      text("appDesktopUpdateInstalling").replace("$1", "2.1.0"),
+    );
+    expect(container.querySelector("[data-desktop-update-install]")).toBeNull();
+    report({ status: "failed", version: "2.1.0" });
+    expect(container.querySelector('[data-desktop-update="failed"]')?.textContent).toContain(
+      text("appDesktopUpdateFailed").replace("$1", "2.1.0"),
+    );
+    expect(container.querySelector("[data-desktop-update-install]")).not.toBeNull();
   });
 });

@@ -20,9 +20,9 @@ sources or cycletls, and it farms only through `serve`.
 - Keeps the window on serve's own address. Links and `window.open` go to the system browser.
 - If serve exits unexpectedly, starts it again after a backoff of 1 s up to 60 s. After three
   failures in a row it shows an error.
-- Closing the window keeps farming in the tray, which has **Open Lurkloot**, **Launch at startup**
-  and **Quit**. On a
-  Linux desktop with no tray, closing the window quits instead.
+- Closing the window keeps farming in the tray, which has **Open Lurkloot**, **Launch at startup**,
+  **Check for updates automatically** and **Quit**. On a Linux desktop with no tray, closing the
+  window quits instead.
 - Quit closes serve's stdin and waits up to 20 s for it to save and exit. If it hasn't, the
   shell kills serve's whole process tree, cycletls included.
 - A second launch focuses the running window.
@@ -40,6 +40,20 @@ sources or cycletls, and it farms only through `serve`.
   in the OS (Task Manager, Login Items) stays switched off, and an entry removed outside the app
   turns the setting off. After a failed change, the check shows what the OS really has. An
   AppImage moved after turning it on needs it turned off and on again.
+- Updates itself from GitHub releases (#1028, `src/updates.rs`, Tauri's updater):
+  - **When it checks:** a minute after start, then every 6 hours, while **Check for updates
+    automatically** is on (`automaticUpdates` in `desktop.json`, on by default). Development
+    builds never check.
+  - **When it installs:** never on its own. A found update adds **Update ready: restart to install
+    X.Y.Z** to the tray and a bar to the window. Choosing either downloads it, checks its signature
+    against `plugins.updater.pubkey`, stops serve the way Quit does, installs and restarts. A
+    failed download or signature check leaves everything running and the update ready to try again.
+  - **What it installs:** only the installer kind the app came from (AppImage, `.deb` through
+    `pkexec`, `.msi`, NSIS, macOS `.app`), with the sidecar inside, so serve and the shell always
+    match. Config and credentials stay in the app-data folder.
+  - **Signing:** each signature is bound to its version (`requireSignedVersion`), so a forged
+    manifest can't downgrade the app. `RELEASING.md` ("Desktop updates") covers the key and how to
+    rotate it.
 - Signs in to Twitch without pasting (#1026). **Sign in to Twitch** opens Twitch's sign-in page in
   a private window of the app's own. Its cookies are discarded when it closes. When Twitch sends
   that window back with the token, the app closes it and finishes the sign-in through serve, the

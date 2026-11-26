@@ -10,6 +10,9 @@ import {
   desktopInstallerNames,
   desktopInstallerTarget,
   desktopInstallerTargets,
+  desktopUpdates,
+  updaterAssetNames,
+  updaterManifest,
   candidateMarker,
   candidateTag,
   expectedReleaseAssets,
@@ -113,7 +116,9 @@ test("expected release assets are the extension builds, the CLI archives, the de
     "lurkloot-desktop-1.6.0-linux-arm64.AppImage",
     "lurkloot-desktop-1.6.0-linux-arm64.deb",
     "lurkloot-desktop-1.6.0-macos-arm64.dmg",
+    "lurkloot-desktop-1.6.0-macos-arm64.app.tar.gz",
     "lurkloot-desktop-1.6.0-macos-x64.dmg",
+    "lurkloot-desktop-1.6.0-macos-x64.app.tar.gz",
     "lurkloot-desktop-1.6.0-windows-x64.msi",
     "lurkloot-desktop-1.6.0-windows-x64-setup.exe",
   ]);
@@ -227,4 +232,71 @@ test("recomputing after the candidate tag exists is stable", () => {
       .version;
   assert.equal(at(["v1.5.0"]), "1.6.0");
   assert.equal(at(["v1.5.0", "v1.6.0"]), "1.6.0");
+});
+
+test("every update the app can install has its own installer-specific platform key", () => {
+  const updates = desktopUpdates("1.6.0");
+  assert.deepEqual(
+    updates.map((update) => update.platform),
+    [
+      "linux-x86_64-appimage",
+      "linux-x86_64-deb",
+      "linux-aarch64-appimage",
+      "linux-aarch64-deb",
+      "darwin-aarch64-app",
+      "darwin-x86_64-app",
+      "windows-x86_64-msi",
+      "windows-x86_64-nsis",
+    ],
+  );
+  // Never the bare {os}-{arch} key, which every installer kind would fall back to.
+  for (const update of updates) assert.match(update.platform, /^[a-z]+-[a-z0-9_]+-[a-z]+$/);
+  // Each update is a release asset the candidate already ships; the .dmg is not one.
+  const expected = expectedReleaseAssets("1.6.0");
+  for (const update of updates) assert.ok(expected.includes(update.asset), update.asset);
+  assert.ok(!updates.some((update) => update.asset.endsWith(".dmg")));
+  assert.equal(
+    updates.find((update) => update.platform === "windows-x86_64-nsis").signature,
+    "lurkloot-desktop-1.6.0-windows-x64-setup.exe.sig",
+  );
+});
+
+test("the updater's files are never part of the reviewed asset set", () => {
+  const names = updaterAssetNames("1.6.0");
+  assert.equal(names.at(-1), "latest.json");
+  assert.equal(names.length, desktopUpdates("1.6.0").length + 1);
+  const expected = expectedReleaseAssets("1.6.0");
+  for (const name of names) assert.ok(!expected.includes(name), name);
+});
+
+test("latest.json lists every update with its signature and release download URL", () => {
+  const signatures = Object.fromEntries(
+    desktopUpdates("1.6.0").map((update) => [update.asset, `sig-for-${update.asset}\n`]),
+  );
+  const manifest = updaterManifest({
+    version: "1.6.0",
+    pubDate: "2026-11-27T00:00:00Z",
+    notes: "notes",
+    signatures,
+    downloadBase: "https://github.com/jamezrin/lurkloot/releases/download/v1.6.0/",
+  });
+  assert.equal(manifest.version, "1.6.0");
+  assert.equal(manifest.pub_date, "2026-11-27T00:00:00Z");
+  assert.deepEqual(manifest.platforms["darwin-aarch64-app"], {
+    signature: "sig-for-lurkloot-desktop-1.6.0-macos-arm64.app.tar.gz",
+    url: "https://github.com/jamezrin/lurkloot/releases/download/v1.6.0/lurkloot-desktop-1.6.0-macos-arm64.app.tar.gz",
+  });
+  assert.equal(Object.keys(manifest.platforms).length, 8);
+  const { [desktopUpdates("1.6.0")[0].asset]: _, ...missing } = signatures;
+  assert.throws(
+    () =>
+      updaterManifest({
+        version: "1.6.0",
+        pubDate: "x",
+        notes: "",
+        signatures: missing,
+        downloadBase: "https://example.test",
+      }),
+    /no updater signature for lurkloot-desktop-1\.6\.0-linux-x64\.AppImage/,
+  );
 });

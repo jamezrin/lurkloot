@@ -216,9 +216,26 @@ jobs:
         run: |
           mkdir release-assets
           gh release download "v$VERSION" --dir release-assets
+          # A rerun finds the updater's files from the last attempt; they are signed again below.
+          node scripts/release/cli.mjs strip-updater-assets --assets release-assets --version "$VERSION"
           (cd release-assets && sha256sum -c SHA256SUMS)
       - name: Verify the release asset set
         run: node scripts/release/cli.mjs assert-assets --assets release-assets --version "$VERSION"
+      # The desktop updater (#1028). Only this approved job holds the signing key, so only the
+      # stable release carries signatures and latest.json, and a candidate never feeds the updater.
+      # The reviewed bytes are signed as they are, each signature bound to this version, and the
+      # files go up before promotion: the moment the release becomes latest, latest.json is there.
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - name: Install the Tauri CLI for signing
+        run: pnpm install --frozen-lockfile --filter @lurkloot/desktop
+      - name: Sign the desktop updates and publish latest.json
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          node scripts/release/cli.mjs updater-assets --assets release-assets --out updater-assets \
+            --version "$VERSION" --repository "$GITHUB_REPOSITORY"
+          gh release upload "v$VERSION" updater-assets/* --clobber
       # No tag is created here. It was created during candidacy at the release branch head, and the
       # main ruleset's strict status-check policy guarantees that tree is what landed on main.
       - name: Promote the candidate prerelease to the stable release

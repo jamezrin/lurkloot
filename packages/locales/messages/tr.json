@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "Kapat"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 kurulmaya hazır."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Güncellemek için yeniden başlat"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Lurkloot $1 kuruluyor. Tamamlandığında yeniden başlar."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 indirilemedi. Daha sonra tekrar deneyin."
+  },
   "appTokenTitle": {
     "message": "Erişim belirteci"
   },

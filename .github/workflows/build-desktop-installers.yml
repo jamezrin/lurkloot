@@ -140,6 +140,15 @@ jobs:
             codesign --verify --deep --strict "$mount/Lurkloot.app"
             hdiutil detach "$mount"
           done
+          # The macOS update (#1028) holds the .app at its root, with no ._ files beside it.
+          for update in desktop-assets/*.app.tar.gz; do
+            listing=$(tar -tzvf "$update")
+            grep -E '^-rwx.* Lurkloot\.app/Contents/Resources/sidecar/lurkloot$' <<< "$listing"
+            if grep -qE '(^|/)\._' <<< "$listing"; then
+              echo "$update has AppleDouble ._ files" >&2
+              exit 1
+            fi
+          done
       - name: Check the sidecar is bundled (Windows)
         if: steps.support.outputs.available == 'true' && runner.os == 'Windows'
         shell: pwsh

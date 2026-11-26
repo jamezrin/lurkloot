@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "بستن"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 آماده نصب است."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "راه‌اندازی مجدد برای به‌روزرسانی"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "در حال نصب Lurkloot $1. پس از پایان، دوباره راه‌اندازی می‌شود."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 دانلود نشد. بعداً دوباره تلاش کنید."
+  },
   "appTokenTitle": {
     "message": "توکن دسترسی"
   },

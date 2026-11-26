@@ -128,6 +128,23 @@ describe("@lurkloot/desktop contract with serve and the app UI", () => {
     }
   });
 
+  it("names the same update event, install fragment and install link (#1028)", () => {
+    const shell = rust("updates.rs");
+    const app = ts("app-ui/src/desktopHost.ts");
+    expect(rustConst(shell, "UPDATE_EVENT")).toBeTruthy();
+    expect(rustConst(shell, "UPDATE_EVENT")).toBe(tsConst(app, "DESKTOP_UPDATE_EVENT"));
+    expect(rustConst(shell, "INSTALL_UPDATE_FRAGMENT")).toBeTruthy();
+    expect(rustConst(shell, "INSTALL_UPDATE_FRAGMENT")).toBe(
+      tsConst(app, "INSTALL_UPDATE_FRAGMENT"),
+    );
+    // The page opens exactly the link the shell catches.
+    const page = rustConst(shell, "INSTALL_UPDATE_PAGE");
+    expect(page).toBeTruthy();
+    expect(app).toContain(
+      "export const INSTALL_UPDATE_LINK = `" + page + "#${INSTALL_UPDATE_FRAGMENT}`;",
+    );
+  });
+
   it("posts to serve's browser-login route and stops at its redirect URI (#1026)", () => {
     const shell = rust("twitch_sign_in.rs");
     const path = rustConst(shell, "BROWSER_LOGIN_PATH");

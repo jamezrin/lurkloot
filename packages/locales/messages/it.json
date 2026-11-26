@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "Chiudi"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 è pronto per l'installazione."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Riavvia per aggiornare"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Installazione di Lurkloot $1 in corso. Al termine si riavvia."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Impossibile scaricare Lurkloot $1. Riprova più tardi."
+  },
   "appTokenTitle": {
     "message": "Token di accesso"
   },

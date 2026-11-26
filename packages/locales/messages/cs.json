@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "Zavřít"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 je připraven k instalaci."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Restartovat a aktualizovat"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Instaluji Lurkloot $1. Po dokončení se restartuje."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 se nepodařilo stáhnout. Zkuste to později."
+  },
   "appTokenTitle": {
     "message": "Přístupový token"
   },

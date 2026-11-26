@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "閉じる"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 をインストールできます。"
+  },
+  "appDesktopUpdateRestart": {
+    "message": "再起動して更新"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Lurkloot $1 をインストールしています。完了後に再起動します。"
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 をダウンロードできませんでした。後でもう一度お試しください。"
+  },
   "appTokenTitle": {
     "message": "アクセストークン"
   },

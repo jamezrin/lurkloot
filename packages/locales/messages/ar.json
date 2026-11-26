@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "إغلاق"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 جاهز للتثبيت."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "إعادة التشغيل للتحديث"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "جارٍ تثبيت Lurkloot $1. سيُعاد تشغيله عند الانتهاء."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "تعذّر تنزيل Lurkloot $1. حاول مرة أخرى لاحقًا."
+  },
   "appTokenTitle": {
     "message": "رمز الوصول"
   },
