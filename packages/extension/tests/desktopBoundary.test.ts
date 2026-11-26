@@ -98,7 +98,7 @@ describe("@lurkloot/desktop contract with serve and the app UI", () => {
   const tsConst = (source: string, name: string) =>
     new RegExp(`export const ${name} = "([^"]+)";`).exec(source)?.[1];
 
-  it("names the same sessionStorage key, token variable and cycletls port variable", () => {
+  it("names the same sessionStorage key and token variable", () => {
     const pairs = [
       [
         rustConst(rust("token.rs"), "TOKEN_STORAGE_KEY"),
@@ -107,10 +107,6 @@ describe("@lurkloot/desktop contract with serve and the app UI", () => {
       [
         rustConst(rust("token.rs"), "SERVE_TOKEN_ENV"),
         tsConst(ts("cli/src/runtime/controlPlane.ts"), "SERVE_TOKEN_ENV"),
-      ],
-      [
-        rustConst(rust("sidecar.rs"), "CYCLETLS_PORT_ENV"),
-        tsConst(ts("cli/src/transport/cycle.ts"), "CYCLETLS_PORT_ENV"),
       ],
     ];
     for (const [shell, owner] of pairs) {

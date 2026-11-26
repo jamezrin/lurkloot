@@ -12,9 +12,9 @@ sources or cycletls, and it farms only through `serve`.
 ## What it does
 
 - Starts `lurkloot serve --port 0 --ready-json --exit-with-stdin --config <app data>/config.json`.
-  It passes a fresh random `LURKLOOT_SERVE_TOKEN` for each launch and `LURKLOOT_CYCLETLS_PORT=0`,
-  so cycletls runs on a port of its own. It removes any other `LURKLOOT_*` or `SA_*` variable
-  from serve's environment.
+  It passes a fresh random `LURKLOOT_SERVE_TOKEN` for each launch and removes any other
+  `LURKLOOT_*` or `SA_*` variable from serve's environment. serve starts the cycletls binary on a
+  free port of its own and never joins another process's (#1031).
 - Opens the window at the URL from serve's ready line. Before the page loads, it writes the
   token to sessionStorage, so the app never asks for it.
 - Keeps the window on serve's own address. Links and `window.open` go to the system browser.

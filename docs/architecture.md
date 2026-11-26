@@ -900,16 +900,6 @@ rename `impit/` and `cycletls/` without changing the supplied build. It makes a 
 each library, checks that `serve` on one library starts with the other's folder gone, and that
 `cycletls/` holds only the binary, its `LICENSE` and `NOTICE`.
 
-`initCycle` also reads `LURKLOOT_CYCLETLS_PORT`. cycletls listens on 9119 by default, and a
-cycletls that finds its port taken attaches to whatever holds it instead of starting its own
-helper. A launcher that must never share another process's helper sets a port, or `0` for a
-port that is free on every interface when cycletls starts (cycletls listens on all of them).
-Unset keeps cycletls's default. A port picked this way is free when it is picked, not reserved:
-another local process could still take it in the moment before cycletls binds it, and cycletls
-would then attach. That is far narrower than the fixed 9119, which any process can hold ahead of
-time; refusing to attach to a helper this process did not start needs the client of our own
-(#1031).
-
 ### Desktop app (#1024)
 
 `packages/desktop` is a Tauri 2 shell around the standalone executable above. It is packaging
@@ -924,7 +914,7 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
  │      ◀── {"event":"ready","url":…} on stdout   --config <app data>/config.json
  │      stdout + stderr ──▶ <app log dir>/serve.log    ├─ farming loop (@lurkloot/core)
  ├─ window ── http://127.0.0.1:<port>/ ────────▶       ├─ control plane + app UI
- │      token in sessionStorage (init script)           └─ cycletls helper, own port
+ │      token in sessionStorage (init script)           └─ cycletls binary (#1031)
  └─ tray: Open, Quit
 ```
 
@@ -940,9 +930,9 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   three failures in a row the window shows the shell's status page with an error and comes
   back from the tray; it goes on retrying.
 - **Environment.** serve runs with the shell's environment minus every `LURKLOOT_*` and `SA_*`
-  variable, so a CLI user's shell cannot point it at another token, cycletls port or credential
-  override. Then `LURKLOOT_SERVE_TOKEN` (32 random bytes, fresh for each app launch and kept
-  across restarts within it) and `LURKLOOT_CYCLETLS_PORT=0` are added. The token never appears
+  variable, so a CLI user's shell cannot point it at another token or credential override.
+  Then `LURKLOOT_SERVE_TOKEN` (32 random bytes, fresh for each app launch and kept across
+  restarts within it) is added. The token never appears
   on a command line or in a log.
 - **Token.** A main-frame initialization script writes the token to sessionStorage under the
   app UI's `lurkloot.app.serveToken` key, before the page loads, on plain-HTTP loopback origins
@@ -973,7 +963,7 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   `build-desktop` CI workflow runs it with clippy on Linux, macOS and Windows.
   `desktopBoundary.test.ts`, which runs in `pnpm check` on every pull request, also keeps the
   names the shell repeats from TypeScript in step: the sessionStorage key, `LURKLOOT_SERVE_TOKEN`,
-  `LURKLOOT_CYCLETLS_PORT`, serve's flags and the ready line.
+  serve's flags and the ready line.
 
 ### Characterization coverage
 

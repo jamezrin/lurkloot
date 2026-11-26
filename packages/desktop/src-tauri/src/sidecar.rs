@@ -65,9 +65,7 @@ pub fn serve_args(config_path: &std::path::Path) -> Vec<OsString> {
 
 /// The environment `serve` runs with: this process's own, without any
 /// `LURKLOOT_*` or `SA_*` variable a CLI user's shell may have set (a token,
-/// another cycletls port, credential overrides), plus the launch's token and
-/// a cycletls port of its own (0: cycletls's helper on a free port, never
-/// attached to another process's helper on 9119).
+/// credential overrides), plus the launch's token.
 pub fn serve_env(
     inherited: impl IntoIterator<Item = (OsString, OsString)>,
     token: &str,
@@ -77,13 +75,8 @@ pub fn serve_env(
         .filter(|(key, _)| !is_scrubbed(key))
         .collect();
     env.push((crate::token::SERVE_TOKEN_ENV.into(), token.into()));
-    env.push((CYCLETLS_PORT_ENV.into(), "0".into()));
     env
 }
-
-/// The variable that gives cycletls's helper a port of its own
-/// (`CYCLETLS_PORT_ENV` in packages/cli/src/transport/cycle.ts).
-pub const CYCLETLS_PORT_ENV: &str = "LURKLOOT_CYCLETLS_PORT";
 
 /// The wait before restart number `failures` (1 for the first): 1 s, doubling,
 /// at most MAX_BACKOFF.
@@ -525,7 +518,7 @@ mod tests {
         let inherited = [
             ("PATH", "/usr/bin"),
             ("LURKLOOT_SERVE_TOKEN", "someone-elses"),
-            ("lurkloot_cycletls_port", "9119"),
+            ("lurkloot_log", "debug"),
             ("SA_TWITCH_AUTH_TOKEN", "secret"),
             ("HOME", "/home/me"),
         ]
@@ -546,7 +539,6 @@ mod tests {
                 ("PATH", "/usr/bin"),
                 ("HOME", "/home/me"),
                 ("LURKLOOT_SERVE_TOKEN", "fresh-token"),
-                ("LURKLOOT_CYCLETLS_PORT", "0"),
             ]
             .map(|(k, v)| (k.to_owned(), v.to_owned()))
         );
