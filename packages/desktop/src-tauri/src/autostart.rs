@@ -402,6 +402,8 @@ mod tests {
         std::fs::remove_dir_all(&config).unwrap();
     }
 
+    // Unix paths: on Windows "/home/alex" is not absolute.
+    #[cfg(unix)]
     #[test]
     fn finds_the_xdg_autostart_folder() {
         assert_eq!(
