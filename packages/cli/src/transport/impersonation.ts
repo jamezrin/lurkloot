@@ -7,11 +7,13 @@
 //
 // - impit (Apache-2.0): a Rust library loaded into Node, with browser profiles
 //   it keeps current. The default.
-// - cycletls (GPL-3.0): a Go helper process the CLI talks to over a local
-//   socket, sent a JA3/HTTP-2 fingerprint string. Kept as an opt-in fallback.
+// - cycletls: CycleTLS's Go binary (GPL-3.0), a separate program the CLI starts
+//   and talks to over a local socket through its own client
+//   (cycleTlsClient.ts), sent a JA3/HTTP-2 fingerprint string. Kept as an
+//   opt-in fallback. No CycleTLS code runs in the CLI's process.
 //
-// Each backend's package is imported only when that backend is created, so a
-// CLI on impit never loads cycletls's JavaScript, and the reverse.
+// Each backend is loaded only when it is created, so a CLI on cycletls never
+// loads impit's native add-on, and one on impit never starts the binary.
 
 export type ImpersonationBackend = "impit" | "cycletls";
 
@@ -24,9 +26,8 @@ export interface ImpersonatedRequest {
   userAgent?: string;
   // "manual" returns a 3xx as-is; the default follows redirects.
   redirect?: "follow" | "manual";
-  // impit cancels the request; cycletls cannot cancel one request (its only
-  // interruption is a process-wide exit), so callers still race their own
-  // deadline.
+  // impit cancels the request; the cycletls binary cannot cancel one request,
+  // so callers still race their own deadline.
   signal?: AbortSignal;
 }
 

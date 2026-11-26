@@ -8,7 +8,7 @@
       "entry": [
         "scripts/*.mjs",
         "scripts/executable.d.mts",
-        "src/runtime/cycleTlsStandalone.ts",
+        "scripts/checkNoGplJavaScript.d.mts",
         "src/runtime/impitStandalone.ts"
       ]
     },

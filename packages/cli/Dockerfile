@@ -2,7 +2,9 @@
 #
 # Headless Lurkloot CLI image. The impersonate and impit transports send Kick
 # through impit (a native add-on from its prebuilt binding package for the
-# image's platform), cycletls through its Go helper, and http through Node's own
+# image's platform), cycletls through CycleTLS's Go binary (a separate GPL-3.0
+# program the CLI starts and talks to over a local socket, shipped as
+# dist/cycletls/ with its license and a NOTICE), and http through Node's own
 # fetch; Kick's viewer connection uses ws. No browser is needed.
 # `serve` also serves the app UI, built here and shipped as static files.
 
@@ -12,7 +14,6 @@ WORKDIR /repo
 # Node 25 and later no longer bundle corepack, so install pnpm directly. Keep the
 # version in step with the pnpm/action-setup version in the workflows.
 RUN npm install -g pnpm@12.16.1
-# cycletls downloads a small Go helper binary on install; needs CA certs.
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -24,9 +25,10 @@ COPY packages/locales/package.json packages/locales/
 COPY packages/popup-ui/package.json packages/popup-ui/
 COPY packages/app-ui/package.json packages/app-ui/
 COPY packages/cli/package.json packages/cli/
-# --ignore-scripts: cycletls and esbuild ship working prebuilt binaries in their
-# tarballs, and impit in platform packages, so no install scripts are needed — and skipping them avoids
-# pnpm 10's interactive build-approval gate in a non-interactive build.
+# --ignore-scripts: cycletls (the build-time source of CycleTLS's Go binary) and
+# esbuild ship working prebuilt binaries in their tarballs, and impit in
+# platform packages, so no install scripts are needed — and skipping them
+# avoids pnpm 10's interactive build-approval gate in a non-interactive build.
 RUN pnpm install --frozen-lockfile --ignore-scripts --filter @lurkloot/cli...
 
 # Then the sources: the CLI's three packages, and the app UI with the two it
@@ -39,9 +41,16 @@ COPY packages/app-ui/ packages/app-ui/
 COPY packages/cli/ packages/cli/
 RUN pnpm --filter @lurkloot/cli build
 
-# Produce a self-contained /app: the bundle plus the production node_modules for
-# the externalized runtime deps (impit, cycletls and ws).
+# Produce a self-contained /app: the bundle, CycleTLS's binary in dist/cycletls/,
+# and the production node_modules for the externalized runtime deps (impit and
+# ws). The cycletls npm package is a build-time dependency only: its GPL-3.0
+# JavaScript is neither bundled nor in the runtime node_modules, which the
+# check below enforces (#1031).
 RUN pnpm --filter @lurkloot/cli deploy --legacy --prod /app
+RUN cd packages/cli \
+    && node scripts/checkNoGplJavaScript.mjs --metafile dist/bundle-meta.json --node-modules /app/node_modules \
+    && test -x /app/dist/cycletls/cycletls \
+    && rm -f /app/dist/bundle-meta.json
 
 # --- Runtime stage ---
 FROM node:24-slim

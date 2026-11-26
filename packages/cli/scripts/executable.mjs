@@ -20,10 +20,15 @@ const CYCLETLS_UPSTREAM = {
 };
 
 // npm's gitHead for the distributed package, which has no matching upstream tag.
-const CYCLETLS_SOURCE = {
+export const CYCLETLS_SOURCE = {
   version: "2.0.5",
   commit: "28f3d8b9a21470c35269fa24f3907626270ab1dc",
 };
+
+/** Names the shipped CycleTLS binary; src/runtime/standalone.ts's cycleTlsBinaryName matches it. */
+export function cycleTlsFileName(platform) {
+  return platform === "win32" ? "cycletls.exe" : "cycletls";
+}
 
 /** Maps a release target to the helper name in the upstream npm package. */
 export function cycleTlsUpstreamName(platform, arch) {
@@ -92,30 +97,22 @@ export function bundledPackages(inputs, { root, read = (path) => readFileSync(pa
 }
 
 /**
- * Collects the runtime packages shipped alongside the executable. The closure
- * excludes type-only packages and requires one version per name for a flat layout.
+ * Describes the shipped CycleTLS binary as the separate program it is, with a
+ * link to its source. Shared by the executable's NOTICE and the NOTICE beside
+ * the binary in dist/cycletls/ (Docker and node dist/index.mjs).
  */
-export function dependencyClosure(dir, { resolve, read = (path) => readFileSync(path, "utf8") }) {
-  const found = new Map();
-  /** Walks the dependencies from their importing package so pnpm can resolve them. */
-  const visit = (from) => {
-    const manifest = JSON.parse(read(join(from, "package.json")));
-    for (const name of Object.keys(manifest.dependencies ?? {})) {
-      if (name.startsWith("@types/")) continue;
-      const depDir = resolve(from, name);
-      const pkg = { ...describePackage(depDir, read), dir: depDir };
-      const seen = found.get(name);
-      if (seen) {
-        if (seen.version !== pkg.version)
-          throw new Error(`${name} is needed at ${seen.version} and ${pkg.version}`);
-        continue;
-      }
-      found.set(name, pkg);
-      visit(depDir);
-    }
-  };
-  visit(dir);
-  return [...found.values()].sort(byName);
+export function cycleTlsNotice({ version, file, dir = "cycletls" }) {
+  if (version !== CYCLETLS_SOURCE.version) {
+    throw new Error(
+      `Installed cycletls ${version} differs from the pinned source for ${CYCLETLS_SOURCE.version}; update the source revision before packaging.`,
+    );
+  }
+  return [
+    `${dir}/${file} is the unmodified Go binary of CycleTLS ${version}, under the GNU General`,
+    `Public License v3.0 (${dir}/LICENSE). It is a separate program: Lurkloot starts it as its own`,
+    "process and talks to it over a local WebSocket; no CycleTLS code is loaded into Lurkloot.",
+    `Source for ${CYCLETLS_SOURCE.version}: https://github.com/Danny-Dasilva/CycleTLS/tree/${CYCLETLS_SOURCE.commit}`,
+  ];
 }
 
 /** Lists the shipped third-party components and reproduces their license texts. */
@@ -128,12 +125,6 @@ export function renderNotice({
   packages,
   appLicenses,
 }) {
-  if (cycleTls.version !== CYCLETLS_SOURCE.version) {
-    throw new Error(
-      `Installed cycletls ${cycleTls.version} differs from the pinned source for ${CYCLETLS_SOURCE.version}; update the source revision before packaging.`,
-    );
-  }
-  const cycleTlsDependencies = cycleTls.dependencies ?? [];
   const lines = [
     `Lurkloot CLI ${version}`,
     "Licensed under the Apache License, Version 2.0; see LICENSE.",
@@ -148,16 +139,8 @@ export function renderNotice({
     "  (https://github.com/apify/impit): its JavaScript, and its native add-on for this platform",
     `  (${impit.addons.join(", ")}) from the matching impit binding package. The executable`,
     "  loads both from that folder at run time.",
-    `- cycletls/ is the unmodified cycletls ${cycleTls.version} npm package, under the GNU`,
-    "  General Public License v3.0 (cycletls/LICENSE, reproduced below): its JavaScript, and",
-    `  its Go binary as cycletls/${cycleTls.file}, which runs as a separate process. The`,
-    "  executable loads the JavaScript from that folder at run time; it is not compiled in.",
-    `  Source for ${CYCLETLS_SOURCE.version}: https://github.com/Danny-Dasilva/CycleTLS/tree/${CYCLETLS_SOURCE.commit}`,
-    "  cycletls/node_modules holds its runtime dependencies, each with its own license file:",
-    "",
+    ...cycleTlsNotice(cycleTls).map((line, index) => (index === 0 ? `- ${line}` : `  ${line}`)),
   ];
-  for (const pkg of cycleTlsDependencies)
-    lines.push(`  - ${pkg.name} ${pkg.version} (${pkg.license})`);
   lines.push(
     "",
     "- The npm packages below are bundled into the Lurkloot CLI inside the executable.",
@@ -176,8 +159,8 @@ export function renderNotice({
     `impit ${impit.version}`,
     `Licensed under ${impit.license}; the package ships no license file. The Apache License,\nVersion 2.0 text is in LICENSE beside this file.`,
   );
-  section(`cycletls ${cycleTls.version}`, cycleTls.license);
-  for (const pkg of [...cycleTlsDependencies, ...packages]) {
+  section(`CycleTLS ${cycleTls.version} (cycletls/${cycleTls.file})`, cycleTls.license);
+  for (const pkg of packages) {
     section(
       `${pkg.name} ${pkg.version}`,
       pkg.text ?? `Licensed under ${pkg.license}; the package ships no license file.`,

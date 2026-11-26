@@ -14,7 +14,8 @@ import { type FarmingController, runLoop } from "../src/runtime/run";
 import { serveLoop } from "../src/runtime/serve";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createCredentialRefreshingTransport, createTransport } from "../src/transport";
-import type { CycleTLSClient } from "../src/transport/cycle";
+import type { CycleTlsClient } from "../src/transport/cycle";
+import { fakeCycleTls } from "./helpers/fakeCycleTls";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 
 const createSocket = vi.hoisted(() => vi.fn());
@@ -109,7 +110,7 @@ function mockRealtime(endpoint = SOCKET_URL) {
     throw new Error(`Unexpected request ${url}`);
   });
   const exit = vi.fn(async () => undefined);
-  const client = Object.assign(requests, { exit }) as unknown as CycleTLSClient;
+  const client = fakeCycleTls(requests, exit);
 
   createSocket.mockImplementation((url: string) => {
     const listeners = new Map<string, (event: { data?: string }) => void>();
@@ -139,7 +140,7 @@ function mockRealtime(endpoint = SOCKET_URL) {
   return { client, close, subscribed, requests, exit };
 }
 
-async function refreshingImpersonate(client: CycleTLSClient) {
+async function refreshingImpersonate(client: CycleTlsClient) {
   const creds = { kick: { sessionToken: "example-token" } };
   const transport = await createImpersonateTransport(creds, ENABLED, {
     initClient: async () => client,

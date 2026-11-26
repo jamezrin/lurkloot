@@ -1,0 +1,66 @@
+[
+  {
+    "options": {
+      "url": "http://127.0.0.1:1/api/v2/channels/creator",
+      "ja3": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0",
+      "http2Fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "headers": {
+        "Accept": "application/json",
+        "Origin": "https://kick.com",
+        "Authorization": "Bearer t"
+      },
+      "body": "",
+      "proxy": "",
+      "insecureSkipVerify": false,
+      "forceHTTP1": false,
+      "forceHTTP3": false,
+      "responseType": "json",
+      "protocol": "",
+      "method": "get",
+      "_connectionReuse": "new",
+      "_hostKey": "127.0.0.1:1"
+    }
+  },
+  {
+    "options": {
+      "url": "http://127.0.0.1:1/api/tv/link/authenticate/UUID",
+      "ja3": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0",
+      "http2Fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": "{\"key\":\"123456\"}",
+      "proxy": "",
+      "insecureSkipVerify": false,
+      "forceHTTP1": false,
+      "forceHTTP3": false,
+      "responseType": "json",
+      "protocol": "",
+      "method": "post",
+      "_connectionReuse": "reuse",
+      "_hostKey": "127.0.0.1:1"
+    }
+  },
+  {
+    "options": {
+      "url": "http://127.0.0.1:1/hls",
+      "ja3": "771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-13-18-51-45-43-27-21,29-23-24,0",
+      "http2Fingerprint": "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p",
+      "userAgent": "Mozilla/5.0 (Linux; Android 13) Chrome/124.0.0.0 Mobile Safari/537.36",
+      "headers": {},
+      "body": "",
+      "disableRedirect": true,
+      "proxy": "",
+      "insecureSkipVerify": false,
+      "forceHTTP1": false,
+      "forceHTTP3": false,
+      "responseType": "json",
+      "protocol": "",
+      "method": "get",
+      "_connectionReuse": "reuse",
+      "_hostKey": "127.0.0.1:1"
+    }
+  }
+]

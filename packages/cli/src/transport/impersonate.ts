@@ -3,7 +3,7 @@ import type { KickRealtimeConnection } from "@lurkloot/core/kick/realtime";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
 import { createNodeKickRealtime } from "./kickRealtime";
-import { createCycleClient, type CycleTLSClient } from "./cycle";
+import { createCycleClient, type CycleTlsClient } from "./cycle";
 import { createImpersonatedKickFetcher, createNodeKickWebSocketFactory } from "./kick";
 import {
   createImpersonatingClient,
@@ -44,7 +44,7 @@ export interface ImpersonateDeps {
   // Injectable for tests: a ready client, used in place of the backend's.
   createClient?: () => Promise<ImpersonatingClient>;
   // Injectable for tests: a cycletls client (implies the cycletls backend).
-  initClient?: () => Promise<CycleTLSClient>;
+  initClient?: () => Promise<CycleTlsClient>;
 }
 
 async function openClient(deps: ImpersonateDeps): Promise<ImpersonatingClient> {

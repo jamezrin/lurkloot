@@ -44,15 +44,14 @@ An archive unpacks to one folder:
   If it is missing, `run`, `serve` and `discover` on the default `impersonate`
   (or `impit`) transport, and `auth kick device-login` on any transport but
   `cycletls`, stop with an error naming the folder.
-- `cycletls/`: the [cycletls](https://github.com/Danny-Dasilva/CycleTLS)
-  package, the `cycletls` transport's alternative to impit. It holds the unmodified
-  package (its JavaScript, `package.json` and GPL-3.0 `LICENSE`), its runtime
-  dependencies in `node_modules/`, and its Go helper as `cycletls`
-  (`cycletls.exe`). It is not compiled into `lurkloot`: the CLI loads it from
-  this folder, as the Docker image loads it from `node_modules`. Keep the
-  folder next to `lurkloot`. If it is missing, `run`, `serve`, `discover` and
-  `auth kick device-login` on the `cycletls` transport stop with an error
-  naming the folder; other transports never load it.
+- `cycletls/`: the Go binary of [CycleTLS](https://github.com/Danny-Dasilva/CycleTLS)
+  as `cycletls` (`cycletls.exe`), the `cycletls` transport's alternative to
+  impit, with its GPL-3.0 `LICENSE` and a `NOTICE` linking its source. It is a
+  separate program: the CLI starts it as its own process and talks to it over
+  a local socket, as it does from `dist/cycletls/` under Node and in Docker.
+  Keep the folder next to `lurkloot`. If it is missing, `run`, `serve`,
+  `discover` and `auth kick device-login` on the `cycletls` transport stop with
+  an error naming it; other transports never start it.
 - `app/`: the app `lurkloot serve` serves at `/`.
 - `LICENSE` and `NOTICE`. The NOTICE lists the third-party software in the
   archive, with its licenses.
@@ -72,9 +71,6 @@ in that folder. Every command below works the same with `lurkloot` in place of
 `--config` points (`config.json` in the current directory by default), not
 beside the executable, so an upgrade is unpacking the new archive.
 
-- **Path:** on the `cycletls` transport, on Linux and macOS, keep the folder at
-  a path without spaces or shell characters. cycletls is started through the
-  shell there, and the CLI refuses such a path with an error rather than hang.
 - **macOS:** the binaries are signed ad hoc, not notarized. A browser download
   is quarantined, so Gatekeeper blocks the first start; clear the flag with
   `xattr -dr com.apple.quarantine lurkloot-cli-<version>-macos-arm64`, or allow
@@ -288,7 +284,7 @@ these notifications remain unverified for CLI sign-ins. See
 | `http` | ✅ plain Node fetch | ⚠️ Cloudflare WAF may refuse it (403) | Lightest; Twitch-only in practice. |
 | `impersonate` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | Recommended default. Reaches both with no browser. Names the default library, impit today. |
 | `impit` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | impit by name, in process (a native add-on). |
-| `cycletls` | ✅ | ✅ **cycletls Chrome 124 JA3/HTTP-2** | The previous default, kept as a fallback. Runs cycletls's Go helper as a separate process. |
+| `cycletls` | ✅ | ✅ **cycletls Chrome 124 JA3/HTTP-2** | The previous default, kept as a fallback. Runs CycleTLS's Go binary as a separate process, one per CLI, ended when the CLI exits. |
 
 New Twitch device logins use the **SMARTBOX (Smart TV) client**. Previously
 issued Android tokens retain their recorded client ID. Twitch may hide its
@@ -640,8 +636,8 @@ such as the desktop app. Both are off by default, and `run` has neither.
   `url` is the address that reaches the server from this machine. With
   `--port 0` it carries the port the OS picked; on a wildcard bind it names
   `127.0.0.1`. It never carries the token. The human log line is still written.
-  Lurkloot's own logger writes to stderr, but other output can reach stdout: a
-  transport's helper process (cycletls, on the `cycletls` transport) shares it. Read stdout line by line
+  Lurkloot's own logger writes to stderr, but do not rely on stdout holding
+  only the ready line. Read stdout line by line
   and take the first line that parses as JSON with `"event":"ready"`; do not
   assume it is the first or only line. With `--exit-with-stdin`, `serve` skips
   the ready line if it observes EOF before announcing readiness. Pipe EOF can

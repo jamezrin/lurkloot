@@ -166,7 +166,9 @@ version, runs `pnpm --filter @lurkloot/cli build:executable`, smoke-tests the ar
 `packages/cli/scripts/smokeExecutable.mjs` (no Node on `PATH`: `serve` must answer `/v1/session`
 and `/`, a Kick request through each of the shipped `impit/` and `cycletls/` is a warning when
 Kick challenges the runner, and with either folder moved away `serve` on that library must stop
-naming it while `serve` on the other still starts), and uploads it. The executable is a copy of the runner's Node 24 binary, ad-hoc signed on
+naming it while `serve` on the other still starts, and `cycletls/` must hold only CycleTLS's Go
+binary, its `LICENSE` and `NOTICE`), and uploads it. The build itself fails if GPL JavaScript is
+in the executable's bundle or beside it (#1031). The executable is a copy of the runner's Node 24 binary, ad-hoc signed on
 macOS and unsigned on Windows.
 
 `attest` attests the archives, and `publish` adds them to the extension's assets and rebuilds

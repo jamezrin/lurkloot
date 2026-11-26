@@ -84,9 +84,6 @@ importers:
       '@lurkloot/shared':
         specifier: workspace:*
         version: link:../shared
-      cycletls:
-        specifier: ^2.0.5
-        version: 2.0.5
       impit:
         specifier: 0.14.9
         version: 0.14.9
@@ -112,6 +109,9 @@ importers:
       '@types/yargs':
         specifier: ^17.0.33
         version: 17.0.35
+      cycletls:
+        specifier: 2.0.5
+        version: 2.0.5
       esbuild:
         specifier: ^0.28.0
         version: 0.28.2
