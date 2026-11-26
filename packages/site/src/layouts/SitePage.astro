@@ -1,7 +1,7 @@
 ---
 // Shell for every page besides the homepage: the same nav, footer, palette and
-// type as the signal homepage, without its scroll scenes. `sections` adds an
-// "on this page" row under the nav.
+// type as the signal homepage, without its scroll scenes. `sections` fills the
+// header's row of section links, the same row the homepage has.
 import Base from "./Base.astro";
 import Nav from "../components/signal/Nav.astro";
 import Footer from "../components/signal/Footer.astro";
@@ -13,12 +13,7 @@ const { sections = [], ...metadata } = Astro.props;
 <Base {...metadata}>
   <a class="sg-skip" href="#content">Skip to content</a>
   <div class="signal sg-page">
-    <Nav />
-    {sections.length > 0 && (
-      <nav class="sg-wrap sg-subnav" aria-label="On this page">
-        {sections.map((link: { href: string; label: string }) => <a href={link.href}>{link.label}</a>)}
-      </nav>
-    )}
+    <Nav sections={sections} />
     <slot />
     <Footer />
   </div>

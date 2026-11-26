@@ -9,10 +9,6 @@
 .sg-page main { overflow-x: clip; }
 .sg-page .wrap { width: min(100% - 48px, 1280px); max-width: none; margin-inline: auto; padding-inline: 0; }
 
-/* "On this page" row under the nav. */
-.sg-subnav { display: flex; flex-wrap: wrap; gap: 6px; padding-block: 4px 0; }
-.sg-subnav a { padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--sg-line-strong); font-size: 13px; color: var(--sg-muted); transition: color .15s, background .15s; }
-.sg-subnav a:hover { color: #ededed; background: #111; }
 
 /* Platform marker: a small dot, Twitch purple by default, Kick green. */
 .sg-page { --accent: var(--sg-twitch); --other: var(--sg-kick); }
@@ -139,7 +135,6 @@
 }
 @media (max-width: 640px) {
   .sg-page .wrap { width: calc(100% - 32px); }
-  .sg-subnav a { padding: 5px 11px; font-size: 12.5px; }
   .sg-page main h1 { font-size: clamp(40px, 12vw, 54px); }
   .sg-page .lp-hero__cta .sg-pill { width: 100%; }
   .guide-overview { padding: 22px; }

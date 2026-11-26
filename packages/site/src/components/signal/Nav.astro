@@ -112,7 +112,7 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
   if (header && subnav) {
     // On phones the sections row waits below the hero (signal.css), so the
     // first screen is the hero alone.
-    const hero = document.querySelector(".sg-hero");
+    const hero = document.querySelector(".sg-hero, .lp-hero");
     if (hero) {
       new IntersectionObserver(([entry]) => {
         header.toggleAttribute("data-past-hero", !entry.isIntersecting && entry.boundingClientRect.top < 0);
