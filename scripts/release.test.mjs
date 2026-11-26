@@ -218,3 +218,21 @@ test("prepare bumps the desktop crate and only its own lockfile entry", async (t
   assert.match(lock, /name = "serde"\nversion = "1\.0\.0"/);
   assert.equal((await readJson(join(dir, "tauri.conf.json"))).version, "../../../package.json");
 });
+
+test("check requires the desktop lockfile once the crate exists", async (t) => {
+  const root = await desktopFixture(t);
+  await rm(join(root, "packages/desktop/src-tauri/Cargo.lock"));
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Cargo\.lock is missing/);
+});
+
+test("check requires tauri.conf.json to declare the root version reference", async (t) => {
+  const root = await desktopFixture(t);
+  const path = join(root, "packages/desktop/src-tauri/tauri.conf.json");
+  const { version: _, ...config } = await readJson(path);
+  await writeJson(path, config);
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /tauri\.conf\.json declares version undefined/);
+});

@@ -210,7 +210,7 @@ installers with `packages/desktop/scripts/collectInstallers.mjs`:
 Linux builds on Ubuntu 22.04 because an AppImage needs at least its build machine's glibc, and the
 `.deb` its WebKitGTK. Each leg then checks the sidecar is inside its installers: in the `.deb` and
 the extracted AppImage with its executable bit, in the mounted `.dmg` with `codesign --verify`, and
-in an administrative extraction of the `.msi`. A leg takes about 10 to 20 minutes, most of it the
+in an administrative extraction of the `.msi` and the 7-Zip listing of the NSIS `-setup.exe`. A leg takes about 10 to 20 minutes, most of it the
 Rust release build and the CLI build, and the legs run in parallel with the `cli` job.
 
 The installers are **unsigned**. macOS builds are ad-hoc signed (`signingIdentity: "-"` in
@@ -221,6 +221,14 @@ too. The user guide's "Install the desktop app" page walks through both.
 The names come from `desktopInstallerTargets` in `scripts/release/pipeline.mjs`. `publish` adds them
 under the same trusted-asset rule as the CLI archives, `attest` attests them, and `assert-assets`
 requires all eight. A checkout without `collectInstallers.mjs` builds nothing, like the CLI job.
+
+A release branch's candidate (`release_branch: true`, from Prepare release and from pushes to
+`release/*`) must publish the asset list of its own tree, not only the trusted one, because
+Release checks the merged tree's list. A release branch that picked up new assets while `main`
+still expects the old set therefore fails its candidate instead of passing and then failing at
+Release. A label-time candidate keeps the warning-only behavior. Prepare release stages the
+desktop Cargo files only when the checkout has them, so a hotfix cut from a `main` older than the
+desktop app still works.
 
 The release PR's bump includes the desktop version. `tauri.conf.json` reads it from the root
 `package.json` by path, and `scripts/release.mjs prepare` also writes it into

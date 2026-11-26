@@ -146,9 +146,15 @@ jobs:
         run: |
           $msi = Get-ChildItem desktop-assets -Filter *.msi | Select-Object -First 1
           $out = Join-Path $env:RUNNER_TEMP msi-extract
-          Start-Process msiexec.exe -Wait -ArgumentList "/a `"$($msi.FullName)`" /qn TARGETDIR=`"$out`""
+          $extract = Start-Process msiexec.exe -Wait -PassThru -ArgumentList "/a `"$($msi.FullName)`" /qn TARGETDIR=`"$out`""
+          if ($extract.ExitCode -ne 0) { throw "msiexec /a failed with $($extract.ExitCode)" }
           $found = Get-ChildItem $out -Recurse -Filter lurkloot.exe | Where-Object { $_.Directory.Name -eq 'sidecar' }
           if (-not $found) { throw "no sidecar\lurkloot.exe in $($msi.Name)" }
+          # The NSIS installer is a 7-Zip-readable archive; its listing must name the sidecar.
+          $setup = Get-ChildItem desktop-assets -Filter *-setup.exe | Select-Object -First 1
+          $listing = & 7z l $setup.FullName
+          if ($LASTEXITCODE -ne 0) { throw "7z could not read $($setup.Name)" }
+          if (-not ($listing | Select-String -Pattern 'sidecar\\lurkloot\.exe$')) { throw "no sidecar\lurkloot.exe in $($setup.Name)" }
       - uses: actions/upload-artifact@v7
         if: steps.support.outputs.available == 'true'
         with:
@@ -156,3 +162,5 @@ jobs:
           path: desktop-assets/lurkloot-desktop-*
           if-no-files-found: error
           retention-days: 7
+          # A re-run of a failed leg reuses the names the other legs already uploaded.
+          overwrite: true

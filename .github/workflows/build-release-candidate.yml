@@ -15,6 +15,12 @@ on:
       pr_number:
         type: number
         required: true
+      # A release branch's candidate is what Release ships, and Release checks it against the
+      # merged tree's own asset list. Its published set must already be that list, even when the
+      # trusted ref (main before the merge) expects fewer files.
+      release_branch:
+        type: boolean
+        default: false
     secrets:
       CRX_PRIVATE_KEY:
         required: false
@@ -249,6 +255,16 @@ jobs:
             test "$copied" -eq "$wanted"
           done
           (cd release-assets && sha256sum lurkloot-* > SHA256SUMS)
+      - name: Require the release branch's own asset list
+        if: inputs.release_branch
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node --input-type=module -e "
+            const { readdirSync } = await import('node:fs');
+            const { assertReleaseAssets } = await import('./candidate/scripts/release/pipeline.mjs');
+            assertReleaseAssets({ names: readdirSync('release-assets'), version: process.env.VERSION });
+          "
       - name: Render candidate release notes
         working-directory: candidate
         env:

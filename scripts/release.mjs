@@ -119,13 +119,16 @@ function checkDesktop(desktop, version) {
     );
     ok = false;
   }
-  if (desktop.lock !== undefined && desktop.cargoLock !== version) {
+  if (desktop.lock === undefined) {
+    console.error(`release: ${desktopCargoLockPath} is missing`);
+    ok = false;
+  } else if (desktop.cargoLock !== version) {
     console.error(
       `release: ${desktopCargoLockPath} locks ${desktopCrateName} ${desktop.cargoLock}; expected ${version}`,
     );
     ok = false;
   }
-  if (desktop.tauri !== undefined && desktop.tauri !== tauriVersionReference) {
+  if (desktop.tauri !== tauriVersionReference) {
     console.error(
       `release: ${desktopTauriConfigPath} declares version ${desktop.tauri}; it must be "${tauriVersionReference}"`,
     );
