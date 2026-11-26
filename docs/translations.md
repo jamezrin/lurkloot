@@ -17,6 +17,10 @@ Lurkloot's translations are maintained automatically with AI. Native speakers ar
 5. Extend the locale and settings tests, including regional browser-language detection and right-to-left behavior where applicable. Include the locale in the tip translation tests. Run `pnpm locales:check`, `pnpm --filter @lurkloot/extension test -- i18n.test.ts settings.test.ts tips.test.ts`, and `pnpm typecheck`.
 6. Open the popup in a real browser and check wording, text wrapping, and direction. Browser `_locales` directories are generated at build time from the catalog sources; do not commit generated outputs.
 
+## Adding or removing a message key
+
+`pnpm locales:check` checks that every catalog has exactly the keys in `en.json`, and that every key in `en.json` is referenced by name in a source file under `packages/` (tests and build output do not count). Write each key as a whole string literal where the code uses it, not built from parts at runtime, or the check reports it as unused. When you remove the last use of a key, delete it from every catalog in the same change.
+
 ## Submit a pull request
 
 1. Fork the repository and create a branch from `develop`, for example `fix/spanish-tip-wording`.

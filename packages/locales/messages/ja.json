@@ -209,15 +209,6 @@
   "settingsSearchNoResults": {
     "message": "「$1」に一致する設定はありません。"
   },
-  "settingsPlatformSettings": {
-    "message": "$1 の設定"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "詳細設定を表示"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "セクションへ移動"
-  },
   "settingsSectionAdvancedActions": {
     "message": "高度な操作"
   },
@@ -226,9 +217,6 @@
   },
   "activityTitle": {
     "message": "アクティビティ"
-  },
-  "activeStatus": {
-    "message": "有効"
   },
   "pausedStatus": {
     "message": "一時停止"
@@ -239,26 +227,14 @@
   "openInventory": {
     "message": "インベントリを開く"
   },
-  "openActivity": {
-    "message": "アクティビティを開く"
-  },
-  "closeActivity": {
-    "message": "アクティビティを閉じる"
-  },
   "openSettings": {
     "message": "設定を開く"
-  },
-  "closeSettings": {
-    "message": "設定を閉じる"
   },
   "back": {
     "message": "戻る"
   },
   "loading": {
     "message": "読み込み中"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "ウォッチリスト"
@@ -458,9 +434,6 @@
   "campaignSearchNoResults": {
     "message": "「$1」に一致するキャンペーンはありません。"
   },
-  "closeSearch": {
-    "message": "検索を閉じる"
-  },
   "search": {
     "message": "検索"
   },
@@ -502,9 +475,6 @@
   },
   "notLinked": {
     "message": "未連携"
-  },
-  "subscriptionCampaigns": {
-    "message": "サブスクキャンペーン"
   },
   "subscriptionRequired": {
     "message": "サブスク登録が必要"
@@ -584,9 +554,6 @@
   "finished": {
     "message": "完了"
   },
-  "completedCampaigns": {
-    "message": "完了"
-  },
   "upcomingPill": {
     "message": "近日開始"
   },
@@ -656,9 +623,6 @@
   "viewerCount": {
     "message": "視聴者 $1 人"
   },
-  "settingsGeneralTitle": {
-    "message": "一般設定"
-  },
   "settingsGeneralDescription": {
     "message": "言語、起動時の動作、ポップアップの挙動。"
   },
@@ -677,9 +641,6 @@
   "autoStartDescription": {
     "message": "拡張機能の読み込み直後からファームを開始します。"
   },
-  "notificationsTitle": {
-    "message": "通知"
-  },
   "notificationsDescription": {
     "message": "報酬の準備ができたときやキャンペーンが終了したときに通知します。"
   },
@@ -697,9 +658,6 @@
   },
   "noDropsLeftDescription": {
     "message": "有効なキャンペーンがすべて終了したら通知します。"
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "受け取り、適格性、優先度、キャンペーンの表示。"
@@ -725,23 +683,11 @@
   "lowAvailabilityFirst": {
     "message": "配信が少ない順"
   },
-  "watchlistSettingsTitle": {
-    "message": "ウォッチリスト"
-  },
-  "watchlistSettingsDescription": {
-    "message": "対象ドロップがないときに使う予備チャンネル。"
-  },
   "preferKnownChannelsTitle": {
     "message": "フォロー中とウォッチリストを優先"
   },
   "preferKnownChannelsDescription": {
     "message": "ドロップが複数チャンネルで配信中のとき、フォロー中またはウォッチリストのチャンネルを未知のチャンネルより選びます。"
-  },
-  "platformSettingsTitle": {
-    "message": "プラットフォーム設定"
-  },
-  "farmingTabsTitle": {
-    "message": "ファーム用タブ"
   },
   "farmingTabsDescription": {
     "message": "動画タブでのファームの制御。タブレス低リソースモードが有効な間はタブ固有の設定は無効です。"
@@ -814,9 +760,6 @@
   },
   "tabAndWindow": {
     "message": "タブ + ウィンドウ"
-  },
-  "advancedTitle": {
-    "message": "詳細"
   },
   "advancedDescription": {
     "message": "内容を理解している場合のみ変更してください — 低レベルのスケジューラとログの動作を制御します。"
@@ -959,17 +902,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "このキャンペーンで現在ファームできる報酬はありません。"
   },
-  "automationSectionTitle": {
-    "message": "自動化"
-  },
-  "farmOnPlatform": {
-    "message": "$1 でドロップをファームし、ウォッチリストのチャンネルを視聴します。"
-  },
   "enabled": {
     "message": "有効"
-  },
-  "watchlistEditHint": {
-    "message": "$1 を選択したあと、ウォッチリストタブから編集できます。"
   },
   "autoClaimChannelPointsTitle": {
     "message": "チャンネルポイントを自動受け取り"
@@ -1064,9 +998,6 @@
   "includeCategoriesInstruction": {
     "message": "$1 ではこれらのカテゴリのみファームします。"
   },
-  "categoriesToFarm": {
-    "message": "ファームするカテゴリ"
-  },
   "noCategoriesSelected": {
     "message": "カテゴリが選択されていません — $1 では何もファームされません。下からカテゴリを追加してください。"
   },
@@ -1084,15 +1015,6 @@
   },
   "noCategoriesFound": {
     "message": "カテゴリが見つかりません。"
-  },
-  "alreadyAdded": {
-    "message": "すでに追加済みです。"
-  },
-  "activityLogLevelsTitle": {
-    "message": "アクティビティログのレベル"
-  },
-  "activityLogLevelsDescription": {
-    "message": "アクティビティログに記録するレベルを選びます。エラーは常に保持されます。"
   },
   "rewardFilterTitle": {
     "message": "ファームする報酬"
@@ -1421,9 +1343,6 @@
   "cliExportTitle": {
     "message": "ヘッドレス CLI"
   },
-  "cliExportDescription": {
-    "message": "このブラウザのログインセッションを使い、サーバーまたは Docker 上で Lurkloot CLI によりドロップをファームします。"
-  },
   "cliExportHint": {
     "message": "Twitch と Kick のセッショントークンをエクスポートし、CLI の「login --import」で再利用できます。ファイルは秘密にしてください — 持っている人はあなたのセッションを使えます。"
   },
@@ -1537,9 +1456,6 @@
   },
   "activitySessionOutside": {
     "message": "セッション外"
-  },
-  "activitySessionEarlier": {
-    "message": "それ以前"
   },
   "activitySessionEmpty": {
     "message": "まだ何も獲得していません。報酬とポイントは獲得すると、ここに表示されます。"
@@ -2147,9 +2063,6 @@
   "campaignRewardsProgress": {
     "message": "報酬 $1/$2"
   },
-  "campaignTimeLeft": {
-    "message": "残り $1"
-  },
   "campaignFactStarts": {
     "message": "開始"
   },
@@ -2365,9 +2278,6 @@
   },
   "gamesNoMoreResults": {
     "message": "他のゲームは見つかりません。"
-  },
-  "navBeta": {
-    "message": "Beta"
   },
   "navExtensions": {
     "message": "拡張機能"

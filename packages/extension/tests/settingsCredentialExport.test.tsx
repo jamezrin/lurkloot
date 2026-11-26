@@ -26,7 +26,6 @@ const labels: Record<string, string> = {
   openSettings: "Open settings",
   back: "Back",
   settingsSearchPlaceholder: "Search settings…",
-  settingsShowAdvancedTitle: "Show advanced settings",
   cliExportHint: "Keep the exported session credentials private.",
   cliExportConfirm: "Anyone with this file can use your sessions.",
   cliExportButton: "Export credentials",

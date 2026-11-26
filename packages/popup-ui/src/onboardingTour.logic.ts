@@ -20,6 +20,7 @@ function step(
   view: PopupView,
   targets: readonly string[],
   titleKey: string,
+  bodyKey: string,
   extra: { settingsFocus?: string; railView?: PopupView } = {},
 ): TourStep {
   return {
@@ -30,40 +31,95 @@ function step(
     ...(extra.railView ? { railView: extra.railView } : {}),
     targets,
     titleKey,
-    bodyKey: titleKey.replace("Title", "Body"),
+    bodyKey,
   };
 }
 
 export const TOUR_STEPS: readonly TourStep[] = [
-  step("statusStrip", "twitch", "queue", ['[data-tour="status-strip"]'], "tourStatusStripTitle"),
-  step("platformSwitch", "twitch", "queue", ['[data-tour="platform-switch"]'], "tourPlatformTitle"),
-  step("queueOrder", "twitch", "queue", ['[data-tour="queue-list"]'], "tourQueueOrderTitle", {
-    railView: "queue",
-  }),
+  step(
+    "statusStrip",
+    "twitch",
+    "queue",
+    ['[data-tour="status-strip"]'],
+    "tourStatusStripTitle",
+    "tourStatusStripBody",
+  ),
+  step(
+    "platformSwitch",
+    "twitch",
+    "queue",
+    ['[data-tour="platform-switch"]'],
+    "tourPlatformTitle",
+    "tourPlatformBody",
+  ),
+  step(
+    "queueOrder",
+    "twitch",
+    "queue",
+    ['[data-tour="queue-list"]'],
+    "tourQueueOrderTitle",
+    "tourQueueOrderBody",
+    {
+      railView: "queue",
+    },
+  ),
   step(
     "rewardFilter",
     "twitch",
     "queue",
     ['[data-tour="reward-filter"]'],
     "tourRewardFilterTitle",
+    "tourRewardFilterBody",
     { railView: "queue" },
   ),
-  step("completed", "twitch", "completed", ['[data-tour="completed-list"]'], "tourCompletedTitle", {
-    railView: "completed",
-  }),
-  step("games", "twitch", "games", ['[data-tour="games-mode"]'], "tourGamesTitle", {
-    railView: "games",
-  }),
-  step("watchlist", "twitch", "watchlist", ['[data-tour="watchlist"]'], "tourWatchlistTitle", {
-    railView: "watchlist",
-  }),
-  step("extensions", "twitch", "nopixel", ['[data-tour="rail-extensions"]'], "tourExtensionsTitle"),
+  step(
+    "completed",
+    "twitch",
+    "completed",
+    ['[data-tour="completed-list"]'],
+    "tourCompletedTitle",
+    "tourCompletedBody",
+    {
+      railView: "completed",
+    },
+  ),
+  step(
+    "games",
+    "twitch",
+    "games",
+    ['[data-tour="games-mode"]'],
+    "tourGamesTitle",
+    "tourGamesBody",
+    {
+      railView: "games",
+    },
+  ),
+  step(
+    "watchlist",
+    "twitch",
+    "watchlist",
+    ['[data-tour="watchlist"]'],
+    "tourWatchlistTitle",
+    "tourWatchlistBody",
+    {
+      railView: "watchlist",
+    },
+  ),
+  step(
+    "extensions",
+    "twitch",
+    "nopixel",
+    ['[data-tour="rail-extensions"]'],
+    "tourExtensionsTitle",
+    "tourExtensionsBody",
+  ),
   step(
     "kickProgress",
     "kick",
     "queue",
     ['[data-account-progress="kick"]'],
     "tourKickProgressTitle",
+    "tourKickProgressBody",
   ),
   step(
     "kickChallenges",
@@ -71,14 +127,30 @@ export const TOUR_STEPS: readonly TourStep[] = [
     "settings",
     ['[data-tour="kick-challenges"]'],
     "tourKickChallengesTitle",
+    "tourKickChallengesBody",
     { settingsFocus: "kick", railView: "settings" },
   ),
-  step("activity", "kick", "activity", ['[data-tour="activity-list"]'], "tourActivityTitle", {
-    railView: "activity",
-  }),
+  step(
+    "activity",
+    "kick",
+    "activity",
+    ['[data-tour="activity-list"]'],
+    "tourActivityTitle",
+    "tourActivityBody",
+    {
+      railView: "activity",
+    },
+  ),
   // The last step points at Settings itself rather than one group in it: the
   // copy is about everything Settings offers, so the rail entry is the target.
-  step("settings", "kick", "settings", ['button[data-view="settings"]'], "tourSettingsTitle"),
+  step(
+    "settings",
+    "kick",
+    "settings",
+    ['button[data-view="settings"]'],
+    "tourSettingsTitle",
+    "tourSettingsBody",
+  ),
 ];
 
 export type TourPhase =
