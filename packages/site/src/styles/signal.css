@@ -99,18 +99,22 @@
 .sg-subnav { display: grid; grid-template-rows: 1fr; border-top: 1px solid var(--sg-line); transition: grid-template-rows .25s ease, border-color .25s ease, visibility .25s allow-discrete; }
 .sg-subnav__row { min-height: 0; overflow: hidden; }
 .sg-subnav__inner {
-  position: relative; display: flex; gap: 2px; align-items: center; padding-block: 6px;
+  position: relative; display: flex; gap: 26px; align-items: stretch; height: 40px;
   overflow-x: auto; scrollbar-width: none;
 }
 .sg-subnav__inner::-webkit-scrollbar { display: none; }
 .sg-subnav a {
   display: inline-flex; align-items: center; gap: 6px; flex: none;
-  padding: 4px 10px; border-radius: 6px; font-size: 13px; color: var(--sg-faint);
-  transition: color .15s, background .15s; white-space: nowrap;
+  font-size: 13px; color: var(--sg-faint); transition: color .15s; white-space: nowrap;
 }
-.sg-subnav a:first-child { margin-left: -10px; }
-.sg-subnav a:hover { color: #ededed; }
-.sg-subnav a[aria-current="location"] { color: #ededed; background: rgb(255 255 255 / 6%); }
+.sg-subnav a:hover, .sg-subnav a[aria-current="location"] { color: #ededed; }
+/* The tab underline under the current section; Nav.astro moves it. */
+.sg-subnav__mark {
+  position: absolute; left: 0; bottom: 0; width: var(--w, 0); height: 2px; border-radius: 2px;
+  background: #ededed; translate: var(--x, 0) 0; opacity: 0; pointer-events: none;
+  transition: translate .35s cubic-bezier(.2, .8, .2, 1), width .35s cubic-bezier(.2, .8, .2, 1), opacity .2s;
+}
+.sg-subnav__mark[data-on] { opacity: 1; }
 /* Anchor jumps land below the header, whatever its height (Nav.astro measures it). */
 html:has(.sg-nav) { scroll-padding-top: calc(var(--sg-header-h, 64px) + 8px); }
 
@@ -548,7 +552,7 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
   .sg-card__art { padding-inline: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sg-subnav { transition: none; }
+  .sg-subnav, .sg-subnav__mark { transition: none; }
   .sg-menu[open] :is(.sg-menu__links a, .sg-menu__end) { animation: none; }
   /* Still rows you can scroll sideways, each game once. */
   .sg-marquee__row { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }

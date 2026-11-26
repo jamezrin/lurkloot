@@ -263,6 +263,12 @@ test("gives every page the same header links", async () => {
       NAV_LINKS.map((link) => link.href),
       page,
     );
+    // A page's section links live in the header's row (Nav.astro), never in a
+    // second row of its own.
+    const rows = html.match(/aria-label="On this page"/g) ?? [];
+    assert.ok(rows.length <= 1, `${page} has one sections row`);
+    if (rows.length === 1)
+      assert.match(header, /class="sg-subnav"/, `${page} puts its sections in the header`);
   }
   const home = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
   for (const section of HOME_SECTIONS) {
