@@ -243,9 +243,10 @@ const games = [
         <p class="eyebrow">Trust</p>
         <h2>Open source, and nothing leaves your machine</h2></div><div class="guide-section-body">
         <p>
-          Lurkloot never asks for your Twitch password, never exports your cookies, and has
-          no server of its own to send anything to. It runs locally against the session you
-          are already signed into. The whole codebase — extension, CLI and shared engine —
+          Lurkloot never asks for your Twitch password, sends your session only to Twitch, and has
+          no server of its own to send anything to. The only other copy of your sign-in is a file
+          you save yourself with Export credentials, to run the headless CLI. It runs locally
+          against the session you are already signed into. The whole codebase — extension, CLI and shared engine —
           is on <a href={LINKS.github} target="_blank" rel="noopener">GitHub</a> under Apache
           2.0, so the privacy claims are checkable rather than promised.
         </p>

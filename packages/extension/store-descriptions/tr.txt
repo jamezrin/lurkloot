@@ -2,7 +2,7 @@ Lurkloot, Twitch ve Kick droplarını sizin için kasar; böylece yayınları ke
 
 Varsayılan olarak video sekmesini açık tutmak yerine arka planda izleme sinyalleri gönderen hafif, sekmesiz modu kullanır; böylece bant genişliğinden ve sistem kaynaklarından tasarruf edersiniz. İstediğiniz drop için doğru kanalı takip eder, kampanyalar bittiğinde otomatik geçiş yapar ve uygun tüm ödülleri alır. İlerleme durursa droplarınızın devam etmesi için sabitlenmiş, sessiz bir sekmeye geri döner.
 
-Verileriniz size ait kalır: parola yok, dışa aktarılan çerez veya oturum anahtarı yok; her şey cihazınızda kalır.
+Verileriniz size ait kalır: parola yok; her şey cihazınızda kalır.
 
 Açılır pencereden her platformu etkinleştirebilir, önemsediğiniz kampanyalara ve oyunlara öncelik verebilir, platforma özel İzleme Listelerini ve hariç tutulan kanalları yönetebilir, otomatik alma ile bildirimleri açıp kapatabilirsiniz.
 
