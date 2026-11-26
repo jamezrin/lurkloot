@@ -12,6 +12,9 @@
         "src/runtime/impitStandalone.ts"
       ]
     },
+    "packages/desktop": {
+      "entry": ["scripts/*.mjs", "shell/*.js"]
+    },
     "packages/extension": {
       "entry": ["scripts/**/*.mjs"]
     },
