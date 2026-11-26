@@ -70,7 +70,6 @@ export type TickTrigger =
 export type TickDiagnosticContext = Required<
   Pick<DiagnosticEvent, "globalTickId" | "platformTickId">
 >;
-export type { CredentialAvailability } from "./hostPorts";
 
 // What a tick cycle's commit left, for the services that follow tick cycles
 // (Kick page-context recovery, #588): the committed state and the platforms

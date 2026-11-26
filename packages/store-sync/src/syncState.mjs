@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 // again and an image changed by hand on the dashboard is replaced, instead of
 // either being trusted by a count. It lives in the bundle directory and is
 // never touched by a producer replacing its sections.
-export const SYNC_STATE_FILE = "sync-state.json";
+const SYNC_STATE_FILE = "sync-state.json";
 const SCHEMA = 1;
 
 export async function readSyncState(dir) {

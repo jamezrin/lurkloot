@@ -10,7 +10,7 @@ import type { LockTracker, TransactionLock } from "@lurkloot/core/controller";
 // Violations are recorded as well as thrown or reported, because best-effort
 // callers swallow errors; the suites using the tracker assert there are none.
 
-export interface LockViolation {
+interface LockViolation {
   readonly message: string;
   readonly stack?: string;
 }
@@ -145,7 +145,7 @@ function guardPorts<T extends object>(
 // The controller's view of an adapter, with its provider and tab calls guarded.
 // Reads through to `adapter`, so a test can still replace or inspect its mocks.
 const guardedAdapters = new WeakMap<object, WeakMap<TestLockTracker, object>>();
-export function guardAdapter<A extends object>(adapter: A, tracker: TestLockTracker): A {
+function guardAdapter<A extends object>(adapter: A, tracker: TestLockTracker): A {
   // One guard per adapter, so the controller still sees a stable identity.
   let byTracker = guardedAdapters.get(adapter);
   if (!byTracker) guardedAdapters.set(adapter, (byTracker = new WeakMap()));
@@ -157,7 +157,7 @@ export function guardAdapter<A extends object>(adapter: A, tracker: TestLockTrac
 
 // The controller's deps with the tracker installed and every provider, tab and
 // timer port guarded. Adapters the deps create are guarded too.
-export function guardDeps<D extends object>(
+function guardDeps<D extends object>(
   deps: D,
   tracker: TestLockTracker,
 ): D & { lockTracker: LockTracker } {

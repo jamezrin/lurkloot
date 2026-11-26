@@ -8,7 +8,7 @@ export function isLocaleCode(value) {
   return typeof value === "string" && LOCALE_CODE.test(value);
 }
 
-export function dashboardCode(code) {
+function dashboardCode(code) {
   return code.replace(/_/g, "-");
 }
 

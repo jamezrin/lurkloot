@@ -124,7 +124,7 @@ export type CampaignStats = {
   complete: boolean;
 };
 
-export type CampaignTimelineMarker = {
+type CampaignTimelineMarker = {
   id: string;
   name: string;
   // Where on the campaign's watch timeline the reward becomes claimable, 0–1.
@@ -209,8 +209,6 @@ export type CampaignView = {
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;
 
-export type ScreenshotLayout = "hero" | "extras" | "steps" | "settings" | "updated";
-
 type ScreenshotCopy = {
   glow: string;
   eyebrowKey: string;
@@ -224,7 +222,7 @@ export type ScreenshotPopupVariant = ScreenshotCopy & {
   view: "drops" | "settings" | "watchlist";
 };
 
-export type ScreenshotMarketingVariant = ScreenshotCopy & {
+type ScreenshotMarketingVariant = ScreenshotCopy & {
   layout: "updated";
 };
 

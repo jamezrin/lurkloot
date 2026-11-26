@@ -51,7 +51,6 @@ import {
   resetPlaybackPriming,
   twitchMintHeld,
   waitForIntegrityCapture,
-  type PageContextSource,
   type PageContextTab,
   type TabRegistry,
   type TwitchIntegrityAcquisitionResult,

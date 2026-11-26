@@ -1,6 +1,5 @@
 import type {
   CompatibilityHost,
-  CompatibilitySelections,
   KickClaimId,
   KickProfileId,
   TwitchHeartbeatId,

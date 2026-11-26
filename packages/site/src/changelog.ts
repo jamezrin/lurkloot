@@ -2,7 +2,7 @@ import changelogData from "./changelog.json";
 
 export type ChangeKind = "new" | "improved" | "fixed";
 
-export interface Change {
+interface Change {
   kind: ChangeKind;
   text: string;
 }

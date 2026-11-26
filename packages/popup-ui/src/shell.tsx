@@ -38,17 +38,6 @@ export type PopupView =
   | "activity"
   | "settings";
 
-export const POPUP_VIEWS: PopupView[] = [
-  "queue",
-  "completed",
-  "games",
-  "watchlist",
-  "nopixel",
-  "fortnite",
-  "activity",
-  "settings",
-];
-
 interface NavItem {
   view: PopupView;
   labelKey: string;
@@ -82,7 +71,7 @@ const SOURCE_ITEMS: NavItem[] = [...EXTENSION_ITEMS, ...OTHER_ITEMS];
 
 // The view that shows each watch source. Drops is the whole Drops group, so its
 // live mark goes on the Queue.
-export const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
+const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
   drops: "queue",
   nopixel: "nopixel",
   fortnite: "fortnite",
