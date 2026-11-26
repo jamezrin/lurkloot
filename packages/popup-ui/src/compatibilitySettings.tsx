@@ -1,4 +1,3 @@
-import React from "react";
 import type { CompatibilitySettings as CompatibilitySelections } from "@lurkloot/shared/models";
 import type { Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";

@@ -1,4 +1,4 @@
-import type { ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { Platform } from "@lurkloot/shared/models";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { ScreenshotVariant } from "./types";
 

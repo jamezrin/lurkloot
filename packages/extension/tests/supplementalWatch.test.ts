@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { runSchedulerTick, type SchedulerTestAdapter } from "./helpers/schedulerTick";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { DropCampaign } from "@lurkloot/shared/models";
 function fixture() {
   const state = structuredClone(DEFAULT_STATE),

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // Base UI's Select needs real mouse and keyboard events, which linkedom lacks.
-import React, { useState } from "react";
+import { useState } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";

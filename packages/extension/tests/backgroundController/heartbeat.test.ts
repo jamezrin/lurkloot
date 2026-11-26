@@ -19,7 +19,6 @@ import {
   WATCH_ALARM_SUSTAIN_PERIOD_MINUTES,
 } from "@lurkloot/core/controller";
 import {
-  adapter,
   advanceToNextHeartbeatDue,
   aggregateHeartbeatDiagnostics,
   allDiagnostics,
@@ -35,7 +34,6 @@ import {
   lastAggregateDiagnostic,
   reward,
   tablessEnv,
-  twitchOperation,
 } from "../helpers/backgroundController";
 
 // Tabless watchers and heartbeats.

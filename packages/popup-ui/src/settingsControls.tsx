@@ -1,8 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { Ban, ChevronDown, Lock, Minus, Plus } from "lucide-react";
+import { Ban, ChevronDown, Minus, Plus } from "lucide-react";
 import { NumberField } from "@base-ui/react/number-field";
-import type { ExtensionSettings } from "@lurkloot/shared/models";
 import { COLLAPSED_SETTINGS_SECTIONS_KEY } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
