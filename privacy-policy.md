@@ -21,7 +21,7 @@ To authorize requests inside that session, the extension reads certain session v
 
 These values are used only to talk to each platform's own API as the logged-in user. The extension never asks for the user's password. These platform session values are not sent to the developer, analytics services, or optional reward providers. The Kick session token is not persisted; the Twitch integrity bundle is stored only transiently and expires.
 
-The one exception is **Settings → Export credentials**, which exists so the user can sign in Lurkloot's own headless command-line version. Only when the user starts it and confirms, the extension reads the Twitch `auth-token` and `unique_id` cookies, Twitch's Kasada session cookie (`KP_UIDz-ssn`, from `k.twitchcdn.net`) and the Kick `session_token`, and saves them as a JSON file on the user's device. The extension never sends that file anywhere. Anyone holding it can use those sessions, so the user should keep it private and never attach it to a bug report.
+The one exception is **Settings → Export credentials**, which exists so the user can sign in Lurkloot's own headless command-line version. Only after the user starts the export and confirms it does the extension read the Twitch `auth-token` and `unique_id` cookies, Twitch's Kasada session cookie (`KP_UIDz-ssn`, from `k.twitchcdn.net`) and the Kick `session_token`, and save them as a JSON file on the user's device. The extension never sends that file anywhere. Anyone holding it can use those sessions, so the user should keep it private and never attach it to a bug report.
 
 ## Optional Twitch Reward Providers
 
