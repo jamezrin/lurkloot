@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 poza filtrem nagród"
   },
+  "queueSkippedGuide": {
+    "message": "Dlaczego kampania jest pomijana?"
+  },
   "queueActionRequired": {
     "message": "Wymagane działanie"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "Otwórz ekwipunek"
+  },
+  "openGuide": {
+    "message": "Przewodnik użytkownika"
   },
   "openSettings": {
     "message": "Otwórz ustawienia"

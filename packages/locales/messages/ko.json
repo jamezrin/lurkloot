@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 — 보상 필터 밖"
   },
+  "queueSkippedGuide": {
+    "message": "캠페인을 건너뛰는 이유는?"
+  },
   "queueActionRequired": {
     "message": "조치 필요"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "인벤토리 열기"
+  },
+  "openGuide": {
+    "message": "사용자 가이드"
   },
   "openSettings": {
     "message": "설정 열기"

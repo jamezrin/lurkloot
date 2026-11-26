@@ -12,6 +12,7 @@ import { CompletedPanel } from "../../popup-ui/src/completed";
 import type { PopupAdapter } from "../../popup-ui/src/types";
 import { campaignViewFromCampaign } from "../../popup-ui/src/viewModels";
 import { createDemoPopupAdapter } from "../../popup-ui/src/demo";
+import { GUIDE_SKIPPED_URL } from "../../popup-ui/src/constants";
 
 const idleSession: WatchSession = {
   platform: "kick",
@@ -160,6 +161,26 @@ describe("campaign farming rejection presentation", () => {
     );
     expect(container.querySelector("[data-farming-rejection-indicator]")).not.toBeNull();
     expect(container.textContent).toContain("campaignRejectionUnlinkedDisabled");
+  });
+
+  it("links the Skipped group to the guide's list of skip reasons", () => {
+    const source: DropCampaign = { ...sourceCampaign(), platform: "twitch", accountLinked: false };
+    const currentSettings = mergeSettings(undefined);
+    currentSettings.platform.twitch.unlinkedCampaigns = "skip";
+    const { container, openLink } = mount(undefined, source, {
+      skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: currentSettings.deadlineSafetyMarginMinutes,
+      settings: currentSettings,
+    });
+
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[data-queue-disclosure="skipped"]')?.click(),
+    );
+    const link = container.querySelector<HTMLButtonElement>('[data-queue-guide-link="skipped"]');
+    expect(link?.textContent).toContain("queueSkippedGuide");
+    act(() => link?.click());
+
+    expect(openLink).toHaveBeenCalledWith(GUIDE_SKIPPED_URL);
   });
 });
 

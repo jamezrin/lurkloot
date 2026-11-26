@@ -54,6 +54,7 @@ import { DEFAULT_HOST_CAPABILITIES, HostCapabilitiesContext } from "./hostCapabi
 import { GamesPanel } from "./games";
 import {
   GITHUB_STAR_NUDGE_MIN_DAYS,
+  GUIDE_URL,
   PLATFORM_INVENTORY_URLS,
   PLATFORMS,
   RATE_NUDGE_MIN_DAYS,
@@ -1738,6 +1739,7 @@ export function PopupFrame({
                         onOpenInventory={() =>
                           openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)
                         }
+                        onOpenGuide={() => openHttpsLink(GUIDE_URL, adapter.openLink)}
                         onOpenChangelog={
                           adapter.changelogUrl
                             ? () =>

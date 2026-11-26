@@ -28,8 +28,12 @@ const FIREFOX_ADD_ONS_URL = `https://addons.mozilla.org/firefox/addon/${FIREFOX_
 export const FIREFOX_ADD_ONS_REVIEW_URL = `${FIREFOX_ADD_ONS_URL}reviews/`;
 // Canonical marketing/landing site for the extension.
 export const SITE_URL = "https://lurkloot.jamezrin.com";
+// The user guide on the site, and the pages the popup links to directly. The
+// anchor is the heading's id on that page; the site's link test keeps it real.
+export const GUIDE_URL = `${SITE_URL}/guide`;
+export const GUIDE_SKIPPED_URL = `${GUIDE_URL}/popup/queue#why-is-a-campaign-skipped`;
+export const CLI_DOCS_URL = `${GUIDE_URL}/headless/overview`;
 export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
-export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
 export const GITHUB_TRANSLATION_GUIDE_URL =
   "https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md";

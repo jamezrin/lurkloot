@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 mimo váš filtr odměn"
   },
+  "queueSkippedGuide": {
+    "message": "Proč je kampaň přeskočena?"
+  },
   "queueActionRequired": {
     "message": "Vyžaduje akci"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "Otevřít inventář"
+  },
+  "openGuide": {
+    "message": "Uživatelská příručka"
   },
   "openSettings": {
     "message": "Otevřít nastavení"

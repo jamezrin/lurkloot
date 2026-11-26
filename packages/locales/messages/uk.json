@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 поза вашим фільтром нагород"
   },
+  "queueSkippedGuide": {
+    "message": "Чому кампанію пропущено?"
+  },
   "queueActionRequired": {
     "message": "Потрібна дія"
   },
@@ -226,6 +229,9 @@
   },
   "openInventory": {
     "message": "Відкрити інвентар"
+  },
+  "openGuide": {
+    "message": "Посібник користувача"
   },
   "openSettings": {
     "message": "Відкрити налаштування"

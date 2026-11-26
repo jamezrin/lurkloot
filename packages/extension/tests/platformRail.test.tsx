@@ -44,6 +44,7 @@ function mountRail(
           onViewChange={() => undefined}
           onPlatformChange={onPlatformChange}
           onOpenInventory={() => undefined}
+          onOpenGuide={() => undefined}
         />
       </I18nContext.Provider>,
     );
