@@ -37,7 +37,13 @@ export function createCycleClient(cycleTls: CycleTlsClient): ImpersonatingClient
       const response = await cycleTls.request({
         url,
         method: request.method,
-        headers: { ...request.headers, Connection: "close" },
+        headers: {
+          // The binary folds every spelling into one header, in random order.
+          ...Object.fromEntries(
+            Object.entries(request.headers).filter(([name]) => name.toLowerCase() !== "connection"),
+          ),
+          Connection: "close",
+        },
         body: request.body ?? "",
         ja3: CHROME_JA3,
         http2Fingerprint: CHROME_HTTP2,

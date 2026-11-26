@@ -101,6 +101,16 @@ describe("cycletls request frames", () => {
     expect(sent[0]?.http2Fingerprint).toBe(CHROME_HTTP2);
   });
 
+  it("replace a caller's own connection header with Connection: close", async () => {
+    const [frame] = await sentFrames([
+      [
+        "https://example.test/",
+        { method: "get", headers: { connection: "keep-alive", Accept: "*/*" } },
+      ],
+    ]);
+    expect(frame?.headers).toEqual({ Accept: "*/*", Connection: "close" });
+  });
+
   it("send Chrome 124's user agent, matching the JA3, when the caller names none", async () => {
     const [frame] = await sentFrames([["https://example.test/", { method: "get", headers: {} }]]);
     expect(frame?.userAgent).toBe(CHROME_UA);
