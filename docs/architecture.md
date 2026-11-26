@@ -972,6 +972,17 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   the session bus (`tray.rs`), checked at start and again on each close; without one, closing
   the window quits instead. A second launch
   focuses the running window (the single-instance plugin).
+- **Launch at startup (#1027).** This is a shell setting, not a farming one. The tray's check item
+  writes `desktop.json` in the app's config folder (`shell_settings.rs`), which serve never reads.
+  It also registers or removes this user's startup entry (`autostart.rs`):
+  - Windows: the HKCU Run value, never HKLM or `StartupApproved`.
+  - macOS: a LaunchAgent plist written with XML escaping.
+  - Linux: an XDG autostart entry with its `Exec` path quoted to the Desktop Entry spec.
+
+  No plugin is involved, so the page has no command for it. The entry passes `--autostart`. A
+  launch with it builds the main window hidden when a registered tray host exists, and shown
+  otherwise. A launch never writes the entry, so an OS-side opt-out stands. A failed toggle
+  leaves the check and `desktop.json` showing the OS's real state.
 - **Quit.** Every way out (tray Quit, the last window closed without a tray, the OS's quit)
   goes through one path: hide the window, close serve's stdin, wait up to 20 s for it to save
   and exit, then kill its process tree and exit. serve runs in its own process group on Linux
@@ -980,7 +991,8 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   stdin pipe and serve saves and exits on its own; the job has no kill-on-close limit, so that
   holds on Windows too. Every exit's status goes to `serve.log`.
 - **Tests.** `cargo test` in `packages/desktop/src-tauri` covers the ready-line parser, the
-  navigation rules, the token script, the sign-in redirect matcher and its `state` check, the
+  navigation rules, the token script, the sign-in redirect matcher and its `state` check, the shell
+  settings file and the startup-launch rules, the
   calls to serve against a stand-in (only the address is posted), and the supervisor against a stand-in serve (ready URL,
   stdin-close shutdown, killing a tree that will not stop, restart and failure counting). The
   `build-desktop` CI workflow runs it with clippy on Linux, macOS and Windows.
