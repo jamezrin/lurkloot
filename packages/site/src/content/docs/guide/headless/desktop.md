@@ -45,7 +45,8 @@ The installers are not signed with a Windows or Apple developer certificate yet,
 ## Using it
 
 - Sign in from Accounts in the window. Twitch's browser sign-in opens in a window of the app's own, so there is nothing to paste. See [Sign in to the CLI](/guide/headless/sign-in) for what each sign-in can see.
-- Closing the window keeps farming. The tray icon has *Open Lurkloot* and *Quit*. On a Linux desktop with no tray, closing the window quits.
+- Closing the window keeps farming. The tray icon has *Open Lurkloot*, *Launch at startup* and *Quit*. On a Linux desktop with no tray, closing the window quits.
+- *Launch at startup* starts Lurkloot when you sign in to your computer. It is off until you tick it. Lurkloot then farms from the tray, without opening its window, until you choose *Open Lurkloot*. If your desktop has no tray, the window opens instead. If you turn it off in your system's own startup settings (*Task Manager → Startup apps* on Windows, *System Settings → General → Login Items* on macOS), Lurkloot leaves it off.
 - Your settings and sign-ins are kept in your user folder, so they survive reinstalling and updating:
 
 | System | Folder |
