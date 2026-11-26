@@ -15,10 +15,19 @@ use url::Url;
 pub const FIRST_CHECK_DELAY: Duration = Duration::from_secs(60);
 /// Then every few hours.
 pub const CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+/// A check that takes longer than this gives up until the next one.
+pub const CHECK_TIMEOUT: Duration = Duration::from_secs(30);
+/// The whole download, for the largest update on a slow connection; past it
+/// the install fails and can be tried again.
+pub const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
 /// The event the window's app UI hears an update's progress on
 /// (`DESKTOP_UPDATE_EVENT` in packages/app-ui/src/desktopHost.ts).
 pub const UPDATE_EVENT: &str = "lurkloot:desktop-update";
+/// The window property that keeps the latest update state, for an app UI
+/// that mounts after the event (`DESKTOP_UPDATE_PROPERTY` in
+/// packages/app-ui/src/desktopHost.ts).
+pub const UPDATE_PROPERTY: &str = "lurklootDesktopUpdate";
 /// The fragment of the link the app UI opens to ask for the install
 /// (`INSTALL_UPDATE_FRAGMENT` in packages/app-ui/src/desktopHost.ts).
 pub const INSTALL_UPDATE_FRAGMENT: &str = "lurkloot-install-update";
@@ -49,11 +58,16 @@ pub fn wants_install(url: &Url) -> bool {
         })
 }
 
-/// The script that tells the window's app UI about the update.
+/// The script that tells the window's app UI about the update: kept on the
+/// window for an app UI that has not mounted yet, and sent as an event for one
+/// that has.
 pub fn notice_script(notice: &Notice) -> String {
     let event = serde_json::to_string(UPDATE_EVENT).expect("a string serializes");
+    let property = serde_json::to_string(UPDATE_PROPERTY).expect("a string serializes");
     let detail = serde_json::to_string(notice).expect("a notice serializes");
-    format!("window.dispatchEvent(new CustomEvent({event}, {{ detail: {detail} }}));")
+    format!(
+        "(function () {{ var detail = {detail}; window[{property}] = detail; window.dispatchEvent(new CustomEvent({event}, {{ detail: detail }})); }})();"
+    )
 }
 
 /// The tray item's label for a notice.
@@ -98,7 +112,7 @@ mod tests {
         });
         assert_eq!(
             script,
-            r#"window.dispatchEvent(new CustomEvent("lurkloot:desktop-update", { detail: {"status":"ready","version":"1.26.0"} }));"#
+            r#"(function () { var detail = {"status":"ready","version":"1.26.0"}; window["lurklootDesktopUpdate"] = detail; window.dispatchEvent(new CustomEvent("lurkloot:desktop-update", { detail: detail })); })();"#
         );
         assert!(notice_script(&Notice::Installing {
             version: "1.26.0".into()
@@ -116,7 +130,7 @@ mod tests {
             version: "\"});alert(1);//</script>".into(),
         });
         assert!(script.contains(r#""version":"\"});alert(1);//</script>""#));
-        assert!(script.ends_with("} }));"));
+        assert!(script.ends_with("})();"));
     }
 
     #[test]

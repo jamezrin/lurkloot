@@ -254,14 +254,22 @@ The approved `publish` job signs them. After `assert-assets` it installs the Tau
 `scripts/release/cli.mjs updater-assets`. That signs a copy of each update with
 `tauri signer sign --app-version X.Y.Z`, binding the signature to its version, and writes
 `latest.json`. The `.sig` files and `latest.json` go up with `gh release upload --clobber` before
-promotion, so `latest.json` is in place the moment the release becomes latest. A rerun strips them
-from the downloaded release (`strip-updater-assets`) before checking the reviewed set, and signs
-again. These files are the only assets the stable release carries beyond the candidate's.
+promotion, so `latest.json` is in place the moment the release becomes latest. These files are the
+only assets the stable release carries beyond the candidate's.
+
+A rerun strips them from the downloaded release (`strip-updater-assets`) before checking the
+reviewed set. It signs again only while the release is still a prerelease, which nothing reads
+yet. Once the release is stable its `latest.json` is live, so a rerun keeps the published files. A
+stable release without `latest.json` is the one exception, and gets signed then. A recovery of a
+release older than the updater (no `scripts/release/updater.mjs` in its tree) skips these steps.
 
 The app checks the signature on every download, against `plugins.updater.pubkey` in
 `tauri.conf.json`. With `requireSignedVersion` it also refuses a signature made for another
 version, so a forged `latest.json` cannot pair a newer version number with an older signed
-release. A tampered file or manifest fails verification and nothing is installed.
+release. A tampered file fails verification and nothing is installed. The signature covers a
+file and its version, not the manifest's platform keys: a forged manifest could still point one
+installer kind's key at another kind's signed file of the same version. Tauri installs whatever kind
+the downloaded bytes are, so that file would install the same, genuine version.
 `packages/desktop/src-tauri/tests/updater_key.rs` checks that the configured public key verifies a
 fixture signed with the release key, so a wrong key fails CI rather than every install.
 

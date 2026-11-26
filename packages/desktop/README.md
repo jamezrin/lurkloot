@@ -48,9 +48,14 @@ sources or cycletls, and it farms only through `serve`.
     X.Y.Z** to the tray and a bar to the window. Choosing either downloads it, checks its signature
     against `plugins.updater.pubkey`, stops serve the way Quit does, installs and restarts. A
     failed download or signature check leaves everything running and the update ready to try again.
-  - **What it installs:** only the installer kind the app came from (AppImage, `.deb` through
-    `pkexec`, `.msi`, NSIS, macOS `.app`), with the sidecar inside, so serve and the shell always
-    match. Config and credentials stay in the app-data folder.
+  - **What it installs:** the update published for the installer kind the app came from (AppImage,
+    `.deb` through `pkexec`, `.msi`, NSIS, macOS `.app`), with the sidecar inside, so serve and the
+    shell always match. Config and credentials stay in the app-data folder.
+  - **How it installs:** the install checks the manifest again, so a release repaired since the last
+    check is the one used. Checks time out after 30 s and downloads after 30 min. Only one check runs
+    at a time, and none replaces an install in progress. The app can't exit while the installer runs.
+    An install that fails restarts the old version, which shows the update as failed and ready to
+    try again (`failedUpdate` in `desktop.json`).
   - **Signing:** each signature is bound to its version (`requireSignedVersion`), so a forged
     manifest can't downgrade the app. `RELEASING.md` ("Desktop updates") covers the key and how to
     rotate it.

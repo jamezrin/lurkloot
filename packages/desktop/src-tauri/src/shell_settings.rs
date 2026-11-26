@@ -22,6 +22,10 @@ pub struct ShellSettings {
     /// (#1028). On by default; an update is still installed only when the
     /// user chooses.
     pub automatic_updates: bool,
+    /// The version whose install failed just before the app restarted, so
+    /// the restarted app can say so; cleared once that version runs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_update: Option<String>,
 }
 
 impl Default for ShellSettings {
@@ -29,6 +33,7 @@ impl Default for ShellSettings {
         Self {
             launch_at_startup: false,
             automatic_updates: true,
+            failed_update: None,
         }
     }
 }
@@ -133,6 +138,22 @@ mod tests {
         assert!(settings.launch_at_startup && settings.automatic_updates);
         std::fs::write(dir.join(FILE_NAME), "{\"automaticUpdates\": false}").unwrap();
         assert!(!file.load().automatic_updates);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn remembers_a_failed_install_only_while_there_is_one() {
+        let dir = temp_dir("failed-update");
+        let file = SettingsFile::in_dir(&dir);
+        file.save(&ShellSettings::default()).unwrap();
+        let text = std::fs::read_to_string(dir.join(FILE_NAME)).unwrap();
+        assert!(!text.contains("failedUpdate"), "{text}");
+        file.save(&ShellSettings {
+            failed_update: Some("1.26.0".into()),
+            ..ShellSettings::default()
+        })
+        .unwrap();
+        assert_eq!(file.load().failed_update.as_deref(), Some("1.26.0"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

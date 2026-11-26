@@ -133,6 +133,8 @@ describe("@lurkloot/desktop contract with serve and the app UI", () => {
     const app = ts("app-ui/src/desktopHost.ts");
     expect(rustConst(shell, "UPDATE_EVENT")).toBeTruthy();
     expect(rustConst(shell, "UPDATE_EVENT")).toBe(tsConst(app, "DESKTOP_UPDATE_EVENT"));
+    expect(rustConst(shell, "UPDATE_PROPERTY")).toBeTruthy();
+    expect(rustConst(shell, "UPDATE_PROPERTY")).toBe(tsConst(app, "DESKTOP_UPDATE_PROPERTY"));
     expect(rustConst(shell, "INSTALL_UPDATE_FRAGMENT")).toBeTruthy();
     expect(rustConst(shell, "INSTALL_UPDATE_FRAGMENT")).toBe(
       tsConst(app, "INSTALL_UPDATE_FRAGMENT"),

@@ -75,6 +75,9 @@ export function onTwitchSignIn(
 // the page asks for the install by opening the install link, which the shell
 // catches. Neither happens in a plain browser.
 export const DESKTOP_UPDATE_EVENT = "lurkloot:desktop-update";
+// The shell also keeps the latest state on the window, so an app UI that
+// mounts after the event (a reload, a slow catalog load) still shows it.
+export const DESKTOP_UPDATE_PROPERTY = "lurklootDesktopUpdate";
 export const INSTALL_UPDATE_FRAGMENT = "lurkloot-install-update";
 export const INSTALL_UPDATE_LINK = `https://lurkloot.jamezrin.com/guide/headless/desktop#${INSTALL_UPDATE_FRAGMENT}`;
 
@@ -92,12 +95,14 @@ function readUpdate(detail: unknown): DesktopUpdate | undefined {
   return undefined;
 }
 
-/** Calls the listener with each update state the desktop app reports.
- * Returns the unsubscribe function. */
+/** Calls the listener with the update state the desktop app reported before,
+ * if any, then with each one it reports. Returns the unsubscribe function. */
 export function onDesktopUpdate(
   listener: (update: DesktopUpdate) => void,
   target: Window = window,
 ): () => void {
+  const current = readUpdate(Reflect.get(target, DESKTOP_UPDATE_PROPERTY));
+  if (current) listener(current);
   const handle = (event: Event) => {
     const update = readUpdate((event as CustomEvent<unknown>).detail);
     if (update) listener(update);

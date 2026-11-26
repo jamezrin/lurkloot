@@ -978,7 +978,12 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
     `UPDATE_EVENT`, re-sent on every page load. The install starts only from the tray item or from
     the app UI opening the `INSTALL_UPDATE_FRAGMENT` link, which the shell catches like the
     sign-in link.
-  - **Install:** it stops serve through the same `begin_shutdown`/`stop_serve` path as Quit.
+  - **Install:** it checks the manifest again, then downloads, then stops serve as Quit does
+    (`begin_shutdown`). `shutdown_done` stays false until the installer returns, so no other way out
+    ends the app halfway through. Only the main window, on serve's own page, can reach `open_link`.
+    The sign-in window's links go to the system browser, and a `lib.rs` test pins that.
+    The latest notice is also kept on the window (`UPDATE_PROPERTY`) for an app UI that mounts after
+    the event.
   - **Signatures:** they are checked against the configured key and bound to their version.
     `tests/updater_key.rs` fails if the configured key stops matching the release key.
   - **Publishing:** only the production job signs. `latest.json` comes only from the stable

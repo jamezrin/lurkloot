@@ -10,7 +10,11 @@ import {
   STORAGE_PREFIX,
 } from "../src/adapter";
 import { App } from "../src/App";
-import { DESKTOP_UPDATE_EVENT, INSTALL_UPDATE_FRAGMENT } from "../src/desktopHost";
+import {
+  DESKTOP_UPDATE_EVENT,
+  DESKTOP_UPDATE_PROPERTY,
+  INSTALL_UPDATE_FRAGMENT,
+} from "../src/desktopHost";
 import { loadAppCatalogs } from "../src/i18n";
 import { createTokenPromptBridge } from "../src/tokenPrompt";
 import { resetFixture } from "../fixture/controlPlane";
@@ -311,6 +315,16 @@ describe("desktop app updates (#1028)", () => {
       "_blank",
       "noopener,noreferrer",
     );
+  });
+
+  it("shows an update the desktop app reported before the app mounted", async () => {
+    Reflect.set(window, DESKTOP_UPDATE_PROPERTY, { status: "ready", version: "2.1.0" });
+    try {
+      const { container } = await mountApp();
+      expect(container.querySelector('[data-desktop-update="ready"]')).not.toBeNull();
+    } finally {
+      Reflect.deleteProperty(window, DESKTOP_UPDATE_PROPERTY);
+    }
   });
 
   it("shows the install's progress and a failure that can be tried again", async () => {

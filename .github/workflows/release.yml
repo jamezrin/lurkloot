@@ -216,8 +216,11 @@ jobs:
         run: |
           mkdir release-assets
           gh release download "v$VERSION" --dir release-assets
-          # A rerun finds the updater's files from the last attempt; they are signed again below.
-          node scripts/release/cli.mjs strip-updater-assets --assets release-assets --version "$VERSION"
+          # The updater's files (#1028) are not reviewed assets: a rerun finds them from the last
+          # attempt. A recovery of a release older than the updater has none, and no command for them.
+          if test -f scripts/release/updater.mjs; then
+            node scripts/release/cli.mjs strip-updater-assets --assets release-assets --version "$VERSION"
+          fi
           (cd release-assets && sha256sum -c SHA256SUMS)
       - name: Verify the release asset set
         run: node scripts/release/cli.mjs assert-assets --assets release-assets --version "$VERSION"
@@ -225,16 +228,37 @@ jobs:
       # stable release carries signatures and latest.json, and a candidate never feeds the updater.
       # The reviewed bytes are signed as they are, each signature bound to this version, and the
       # files go up before promotion: the moment the release becomes latest, latest.json is there.
+      # Once the release is stable its latest.json is live, so a rerun leaves it alone: replacing
+      # it could break the feed mid-upload, or re-sign a key-rotation release with the new key.
+      - id: updater
+        name: Decide whether to sign the desktop updates
+        run: |
+          if ! test -f scripts/release/updater.mjs; then
+            echo "this release predates the desktop updater"
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+          elif [ "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true ]; then
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "v$VERSION" --json assets --jq '.assets[].name' | grep -qxF latest.json; then
+            echo "v$VERSION is stable and already carries latest.json; keeping it"
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$VERSION is stable without latest.json; signing it now"
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        if: steps.updater.outputs.sign == 'true'
       - name: Install the Tauri CLI for signing
+        if: steps.updater.outputs.sign == 'true'
         run: pnpm install --frozen-lockfile --filter @lurkloot/desktop
       - name: Sign the desktop updates and publish latest.json
+        if: steps.updater.outputs.sign == 'true'
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           node scripts/release/cli.mjs updater-assets --assets release-assets --out updater-assets \
             --version "$VERSION" --repository "$GITHUB_REPOSITORY"
+          # Only a prerelease's files are replaced, which nothing reads yet.
           gh release upload "v$VERSION" updater-assets/* --clobber
       # No tag is created here. It was created during candidacy at the release branch head, and the
       # main ruleset's strict status-check policy guarantees that tree is what landed on main.

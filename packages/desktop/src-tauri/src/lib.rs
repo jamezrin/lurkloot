@@ -45,8 +45,12 @@ const FAILURES_BEFORE_ERROR: u32 = 3;
 
 #[derive(Default)]
 struct UpdateState {
-    found: Option<tauri_plugin_updater::Update>,
+    /// The version the last check found; the install checks again for the
+    /// current manifest rather than reuse that one.
+    found: Option<String>,
     notice: Option<updates::Notice>,
+    /// A check is running: only one at a time.
+    checking: bool,
 }
 
 #[derive(Default)]
@@ -197,6 +201,12 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     // entirely turns the setting off to match.
     if settings.launch_at_startup && matches!(autostart::is_registered(), Ok(false)) {
         settings.launch_at_startup = false;
+        let _ = settings_file.save(&settings);
+    }
+    // An install that failed before the last restart is reported until this
+    // version is the one it tried to install.
+    if settings.failed_update.as_deref() == Some(app.package_info().version.to_string().as_str()) {
+        settings.failed_update = None;
         let _ = settings_file.save(&settings);
     }
     let launch_at_startup = settings.launch_at_startup;
@@ -640,31 +650,49 @@ fn start_update_checks(app: &AppHandle) {
     });
 }
 
-/// Asks GitHub for a newer release. A found one is announced, never installed.
+/// Asks GitHub for a newer release, one check at a time. A found one is
+/// announced, never installed, and never replaces an install in progress.
 fn check_for_update(app: &AppHandle) {
     let shell = Arc::clone(&app.state::<Arc<Shell>>());
-    if !shell.settings.lock().unwrap().automatic_updates
-        || shell.quitting.load(Ordering::SeqCst)
-        || shell.update.lock().unwrap().found.is_some()
-    {
+    if !shell.settings.lock().unwrap().automatic_updates || shell.quitting.load(Ordering::SeqCst) {
         return;
     }
-    let found = tauri::async_runtime::block_on(async {
-        match app.updater() {
-            Ok(updater) => updater.check().await,
-            Err(error) => Err(error),
+    {
+        let mut state = shell.update.lock().unwrap();
+        if state.checking || matches!(state.notice, Some(updates::Notice::Installing { .. })) {
+            return;
         }
+        state.checking = true;
+    }
+    let found = tauri::async_runtime::block_on(async {
+        app.updater_builder()
+            .timeout(updates::CHECK_TIMEOUT)
+            .build()?
+            .check()
+            .await
     });
+    let mut state = shell.update.lock().unwrap();
+    state.checking = false;
     match found {
         Ok(Some(update)) => {
-            let notice = updates::Notice::Ready {
-                version: update.version.clone(),
-            };
-            {
-                let mut state = shell.update.lock().unwrap();
-                state.found = Some(update);
-                state.notice = Some(notice);
+            if matches!(state.notice, Some(updates::Notice::Installing { .. })) {
+                return;
             }
+            let version = update.version;
+            let failed_before = shell.settings.lock().unwrap().failed_update.as_deref()
+                == Some(version.as_str())
+                || matches!(&state.notice, Some(updates::Notice::Failed { version: failed }) if *failed == version);
+            state.notice = Some(if failed_before {
+                updates::Notice::Failed {
+                    version: version.clone(),
+                }
+            } else {
+                updates::Notice::Ready {
+                    version: version.clone(),
+                }
+            });
+            state.found = Some(version);
+            drop(state);
             announce_update(app);
         }
         Ok(None) => {}
@@ -701,14 +729,15 @@ fn announce_update(app: &AppHandle) {
     }
 }
 
-/// The user chose to install: download and verify the update, stop serve as
-/// Quit does, install, and restart. A download or signature failure leaves
-/// everything running and the update ready to try again.
+/// The user chose to install: check the manifest again, download and verify
+/// the update, stop serve as Quit does, install, and restart. A check,
+/// download or signature failure leaves everything running and the update
+/// ready to try again. The app may not exit until the installer returns.
 fn install_update(app: &AppHandle) {
     let shell = Arc::clone(&app.state::<Arc<Shell>>());
-    let update = {
+    let shown = {
         let mut state = shell.update.lock().unwrap();
-        let Some(update) = state.found.clone() else {
+        let Some(version) = state.found.clone() else {
             return;
         };
         if matches!(state.notice, Some(updates::Notice::Installing { .. }))
@@ -717,21 +746,37 @@ fn install_update(app: &AppHandle) {
             return;
         }
         state.notice = Some(updates::Notice::Installing {
-            version: update.version.clone(),
+            version: version.clone(),
         });
-        update
+        version
     };
     announce_update(app);
     let app = app.clone();
     std::thread::spawn(move || {
-        let downloaded = tauri::async_runtime::block_on(update.download(|_, _| {}, || {}));
-        let bytes = match downloaded {
-            Ok(bytes) => bytes,
+        // A fresh manifest, so a release repaired since the last check is the
+        // one downloaded, with a deadline so a stalled download ends.
+        let downloaded = tauri::async_runtime::block_on(async {
+            let update = app
+                .updater_builder()
+                .timeout(updates::DOWNLOAD_TIMEOUT)
+                .build()
+                .map_err(|error| error.to_string())?
+                .check()
+                .await
+                .map_err(|error| error.to_string())?
+                .ok_or_else(|| "no update is available any more".to_owned())?;
+            let bytes = update
+                .download(|_, _| {}, || {})
+                .await
+                .map_err(|error| error.to_string())?;
+            Ok::<_, String>((update, bytes))
+        });
+        let (update, bytes) = match downloaded {
+            Ok(downloaded) => downloaded,
             Err(error) => {
                 eprintln!("The update could not be downloaded: {error}");
-                shell.update.lock().unwrap().notice = Some(updates::Notice::Failed {
-                    version: update.version.clone(),
-                });
+                shell.update.lock().unwrap().notice =
+                    Some(updates::Notice::Failed { version: shown });
                 announce_update(&app);
                 return;
             }
@@ -739,13 +784,24 @@ fn install_update(app: &AppHandle) {
         if !begin_shutdown(&app) {
             return;
         }
-        stop_serve(&shell);
-        // On Windows a successful install hands over to the installer and exits
-        // here. Elsewhere the app restarts into the new version, or into this
-        // one if the install failed, since serve is stopped either way.
+        // serve stops as on Quit, but shutdown_done stays false while the
+        // installer runs, so no other way out (the Dock's Quit, the OS's)
+        // can end the app halfway through replacing it.
+        if let Some(supervisor) = shell.supervisor.get() {
+            supervisor.shutdown(SHUTDOWN_GRACE);
+        }
+        // On Windows a successful install hands over to the installer and
+        // exits here. Elsewhere the app restarts into the new version, or into
+        // this one if the install failed, which then says so.
         if let Err(error) = update.install(bytes) {
             eprintln!("The update could not be installed: {error}");
+            if let Some(file) = shell.settings_file.get() {
+                let mut settings = shell.settings.lock().unwrap();
+                settings.failed_update = Some(update.version.clone());
+                let _ = file.save(&settings);
+            }
         }
+        shell.shutdown_done.store(true, Ordering::SeqCst);
         app.restart();
     });
 }
@@ -872,6 +928,21 @@ mod tests {
             shell.status_page("failed").unwrap().as_str(),
             "http://tauri.localhost/index.html#failed"
         );
+    }
+
+    // The install link (#1028) and the sign-in link are caught in open_link,
+    // which only the main window, on serve's own page, may reach. The Twitch
+    // sign-in window shows remote pages, so its links only ever go to the
+    // system browser.
+    #[test]
+    fn only_the_main_window_reaches_open_link() {
+        let source = include_str!("lib.rs");
+        let start = source.find("fn sign_in_window(").unwrap();
+        let end = source.find("fn sign_in_window_closed(").unwrap();
+        let sign_in_window = &source[start..end];
+        assert!(sign_in_window.contains("open_externally("));
+        assert!(!sign_in_window.contains("open_link("));
+        assert!(!sign_in_window.contains("install_update("));
     }
 
     #[test]
