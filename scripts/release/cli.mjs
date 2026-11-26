@@ -83,7 +83,8 @@ export function pendingNotesAllowed({ pending }) {
 }
 
 // The add-on's gecko id, as declared in packages/extension/wxt.config.ts.
-export const FIREFOX_ADDON_ID = "lurkloot@jamezrin.name";
+// lurkloot@jamezrin.name is already registered on AMO, so a new submission with it fails.
+export const FIREFOX_ADDON_ID = "lurkloot@jamezrin.com";
 export const FIREFOX_REVIEWER_NOTES = "packages/extension/amo/reviewer-notes.txt";
 
 // Firefox Add-ons publication starts once both credentials exist in the production environment.

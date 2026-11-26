@@ -1,7 +1,7 @@
 Lurkloot collects Twitch and Kick viewer drops in the user's own signed-in browser session. It opens visible, pinned, muted watch tabs on channels that earn drops, or optionally sends the platforms' own watch heartbeats without a tab, and claims rewards. It is open source (Apache-2.0): https://github.com/jamezrin/lurkloot
 
 BUILDING
-The source archive is the pnpm workspace. BUILDING.md at its root has the steps: Node 24, pnpm 12.16.1, then `pnpm install --frozen-lockfile` and `pnpm build:firefox`. The output in packages/extension/.output/firefox-mv2/ matches the uploaded package file for file; the release pipeline checks this on every build.
+The source archive is the pnpm workspace. BUILDING.md at its root has the steps: Node 24, pnpm 12.23.0, then `pnpm install --frozen-lockfile` and `pnpm build:firefox`. The output in packages/extension/.output/firefox-mv2/ matches the uploaded package file for file; the release pipeline checks this on every build.
 
 TESTING
 Sign in to twitch.tv or kick.com in the same profile, open the toolbar popup and turn a platform on. The popup lists the active campaigns, and the extension opens a muted watch tab for one.
