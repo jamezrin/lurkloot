@@ -264,7 +264,9 @@ fn start_twitch_sign_in(app: &AppHandle) {
             return;
         };
         let link = match serve_api::sign_in_link(&serve, token) {
-            Ok(link) => link,
+            // A fresh state per sign-in: only a redirect that brings it back
+            // is posted.
+            Ok(link) => twitch_sign_in::with_state(&link, &token::generate_token()),
             Err(result) => {
                 shell.signing_in.store(false, Ordering::SeqCst);
                 report_sign_in(&app, &result);
@@ -286,6 +288,11 @@ fn start_twitch_sign_in(app: &AppHandle) {
 }
 
 fn sign_in_window(app: &AppHandle, shell: &Arc<Shell>, link: Url) -> tauri::Result<WebviewWindow> {
+    let state = link
+        .query_pairs()
+        .find(|(key, _)| key == "state")
+        .map(|(_, value)| value.into_owned())
+        .unwrap_or_default();
     let navigate_shell = Arc::clone(shell);
     let navigate_app = app.clone();
     let popup_app = app.clone();
@@ -296,25 +303,27 @@ fn sign_in_window(app: &AppHandle, shell: &Arc<Shell>, link: Url) -> tauri::Resu
         // Twitch's cookies never persist in the app.
         .incognito(true)
         // No initialization script: this window never gets serve's token.
-        .on_navigation(move |url| match twitch_sign_in::read_navigation(url) {
-            Redirect::Elsewhere => twitch_sign_in::sign_in_window_may_load(url),
-            // The redirect URI: never loaded. Keep Twitch's answer (only the
-            // first) and close the window, which reports the outcome.
-            outcome => {
-                let mut stored = navigate_shell.sign_in_outcome.lock().unwrap();
-                if stored.is_none() {
-                    *stored = Some(outcome);
-                }
-                drop(stored);
-                let app = navigate_app.clone();
-                let _ = navigate_app.run_on_main_thread(move || {
-                    if let Some(window) = app.get_webview_window(SIGN_IN_WINDOW) {
-                        let _ = window.close();
+        .on_navigation(
+            move |url| match twitch_sign_in::read_navigation(url, &state) {
+                Redirect::Elsewhere => twitch_sign_in::sign_in_window_may_load(url),
+                // The redirect URI: never loaded. Keep Twitch's answer (only the
+                // first) and close the window, which reports the outcome.
+                outcome => {
+                    let mut stored = navigate_shell.sign_in_outcome.lock().unwrap();
+                    if stored.is_none() {
+                        *stored = Some(outcome);
                     }
-                });
-                false
-            }
-        })
+                    drop(stored);
+                    let app = navigate_app.clone();
+                    let _ = navigate_app.run_on_main_thread(move || {
+                        if let Some(window) = app.get_webview_window(SIGN_IN_WINDOW) {
+                            let _ = window.close();
+                        }
+                    });
+                    false
+                }
+            },
+        )
         .on_new_window(move |url, _features| {
             if navigation::external(&url) == Navigation::OpenExternally {
                 open_externally(&popup_app, &url);
@@ -335,6 +344,7 @@ fn sign_in_window_closed(app: &AppHandle) {
         let result = match outcome {
             None | Some(Redirect::Elsewhere) => SignInResult::Cancelled,
             Some(Redirect::Unreadable) => SignInResult::unreadable(),
+            Some(Redirect::Unverified) => SignInResult::unverified(),
             Some(Redirect::Answer(address)) => {
                 let serve = shell.serve_url.lock().unwrap().clone();
                 match (serve, shell.token.get()) {

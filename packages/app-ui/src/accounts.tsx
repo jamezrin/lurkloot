@@ -367,8 +367,12 @@ function BrowserLogin({ api, onChanged }: { api: AuthApi; onChanged(): void }): 
         signedIn(result.login, result.environmentOverride);
       } else if (result.status === "cancelled") {
         setNotice({ tone: "error", text: t("appTwitchSignInWindowCancelled") });
-      } else if (result.error.code === "redirect_unreadable") {
-        // This system's web view hid Twitch's answer: paste it instead.
+      } else if (
+        result.error.code === "redirect_unreadable"
+        || result.error.code === "redirect_unverified"
+      ) {
+        // The window could not read Twitch's answer, or got one that was not
+        // for this sign-in: paste the address instead.
         setPasteFlow(true);
         setNotice({ tone: "error", text: t("appTwitchSignInWindowUnreadable") });
       } else {

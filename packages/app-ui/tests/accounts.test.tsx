@@ -332,22 +332,25 @@ describe("Twitch sign-in in the desktop app (#1026)", () => {
     expect(pasteInput(container)).toBeNull();
   });
 
-  it("falls back to pasting when the window cannot read Twitch's answer", async () => {
-    asDesktopApp();
-    const { container, adapter } = await mountAccounts();
-    await report({ status: "failed", error: { code: "redirect_unreadable", message: "x" } });
-    expect(container.querySelector('[data-account-notice="error"]')?.textContent).toBe(
-      "appTwitchSignInWindowUnreadable",
-    );
-    expect(pasteInput(container)).not.toBeNull();
-    // The paste steps' link is unmarked, so the desktop app opens it in the
-    // system browser, where the address can be copied.
-    await act(async () =>
-      container.querySelector<HTMLButtonElement>("[data-browser-login-open]")!.click(),
-    );
-    await vi.waitFor(() => expect(adapter.openLink).toHaveBeenCalledTimes(1));
-    expect(new URL(adapter.openLink.mock.calls[0][0] as string).hash).toBe("");
-  });
+  it.each(["redirect_unreadable", "redirect_unverified"])(
+    "falls back to pasting when the window cannot use Twitch's answer (%s)",
+    async (code) => {
+      asDesktopApp();
+      const { container, adapter } = await mountAccounts();
+      await report({ status: "failed", error: { code, message: "x" } });
+      expect(container.querySelector('[data-account-notice="error"]')?.textContent).toBe(
+        "appTwitchSignInWindowUnreadable",
+      );
+      expect(pasteInput(container)).not.toBeNull();
+      // The paste steps' link is unmarked, so the desktop app opens it in the
+      // system browser, where the address can be copied.
+      await act(async () =>
+        container.querySelector<HTMLButtonElement>("[data-browser-login-open]")!.click(),
+      );
+      await vi.waitFor(() => expect(adapter.openLink).toHaveBeenCalledTimes(1));
+      expect(new URL(adapter.openLink.mock.calls[0][0] as string).hash).toBe("");
+    },
+  );
 
   it("offers the paste flow on request and ignores events it cannot read", async () => {
     asDesktopApp();

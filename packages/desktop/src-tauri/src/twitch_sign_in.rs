@@ -45,14 +45,37 @@ pub fn is_authorize_url(url: &Url) -> bool {
         && url.path() == "/oauth2/authorize"
 }
 
+/// The sign-in link with this sign-in's own `state`, replacing any it had.
+/// Twitch returns `state` in the redirect, and only a redirect that carries
+/// it back is taken: anything else that sends the window to the redirect URI
+/// (a frame, a page Twitch's sign-in links to) cannot sign the app in to an
+/// account of its choosing.
+pub fn with_state(link: &Url, state: &str) -> Url {
+    let mut link = link.clone();
+    let kept: Vec<(String, String)> = link
+        .query_pairs()
+        .filter(|(key, _)| key != "state")
+        .map(|(key, value)| (key.into_owned(), value.into_owned()))
+        .collect();
+    link.query_pairs_mut()
+        .clear()
+        .extend_pairs(kept)
+        .append_pair("state", state);
+    link
+}
+
 /// What a navigation of the sign-in window means.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Redirect {
     /// Not the redirect URI: let the window go there.
     Elsewhere,
-    /// The redirect URI with Twitch's answer (a token or a refusal): this
-    /// whole address is what serve's route reads, and the only thing posted.
+    /// The redirect URI with Twitch's answer (a token or a refusal) for this
+    /// sign-in: this whole address is what serve's route reads, and the only
+    /// thing posted.
     Answer(String),
+    /// The redirect URI with an answer that does not carry this sign-in's
+    /// `state`: never posted.
+    Unverified,
     /// The redirect URI, but this web view did not show the fragment, so the
     /// answer cannot be read here and the paste flow has to be used.
     Unreadable,
@@ -61,8 +84,9 @@ pub enum Redirect {
 /// Reads a navigation of the sign-in window. The redirect URI is exactly
 /// `https://www.twitch.tv/` (TWITCH_BROWSER_LOGIN_REDIRECT_URI in
 /// packages/cli/src/auth/twitchBrowserLogin.ts); every navigation there is
-/// stopped, so twitch.tv never loads with the token in its address.
-pub fn read_navigation(url: &Url) -> Redirect {
+/// stopped, so twitch.tv never loads with the token in its address. `state`
+/// is this sign-in's own (with_state).
+pub fn read_navigation(url: &Url, state: &str) -> Redirect {
     let is_redirect_uri = url.scheme() == "https"
         && url.host() == Some(Host::Domain("www.twitch.tv"))
         && url.port().is_none()
@@ -72,16 +96,27 @@ pub fn read_navigation(url: &Url) -> Redirect {
     if !is_redirect_uri {
         return Redirect::Elsewhere;
     }
-    let has = |part: Option<&str>, key: &str| {
-        part.is_some_and(|part| url::form_urlencoded::parse(part.as_bytes()).any(|(k, _)| k == key))
+    let get = |part: Option<&str>, key: &str| {
+        part.and_then(|part| {
+            url::form_urlencoded::parse(part.as_bytes())
+                .find(|(k, _)| k == key)
+                .map(|(_, value)| value.into_owned())
+        })
     };
-    if has(url.fragment(), "access_token")
-        || has(url.fragment(), "error")
-        || has(url.query(), "error")
+    // A token comes in the fragment; Twitch can report a refusal in either part.
+    let answer = if get(url.fragment(), "access_token").is_some()
+        || get(url.fragment(), "error").is_some()
     {
+        url.fragment()
+    } else if get(url.query(), "error").is_some() {
+        url.query()
+    } else {
+        return Redirect::Unreadable;
+    };
+    if !state.is_empty() && get(answer, "state").as_deref() == Some(state) {
         Redirect::Answer(url.as_str().to_owned())
     } else {
-        Redirect::Unreadable
+        Redirect::Unverified
     }
 }
 
@@ -127,6 +162,16 @@ impl SignInResult {
                 message: message.into(),
             },
         }
+    }
+
+    /// An answer for another sign-in, or with no `state`: never posted. The UI
+    /// falls back to pasting.
+    pub fn unverified() -> Self {
+        SignInResult::failed(
+            None,
+            "redirect_unverified",
+            "The sign-in window got an answer that was not for this sign-in; paste the address instead",
+        )
     }
 
     /// The web view did not show Twitch's answer: the UI falls back to pasting.
@@ -209,15 +254,38 @@ mod tests {
         )));
     }
 
+    const STATE: &str = "s7a8e9";
+
     #[test]
-    fn takes_the_redirect_with_a_token_or_a_refusal() {
+    fn adds_this_sign_ins_state_to_the_link() {
+        let link =
+            url("https://id.twitch.tv/oauth2/authorize?client_id=x&state=old&response_type=token");
+        let signed = with_state(&link, STATE);
+        let pairs: Vec<(String, String)> = signed
+            .query_pairs()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect();
+        assert_eq!(
+            pairs,
+            [
+                ("client_id", "x"),
+                ("response_type", "token"),
+                ("state", STATE)
+            ]
+            .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        );
+        assert!(is_authorize_url(&signed));
+    }
+
+    #[test]
+    fn takes_the_redirect_with_a_token_or_a_refusal_for_this_sign_in() {
         for answer in [
-            "https://www.twitch.tv/#access_token=abc123&scope=&token_type=bearer",
-            "https://www.twitch.tv/#error=access_denied&error_description=The+user+denied",
-            "https://www.twitch.tv/?error=redirect_mismatch&error_description=x",
+            "https://www.twitch.tv/#access_token=abc123&scope=&state=s7a8e9&token_type=bearer",
+            "https://www.twitch.tv/#error=access_denied&error_description=The+user+denied&state=s7a8e9",
+            "https://www.twitch.tv/?error=redirect_mismatch&error_description=x&state=s7a8e9",
         ] {
             assert_eq!(
-                read_navigation(&url(answer)),
+                read_navigation(&url(answer), STATE),
                 Redirect::Answer(url(answer).to_string()),
                 "{answer}"
             );
@@ -225,15 +293,37 @@ mod tests {
     }
 
     #[test]
+    fn never_takes_an_answer_for_another_sign_in() {
+        for other in [
+            // Someone else's token sent to the redirect URI without our state.
+            "https://www.twitch.tv/#access_token=theirs",
+            "https://www.twitch.tv/#access_token=theirs&state=guessed",
+            "https://www.twitch.tv/#access_token=theirs&state=",
+            // The state in the other part of the address.
+            "https://www.twitch.tv/?state=s7a8e9#access_token=theirs",
+            "https://www.twitch.tv/?error=x#state=s7a8e9",
+        ] {
+            assert_eq!(
+                read_navigation(&url(other), STATE),
+                Redirect::Unverified,
+                "{other}"
+            );
+        }
+        // With no state of our own, nothing is ever taken.
+        assert_eq!(
+            read_navigation(&url("https://www.twitch.tv/#access_token=abc&state="), ""),
+            Redirect::Unverified
+        );
+    }
+
+    #[test]
     fn stops_the_redirect_uri_even_when_its_answer_cannot_be_read() {
-        assert_eq!(
-            read_navigation(&url("https://www.twitch.tv/")),
-            Redirect::Unreadable
-        );
-        assert_eq!(
-            read_navigation(&url("https://www.twitch.tv/#scope=")),
-            Redirect::Unreadable
-        );
+        for unreadable in ["https://www.twitch.tv/", "https://www.twitch.tv/#scope="] {
+            assert_eq!(
+                read_navigation(&url(unreadable), STATE),
+                Redirect::Unreadable
+            );
+        }
     }
 
     #[test]
@@ -252,7 +342,11 @@ mod tests {
             "https://user:pass@www.twitch.tv/#access_token=abc",
             "http://www.twitch.tv/#access_token=abc",
         ] {
-            assert_eq!(read_navigation(&url(other)), Redirect::Elsewhere, "{other}");
+            assert_eq!(
+                read_navigation(&url(other), STATE),
+                Redirect::Elsewhere,
+                "{other}"
+            );
         }
     }
 
