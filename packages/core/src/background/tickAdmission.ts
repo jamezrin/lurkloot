@@ -1,6 +1,10 @@
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
-import { PLATFORMS } from "./constants";
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+} from "@lurkloot/shared/models";
 import { type ControllerSlices, lateBound } from "./context";
 import { hasRecentManualWatch } from "../core/manualWatch";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -222,7 +226,7 @@ export function createTickAdmission<S extends EngineSettings>(
   }
 
   function requestTickBatch(
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     trigger: TickTrigger,
     discoverySignal?: DiscoverySignalRefreshRequest,
   ): TickBatch {
@@ -243,7 +247,7 @@ export function createTickAdmission<S extends EngineSettings>(
   }
 
   function tick(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     trigger: TickTrigger = "unknown",
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards> {
@@ -288,7 +292,7 @@ export function createTickAdmission<S extends EngineSettings>(
   // snapshot back immediately; the popup re-polls getSnapshot on its own cadence
   // and picks the result up when the tick lands.
   function tickInBackground(
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     trigger: TickTrigger,
     onCompleted?: () => void,
   ): void {
@@ -389,7 +393,7 @@ export function createTickAdmission<S extends EngineSettings>(
   // then hand off for every platform that claimed. Kept separate from tick() so
   // the handoff's own inner ticks cannot recurse into another handoff.
   function tickAndHandOff(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     trigger: TickTrigger = "unknown",
   ): Promise<SchedulerState | undefined> {
     const batch = requestTickBatch(platforms, trigger);

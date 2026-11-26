@@ -1,12 +1,13 @@
 import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type {
-  DropCampaign,
-  DropReward,
-  EngineSettings,
-  Platform,
-  SchedulerState,
-  WatchReasonCode,
-  WatchSession,
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type DropReward,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+  type WatchReasonCode,
+  type WatchSession,
 } from "@lurkloot/shared/models";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
@@ -21,7 +22,7 @@ import {
   type RewardClaimGuard,
 } from "../core/rewardClaims";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { KICK_DROP_CLAIMS_ALARM_NAME, PLATFORMS, TWITCH_DROP_CLAIMS_ALARM_NAME } from "./constants";
+import { KICK_DROP_CLAIMS_ALARM_NAME, TWITCH_DROP_CLAIMS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundJob } from "./jobs";
 import type { StateTransaction } from "./stateTransaction";

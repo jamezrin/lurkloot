@@ -1,5 +1,10 @@
 import type { EngineEvent } from "@lurkloot/shared/events";
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+} from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { normalizeRewardFilter, rewardGroupKinds } from "@lurkloot/shared/rewardFilter";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -10,7 +15,6 @@ import {
 } from "../core/tabRegistry";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "../core/heartbeatCadence";
 import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
-import { PLATFORMS } from "./constants";
 
 // The state transaction (#585): the locks that serialize settings and
 // scheduler-state writes, the commits made under them, and the hooks that

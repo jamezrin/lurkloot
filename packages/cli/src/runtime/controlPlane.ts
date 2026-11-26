@@ -4,11 +4,12 @@ import { isIPv4, isIPv6, type AddressInfo } from "node:net";
 import { twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { InvalidActivityCursorError } from "@lurkloot/shared/activityHistory";
-import type {
-  EngineSettings,
-  Platform,
-  PlatformAuthReasonCode,
-  PlatformAuthStatus,
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type PlatformAuthReasonCode,
+  type PlatformAuthStatus,
 } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import type { CredentialSource, LocalCredentialHealth } from "../authStore";
@@ -30,8 +31,6 @@ const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 // One process serves one account; the id lets a later multi-account host add
 // sessions without changing the protocol.
 const DEFAULT_SESSION_ID = "default";
-
-const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 
 interface MessageTraits {
   // Names a platform, which must be twitch or kick.

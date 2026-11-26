@@ -13,6 +13,10 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 - `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
 - `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
 - `packages/shared` — framework-agnostic models, messages, settings, i18n, and logging (`@lurkloot/shared`).
+  The platform list is declared once, as `PLATFORMS` in `@lurkloot/shared/models`, and the
+  `Platform` type is derived from it. Code that iterates or validates platforms uses `PLATFORMS`
+  rather than a `["twitch", "kick"]` literal; `packages/extension/tests/platformList.test.ts`
+  fails on a copy of the list or of the `"twitch" | "kick"` union in any package's `src/`.
 - `packages/site` — the Astro marketing/landing page, which imports the real popup UI for its demo.
 
 Package-qualified paths below are written as `packages/<package>/...` when ownership matters. Bare extension paths such as `entrypoints/...` are relative to `packages/extension/`.

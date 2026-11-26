@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createBackgroundController } from "@lurkloot/core/controller";
-import type { DropCampaign, Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type DropCampaign, type Platform } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
 import {
@@ -165,7 +165,7 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch.reasonCode).not.toBe("manual_watch");
     });
 
-    it.each(["twitch", "kick"] as const)(
+    it.each(PLATFORMS)(
       "resumes %s immediately after playback stops or becomes hidden",
       async (platform) => {
         for (const patch of [{ playingVideoCount: 0 }, { documentHidden: true }]) {
@@ -180,46 +180,40 @@ describe("background controller", () => {
       },
     );
 
-    it.each(["twitch", "kick"] as const)(
-      "ignores non-stream %s pages even with visible video",
-      async (platform) => {
-        const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-        await env.controller.tick();
-        const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
-        for (const route of [
-          "settings",
-          "settings/profile",
-          "inventory",
-          "drops/inventory",
-          "directory",
-          ...(platform === "kick" ? ["categories"] : []),
-          "videos/123",
-          "creator/clips",
-          "creator/videos/123",
-        ]) {
-          await report(env, platform, 999, `${host}/${route}`);
-          expect(env.state.manualWatch?.[platform]?.active).not.toBe(true);
-          expect(env.state.sessions[platform].status).toBe("watching");
-        }
-      },
-    );
-
-    it.each(["twitch", "kick"] as const)(
-      "keeps %s paused until the last manual tab closes",
-      async (platform) => {
-        const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-        const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
-        await report(env, platform, 999, `${host}/firstcreator`);
-        await report(env, platform, 1000, `${host}/secondcreator`);
-        await env.controller.handleTabRemoved(1000);
-        await env.controller.settleBackgroundWork();
-        expect(env.state.sessions[platform].reasonCode).toBe("manual_watch");
-        expect(env.state.manualWatch?.[platform]?.tabId).toBe(999);
-        await env.controller.handleTabRemoved(999);
-        await env.controller.settleBackgroundWork();
+    it.each(PLATFORMS)("ignores non-stream %s pages even with visible video", async (platform) => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await env.controller.tick();
+      const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
+      for (const route of [
+        "settings",
+        "settings/profile",
+        "inventory",
+        "drops/inventory",
+        "directory",
+        ...(platform === "kick" ? ["categories"] : []),
+        "videos/123",
+        "creator/clips",
+        "creator/videos/123",
+      ]) {
+        await report(env, platform, 999, `${host}/${route}`);
+        expect(env.state.manualWatch?.[platform]?.active).not.toBe(true);
         expect(env.state.sessions[platform].status).toBe("watching");
-      },
-    );
+      }
+    });
+
+    it.each(PLATFORMS)("keeps %s paused until the last manual tab closes", async (platform) => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
+      await report(env, platform, 999, `${host}/firstcreator`);
+      await report(env, platform, 1000, `${host}/secondcreator`);
+      await env.controller.handleTabRemoved(1000);
+      await env.controller.settleBackgroundWork();
+      expect(env.state.sessions[platform].reasonCode).toBe("manual_watch");
+      expect(env.state.manualWatch?.[platform]?.tabId).toBe(999);
+      await env.controller.handleTabRemoved(999);
+      await env.controller.settleBackgroundWork();
+      expect(env.state.sessions[platform].status).toBe("watching");
+    });
 
     it("keeps another stream active when an unrelated tab reports inactive playback", async () => {
       const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));

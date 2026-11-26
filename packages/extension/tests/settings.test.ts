@@ -1,3 +1,4 @@
+import { PLATFORMS } from "@lurkloot/shared/models";
 import { describe, expect, it } from "vitest";
 import {
   applySettingsPatch,
@@ -615,7 +616,7 @@ describe("per-platform claim settings", () => {
 
 describe("per-platform eligibility in the engine contract", () => {
   it("defaults to farming every reward, unlinked campaigns included, pinned or not", () => {
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(DEFAULT_ENGINE_SETTINGS.platform[platform]).toMatchObject({
         rewardFilter: defaultRewardFilter(platform),
         unlinkedCampaigns: "include",

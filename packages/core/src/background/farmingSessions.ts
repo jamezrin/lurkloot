@@ -1,8 +1,12 @@
 import type { ActivityEvent, EngineEvent } from "@lurkloot/shared/events";
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+} from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import { rewardCountKey, tallyKey } from "@lurkloot/shared/farmingSessions";
-import { PLATFORMS } from "./constants";
 import { lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";

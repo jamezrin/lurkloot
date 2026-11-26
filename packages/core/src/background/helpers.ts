@@ -1,11 +1,12 @@
 import { campaignRewardData } from "../core/rewardClaims";
-import type {
-  DropCampaign,
-  DropReward,
-  Platform,
-  SchedulerState,
-  WatchReasonCode,
-  WatchSession,
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type DropReward,
+  type Platform,
+  type SchedulerState,
+  type WatchReasonCode,
+  type WatchSession,
 } from "@lurkloot/shared/models";
 import type {
   ActivityEvent,
@@ -76,7 +77,7 @@ export function farmingLifecycleEvents(
   next: SchedulerState,
 ): ActivityEvent[] {
   const events: ActivityEvent[] = [];
-  for (const platform of ["twitch", "kick"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     const before = farmingTarget(previous, platform);
     const after = farmingTarget(next, platform);
     const sameTarget = Boolean(

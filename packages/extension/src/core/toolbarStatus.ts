@@ -1,8 +1,9 @@
-import type {
-  ExtensionSettings,
-  Platform,
-  PlatformAuthStatus,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type ExtensionSettings,
+  type Platform,
+  type PlatformAuthStatus,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 
 // The toolbar icon summarises the whole extension in one glance (#900). It is
@@ -21,8 +22,6 @@ export interface ToolbarView {
   // One line per enabled platform, in display order. Empty when everything is off.
   platforms: ToolbarPlatformLine[];
 }
-
-const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 
 const TOOLBAR_PLATFORM_NAMES: Record<Platform, string> = { twitch: "Twitch", kick: "Kick" };
 
