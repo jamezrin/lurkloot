@@ -14,6 +14,14 @@ export const workspaceDir = "packages";
 // which a release never bumps.
 export const independentlyVersioned = new Set(["packages/store-sync/package.json"]);
 export const changelogPath = "packages/site/src/changelog.json";
+// The desktop app (#1025). tauri.conf.json takes its version from the root manifest by path, so
+// it can't drift. Cargo can't point anywhere, so prepare writes the version into the crate's
+// manifest and lockfile entry and check fails when they differ from the root.
+export const desktopCrateName = "lurkloot-desktop";
+export const desktopCargoManifestPath = "packages/desktop/src-tauri/Cargo.toml";
+export const desktopCargoLockPath = "packages/desktop/src-tauri/Cargo.lock";
+export const desktopTauriConfigPath = "packages/desktop/src-tauri/tauri.conf.json";
+const tauriVersionReference = "../../../package.json";
 const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 
 function validDate(value) {
@@ -46,6 +54,86 @@ async function workspaceManifests() {
   return manifests.sort((a, b) => a.path.localeCompare(b.path));
 }
 
+async function readOptional(path) {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+// The `version = "…"` line of the crate's own [package] table in Cargo.toml.
+const cargoManifestVersion = /^(\[package\]\r?\n(?:(?!\[)[^\n]*\n)*?version\s*=\s*")([^"]*)(")/m;
+
+// The `version = "…"` line right after `name = "lurkloot-desktop"` in Cargo.lock.
+function cargoLockVersion() {
+  return new RegExp(
+    `^(\\[\\[package\\]\\]\\r?\\nname = "${desktopCrateName}"\\r?\\nversion = ")([^"]*)(")`,
+    "m",
+  );
+}
+
+async function desktopVersions() {
+  const manifest = await readOptional(desktopCargoManifestPath);
+  if (manifest === undefined) return undefined;
+  const lock = await readOptional(desktopCargoLockPath);
+  const config = await readOptional(desktopTauriConfigPath);
+  return {
+    manifest,
+    lock,
+    cargo: manifest.match(cargoManifestVersion)?.[2],
+    cargoLock: lock?.match(cargoLockVersion())?.[2],
+    tauri: config === undefined ? undefined : JSON.parse(config).version,
+  };
+}
+
+async function prepareDesktop(version) {
+  const desktop = await desktopVersions();
+  if (!desktop) return;
+  if (desktop.cargo === undefined)
+    throw new Error(`${desktopCargoManifestPath} has no [package] version`);
+  await writeFile(
+    desktopCargoManifestPath,
+    desktop.manifest.replace(
+      cargoManifestVersion,
+      (_, head, _old, tail) => `${head}${version}${tail}`,
+    ),
+  );
+  if (desktop.lock !== undefined) {
+    if (desktop.cargoLock === undefined)
+      throw new Error(`${desktopCargoLockPath} has no ${desktopCrateName} package`);
+    await writeFile(
+      desktopCargoLockPath,
+      desktop.lock.replace(cargoLockVersion(), (_, head, _old, tail) => `${head}${version}${tail}`),
+    );
+  }
+}
+
+function checkDesktop(desktop, version) {
+  if (!desktop) return true;
+  let ok = true;
+  if (desktop.cargo !== version) {
+    console.error(
+      `release: ${desktopCargoManifestPath} declares ${desktop.cargo}; expected ${version}`,
+    );
+    ok = false;
+  }
+  if (desktop.lock !== undefined && desktop.cargoLock !== version) {
+    console.error(
+      `release: ${desktopCargoLockPath} locks ${desktopCrateName} ${desktop.cargoLock}; expected ${version}`,
+    );
+    ok = false;
+  }
+  if (desktop.tauri !== undefined && desktop.tauri !== tauriVersionReference) {
+    console.error(
+      `release: ${desktopTauriConfigPath} declares version ${desktop.tauri}; it must be "${tauriVersionReference}"`,
+    );
+    ok = false;
+  }
+  return ok;
+}
+
 export async function checkWorkspace() {
   const root = JSON.parse(await readFile(rootManifestPath, "utf8"));
   parseVersion(root.version);
@@ -74,6 +162,7 @@ export async function checkWorkspace() {
     console.error(`release: ${root.version} has invalid changelog date ${entry.date}`);
     failed = true;
   }
+  if (!checkDesktop(await desktopVersions(), root.version)) failed = true;
   if (failed) throw new Error("workspace release metadata is inconsistent");
   console.log(`${root.version} is consistent`);
 }
@@ -95,6 +184,7 @@ export async function prepareWorkspace(version, date) {
   if (date === undefined) delete entry.date;
   else entry.date = date;
   await writeFile(changelogPath, `${JSON.stringify(changelog, null, 2)}\n`);
+  await prepareDesktop(version);
   await checkWorkspace();
 }
 

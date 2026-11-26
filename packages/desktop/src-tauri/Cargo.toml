@@ -1,6 +1,6 @@
 [package]
 name = "lurkloot-desktop"
-version = "0.0.0"
+version = "1.25.0"
 description = "LurkLoot desktop app: runs the bundled lurkloot serve and shows its app UI"
 license = "Apache-2.0"
 edition = "2021"

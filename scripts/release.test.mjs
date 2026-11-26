@@ -153,3 +153,68 @@ test("check rejects a present empty changelog date", async (t) => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /invalid changelog date/);
 });
+
+// The desktop crate (#1025): Cargo can't read the root manifest, so prepare writes the version
+// there and check catches drift. tauri.conf.json must keep pointing at the root manifest.
+async function desktopFixture(
+  t,
+  { cargo = "1.4.0", lock = cargo, tauri = "../../../package.json" } = {},
+) {
+  const root = await fixture(t);
+  const dir = join(root, "packages/desktop/src-tauri");
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, "Cargo.toml"),
+    `[package]\nname = "lurkloot-desktop"\nversion = "${cargo}"\nedition = "2021"\n\n[dependencies]\nserde = { version = "1" }\n`,
+  );
+  await writeFile(
+    join(dir, "Cargo.lock"),
+    `version = 4\n\n[[package]]\nname = "log"\nversion = "0.4.35"\n\n[[package]]\nname = "lurkloot-desktop"\nversion = "${lock}"\ndependencies = [\n "serde",\n]\n\n[[package]]\nname = "serde"\nversion = "1.0.0"\n`,
+  );
+  await writeJson(join(dir, "tauri.conf.json"), { productName: "Lurkloot", version: tauri });
+  return root;
+}
+
+test("check accepts a desktop crate on the root version", async (t) => {
+  const root = await desktopFixture(t);
+  const result = run(root, "check");
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("check rejects a desktop crate that drifted from the root version", async (t) => {
+  const root = await desktopFixture(t, { cargo: "1.3.0" });
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Cargo\.toml declares 1\.3\.0; expected 1\.4\.0/);
+  assert.match(result.stderr, /Cargo\.lock locks lurkloot-desktop 1\.3\.0; expected 1\.4\.0/);
+});
+
+test("check rejects a stale desktop lockfile entry", async (t) => {
+  const root = await desktopFixture(t, { lock: "1.3.0" });
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Cargo\.lock locks lurkloot-desktop 1\.3\.0/);
+  assert.doesNotMatch(result.stderr, /Cargo\.toml declares/);
+});
+
+test("check requires tauri.conf.json to take the root version", async (t) => {
+  const root = await desktopFixture(t, { tauri: "1.4.0" });
+  const result = run(root, "check");
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /tauri\.conf\.json declares version 1\.4\.0/);
+});
+
+test("prepare bumps the desktop crate and only its own lockfile entry", async (t) => {
+  const root = await desktopFixture(t);
+  const result = run(root, "prepare", "1.5.0");
+  assert.equal(result.status, 0, result.stderr);
+  const dir = join(root, "packages/desktop/src-tauri");
+  const manifest = await readFile(join(dir, "Cargo.toml"), "utf8");
+  assert.match(manifest, /^\[package\]\nname = "lurkloot-desktop"\nversion = "1\.5\.0"\n/);
+  assert.match(manifest, /serde = \{ version = "1" \}/);
+  const lock = await readFile(join(dir, "Cargo.lock"), "utf8");
+  assert.match(lock, /name = "lurkloot-desktop"\nversion = "1\.5\.0"/);
+  assert.match(lock, /name = "log"\nversion = "0\.4\.35"/);
+  assert.match(lock, /name = "serde"\nversion = "1\.0\.0"/);
+  assert.equal((await readJson(join(dir, "tauri.conf.json"))).version, "../../../package.json");
+});

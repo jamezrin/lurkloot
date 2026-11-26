@@ -106,6 +106,75 @@ export function cliArchiveName(version, target) {
   return `${cliArchiveBase(version, target)}.${target.archive}`;
 }
 
+// The desktop app's unsigned installers (#1025). Each target is built on a runner of its own OS and
+// architecture (.github/workflows/build-desktop-installers.yml), and
+// packages/desktop/scripts/collectInstallers.mjs renames Tauri's bundles with desktopInstallerName.
+// `bundle` is the folder under target/release/bundle/ that Tauri writes and `suffix` the end of the
+// file name there; `asset` is what follows the target id in the release asset's name.
+export const desktopInstallerTargets = [
+  {
+    id: "linux-x64",
+    platform: "linux",
+    arch: "x64",
+    installers: [
+      { bundle: "appimage", suffix: ".AppImage", asset: ".AppImage" },
+      { bundle: "deb", suffix: ".deb", asset: ".deb" },
+    ],
+  },
+  {
+    id: "linux-arm64",
+    platform: "linux",
+    arch: "arm64",
+    installers: [
+      { bundle: "appimage", suffix: ".AppImage", asset: ".AppImage" },
+      { bundle: "deb", suffix: ".deb", asset: ".deb" },
+    ],
+  },
+  {
+    id: "macos-arm64",
+    platform: "darwin",
+    arch: "arm64",
+    installers: [{ bundle: "dmg", suffix: ".dmg", asset: ".dmg" }],
+  },
+  {
+    id: "macos-x64",
+    platform: "darwin",
+    arch: "x64",
+    installers: [{ bundle: "dmg", suffix: ".dmg", asset: ".dmg" }],
+  },
+  {
+    id: "windows-x64",
+    platform: "win32",
+    arch: "x64",
+    installers: [
+      { bundle: "msi", suffix: ".msi", asset: ".msi" },
+      { bundle: "nsis", suffix: "-setup.exe", asset: "-setup.exe" },
+    ],
+  },
+];
+
+/** Selects the installer target matching the build runner. */
+export function desktopInstallerTarget(platform, arch) {
+  const target = desktopInstallerTargets.find(
+    (candidate) => candidate.platform === platform && candidate.arch === arch,
+  );
+  if (!target) throw new Error(`no desktop installer target for ${platform}-${arch}`);
+  return target;
+}
+
+/** Names one installer's release asset. */
+export function desktopInstallerName(version, target, installer) {
+  parseManifestVersion(version);
+  return `lurkloot-desktop-${version}-${target.id}${installer.asset}`;
+}
+
+/** Every installer's release asset name for one version. */
+export function desktopInstallerNames(version) {
+  return desktopInstallerTargets.flatMap((target) =>
+    target.installers.map((installer) => desktopInstallerName(version, target, installer)),
+  );
+}
+
 // The upload steps glob their assets directory, so anything a build step leaves behind would be
 // published. Both the candidate prerelease and the stable release must carry exactly this set.
 export function expectedReleaseAssets(version) {
@@ -116,6 +185,7 @@ export function expectedReleaseAssets(version) {
     `lurkloot-${version}-firefox-sources.zip`,
     `lurkloot-${version}-firefox.zip`,
     ...cliExecutableTargets.map((target) => cliArchiveName(version, target)),
+    ...desktopInstallerNames(version),
   ];
 }
 

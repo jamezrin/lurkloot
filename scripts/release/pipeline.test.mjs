@@ -6,6 +6,10 @@ import {
   cliArchiveName,
   cliExecutableTarget,
   cliExecutableTargets,
+  desktopInstallerName,
+  desktopInstallerNames,
+  desktopInstallerTarget,
+  desktopInstallerTargets,
   candidateMarker,
   candidateTag,
   expectedReleaseAssets,
@@ -92,7 +96,7 @@ test("validates a concurrent minor candidate after a patch release", () => {
   );
 });
 
-test("expected release assets are the extension builds, the CLI archives and checksums", () => {
+test("expected release assets are the extension builds, the CLI archives, the desktop installers and checksums", () => {
   assert.deepEqual(expectedReleaseAssets("1.6.0"), [
     "SHA256SUMS",
     "lurkloot-1.6.0-chrome.crx",
@@ -104,7 +108,33 @@ test("expected release assets are the extension builds, the CLI archives and che
     "lurkloot-cli-1.6.0-macos-arm64.tar.gz",
     "lurkloot-cli-1.6.0-macos-x64.tar.gz",
     "lurkloot-cli-1.6.0-windows-x64.zip",
+    "lurkloot-desktop-1.6.0-linux-x64.AppImage",
+    "lurkloot-desktop-1.6.0-linux-x64.deb",
+    "lurkloot-desktop-1.6.0-linux-arm64.AppImage",
+    "lurkloot-desktop-1.6.0-linux-arm64.deb",
+    "lurkloot-desktop-1.6.0-macos-arm64.dmg",
+    "lurkloot-desktop-1.6.0-macos-x64.dmg",
+    "lurkloot-desktop-1.6.0-windows-x64.msi",
+    "lurkloot-desktop-1.6.0-windows-x64-setup.exe",
   ]);
+});
+
+test("each desktop installer target is found by its platform and architecture", () => {
+  const windows = desktopInstallerTarget("win32", "x64");
+  assert.deepEqual(
+    windows.installers.map((installer) => desktopInstallerName("1.6.0", windows, installer)),
+    ["lurkloot-desktop-1.6.0-windows-x64.msi", "lurkloot-desktop-1.6.0-windows-x64-setup.exe"],
+  );
+  assert.equal(desktopInstallerTarget("darwin", "x64").id, "macos-x64");
+  assert.throws(
+    () => desktopInstallerTarget("linux", "ia32"),
+    /no desktop installer target for linux-ia32/,
+  );
+  assert.throws(() => desktopInstallerNames("v1.6.0"));
+  // Every desktop target has a CLI executable to bundle as its sidecar.
+  for (const target of desktopInstallerTargets) {
+    assert.equal(cliExecutableTarget(target.platform, target.arch).id, target.id);
+  }
 });
 
 test("each CLI executable target is found by its platform and architecture", () => {
@@ -133,6 +163,7 @@ test("asset assertion accepts the exact expected set in any order", () => {
     "lurkloot-1.6.0-chrome.zip",
     "lurkloot-cli-1.6.0-macos-arm64.tar.gz",
     "lurkloot-cli-1.6.0-linux-x64.tar.gz",
+    ...desktopInstallerNames("1.6.0").toReversed(),
   ];
   assert.deepEqual(
     assertReleaseAssets({ names, version: "1.6.0" }),
