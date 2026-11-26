@@ -2,7 +2,7 @@ Lurkloot farmi dropy Twitch i Kick za Ciebie, dzięki czemu zdobywasz nagrody w 
 
 Domyślnie uruchamia lekki tryb bez kart, który w tle wysyła sygnały oglądania zamiast trzymać otwartą kartę z wideo, oszczędzając transfer i zasoby systemu. Śledzi właściwy kanał dla wybranego dropu, automatycznie przełącza się po zakończeniu kampanii i odbiera każdą kwalifikującą się nagrodę. Gdy postęp utknie, przechodzi na przypiętą, wyciszoną kartę, żeby dropy dalej szły.
 
-Twoje dane zostają Twoje: bez haseł, bez eksportu plików cookie ani tokenów — wszystko zostaje na Twoim urządzeniu.
+Twoje dane zostają Twoje: bez haseł — wszystko zostaje na Twoim urządzeniu.
 
 W oknie popup możesz włączać każdą platformę, ustawiać priorytety kampanii i gier, które Ci zależą, zarządzać Watchlist i wykluczonymi kanałami dla każdej platformy oraz włączać auto-odbiór i powiadomienia.
 
