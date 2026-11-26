@@ -2,7 +2,7 @@
 title: CLI settings
 description: Where the CLI keeps its settings, how to change them, and how they differ from the extension's.
 sidebar:
-  order: 6
+  order: 7
 ---
 
 The CLI keeps its settings in `config.json`, in its data folder (`/data` in Docker). The first command you run creates it, listing every setting with its default and a comment on the important ones.

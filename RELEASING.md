@@ -27,7 +27,7 @@ empty entry. That intentionally permits build-only releases, but produces an emp
 2. Apply exactly one of `release/patch`, `release/minor`, or `release/major`. The label validates the
    version and builds a candidate. It does not modify the pull request it is applied to.
 3. Candidate automation verifies the labelled head, publishes the signed extension artifacts and the
-   standalone CLI archives as the mutable `vX.Y.Z` GitHub **prerelease**, pushes GHCR `candidate-X.Y.Z`, and deploys the site to
+   standalone CLI archives and the unsigned desktop installers as the mutable `vX.Y.Z` GitHub **prerelease**, pushes GHCR `candidate-X.Y.Z`, and deploys the site to
    `next.lurkloot.pages.dev`.
 4. Review and merge that pull request normally, with a **merge commit**.
 5. Prepare release then cuts `release/X.Y.Z` from the resulting merge commit on `main`, commits the
@@ -121,7 +121,8 @@ Stable publication operates on the exact merged commit and is idempotent:
 
 - `vX.Y.Z` is created once and is never moved.
 - The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, the five standalone CLI archives
-  (`lurkloot-cli-X.Y.Z-<target>`, see below), and checksums are uploaded to the stable GitHub
+  (`lurkloot-cli-X.Y.Z-<target>`, see below), the eight desktop installers
+  (`lurkloot-desktop-X.Y.Z-<target>…`, see below), and checksums are uploaded to the stable GitHub
   release.
 - The GHCR `candidate-X.Y.Z` manifest built during candidacy is promoted by digest: the approved
   production job retags that exact manifest as `X.Y.Z`, `X.Y`, `X`, and `latest`, so the published
@@ -130,8 +131,8 @@ Stable publication operates on the exact merged commit and is idempotent:
 - If that candidate image no longer exists, the approved job falls back to rebuilding checksummed
   OCI archives from the merged commit. A rebuild is not bit-identical, so when `X.Y.Z` is already
   published the published digest stays authoritative and only the moving aliases are re-pointed.
-- Build provenance is attested during candidacy, for the signed extension assets, the CLI archives
-  and the CLI image digest, and stable publication ships those same bytes. Verify a downloaded asset with
+- Build provenance is attested during candidacy, for the signed extension assets, the CLI archives,
+  the desktop installers and the CLI image digest, and stable publication ships those same bytes. Verify a downloaded asset with
   `gh attestation verify <file> --repo jamezrin/lurkloot`, and the image with
   `gh attestation verify oci://ghcr.io/jamezrin/lurkloot-cli:X.Y.Z --repo jamezrin/lurkloot`.
 - Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
@@ -190,6 +191,53 @@ CLI archives. If it expects any, missing archives still fail publication.
 The same workflow runs on pull requests that touch `packages/cli`, `packages/core`,
 `packages/shared`, `packages/locales`, `packages/app-ui`, `packages/popup-ui`, the lockfile, the
 asset list or the workflow itself, so a change that breaks one target shows up before release.
+
+### Desktop installers
+
+The candidate's `desktop` job calls `.github/workflows/build-desktop-installers.yml` (#1025). Each
+runner overlays the candidate version, builds the standalone CLI for its own machine as the app's
+sidecar (`pnpm --filter @lurkloot/desktop sidecar`), bundles it with `tauri build`, and renames the
+installers with `packages/desktop/scripts/collectInstallers.mjs`:
+
+| Target | Runner | Installers |
+| --- | --- | --- |
+| `windows-x64` | `windows-latest` | `-setup.exe` (NSIS) and `.msi` |
+| `macos-arm64` | `macos-latest` | `.dmg` |
+| `macos-x64` | `macos-15-intel` | `.dmg` |
+| `linux-x64` | `ubuntu-22.04` | `.AppImage` and `.deb` |
+| `linux-arm64` | `ubuntu-22.04-arm` | `.AppImage` and `.deb` |
+
+Linux builds on Ubuntu 22.04 because an AppImage needs at least its build machine's glibc, and the
+`.deb` its WebKitGTK. Each leg then checks the sidecar is inside its installers: in the `.deb` and
+the extracted AppImage with its executable bit, in the mounted `.dmg` with `codesign --verify`, and
+in an administrative extraction of the `.msi` and the 7-Zip listing of the NSIS `-setup.exe`. A leg takes about 10 to 20 minutes, most of it the
+Rust release build and the CLI build, and the legs run in parallel with the `cli` job.
+
+The installers are **unsigned**. macOS builds are ad-hoc signed (`signingIdentity: "-"` in
+`tauri.conf.json`), which Apple silicon needs to run them at all, but Gatekeeper still asks the user to
+allow the first launch under System Settings → Privacy & Security, and Windows SmartScreen asks once
+too. The user guide's "Install the desktop app" page walks through both.
+
+The names come from `desktopInstallerTargets` in `scripts/release/pipeline.mjs`. `publish` adds them
+under the same trusted-asset rule as the CLI archives, `attest` attests them, and `assert-assets`
+requires all eight. A checkout without `collectInstallers.mjs` builds nothing, like the CLI job.
+
+A release branch's candidate (`release_branch: true`, from Prepare release and from pushes to
+`release/*`) must publish the asset list of its own tree, not only the trusted one, because
+Release checks the merged tree's list. A release branch that picked up new assets while `main`
+still expects the old set therefore fails its candidate instead of passing and then failing at
+Release. A label-time candidate keeps the warning-only behavior. Prepare release stages the
+desktop Cargo files only when the checkout has them, so a hotfix cut from a `main` older than the
+desktop app still works.
+
+The release PR's bump includes the desktop version. `tauri.conf.json` reads it from the root
+`package.json` by path, and `scripts/release.mjs prepare` also writes it into
+`packages/desktop/src-tauri/Cargo.toml` and that crate's `Cargo.lock` entry, which Prepare release
+commits with the rest. `scripts/release.mjs check` fails when either differs from the root or
+`tauri.conf.json` stops pointing at it.
+
+The same workflow runs on pull requests that touch `packages/desktop`, the asset list or the
+workflow itself.
 
 ## Branch model
 

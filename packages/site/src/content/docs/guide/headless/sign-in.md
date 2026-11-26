@@ -2,7 +2,7 @@
 title: Sign in to the CLI
 description: The ways to sign the CLI in to Twitch and Kick, and which one to pick.
 sidebar:
-  order: 4
+  order: 5
 ---
 
 The CLI cannot use a browser's session, so it signs in once on its own and keeps that sign-in in its data folder. You can sign in from the **Accounts** page of [its web app](/guide/headless/app), or with the commands below.

@@ -2,7 +2,7 @@
 title: The CLI web app
 description: Manage the CLI from a browser page with the same views as the extension popup.
 sidebar:
-  order: 5
+  order: 6
 ---
 
 `lurkloot serve` farms like `lurkloot run`, and also serves a web page with the views you know from the extension popup: Queue, Completed, Games, Watchlist, Extensions, Activity and Settings. It adds an **Accounts** page to sign in to Twitch and Kick.

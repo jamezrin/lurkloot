@@ -2,7 +2,7 @@ name: Build desktop app
 
 # The desktop app's Tauri shell (#1024): its Rust unit tests and lints on every OS it ships for.
 # They cover the sidecar supervisor, the ready-line parser, the navigation rules and the token
-# script. Installers come with #1025.
+# script. The installers are built by build-desktop-installers.yml (#1025).
 
 on:
   pull_request:

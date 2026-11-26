@@ -11,8 +11,9 @@ The Lurkloot CLI is the same farming engine as the extension, without the browse
 
 - **[Docker](/guide/headless/docker)**: the easiest on a server or NAS. Works on `amd64` and `arm64`.
 - **[A standalone program](/guide/headless/executable)** for Linux, macOS or Windows, with nothing else to install.
+- **[The desktop app](/guide/headless/desktop)** for Windows, macOS or Linux: the web app in a window of its own, farming from the tray.
 
-Either way, it can run as `lurkloot run`, which just farms, or `lurkloot serve`, which also gives you [a web page to control it](/guide/headless/app).
+Docker and the program can run as `lurkloot run`, which just farms, or `lurkloot serve`, which also gives you [a web page to control it](/guide/headless/app).
 
 ## Commands
 
