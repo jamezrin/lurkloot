@@ -904,7 +904,11 @@ each library, checks that `serve` on one library starts with the other's folder 
 cycletls that finds its port taken attaches to whatever holds it instead of starting its own
 helper. A launcher that must never share another process's helper sets a port, or `0` for a
 port that is free on every interface when cycletls starts (cycletls listens on all of them).
-Unset keeps cycletls's default.
+Unset keeps cycletls's default. A port picked this way is free when it is picked, not reserved:
+another local process could still take it in the moment before cycletls binds it, and cycletls
+would then attach. That is far narrower than the fixed 9119, which any process can hold ahead of
+time; refusing to attach to a helper this process did not start needs the client of our own
+(#1031).
 
 ### Desktop app (#1024)
 
@@ -959,12 +963,17 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
 - **Quit.** Every way out (tray Quit, the last window closed without a tray, the OS's quit)
   goes through one path: hide the window, close serve's stdin, wait up to 20 s for it to save
   and exit, then kill its process tree and exit. serve runs in its own process group on Linux
-  and macOS and in a kill-on-close job object on Windows, so a kill takes its cycletls helper
-  with it, and a crashed shell's closed pipe stops serve the same way.
+  and macOS and in a job object on Windows (taskkill's tree kill when the job cannot be set up),
+  so a kill takes its cycletls helper with it. When the shell crashes, the OS closes serve's
+  stdin pipe and serve saves and exits on its own; the job has no kill-on-close limit, so that
+  holds on Windows too. Every exit's status goes to `serve.log`.
 - **Tests.** `cargo test` in `packages/desktop/src-tauri` covers the ready-line parser, the
   navigation rules, the token script and the supervisor against a stand-in serve (ready URL,
   stdin-close shutdown, killing a tree that will not stop, restart and failure counting). The
-  `desktop` CI workflow runs it on Linux, macOS and Windows.
+  `build-desktop` CI workflow runs it with clippy on Linux, macOS and Windows.
+  `desktopBoundary.test.ts`, which runs in `pnpm check` on every pull request, also keeps the
+  names the shell repeats from TypeScript in step: the sessionStorage key, `LURKLOOT_SERVE_TOKEN`,
+  `LURKLOOT_CYCLETLS_PORT`, serve's flags and the ready line.
 
 ### Characterization coverage
 

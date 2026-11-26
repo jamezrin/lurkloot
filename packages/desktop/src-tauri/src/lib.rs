@@ -46,9 +46,21 @@ struct Shell {
 }
 
 impl Shell {
+    /// Remembers the address of the shell's own pages. Tauri serves them from
+    /// `tauri://localhost`, or `http://tauri.localhost` on Windows, so it is
+    /// read from the window rather than written here. A web view that has not
+    /// committed its first page yet may report `about:blank`; that is not it.
+    fn learn_shell_url(&self, url: &Url) {
+        if url.host_str().is_some() && matches!(url.scheme(), "tauri" | "http" | "https") {
+            let _ = self.shell_url.set(url.clone());
+        }
+    }
+
     fn decide(&self, url: &Url) -> Navigation {
         let Some(shell_url) = self.shell_url.get() else {
-            // Only the window's first page loads before its address is known.
+            // Only the window's first page, the shell's own, loads before its
+            // address is known: serve is not started until it is.
+            self.learn_shell_url(url);
             return Navigation::Allow;
         };
         let serve = self.serve.lock().unwrap().clone();
@@ -111,7 +123,9 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     let token = token::generate_token();
 
     let window = main_window(app, shell, &token)?;
-    let _ = shell.shell_url.set(window.url()?);
+    if let Ok(url) = window.url() {
+        shell.learn_shell_url(&url);
+    }
 
     let has_tray = tray::tray_available() && build_tray(app).is_ok();
     shell.has_tray.store(has_tray, Ordering::SeqCst);
@@ -266,5 +280,58 @@ impl SidecarEvents for WindowEvents {
         if failures == FAILURES_BEFORE_ERROR {
             show_main(&self.app);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn url(value: &str) -> Url {
+        Url::parse(value).unwrap()
+    }
+
+    #[test]
+    fn learns_the_shell_pages_address_from_the_window() {
+        for page in [
+            "tauri://localhost/index.html#starting",
+            "http://tauri.localhost/index.html#starting",
+        ] {
+            let shell = Shell::default();
+            shell.learn_shell_url(&url("about:blank"));
+            assert!(shell.shell_url.get().is_none());
+            shell.learn_shell_url(&url(page));
+            let restarting = shell.status_page("restarting").unwrap();
+            assert_eq!(restarting.fragment(), Some("restarting"));
+            assert_eq!(restarting.path(), "/index.html");
+            assert_eq!(shell.decide(&restarting), Navigation::Allow);
+            assert_eq!(
+                shell.decide(&url("https://www.twitch.tv/")),
+                Navigation::OpenExternally
+            );
+        }
+    }
+
+    #[test]
+    fn learns_it_from_the_first_navigation_when_the_window_did_not_say() {
+        let shell = Shell::default();
+        assert_eq!(
+            shell.decide(&url("http://tauri.localhost/index.html#starting")),
+            Navigation::Allow
+        );
+        assert_eq!(
+            shell.status_page("failed").unwrap().as_str(),
+            "http://tauri.localhost/index.html#failed"
+        );
+    }
+
+    #[test]
+    fn allows_serve_only_while_it_runs() {
+        let shell = Shell::default();
+        shell.learn_shell_url(&url("tauri://localhost/index.html"));
+        let app = url("http://127.0.0.1:49152/");
+        assert_eq!(shell.decide(&app), Navigation::OpenExternally);
+        *shell.serve.lock().unwrap() = Some(Site::of(&app));
+        assert_eq!(shell.decide(&app), Navigation::Allow);
     }
 }

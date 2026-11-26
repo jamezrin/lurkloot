@@ -12,7 +12,8 @@
 //!   caller is told each failure, to show an error once they repeat.
 //! - Shutdown closes stdin and waits for `serve` to save its state and exit,
 //!   then kills its whole process tree (cycletls's helper included) if it has
-//!   not: a process group on Linux and macOS, a job object on Windows.
+//!   not: a process group on Linux and macOS, a job object on Windows (or
+//!   taskkill's tree kill when the job could not be set up).
 
 use std::ffi::{OsStr, OsString};
 use std::fs::{File, OpenOptions};
@@ -76,9 +77,13 @@ pub fn serve_env(
         .filter(|(key, _)| !is_scrubbed(key))
         .collect();
     env.push((crate::token::SERVE_TOKEN_ENV.into(), token.into()));
-    env.push(("LURKLOOT_CYCLETLS_PORT".into(), "0".into()));
+    env.push((CYCLETLS_PORT_ENV.into(), "0".into()));
     env
 }
+
+/// The variable that gives cycletls's helper a port of its own
+/// (`CYCLETLS_PORT_ENV` in packages/cli/src/transport/cycle.ts).
+pub const CYCLETLS_PORT_ENV: &str = "LURKLOOT_CYCLETLS_PORT";
 
 /// The wait before restart number `failures` (1 for the first): 1 s, doubling,
 /// at most MAX_BACKOFF.
@@ -101,7 +106,11 @@ struct TreeKiller {
     #[cfg(unix)]
     group: libc::pid_t,
     #[cfg(windows)]
-    job: windows_job::Job,
+    pid: u32,
+    // None when the job object could not be set up: serve still runs, and a
+    // kill falls back to taskkill's tree kill.
+    #[cfg(windows)]
+    job: Option<windows_job::Job>,
 }
 
 impl TreeKiller {
@@ -112,7 +121,20 @@ impl TreeKiller {
             libc::kill(-self.group, libc::SIGKILL);
         }
         #[cfg(windows)]
-        self.job.terminate();
+        match &self.job {
+            Some(job) => job.terminate(),
+            None => {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+                let _ = Command::new("taskkill")
+                    .args(["/T", "/F", "/PID", &self.pid.to_string()])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+            }
+        }
     }
 }
 
@@ -242,14 +264,7 @@ fn run_once(
         Ok(child) => child,
         Err(error) => return Outcome::SpawnFailed(error),
     };
-    let killer = match tree_killer(&child) {
-        Ok(killer) => Arc::new(killer),
-        Err(error) => {
-            let _ = child.kill();
-            let _ = child.wait();
-            return Outcome::SpawnFailed(error);
-        }
-    };
+    let killer = Arc::new(tree_killer(&child, log));
     {
         let mut state = inner.state.lock().unwrap();
         state.killer = Some(Arc::clone(&killer));
@@ -289,6 +304,13 @@ fn run_once(
         }
     }
     let status = child.wait();
+    match &status {
+        Ok(status) => write_log_line(log, &format!("[desktop] lurkloot serve exited ({status})")),
+        Err(error) => write_log_line(
+            log,
+            &format!("[desktop] waiting for lurkloot serve failed: {error}"),
+        ),
+    }
     // Whatever serve left behind (a cycletls helper after a crash) goes too.
     killer.kill();
     for reader in readers.into_iter().flatten() {
@@ -336,18 +358,27 @@ fn spawn(spec: &SidecarSpec) -> std::io::Result<Child> {
     command.spawn()
 }
 
-fn tree_killer(child: &Child) -> std::io::Result<TreeKiller> {
+fn tree_killer(child: &Child, log: &Mutex<Option<File>>) -> TreeKiller {
     #[cfg(unix)]
     {
-        Ok(TreeKiller {
+        let _ = log;
+        TreeKiller {
             group: child.id() as libc::pid_t,
-        })
+        }
     }
     #[cfg(windows)]
     {
-        let job = windows_job::Job::kill_on_close()?;
-        job.assign(child)?;
-        Ok(TreeKiller { job })
+        let job = windows_job::Job::new().and_then(|job| job.assign(child).map(|()| job));
+        if let Err(error) = &job {
+            write_log_line(
+                log,
+                &format!("[desktop] no job object for lurkloot serve ({error}); a forced stop uses taskkill"),
+            );
+        }
+        TreeKiller {
+            pid: child.id(),
+            job: job.ok(),
+        }
     }
 }
 
@@ -411,13 +442,13 @@ mod windows_job {
 
     use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
     use windows_sys::Win32::System::JobObjects::{
-        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
-        SetInformationJobObject, TerminateJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
-        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        AssignProcessToJobObject, CreateJobObjectW, TerminateJobObject,
     };
 
-    /// A job object that kills every process in it when its last handle
-    /// closes, so `serve` and its helpers cannot outlive the app.
+    /// A job object holding `serve` and every process it starts, so a forced
+    /// stop ends the whole tree at once. It has no kill-on-close limit: when
+    /// the app crashes, the OS closes serve's stdin pipe and serve saves its
+    /// state and exits on its own, as on every other OS.
     pub struct Job(HANDLE);
 
     // SAFETY: a job handle may be used from any thread.
@@ -425,26 +456,13 @@ mod windows_job {
     unsafe impl Sync for Job {}
 
     impl Job {
-        pub fn kill_on_close() -> std::io::Result<Job> {
-            // SAFETY: plain Win32 calls on a handle this function owns.
-            unsafe {
-                let handle = CreateJobObjectW(std::ptr::null(), std::ptr::null());
-                if handle.is_null() {
-                    return Err(std::io::Error::last_os_error());
-                }
-                let job = Job(handle);
-                let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-                info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-                let ok = SetInformationJobObject(
-                    job.0,
-                    JobObjectExtendedLimitInformation,
-                    &info as *const _ as *const _,
-                    std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
-                );
-                if ok == 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-                Ok(job)
+        pub fn new() -> std::io::Result<Job> {
+            // SAFETY: creates a job this value then owns.
+            let handle = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+            if handle.is_null() {
+                Err(std::io::Error::last_os_error())
+            } else {
+                Ok(Job(handle))
             }
         }
 
@@ -479,7 +497,6 @@ mod windows_job {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU32, Ordering};
 
     #[test]
     fn starts_serve_for_a_launcher() {
@@ -549,6 +566,7 @@ mod tests {
     mod fake_serve {
         use super::*;
         use std::os::unix::fs::PermissionsExt;
+        use std::sync::atomic::{AtomicU32, Ordering};
 
         #[derive(Default)]
         struct Recorder {
