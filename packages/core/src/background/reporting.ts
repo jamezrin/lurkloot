@@ -1,10 +1,11 @@
-import type {
-  DropCampaign,
-  DropReward,
-  EngineSettings,
-  Platform,
-  PlaybackTelemetry,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type DropReward,
+  type EngineSettings,
+  type Platform,
+  type PlaybackTelemetry,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type {
@@ -15,7 +16,6 @@ import { isWatchReward } from "@lurkloot/shared/rewards";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
 import { inertAdapterSettings } from "./adapterSettings";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { platformLabel } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -36,7 +36,7 @@ function newlyEarnedRewards(
   next: SchedulerState,
 ): Array<{ campaign: DropCampaign; reward: DropReward }> {
   const previousStatuses = new Map<string, DropReward["status"]>();
-  for (const platform of ["twitch", "kick"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     for (const campaign of previous.campaigns[platform]) {
       for (const reward of campaign.rewards) {
         previousStatuses.set(`${platform}:${campaign.id}:${reward.id}`, reward.status);
@@ -45,7 +45,7 @@ function newlyEarnedRewards(
   }
 
   const earned: Array<{ campaign: DropCampaign; reward: DropReward }> = [];
-  for (const platform of ["twitch", "kick"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     for (const campaign of next.campaigns[platform]) {
       for (const reward of campaign.rewards) {
         const before = previousStatuses.get(`${platform}:${campaign.id}:${reward.id}`);
@@ -529,7 +529,7 @@ export function createReporting<S extends EngineSettings>(
         && state.campaigns[platform].length > 0
         && state.campaigns[platform].every((campaign) => !hasEarnableReward(campaign));
 
-      for (const platform of ["twitch", "kick"] as Platform[]) {
+      for (const platform of PLATFORMS) {
         if (
           settings.platform[platform].enabled
           // Only on the transition into the exhausted state, so the

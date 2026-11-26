@@ -1,3 +1,4 @@
+import { PLATFORMS } from "@lurkloot/shared/models";
 import { describe, expect, it } from "vitest";
 import { createDemoPopupAdapter } from "@lurkloot/popup-ui";
 import type { ActivityPage, RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -42,7 +43,7 @@ describe("tour demo scenario", () => {
     expect(state.accountProgress?.kick?.progress?.streakDays).toBeGreaterThan(0);
   });
 
-  it.each(["twitch", "kick"] as const)("returns localizable %s activity", async (platform) => {
+  it.each(PLATFORMS)("returns localizable %s activity", async (platform) => {
     const page = await activity("tour", platform);
     expect(page.events.length).toBeGreaterThanOrEqual(3);
     for (const event of page.events) {

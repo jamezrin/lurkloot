@@ -21,5 +21,4 @@ export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
 export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
 
-export const PLATFORMS: Platform[] = ["twitch", "kick"];
 export const PLATFORM_NAMES: Record<Platform, string> = { twitch: "Twitch", kick: "Kick" };

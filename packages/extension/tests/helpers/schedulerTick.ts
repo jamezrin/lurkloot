@@ -1,13 +1,14 @@
-import type {
-  ChannelCandidate,
-  EngineSettings,
-  Platform,
-  PreparedWatchTab,
-  SchedulerState,
-  SupplementalWatchTarget,
-  WatchSession,
-  WatchSourceId,
-  WatchTabOptions,
+import {
+  PLATFORMS,
+  type ChannelCandidate,
+  type EngineSettings,
+  type Platform,
+  type PreparedWatchTab,
+  type SchedulerState,
+  type SupplementalWatchTarget,
+  type WatchSession,
+  type WatchSourceId,
+  type WatchTabOptions,
 } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
@@ -134,7 +135,7 @@ export async function runSchedulerTick(
   adapters: Record<Platform, SchedulerTestAdapter>,
   options: SchedulerTickTestOptions = {},
 ): Promise<SchedulerTickResult> {
-  const platforms = options.platforms ?? ["twitch", "kick"];
+  const platforms = options.platforms ?? PLATFORMS;
   const tabRegistry = options.tabRegistry ?? createTabRegistry();
   hydrateManagedPageContextTabs(tabRegistry, state.managedPageContextTabs ?? {}, platforms);
   syncManagedTabBreakers(

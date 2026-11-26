@@ -453,7 +453,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   // authHealth.ts
   flattenedRefreshFailures(error: unknown): unknown[];
   refreshAuthHealth(
-    platforms: Platform[],
+    platforms: readonly Platform[],
     loadedSettings?: S,
     reportCompatibility?: boolean,
     signal?: AbortSignal,
@@ -558,7 +558,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   // discovery.ts
   selectionFingerprint(value: string): string;
   refreshDiscovery(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     bypassBackoff?: boolean,
     tickAdapters?: Partial<Record<Platform, TickAdapterHandle<S>>>,
   ): Promise<void>;
@@ -587,18 +587,18 @@ export interface ControllerCalls<S extends EngineSettings> {
   cancelPendingTick(platform: Platform): void;
   retainCurrentTickReasons(platform: Platform, request: TickRequest): boolean;
   requestTickBatch(
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     trigger: TickTrigger,
     discoverySignal?: DiscoverySignalRefreshRequest,
   ): TickBatch;
   tick(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     trigger?: TickTrigger,
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards>;
   abortActiveTicks(reason: string): void;
   tickInBackground(
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     trigger: TickTrigger,
     onCompleted?: () => void,
   ): void;
@@ -608,7 +608,7 @@ export interface ControllerCalls<S extends EngineSettings> {
     transitionIsCurrent?: () => boolean,
   ): Promise<void>;
   tickAndHandOff(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     trigger?: TickTrigger,
   ): Promise<SchedulerState | undefined>;
   completeTickAndHandOff(batch: TickBatch): Promise<SchedulerState | undefined>;

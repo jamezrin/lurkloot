@@ -1,18 +1,19 @@
-import type {
-  AdFocusMode,
-  CategoryMode,
-  CategorySelection,
-  CompatibilitySettings,
-  EngineSettings,
-  ExtensionSettings,
-  GithubStarNudgeStatus,
-  KickPlatformSettings,
-  LanguageOverride,
-  Platform,
-  PriorityMode,
-  RateNudgeStatus,
-  SupportedLocale,
-  TwitchPlatformSettings,
+import {
+  PLATFORMS,
+  type AdFocusMode,
+  type CategoryMode,
+  type CategorySelection,
+  type CompatibilitySettings,
+  type EngineSettings,
+  type ExtensionSettings,
+  type GithubStarNudgeStatus,
+  type KickPlatformSettings,
+  type LanguageOverride,
+  type Platform,
+  type PriorityMode,
+  type RateNudgeStatus,
+  type SupportedLocale,
+  type TwitchPlatformSettings,
 } from "./models";
 import { defaultRewardFilter, normalizeRewardFilter } from "./rewardFilter";
 import { DEFAULT_UNLINKED_CAMPAIGN_MODE, normalizeUnlinkedCampaignMode } from "./unlinkedCampaigns";
@@ -21,7 +22,6 @@ import {
   normalizePlatformWatchSourcePriority,
 } from "./watchSources";
 
-const FARMING_PLATFORMS: Platform[] = ["twitch", "kick"];
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
 
@@ -680,5 +680,5 @@ export function autoClaimChallengesFor(settings: EngineSettings, platform: Platf
 // former stored `running` master switch: a single source of truth cannot drift
 // out of step with the per-platform flags the way two of them could.
 export function isFarmingActive(settings: EngineSettings): boolean {
-  return FARMING_PLATFORMS.some((platform) => settings.platform[platform].enabled);
+  return PLATFORMS.some((platform) => settings.platform[platform].enabled);
 }
