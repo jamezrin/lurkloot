@@ -37,6 +37,7 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
               {section.label}{section.badge && <span class="sg-badge sg-badge--sm">{section.badge}</span>}
             </a>
           ))}
+          <span class="sg-subnav__mark" aria-hidden="true"></span>
         </div>
       </div>
     </nav>
@@ -127,7 +128,31 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
     );
     const order = [...links.keys()];
     const visible = new Set<string>();
+    // One underline slides between links rather than each link drawing its
+    // own, so moving between sections reads as one tab bar.
+    const underline = subnav.querySelector<HTMLElement>(".sg-subnav__mark");
+    let current: HTMLAnchorElement | undefined;
+    const placeUnderline = () => {
+      if (!underline) return;
+      if (!current) {
+        underline.removeAttribute("data-on");
+        return;
+      }
+      const appearing = !underline.hasAttribute("data-on");
+      // It appears where it belongs instead of sliding in from the left.
+      if (appearing) underline.style.transition = "none";
+      underline.style.setProperty("--x", `${current.offsetLeft}px`);
+      underline.style.setProperty("--w", `${current.offsetWidth}px`);
+      if (appearing) {
+        void underline.offsetWidth;
+        underline.style.transition = "";
+      }
+      underline.setAttribute("data-on", "");
+    };
+    if (row) new ResizeObserver(placeUnderline).observe(row);
     const mark = (id: string | undefined) => {
+      current = id ? links.get(id) : undefined;
+      placeUnderline();
       for (const [key, link] of links) {
         if (key !== id) {
           link.removeAttribute("aria-current");
