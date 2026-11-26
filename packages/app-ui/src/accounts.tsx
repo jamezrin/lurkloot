@@ -438,7 +438,9 @@ function BrowserLogin({ api, onChanged }: { api: AuthApi; onChanged(): void }): 
             <button
               type="button"
               data-sign-in-window-open
-              disabled={waiting}
+              // Not disabled while waiting: asking again brings the open
+              // sign-in window forward, and if a web view never opened one
+              // there is still a way to try again.
               onClick={() => void openLink(true)}
               className={PRIMARY_BUTTON}
             >

@@ -273,6 +273,11 @@ fn start_twitch_sign_in(app: &AppHandle) {
                 return;
             }
         };
+        // Quit may have started while the link was fetched.
+        if shell.quitting.load(Ordering::SeqCst) {
+            shell.signing_in.store(false, Ordering::SeqCst);
+            return;
+        }
         if let Err(error) = sign_in_window(&app, &shell, link) {
             shell.signing_in.store(false, Ordering::SeqCst);
             report_sign_in(
