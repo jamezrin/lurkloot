@@ -126,7 +126,13 @@ describe("watchlist watch-streak controls (#897)", () => {
     return container;
   }
 
-  it("offers a labelled switch per row and marks enabled rows with their status", () => {
+  function showStreaks(container: HTMLElement): void {
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[data-watchlist-tab="streaks"]')!.click(),
+    );
+  }
+
+  it("offers a labelled switch per row on the Channels tab", () => {
     const onToggle = vi.fn();
     const container = mountStreaks({
       enabled: new Set(["beta"]),
@@ -143,6 +149,29 @@ describe("watchlist watch-streak controls (#897)", () => {
       "true",
     ]);
     expect(switches[0]!.getAttribute("aria-label")).toBe("watchlistStreakToggle:alpha");
+    // Statuses and the hint live on the Streaks tab.
+    expect(container.querySelector("[data-watchlist-streak-status]")).toBeNull();
+    expect(container.querySelector("[data-watchlist-streak-hint]")).toBeNull();
+
+    act(() => switches[0]!.click());
+    act(() => switches[1]!.click());
+    expect(onToggle.mock.calls).toEqual([
+      ["alpha", true],
+      ["beta", false],
+    ]);
+  });
+
+  it("shows each kept streak's status on the Streaks tab and offers the rest", () => {
+    const onToggle = vi.fn();
+    const container = mountStreaks({
+      enabled: new Set(["beta"]),
+      statuses: { beta: "credited" },
+      budgetMinutes: 15,
+      onToggle,
+    });
+    showStreaks(container);
+    expect(container.querySelector("[data-watchlist-input]")).toBeNull();
+    expect(container.querySelector("[data-watchlist-count]")).toBeNull();
     expect(
       [...container.querySelectorAll("[data-watchlist-streak-status]")].map((node) =>
         node.getAttribute("data-watchlist-streak-status"),
@@ -150,8 +179,16 @@ describe("watchlist watch-streak controls (#897)", () => {
     ).toEqual(["credited"]);
     expect(container.querySelector("[data-watchlist-streak-hint]")).not.toBeNull();
 
-    act(() => switches[0]!.click());
-    act(() => switches[1]!.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[data-watch-streaks-add="alpha"]')!.click(),
+    );
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>(
+          '[data-watch-streak-channel="beta"] [data-watchlist-streak-toggle]',
+        )!
+        .click(),
+    );
     expect(onToggle.mock.calls).toEqual([
       ["alpha", true],
       ["beta", false],
@@ -165,6 +202,7 @@ describe("watchlist watch-streak controls (#897)", () => {
       budgetMinutes: 15,
       onToggle: vi.fn(),
     });
+    showStreaks(container);
     expect(
       container
         .querySelector("[data-watchlist-streak-status]")
@@ -172,38 +210,53 @@ describe("watchlist watch-streak controls (#897)", () => {
     ).toBe("pending");
   });
 
-  it("offers no streak controls without streak support", () => {
+  it("asks for a channel on the Streaks tab before any streak is kept", () => {
+    const container = mountStreaks({
+      enabled: new Set(),
+      statuses: {},
+      budgetMinutes: 15,
+      onToggle: vi.fn(),
+    });
+    showStreaks(container);
+    expect(container.querySelector("[data-watch-streak-history]")).toBeNull();
+    expect(container.textContent).toContain("watchStreaksNone");
+    expect(
+      [...container.querySelectorAll("[data-watch-streaks-add]")].map((node) =>
+        node.getAttribute("data-watch-streaks-add"),
+      ),
+    ).toEqual(["alpha", "beta"]);
+  });
+
+  it("offers no streak controls or tabs without streak support", () => {
     const container = mountStreaks(undefined, "kick");
+    expect(container.querySelector("[data-watchlist-tab]")).toBeNull();
     expect(container.querySelector("[data-watchlist-streak-toggle]")).toBeNull();
     expect(container.querySelector("[data-watchlist-streak-hint]")).toBeNull();
   });
-  it("shows the Watch streaks place beside the watchlist's once a row keeps a streak", () => {
+
+  it("shows the Watch streaks place on the Streaks tab once a row keeps a streak", () => {
     const order: WatchSourceId[] = ["watch_streaks", "drops", "nopixel", "fortnite", "watchlist"];
     const places = (container: HTMLElement) =>
       [...container.querySelectorAll("[data-watch-source-place]")].map((place) => [
         place.getAttribute("data-watch-source-place"),
         place.querySelector("[data-watch-source-place-name]")?.textContent ?? null,
       ]);
-    expect(
-      places(
-        mountStreaks(
-          { enabled: new Set(), statuses: {}, budgetMinutes: 15, onToggle: vi.fn() },
-          "twitch",
-          order,
-        ),
-      ),
-    ).toEqual([["watchlist", null]]);
-    expect(
-      places(
-        mountStreaks(
-          { enabled: new Set(["beta"]), statuses: {}, budgetMinutes: 15, onToggle: vi.fn() },
-          "twitch",
-          order,
-        ),
-      ),
-    ).toEqual([
-      ["watchlist", "watchSourceWatchlist"],
-      ["watch_streaks", "watchSourceWatchStreaks"],
-    ]);
+    const none = mountStreaks(
+      { enabled: new Set(), statuses: {}, budgetMinutes: 15, onToggle: vi.fn() },
+      "twitch",
+      order,
+    );
+    expect(places(none)).toEqual([["watchlist", null]]);
+    showStreaks(none);
+    expect(places(none)).toEqual([]);
+
+    const kept = mountStreaks(
+      { enabled: new Set(["beta"]), statuses: {}, budgetMinutes: 15, onToggle: vi.fn() },
+      "twitch",
+      order,
+    );
+    expect(places(kept)).toEqual([["watchlist", "watchSourceWatchlist"]]);
+    showStreaks(kept);
+    expect(places(kept)).toEqual([["watch_streaks", "watchSourceWatchStreaks"]]);
   });
 });

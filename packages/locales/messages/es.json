@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Racha no disponible"
   },
+  "watchlistTabChannels": {
+    "message": "Canales"
+  },
+  "watchlistTabStreaks": {
+    "message": "Rachas"
+  },
+  "watchStreaksNone": {
+    "message": "Ningún canal mantiene una racha todavía. Elige uno abajo."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Las rachas se mantienen en los canales de la lista de visualización. Añade un canal primero."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Añadir canales"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Mantener racha en"
+  },
   "watchStreakHistoryTitle": {
     "message": "Rachas de visualización"
   },

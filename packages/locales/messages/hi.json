@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "स्ट्रीक उपलब्ध नहीं"
   },
+  "watchlistTabChannels": {
+    "message": "चैनल"
+  },
+  "watchlistTabStreaks": {
+    "message": "वॉच स्ट्रीक्स"
+  },
+  "watchStreaksNone": {
+    "message": "अभी कोई चैनल स्ट्रीक नहीं रख रहा। नीचे से एक चुनें।"
+  },
+  "watchStreaksNoChannels": {
+    "message": "स्ट्रीक्स वॉचलिस्ट के चैनलों पर रखी जाती हैं। पहले कोई चैनल जोड़ें।"
+  },
+  "watchStreaksAddChannels": {
+    "message": "चैनल जोड़ें"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "इस पर स्ट्रीक रखें"
+  },
   "watchStreakHistoryTitle": {
     "message": "वॉच स्ट्रीक"
   },

@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Streak tidak tersedia"
   },
+  "watchlistTabChannels": {
+    "message": "Kanal"
+  },
+  "watchlistTabStreaks": {
+    "message": "Streak menonton"
+  },
+  "watchStreaksNone": {
+    "message": "Belum ada kanal yang mempertahankan streak. Pilih salah satu di bawah."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Streak disimpan pada kanal Daftar pantau. Tambahkan kanal dulu."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Tambah kanal"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Pertahankan streak di"
+  },
   "watchStreakHistoryTitle": {
     "message": "Rangkaian tonton"
   },

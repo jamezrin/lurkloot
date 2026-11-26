@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Seria niedostępna"
   },
+  "watchlistTabChannels": {
+    "message": "Kanały"
+  },
+  "watchlistTabStreaks": {
+    "message": "Serie"
+  },
+  "watchStreaksNone": {
+    "message": "Żaden kanał nie ma jeszcze serii. Wybierz poniżej."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Serie są prowadzone dla kanałów z Watchlisty. Najpierw dodaj kanał."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Dodaj kanały"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Utrzymuj serię na"
+  },
   "watchStreakHistoryTitle": {
     "message": "Serie oglądania"
   },

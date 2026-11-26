@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Sequência indisponível"
   },
+  "watchlistTabChannels": {
+    "message": "Canais"
+  },
+  "watchlistTabStreaks": {
+    "message": "Sequências"
+  },
+  "watchStreaksNone": {
+    "message": "Nenhum canal mantém uma sequência ainda. Escolha um abaixo."
+  },
+  "watchStreaksNoChannels": {
+    "message": "As sequências são mantidas nos canais da lista de visualização. Adicione um canal primeiro."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Adicionar canais"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Manter sequência em"
+  },
   "watchStreakHistoryTitle": {
     "message": "Sequências de visualização"
   },

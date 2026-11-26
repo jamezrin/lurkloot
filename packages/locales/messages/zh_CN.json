@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "连续记录不可用"
   },
+  "watchlistTabChannels": {
+    "message": "频道"
+  },
+  "watchlistTabStreaks": {
+    "message": "连续记录"
+  },
+  "watchStreaksNone": {
+    "message": "暂无频道保持连续记录。请在下方选择。"
+  },
+  "watchStreaksNoChannels": {
+    "message": "连续记录保存在观看列表的频道上。请先添加频道。"
+  },
+  "watchStreaksAddChannels": {
+    "message": "添加频道"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "保持连续记录于"
+  },
   "watchStreakHistoryTitle": {
     "message": "观看连续奖励"
   },

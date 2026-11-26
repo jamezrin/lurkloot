@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "السلسلة غير متاحة"
   },
+  "watchlistTabChannels": {
+    "message": "القنوات"
+  },
+  "watchlistTabStreaks": {
+    "message": "السلاسل"
+  },
+  "watchStreaksNone": {
+    "message": "لا توجد قناة تحافظ على سلسلة بعد. اختر واحدة أدناه."
+  },
+  "watchStreaksNoChannels": {
+    "message": "تُحفظ السلاسل على قنوات قائمة المشاهدة. أضف قناة أولاً."
+  },
+  "watchStreaksAddChannels": {
+    "message": "إضافة قنوات"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "الحفاظ على سلسلة في"
+  },
   "watchStreakHistoryTitle": {
     "message": "سلاسل المشاهدة"
   },

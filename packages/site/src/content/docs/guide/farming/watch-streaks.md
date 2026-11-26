@@ -13,10 +13,10 @@ Twitch rewards you for watching a channel's streams regularly, with a watch stre
 
 ## Turning it on
 
-1. Open **Watchlist** on Twitch.
-2. Next to a channel, turn on **Maintain watch streak**.
+1. Open **Watchlist** on Twitch and add the channel if it is not there yet.
+2. Switch to the **Streaks** tab and pick the channel under **Keep a streak on**.
 
-Do this for each channel whose streak you want to keep.
+You can also press the flame next to a channel on the **Channels** tab. Press it again, on either tab, to stop keeping that channel's streak.
 
 ## How it works
 
@@ -25,6 +25,8 @@ Do this for each channel whose streak you want to keep.
 - It watches each stream once. If the video will not play, it waits for the **Watch streak retry delay** and tries the same stream again, up to **Watch streak tries** times, keeping the time it already watched. A new stream on that channel starts over.
 
 ## What the labels mean
+
+Each streak channel on the **Streaks** tab shows one of these:
 
 | Label | Meaning |
 | --- | --- |
@@ -37,10 +39,10 @@ Do this for each channel whose streak you want to keep.
 
 ## Streak history
 
-Once a channel keeps a streak, a **Watch streaks** card sits above your Watchlist:
+Once a channel keeps a streak, the **Streaks** tab shows a **Watch streaks** card:
 
 - A calendar of the last 12 weeks. Each square is a day, and the brighter it is, the more channels had their streak confirmed that day. Today has an outline.
-- Three numbers under it: how many streaks were confirmed in those 12 weeks, how many days in a row ending today had at least one, and the longest such run.
+- Three numbers beside it: how many streaks were confirmed in those 12 weeks, how many days in a row ending today had at least one, and the longest such run.
 - A row for each streak channel showing its last 14 days: orange when the streak was confirmed, red when it was not, striped while Lurkloot is watching for it now. The flame number at the end counts its confirmed days in a row. Days the channel did not stream do not break it. A warning sign means the channel's latest stream was not confirmed.
 
 Hover a square to see its date. The history only counts what Lurkloot itself saw, and days older than 12 weeks drop off.

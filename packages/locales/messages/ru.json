@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Серия недоступна"
   },
+  "watchlistTabChannels": {
+    "message": "Каналы"
+  },
+  "watchlistTabStreaks": {
+    "message": "Серии"
+  },
+  "watchStreaksNone": {
+    "message": "Ни у одного канала пока нет серии. Выберите ниже."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Серии ведутся для каналов из списка просмотра. Сначала добавьте канал."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Добавить каналы"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Поддерживать серию на"
+  },
   "watchStreakHistoryTitle": {
     "message": "Серии просмотра"
   },

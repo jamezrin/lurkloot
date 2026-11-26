@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "連続視聴不可"
   },
+  "watchlistTabChannels": {
+    "message": "チャンネル"
+  },
+  "watchlistTabStreaks": {
+    "message": "連続視聴"
+  },
+  "watchStreaksNone": {
+    "message": "連続視聴を維持しているチャンネルはまだありません。下から選んでください。"
+  },
+  "watchStreaksNoChannels": {
+    "message": "連続視聴はウォッチリストのチャンネルで記録されます。先にチャンネルを追加してください。"
+  },
+  "watchStreaksAddChannels": {
+    "message": "チャンネルを追加"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "連続視聴を維持するチャンネル"
+  },
   "watchStreakHistoryTitle": {
     "message": "視聴ストリーク"
   },

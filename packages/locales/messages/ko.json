@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "연속 시청 불가"
   },
+  "watchlistTabChannels": {
+    "message": "채널"
+  },
+  "watchlistTabStreaks": {
+    "message": "연속 시청"
+  },
+  "watchStreaksNone": {
+    "message": "아직 연속 시청을 유지하는 채널이 없습니다. 아래에서 선택하세요."
+  },
+  "watchStreaksNoChannels": {
+    "message": "연속 시청은 시청 목록의 채널에서 유지됩니다. 먼저 채널을 추가하세요."
+  },
+  "watchStreaksAddChannels": {
+    "message": "채널 추가"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "연속 시청 유지할 채널"
+  },
   "watchStreakHistoryTitle": {
     "message": "시청 연속 기록"
   },

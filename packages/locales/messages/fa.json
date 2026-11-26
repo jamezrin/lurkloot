@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "تداوم در دسترس نیست"
   },
+  "watchlistTabChannels": {
+    "message": "کانال‌ها"
+  },
+  "watchlistTabStreaks": {
+    "message": "تداوم‌ها"
+  },
+  "watchStreaksNone": {
+    "message": "هنوز هیچ کانالی تداوم تماشا ندارد. یکی را از پایین انتخاب کنید."
+  },
+  "watchStreaksNoChannels": {
+    "message": "تداوم‌ها روی کانال‌های فهرست تماشا ثبت می‌شوند. ابتدا یک کانال اضافه کنید."
+  },
+  "watchStreaksAddChannels": {
+    "message": "افزودن کانال‌ها"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "حفظ تداوم تماشا در"
+  },
   "watchStreakHistoryTitle": {
     "message": "رشته‌های تماشا"
   },

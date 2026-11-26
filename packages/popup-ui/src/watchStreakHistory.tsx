@@ -1,6 +1,10 @@
 import React from "react";
-import { AlertTriangle, Flame } from "lucide-react";
-import type { WatchStreakDayOutcome, WatchStreakRowStatus } from "@lurkloot/shared/models";
+import { AlertTriangle, Flame, Plus } from "lucide-react";
+import type {
+  WatchSourceId,
+  WatchStreakDayOutcome,
+  WatchStreakRowStatus,
+} from "@lurkloot/shared/models";
 import {
   channelStreakRun,
   dayKeyToDate,
@@ -10,31 +14,138 @@ import {
   type WatchStreakHistory,
 } from "@lurkloot/shared/watchStreakHistory";
 import { I18nContext, useT } from "./context";
-import { cn } from "./primitives";
+import { cn, EmptyPanel, Pill } from "./primitives";
 import { Tip } from "./tooltip";
+import { WatchSourcePlace } from "./watchSourcePriority";
 
-// The Watchlist's watch-streak card (#897): twelve weeks of payouts as a
-// heatmap with the day runs under it, then each maintained channel's last two
-// weeks and its run. Everything here is what Lurkloot itself saw, so the copy
-// never calls a number the platform's own streak count.
+// The Watchlist's Streaks tab (#897): twelve weeks of payouts as a heatmap
+// beside the day runs, then each maintained channel's last two weeks and its
+// run, and the Watchlist channels that could keep one. Everything here is what
+// Lurkloot itself saw, so the copy never calls a number the platform's own
+// streak count.
 
 const HEATMAP_WEEKS = 12;
 const STRIP_DAYS = 14;
 
-export interface WatchStreakHistoryCardProps {
-  history: WatchStreakHistory | undefined;
-  // Maintained channels, lowercased, in Watchlist order.
-  channels: readonly string[];
+/** Watch-streak maintenance on the Watchlist (#897). Only offered where the
+ * platform maintains streaks (Twitch). */
+export interface IdleWatchlistStreaks {
+  // Rows the user opted in, lowercased.
+  enabled: ReadonlySet<string>;
+  // The last tick's status per opted-in row.
   statuses: Readonly<Record<string, WatchStreakRowStatus>>;
+  // The watch budget an attempt gets (Advanced settings), for the hint.
+  budgetMinutes: number;
+  // What Lurkloot saw of each maintained channel, per day.
+  history?: WatchStreakHistory;
+  onToggle(username: string, enabled: boolean): void;
+}
+
+export function WatchStreaksTab({
+  streaks,
+  channels,
+  watchOrder,
+  onChangeOrder,
+  onShowChannels,
+  now,
+}: {
+  streaks: IdleWatchlistStreaks;
+  // Every Watchlist channel, lowercased, in Watchlist order.
+  channels: readonly string[];
+  watchOrder?: readonly WatchSourceId[];
+  onChangeOrder?(): void;
+  onShowChannels(): void;
   now?: number;
+}): React.ReactElement {
+  const t = useT();
+  const maintained = channels.filter((channel) => streaks.enabled.has(channel));
+  const available = channels.filter((channel) => !streaks.enabled.has(channel));
+  return (
+    <div data-watch-streaks-tab className="space-y-2">
+      {watchOrder && onChangeOrder && maintained.length > 0 ? (
+        <WatchSourcePlace
+          source="watch_streaks"
+          order={watchOrder}
+          onChangeOrder={onChangeOrder}
+          named
+        />
+      ) : null}
+
+      {maintained.length > 0 ? (
+        <WatchStreakHistoryCard
+          history={streaks.history}
+          channels={maintained}
+          statuses={streaks.statuses}
+          onToggle={streaks.onToggle}
+          now={now}
+        />
+      ) : channels.length > 0 ? (
+        <EmptyPanel>{t("watchStreaksNone")}</EmptyPanel>
+      ) : null}
+
+      {channels.length === 0 ? (
+        <EmptyPanel>
+          <span className="block">{t("watchStreaksNoChannels")}</span>
+          <button
+            type="button"
+            data-watch-streaks-show-channels
+            onClick={onShowChannels}
+            className="mt-2 inline-flex items-center gap-1 rounded-lg bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-[var(--ink-contrast)]"
+          >
+            <Plus size={13} aria-hidden /> {t("watchStreaksAddChannels")}
+          </button>
+        </EmptyPanel>
+      ) : available.length > 0 ? (
+        <div data-watch-streaks-available className="space-y-1.5 pt-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+              {t("watchStreaksAvailableTitle")}
+            </span>
+            <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {available.map((channel) => (
+              <button
+                key={channel}
+                type="button"
+                data-watch-streaks-add={channel}
+                aria-label={t("watchlistStreakToggle", channel)}
+                onClick={() => streaks.onToggle(channel, true)}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--surface-edge)] bg-white px-2.5 py-1 text-[11px] font-medium text-zinc-700 transition-colors outline-none hover:border-orange-500/50 hover:text-orange-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:bg-zinc-900 dark:text-zinc-200 dark:hover:text-orange-400"
+              >
+                <Plus size={11} aria-hidden />
+                {channel}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <p
+        data-watchlist-streak-hint
+        className="flex items-start gap-1 px-1 text-[10px] text-zinc-400 dark:text-zinc-500"
+      >
+        <Flame size={10} aria-hidden className="mt-px shrink-0 text-orange-500" />
+        {t("watchlistStreakHint", String(streaks.budgetMinutes))}
+      </p>
+    </div>
+  );
 }
 
 export function WatchStreakHistoryCard({
   history,
   channels,
   statuses,
+  onToggle,
   now = Date.now(),
-}: WatchStreakHistoryCardProps): React.ReactElement {
+}: {
+  history: WatchStreakHistory | undefined;
+  // Maintained channels, lowercased, in Watchlist order.
+  channels: readonly string[];
+  statuses: Readonly<Record<string, WatchStreakRowStatus>>;
+  onToggle?(username: string, enabled: boolean): void;
+  now?: number;
+}): React.ReactElement {
   const t = useT();
   const { locale } = React.useContext(I18nContext);
   const tag = locale.replace(/_/g, "-");
@@ -54,51 +165,53 @@ export function WatchStreakHistoryCard({
       aria-label={t("watchStreakHistoryTitle")}
       className="overflow-hidden rounded-xl border border-[var(--surface-edge)] bg-white dark:bg-zinc-900"
     >
-      <div className="flex items-center gap-1.5 px-3 pt-2.5">
-        <Flame size={12} aria-hidden className="shrink-0 text-orange-500" />
-        <span className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-50">
-          {t("watchStreakHistoryTitle")}
-        </span>
-        <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">
-          {t("watchStreakHistoryWindow")}
-        </span>
+      <div className="flex items-stretch">
+        <div className="min-w-0 flex-1 px-3 pt-2.5 pb-3">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <Flame size={12} aria-hidden className="shrink-0 text-orange-500" />
+            <span className="text-[11px] font-semibold text-zinc-900 dark:text-zinc-50">
+              {t("watchStreakHistoryTitle")}
+            </span>
+            <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">
+              {t("watchStreakHistoryWindow")}
+            </span>
+          </div>
+          <Heatmap
+            today={today}
+            credited={summary.credited}
+            missedOnly={summary.missedOnly}
+            tag={tag}
+            describe={(key, count) =>
+              t("watchStreakHistoryDayTip", [formatDay(key), number.format(count)])
+            }
+          />
+        </div>
+        <dl className="flex w-32 shrink-0 flex-col justify-center divide-y divide-[var(--surface-edge)] border-s border-[var(--surface-edge)]">
+          <Stat
+            id="total"
+            value={number.format(summary.totalCredited)}
+            label={t("watchStreakHistoryTotal")}
+          />
+          <Stat
+            id="current"
+            value={number.format(summary.currentDayRun)}
+            label={t("watchStreakHistoryDayRun")}
+          />
+          <Stat
+            id="best"
+            value={number.format(summary.bestDayRun)}
+            label={t("watchStreakHistoryBestRun")}
+            flame={summary.bestDayRun > 0}
+          />
+        </dl>
       </div>
-
-      <Heatmap
-        today={today}
-        credited={summary.credited}
-        missedOnly={summary.missedOnly}
-        tag={tag}
-        describe={(key, count) =>
-          t("watchStreakHistoryDayTip", [formatDay(key), number.format(count)])
-        }
-      />
-
-      <dl className="grid grid-cols-3 border-t border-[var(--surface-edge)] text-center">
-        <Stat
-          id="total"
-          value={number.format(summary.totalCredited)}
-          label={t("watchStreakHistoryTotal")}
-        />
-        <Stat
-          id="current"
-          value={number.format(summary.currentDayRun)}
-          label={t("watchStreakHistoryDayRun")}
-        />
-        <Stat
-          id="best"
-          value={number.format(summary.bestDayRun)}
-          label={t("watchStreakHistoryBestRun")}
-          flame={summary.bestDayRun > 0}
-        />
-      </dl>
 
       {channels.length > 0 ? (
         <div className="border-t border-[var(--surface-edge)] px-3 py-2">
-          <div className="mb-1 text-[10px] font-semibold tracking-wide text-zinc-400 uppercase dark:text-zinc-500">
+          <div className="mb-1.5 text-[10px] font-semibold tracking-wide text-zinc-400 uppercase dark:text-zinc-500">
             {t("watchStreakHistoryChannels", String(STRIP_DAYS))}
           </div>
-          <ul className="space-y-1">
+          <ul className="divide-y divide-[var(--surface-edge)]">
             {channels.map((channel) => (
               <ChannelStrip
                 key={channel}
@@ -108,6 +221,7 @@ export function WatchStreakHistoryCard({
                 today={today}
                 formatDay={formatDay}
                 formatNumber={(value) => number.format(value)}
+                onToggle={onToggle ? (enabled) => onToggle(channel, enabled) : undefined}
               />
             ))}
           </ul>
@@ -139,13 +253,71 @@ function Stat({
   flame?: boolean;
 }): React.ReactElement {
   return (
-    <div data-watch-streak-stat={id} className="px-1 py-2">
+    <div data-watch-streak-stat={id} className="flex flex-col-reverse px-2 py-1.5 text-center">
+      <dt className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{label}</dt>
       <dd className="flex items-center justify-center gap-0.5 text-sm font-semibold text-zinc-900 tabular dark:text-zinc-50">
         {flame ? <Flame size={12} aria-hidden className="text-orange-500" /> : null}
         {value}
       </dd>
-      <dt className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{label}</dt>
     </div>
+  );
+}
+
+const WATCH_STREAK_STATUS = {
+  pending: { key: "watchStreakPending", tone: "outline" },
+  watching: { key: "watchStreakWatching", tone: "accent" },
+  credited: { key: "watchStreakCredited", tone: "live" },
+  not_confirmed: { key: "watchStreakNotConfirmed", tone: "warning" },
+  playback_failed: { key: "watchStreakPlaybackFailed", tone: "warning" },
+  unavailable: { key: "watchStreakUnavailable", tone: "muted" },
+} as const satisfies Record<
+  WatchStreakRowStatus,
+  { key: string; tone: "outline" | "accent" | "live" | "warning" | "muted" }
+>;
+
+function WatchStreakStatus({ status }: { status: WatchStreakRowStatus }): React.ReactElement {
+  const t = useT();
+  const { key, tone } = WATCH_STREAK_STATUS[status];
+  return (
+    <span data-watchlist-streak-status={status} className="flex">
+      <Pill tone={tone}>{t(key)}</Pill>
+    </span>
+  );
+}
+
+/** The flame switch that opts a Watchlist channel in or out of streaks. */
+export function WatchStreakToggle({
+  name,
+  enabled,
+  onToggle,
+}: {
+  name: string;
+  enabled: boolean;
+  onToggle(enabled: boolean): void;
+}): React.ReactElement {
+  const t = useT();
+  const label = t("watchlistStreakToggle", name);
+  return (
+    <Tip label={label}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={label}
+        data-watchlist-streak-toggle
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle(!enabled);
+        }}
+        className={
+          enabled
+            ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-orange-500/12 text-orange-600 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-orange-400"
+            : "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors outline-none hover:bg-zinc-100 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        }
+      >
+        <Flame size={13} aria-hidden />
+      </button>
+    </Tip>
   );
 }
 
@@ -183,7 +355,7 @@ function Heatmap({
     <div data-watch-streak-heatmap className="flex justify-center px-3 pt-1.5 pb-2.5">
       <div
         className="grid grid-flow-col gap-[3px]"
-        style={{ gridTemplateRows: "auto repeat(7, 13px)" }}
+        style={{ gridTemplateRows: "auto repeat(7, 15px)" }}
       >
         {weeks.map((week, index) => {
           const first = dayKeyToDate(week[0]!);
@@ -194,12 +366,12 @@ function Heatmap({
             <React.Fragment key={week[0]}>
               <span
                 aria-hidden
-                className="h-3 w-[13px] overflow-visible text-[9px] leading-3 whitespace-nowrap text-zinc-400 dark:text-zinc-500"
+                className="h-3 w-[15px] overflow-visible text-[9px] leading-3 whitespace-nowrap text-zinc-400 dark:text-zinc-500"
               >
                 {label}
               </span>
               {week.map((key) => {
-                if (key > today) return <span key={key} aria-hidden className="size-[13px]" />;
+                if (key > today) return <span key={key} aria-hidden className="size-[15px]" />;
                 const count = credited[key] ?? 0;
                 return (
                   <Tip key={key} label={describe(key, count)}>
@@ -207,7 +379,7 @@ function Heatmap({
                       data-day={key}
                       data-count={count}
                       className={cn(
-                        "size-[13px] rounded-[3px]",
+                        "size-[15px] rounded-[3px]",
                         count > 0
                           ? heatLevel(count)
                           : missedOnly.has(key)
@@ -240,6 +412,7 @@ function ChannelStrip({
   today,
   formatDay,
   formatNumber,
+  onToggle,
 }: {
   channel: string;
   days: Readonly<Record<string, WatchStreakDayOutcome>> | undefined;
@@ -247,6 +420,7 @@ function ChannelStrip({
   today: string;
   formatDay(key: string): string;
   formatNumber(value: number): string;
+  onToggle?(enabled: boolean): void;
 }): React.ReactElement {
   const t = useT();
   const { run, atRisk } = channelStreakRun(days);
@@ -255,14 +429,17 @@ function ChannelStrip({
   );
   const watching = status === "watching";
   return (
-    <li data-watch-streak-channel={channel} className="flex items-center gap-2">
-      <span
-        className={cn(
-          "w-20 shrink-0 truncate text-[11px] font-medium",
-          atRisk ? "text-rose-600 dark:text-rose-400" : "text-zinc-700 dark:text-zinc-200",
-        )}
-      >
-        {channel}
+    <li data-watch-streak-channel={channel} className="flex items-center gap-2 py-1.5">
+      <span className="flex w-28 shrink-0 flex-col items-start gap-0.5">
+        <span
+          className={cn(
+            "max-w-full truncate text-[11px] font-medium",
+            atRisk ? "text-rose-600 dark:text-rose-400" : "text-zinc-700 dark:text-zinc-200",
+          )}
+        >
+          {channel}
+        </span>
+        <WatchStreakStatus status={status ?? "pending"} />
       </span>
       <span className="flex min-w-0 flex-1 gap-[2px]">
         {strip.map((key) => {
@@ -318,6 +495,7 @@ function ChannelStrip({
           {formatNumber(run)}
         </span>
       </Tip>
+      {onToggle ? <WatchStreakToggle name={channel} enabled onToggle={onToggle} /> : null}
     </li>
   );
 }

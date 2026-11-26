@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Seri kullanılamıyor"
   },
+  "watchlistTabChannels": {
+    "message": "Kanallar"
+  },
+  "watchlistTabStreaks": {
+    "message": "Seriler"
+  },
+  "watchStreaksNone": {
+    "message": "Henüz hiçbir kanalda seri yok. Aşağıdan birini seçin."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Seriler izleme listesindeki kanallarda tutulur. Önce bir kanal ekleyin."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Kanal ekle"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Şu kanalda seriyi sürdür"
+  },
   "watchStreakHistoryTitle": {
     "message": "İzleme serileri"
   },

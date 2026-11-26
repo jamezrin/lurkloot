@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Streak unavailable"
   },
+  "watchlistTabChannels": {
+    "message": "Channels"
+  },
+  "watchlistTabStreaks": {
+    "message": "Streaks"
+  },
+  "watchStreaksNone": {
+    "message": "No channel keeps a streak yet. Pick one below."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Streaks are kept on Watchlist channels. Add a channel first."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Add channels"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Keep a streak on"
+  },
   "watchStreakHistoryTitle": {
     "message": "Watch streaks"
   },

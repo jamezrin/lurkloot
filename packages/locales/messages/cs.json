@@ -2252,6 +2252,24 @@
   "watchStreakUnavailable": {
     "message": "Série nedostupná"
   },
+  "watchlistTabChannels": {
+    "message": "Kanály"
+  },
+  "watchlistTabStreaks": {
+    "message": "Série"
+  },
+  "watchStreaksNone": {
+    "message": "Žádný kanál zatím nemá sérii. Vyberte níže."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Série se udržují u kanálů ze seznamu sledování. Nejprve přidejte kanál."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Přidat kanály"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Udržovat sérii u"
+  },
   "watchStreakHistoryTitle": {
     "message": "Série sledování"
   },
