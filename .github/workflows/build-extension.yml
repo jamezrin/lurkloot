@@ -40,9 +40,28 @@ jobs:
         with:
           ref: ${{ inputs.trusted_ref }}
           persist-credentials: false
+      # pnpm's version is the root package.json's packageManager field. The trusted ref can
+      # predate that field (a release candidate's base is main before the release that added
+      # it), so fall back to the field in the tree being built, which is also where the
+      # workflow definition itself comes from.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          path: .pnpm-version-source
+          sparse-checkout: package.json
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - name: Choose the package.json that names pnpm's version
+        id: pnpm-version
+        run: |
+          if node -e 'process.exit(require("./package.json").packageManager ? 0 : 1)'; then
+            echo "file=package.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "file=.pnpm-version-source/package.json" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
-          version: 12.23.0
+          package_json_file: ${{ steps.pnpm-version.outputs.file }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -73,8 +92,6 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-        with:
-          version: 12.23.0
       - uses: actions/setup-node@v7
         with:
           node-version: 24

@@ -10,7 +10,8 @@ Firefox Add-ons. They produce the same files as the published
 
 - Linux, macOS or Windows (WSL)
 - [Node.js](https://nodejs.org/) 24
-- [pnpm](https://pnpm.io/) 12.16.1, for example `npm install -g pnpm@12.16.1`
+- [pnpm](https://pnpm.io/), at the version in the `packageManager` field of the root
+  `package.json`, for example `npm install -g "$(node -p 'require("./package.json").packageManager')"`
 
 The release builds run on `ubuntu-latest` with exactly these versions.
 

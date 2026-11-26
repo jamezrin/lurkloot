@@ -5,6 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@12.23.0",
   "scripts": {
     "dev": "pnpm --filter @lurkloot/extension dev",
     "dev:firefox": "pnpm --filter @lurkloot/extension dev:firefox",
