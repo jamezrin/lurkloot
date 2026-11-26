@@ -103,7 +103,13 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let shell = window.state::<Arc<Shell>>();
-                if shell.has_tray.load(Ordering::SeqCst) && !shell.quitting.load(Ordering::SeqCst) {
+                // Checked again now: a Linux tray can go away while the app
+                // runs, and hiding the window with no tray would leave no way
+                // back to it.
+                if shell.has_tray.load(Ordering::SeqCst)
+                    && tray::tray_available()
+                    && !shell.quitting.load(Ordering::SeqCst)
+                {
                     // Farming goes on in the tray.
                     api.prevent_close();
                     let _ = window.hide();

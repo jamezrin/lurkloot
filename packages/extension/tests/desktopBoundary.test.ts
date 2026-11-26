@@ -82,7 +82,7 @@ describe("@lurkloot/desktop packaging-only boundary", () => {
   it("the guard sees the shell's own files", () => {
     const scripts = files(desktop, /\.(?:[cm]?[jt]sx?)$/).map((file) => relative(desktop, file));
     expect(scripts).toEqual(
-      expect.arrayContaining(["scripts/prepareSidecar.mjs", "shell/status.js"]),
+      expect.arrayContaining([join("scripts", "prepareSidecar.mjs"), join("shell", "status.js")]),
     );
   });
 });

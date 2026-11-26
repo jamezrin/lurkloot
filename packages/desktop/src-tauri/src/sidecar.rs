@@ -185,14 +185,25 @@ impl Supervisor {
         let Some((done, handle)) = self.done.lock().unwrap().take() else {
             return;
         };
-        if done.recv_timeout(grace).is_err() {
-            if let Some(killer) = killer.or_else(|| self.inner.state.lock().unwrap().killer.clone())
-            {
-                killer.kill();
+        let finished = match done.recv_timeout(grace) {
+            Err(RecvTimeoutError::Timeout) => {
+                if let Some(killer) =
+                    killer.or_else(|| self.inner.state.lock().unwrap().killer.clone())
+                {
+                    killer.kill();
+                }
+                !matches!(
+                    done.recv_timeout(Duration::from_secs(5)),
+                    Err(RecvTimeoutError::Timeout)
+                )
             }
-            let _ = done.recv_timeout(Duration::from_secs(5));
+            _ => true,
+        };
+        // A supervisor that never reported back is left behind rather than
+        // waited on, so Quit always ends.
+        if finished {
+            let _ = handle.join();
         }
-        let _ = handle.join();
     }
 }
 
@@ -251,7 +262,7 @@ fn run_once(
     spec: &SidecarSpec,
     inner: &Inner,
     events: &dyn SidecarEvents,
-    log: &Arc<Mutex<Option<File>>>,
+    log: &Arc<Mutex<Log>>,
 ) -> Outcome {
     let mut child = match spawn(spec) {
         Ok(child) => child,
@@ -307,9 +318,9 @@ fn run_once(
     }
     // Whatever serve left behind (a cycletls helper after a crash) goes too.
     killer.kill();
-    for reader in readers.into_iter().flatten() {
-        let _ = reader.join();
-    }
+    // The readers are not waited for: a process that left serve's group or
+    // job could hold a pipe open forever. Each ends on its own at EOF.
+    drop(readers);
     {
         let mut state = inner.state.lock().unwrap();
         state.stdin = None;
@@ -352,7 +363,7 @@ fn spawn(spec: &SidecarSpec) -> std::io::Result<Child> {
     command.spawn()
 }
 
-fn tree_killer(child: &Child, log: &Mutex<Option<File>>) -> TreeKiller {
+fn tree_killer(child: &Child, log: &Mutex<Log>) -> TreeKiller {
     #[cfg(unix)]
     {
         let _ = log;
@@ -380,7 +391,7 @@ fn tree_killer(child: &Child, log: &Mutex<Option<File>>) -> TreeKiller {
 /// ready line is sent on `ready`.
 fn pump(
     stream: impl Read + Send + 'static,
-    log: Arc<Mutex<Option<File>>>,
+    log: Arc<Mutex<Log>>,
     mut ready: Option<mpsc::Sender<Url>>,
 ) -> JoinHandle<()> {
     thread::spawn(move || {
@@ -404,23 +415,66 @@ fn pump(
     })
 }
 
-fn open_log(spec: &SidecarSpec) -> Option<File> {
-    if let Some(dir) = spec.log_path.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    // Truncated on each launch of the app; restarts within it append.
-    OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&spec.log_path)
-        .ok()
+/// The most `serve.log` grows to before it is moved to `serve.log.1` and
+/// started again, so an app left farming for weeks keeps at most twice this.
+pub const LOG_LIMIT: u64 = 8 * 1024 * 1024;
+
+/// serve's log file: truncated on each launch of the app, appended to by
+/// restarts within it, and rolled over at a size limit.
+struct Log {
+    path: PathBuf,
+    file: Option<File>,
+    written: u64,
+    limit: u64,
 }
 
-fn write_log_line(log: &Mutex<Option<File>>, line: &str) {
-    if let Some(file) = log.lock().unwrap().as_mut() {
-        let _ = writeln!(file, "{line}");
+impl Log {
+    fn open(path: PathBuf, limit: u64) -> Log {
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let file = Self::create(&path);
+        Log {
+            path,
+            file,
+            written: 0,
+            limit,
+        }
     }
+
+    fn create(path: &std::path::Path) -> Option<File> {
+        OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .ok()
+    }
+
+    fn write_line(&mut self, line: &str) {
+        let size = line.len() as u64 + 1;
+        if self.written > 0 && self.written + size > self.limit {
+            self.file = None;
+            let mut rolled = self.path.clone().into_os_string();
+            rolled.push(".1");
+            let _ = std::fs::rename(&self.path, rolled);
+            self.file = Self::create(&self.path);
+            self.written = 0;
+        }
+        if let Some(file) = self.file.as_mut() {
+            if writeln!(file, "{line}").is_ok() {
+                self.written += size;
+            }
+        }
+    }
+}
+
+fn open_log(spec: &SidecarSpec) -> Log {
+    Log::open(spec.log_path.clone(), LOG_LIMIT)
+}
+
+fn write_log_line(log: &Mutex<Log>, line: &str) {
+    log.lock().unwrap().write_line(line);
 }
 
 /// Whether a variable name is one `serve_env` keeps out of `serve`.
@@ -544,6 +598,23 @@ mod tests {
         );
         assert!(is_scrubbed(OsStr::new("Lurkloot_Anything")));
         assert!(!is_scrubbed(OsStr::new("PATH")));
+    }
+
+    #[test]
+    fn rolls_the_log_over_at_its_limit() {
+        let dir = std::env::temp_dir().join(format!("lurkloot-desktop-log-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("serve.log");
+        let mut log = Log::open(path.clone(), 20);
+        log.write_line("first line");
+        log.write_line("second line");
+        log.write_line("third line");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "third line\n");
+        assert_eq!(
+            std::fs::read_to_string(dir.join("serve.log.1")).unwrap(),
+            "second line\n"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -678,6 +749,45 @@ mod tests {
             supervisor.shutdown(Duration::from_millis(300));
             assert!(started.elapsed() < Duration::from_secs(5));
             wait_until("the helper to be gone", || !alive(helper) || zombie(helper));
+        }
+
+        // A helper that left serve's process group keeps its stdout open, so
+        // the kill cannot reach it and the pipe never ends: Quit must still end.
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn shutdown_ends_when_an_escaped_helper_holds_the_output_open() {
+            let dir = temp_dir("escaped");
+            let pid_file = dir.join("escaped.pid");
+            let program = script(
+                &dir,
+                &format!(
+                    "trap '' TERM\nsetsid sh -c 'echo $$ > \"{}\"; exec sleep 300' &\n\
+                     echo '{{\"event\":\"ready\",\"url\":\"http://127.0.0.1:49155/\"}}'\n\
+                     while true; do sleep 1; done",
+                    pid_file.display()
+                ),
+            );
+            let events = Arc::new(Recorder::default());
+            let supervisor = Supervisor::start(spec(&dir, program), events.clone());
+            wait_until("ready", || !events.ready.lock().unwrap().is_empty());
+            wait_until("the escaped helper", || pid_file.exists());
+            let started = Instant::now();
+            supervisor.shutdown(Duration::from_millis(300));
+            assert!(
+                started.elapsed() < Duration::from_secs(8),
+                "{:?}",
+                started.elapsed()
+            );
+            if let Ok(pid) = std::fs::read_to_string(&pid_file)
+                .unwrap()
+                .trim()
+                .parse::<libc::pid_t>()
+            {
+                // SAFETY: ends the helper this test started.
+                unsafe {
+                    libc::kill(pid, libc::SIGKILL);
+                }
+            }
         }
 
         fn zombie(pid: libc::pid_t) -> bool {

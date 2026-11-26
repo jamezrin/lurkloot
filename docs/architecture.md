@@ -923,8 +923,8 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   executable expects. `packages/desktop/scripts/prepareSidecar.mjs` builds it with the CLI's
   `build:executable` script and copies it to `src-tauri/sidecar/`. The supervisor
   (`src-tauri/src/sidecar.rs`) knows nothing about Tauri. It reads both of serve's output streams
-  for its whole life into `serve.log` (truncated per launch), so a full pipe never stalls
-  farming, and takes the first stdout line that parses as a ready event with a plain-HTTP
+  for its whole life into `serve.log` (truncated per launch, moved to `serve.log.1` at 8 MiB),
+  so a full pipe never stalls farming, and takes the first stdout line that parses as a ready event with a plain-HTTP
   loopback URL (`ready.rs`). A start with no ready line in 60 s, or an exit, restarts serve after
   1 s, doubling to at most 60 s. The count starts again once a serve ran 60 s past ready. After
   three failures in a row the window shows the shell's status page with an error and comes
@@ -948,7 +948,8 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   that path, so it must never change (#1028 updates keep it).
 - **Window and tray.** Closing the window hides it and farming continues; the tray has Open and
   Quit. On Linux the tray counts as present only while a StatusNotifierWatcher owns its name on
-  the session bus (`tray.rs`); without one, closing the window quits instead. A second launch
+  the session bus (`tray.rs`), checked at start and again on each close; without one, closing
+  the window quits instead. A second launch
   focuses the running window (the single-instance plugin).
 - **Quit.** Every way out (tray Quit, the last window closed without a tray, the OS's quit)
   goes through one path: hide the window, close serve's stdin, wait up to 20 s for it to save
