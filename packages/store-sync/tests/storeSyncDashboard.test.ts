@@ -331,6 +331,44 @@ describe("Chrome Web Store dashboard adapter", () => {
     await expect(dashboard.saveDraft()).rejects.toThrow();
   });
 
+  // Recorded on the live dashboard: a save that starts while the previous
+  // "Item saved." is still on screen never announces "Saving item...". The
+  // region holds the old message, clears, and announces "Item saved." again.
+  it("accepts a saved message announced anew while the previous one is still showing", async () => {
+    await page.setContent(
+      fixture
+        .replace('<p aria-live="polite"></p>', '<p aria-live="polite">Item saved.</p>')
+        .replace(
+          'document.querySelector("#save").addEventListener("click", () => {',
+          `document.querySelector("#save").addEventListener("click", () => {
+            const region = document.querySelector('[aria-live="polite"]');
+            setTimeout(() => { region.textContent = ""; }, 25);
+            setTimeout(() => { region.textContent = "Item saved."; }, 50);
+            return;`,
+        ),
+    );
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 2_000 });
+
+    await dashboard.saveDraft();
+    expect(dashboard.hasMutated).toBe(true);
+  });
+
+  it("does not accept a saved message left over from an earlier save", async () => {
+    await page.setContent(
+      fixture
+        .replace('<p aria-live="polite"></p>', '<p aria-live="polite">Item saved.</p>')
+        .replace(
+          'document.querySelector("#save").addEventListener("click", () => {',
+          'document.querySelector("#save").addEventListener("click", () => { return;',
+        ),
+    );
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 100 });
+
+    await expect(dashboard.saveDraft()).rejects.toThrow(
+      "Save draft was not acknowledged within 100ms; status regions showed: Item saved.",
+    );
+  });
+
   it("does not treat an unrelated sibling mutation as a fresh save acknowledgement", async () => {
     await page.setContent(
       fixture.replace(

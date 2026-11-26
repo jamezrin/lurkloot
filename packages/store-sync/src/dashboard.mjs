@@ -11,7 +11,6 @@ const LABELS = Object.freeze({
   confirmRemoval: /^remove$/i,
   saveDraft: /save draft|save changes|save/i,
   saved: /changes saved|saved/i,
-  saving: /saving|updating|in progress|please wait/i,
   storeListing: /store listing/i,
   localizedSection: "Localized screenshots",
   globalSection: "Global screenshots",
@@ -663,35 +662,36 @@ export class ChromeWebStoreDashboard {
     // The dashboard creates its live region only when a save first runs, so the
     // announcement is observed at document level rather than bound to an
     // element that may not exist yet.
-    await this.page.evaluate(
-      (patterns) => {
-        window.__storeListingSaveObserver?.disconnect();
-        const saved = new RegExp(patterns.saved, "i");
-        const saving = new RegExp(patterns.saving, "i");
-        const normalize = (text) => text.replace(/\s+/g, " ").trim();
-        const state = { acknowledged: false, lastText: "", sawPending: false };
-        const observeText = (text) => {
-          const normalized = normalize(text);
-          if (!normalized || normalized === state.lastText) return;
-          state.lastText = normalized;
-          if (saving.test(normalized)) state.sawPending = true;
-          else if (saved.test(normalized) && state.sawPending) state.acknowledged = true;
-        };
-        const readRegions = () => {
-          for (const region of document.querySelectorAll(
-            '[aria-live]:not([role]), [role="status"]',
-          )) {
-            observeText(region.textContent ?? "");
-          }
-        };
-        const observer = new MutationObserver(readRegions);
-        observer.observe(document.body, { childList: true, characterData: true, subtree: true });
-        readRegions();
-        window.__storeListingSaveState = state;
-        window.__storeListingSaveObserver = observer;
-      },
-      { saved: LABELS.saved.source, saving: LABELS.saving.source },
-    );
+    //
+    // A save counts as acknowledged when a status region changes to a saved
+    // message after the click. Each region's text is recorded first, so a saved
+    // message still showing from an earlier save does not count until the
+    // region shows it anew. "Saving…" is not required: when a save starts
+    // while the previous message is still on screen, the dashboard skips it and
+    // only clears the region and announces the saved message again.
+    await this.page.evaluate((pattern) => {
+      window.__storeListingSaveObserver?.disconnect();
+      const saved = new RegExp(pattern, "i");
+      const normalize = (text) => text.replace(/\s+/g, " ").trim();
+      const state = { acknowledged: false, regions: new Map(), armed: false };
+      const readRegions = () => {
+        for (const region of document.querySelectorAll(
+          '[aria-live]:not([role]), [role="status"]',
+        )) {
+          const text = normalize(region.textContent ?? "");
+          const previous = state.regions.get(region);
+          if (previous === text) continue;
+          state.regions.set(region, text);
+          if (state.armed && saved.test(text)) state.acknowledged = true;
+        }
+      };
+      const observer = new MutationObserver(readRegions);
+      observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+      readRegions();
+      state.armed = true;
+      window.__storeListingSaveState = state;
+      window.__storeListingSaveObserver = observer;
+    }, LABELS.saved.source);
     this.hasMutated = true;
     await save.click();
     try {
@@ -699,6 +699,16 @@ export class ChromeWebStoreDashboard {
         () => window.__storeListingSaveState.acknowledged === true,
         undefined,
         { timeout: this.timeout },
+      );
+    } catch (error) {
+      const shown = await this.page
+        .evaluate(() =>
+          [...window.__storeListingSaveState.regions.values()].filter(Boolean).join(" | "),
+        )
+        .catch(() => "");
+      throw new Error(
+        `Save draft was not acknowledged within ${this.timeout}ms; status regions showed: ${shown || "nothing"}`,
+        { cause: error },
       );
     } finally {
       await this.page.evaluate(() => window.__storeListingSaveObserver?.disconnect());
