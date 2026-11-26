@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "Закрыть"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 готов к установке."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Перезапустить для обновления"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Установка Lurkloot $1. По завершении приложение перезапустится."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Не удалось загрузить Lurkloot $1. Повторите попытку позже."
+  },
   "appTokenTitle": {
     "message": "Токен доступа"
   },

@@ -8,6 +8,7 @@
 //
 // The target table, and with it the asset names, is scripts/release/pipeline.mjs's, which is also
 // what the release checks its assets against.
+import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,24 +21,40 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const bundleRoot = resolve(here, "../src-tauri/target/release/bundle");
 
-/** The one file in `dir` whose name ends with `suffix`. */
-function findInstaller(dir, suffix) {
+/** The one file (or, for a folder bundle, folder) in `dir` whose name ends with `suffix`. */
+function findInstaller(dir, suffix, folder) {
   const matches = existsSync(dir)
-    ? readdirSync(dir).filter((name) => name.endsWith(suffix) && statSync(join(dir, name)).isFile())
+    ? readdirSync(dir).filter((name) => {
+        if (!name.endsWith(suffix)) return false;
+        const stat = statSync(join(dir, name));
+        return folder ? stat.isDirectory() : stat.isFile();
+      })
     : [];
   if (matches.length !== 1) {
     throw new Error(`expected one *${suffix} in ${dir}, found ${matches.length}`);
   }
-  return join(dir, matches[0]);
+  return matches[0];
 }
 
 /** Copies the target's installers out of `bundles` into `out`; returns the asset names. */
 function collectInstallers({ version, target, bundles = bundleRoot, out }) {
   mkdirSync(out, { recursive: true });
   return target.installers.map((installer) => {
-    const source = findInstaller(join(bundles, installer.bundle), installer.suffix);
+    const dir = join(bundles, installer.dir ?? installer.bundle);
+    const source = findInstaller(dir, installer.suffix, installer.archive === true);
     const name = desktopInstallerName(version, target, installer);
-    copyFileSync(source, join(out, name));
+    if (installer.archive) {
+      // The macOS update (#1028): the .app at the archive's root, which is where the updater
+      // looks. COPYFILE_DISABLE keeps macOS tar from adding ._ files for extended attributes,
+      // which would land inside the installed app; modes, symlinks and the ad-hoc signature are
+      // kept.
+      execFileSync("tar", ["-czf", join(out, name), "-C", dir, source], {
+        env: { ...process.env, COPYFILE_DISABLE: "1" },
+        stdio: "inherit",
+      });
+    } else {
+      copyFileSync(join(dir, source), join(out, name));
+    }
     return name;
   });
 }

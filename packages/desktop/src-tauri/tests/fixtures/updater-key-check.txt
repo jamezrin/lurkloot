@@ -1,0 +1,1 @@
+Lurkloot updater key fixture (#1028). Signed with the production updater key; tests check it against tauri.conf.json.

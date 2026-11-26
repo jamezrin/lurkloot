@@ -13,11 +13,29 @@ pub const FILE_NAME: &str = "desktop.json";
 /// in the tray.
 pub const AUTOSTART_ARG: &str = "--autostart";
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ShellSettings {
     /// Start the app when the user signs in to the computer. Off by default.
     pub launch_at_startup: bool,
+    /// Check GitHub releases for a new version on start and every few hours
+    /// (#1028). On by default; an update is still installed only when the
+    /// user chooses.
+    pub automatic_updates: bool,
+    /// The version whose install failed just before the app restarted, so
+    /// the restarted app can say so; cleared once that version runs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_update: Option<String>,
+}
+
+impl Default for ShellSettings {
+    fn default() -> Self {
+        Self {
+            launch_at_startup: false,
+            automatic_updates: true,
+            failed_update: None,
+        }
+    }
 }
 
 /// Reads and writes the settings file.
@@ -98,12 +116,44 @@ mod tests {
         let file = SettingsFile::in_dir(&dir);
         file.save(&ShellSettings {
             launch_at_startup: true,
+            ..ShellSettings::default()
         })
         .unwrap();
         let text = std::fs::read_to_string(dir.join(FILE_NAME)).unwrap();
         assert!(text.contains("\"launchAtStartup\": true"), "{text}");
         assert!(file.load().launch_at_startup);
         assert!(!dir.join("desktop.json.tmp").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn checks_for_updates_unless_turned_off() {
+        let dir = temp_dir("updates");
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = SettingsFile::in_dir(&dir);
+        assert!(file.load().automatic_updates);
+        // A file from before the setting existed keeps it on.
+        std::fs::write(dir.join(FILE_NAME), "{\"launchAtStartup\": true}").unwrap();
+        let settings = file.load();
+        assert!(settings.launch_at_startup && settings.automatic_updates);
+        std::fs::write(dir.join(FILE_NAME), "{\"automaticUpdates\": false}").unwrap();
+        assert!(!file.load().automatic_updates);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn remembers_a_failed_install_only_while_there_is_one() {
+        let dir = temp_dir("failed-update");
+        let file = SettingsFile::in_dir(&dir);
+        file.save(&ShellSettings::default()).unwrap();
+        let text = std::fs::read_to_string(dir.join(FILE_NAME)).unwrap();
+        assert!(!text.contains("failedUpdate"), "{text}");
+        file.save(&ShellSettings {
+            failed_update: Some("1.26.0".into()),
+            ..ShellSettings::default()
+        })
+        .unwrap();
+        assert_eq!(file.load().failed_update.as_deref(), Some("1.26.0"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -202,15 +202,16 @@ installers with `packages/desktop/scripts/collectInstallers.mjs`:
 | Target | Runner | Installers |
 | --- | --- | --- |
 | `windows-x64` | `windows-latest` | `-setup.exe` (NSIS) and `.msi` |
-| `macos-arm64` | `macos-latest` | `.dmg` |
-| `macos-x64` | `macos-15-intel` | `.dmg` |
+| `macos-arm64` | `macos-latest` | `.dmg`, plus the `.app.tar.gz` update |
+| `macos-x64` | `macos-15-intel` | `.dmg`, plus the `.app.tar.gz` update |
 | `linux-x64` | `ubuntu-22.04` | `.AppImage` and `.deb` |
 | `linux-arm64` | `ubuntu-22.04-arm` | `.AppImage` and `.deb` |
 
 Linux builds on Ubuntu 22.04 because an AppImage needs at least its build machine's glibc, and the
 `.deb` its WebKitGTK. Each leg then checks the sidecar is inside its installers: in the `.deb` and
 the extracted AppImage with its executable bit, in the mounted `.dmg` with `codesign --verify`, and
-in an administrative extraction of the `.msi` and the 7-Zip listing of the NSIS `-setup.exe`. A leg takes about 10 to 20 minutes, most of it the
+in an administrative extraction of the `.msi` and the 7-Zip listing of the NSIS `-setup.exe`,
+and in the listing of the macOS `.app.tar.gz` (with no `._` files). A leg takes about 10 to 20 minutes, most of it the
 Rust release build and the CLI build, and the legs run in parallel with the `cli` job.
 
 The installers are **unsigned**. macOS builds are ad-hoc signed (`signingIdentity: "-"` in
@@ -220,7 +221,7 @@ too. The user guide's "Install the desktop app" page walks through both.
 
 The names come from `desktopInstallerTargets` in `scripts/release/pipeline.mjs`. `publish` adds them
 under the same trusted-asset rule as the CLI archives, `attest` attests them, and `assert-assets`
-requires all eight. A checkout without `collectInstallers.mjs` builds nothing, like the CLI job.
+requires all ten (the eight installers and the two macOS updates). A checkout without `collectInstallers.mjs` builds nothing, like the CLI job.
 
 A release branch's candidate (`release_branch: true`, from Prepare release and from pushes to
 `release/*`) must publish the asset list of its own tree, not only the trusted one, because
@@ -238,6 +239,56 @@ commits with the rest. `scripts/release.mjs check` fails when either differs fro
 
 The same workflow runs on pull requests that touch `packages/desktop`, the asset list or the
 workflow itself.
+
+### Desktop updates
+
+The desktop app updates itself from GitHub releases with Tauri's updater (#1028). It reads
+`https://github.com/jamezrin/lurkloot/releases/latest/download/latest.json`. GitHub's latest
+release is never a prerelease, so a candidate never feeds the updater. Each update is one of the
+reviewed assets: the AppImages, the `.deb`s, the `.msi`, the NSIS `-setup.exe` and the macOS
+`.app.tar.gz`. The app takes only the kind it was installed with, so its `latest.json` entry is
+`{os}-{arch}-{kind}`, never the bare `{os}-{arch}`.
+
+The approved `publish` job signs them. After `assert-assets` it installs the Tauri CLI
+(`pnpm install --filter @lurkloot/desktop`) and runs
+`scripts/release/cli.mjs updater-assets`. That signs a copy of each update with
+`tauri signer sign --app-version X.Y.Z`, binding the signature to its version, and writes
+`latest.json`. The `.sig` files and `latest.json` go up with `gh release upload --clobber` before
+promotion, so `latest.json` is in place the moment the release becomes latest. These files are the
+only assets the stable release carries beyond the candidate's.
+
+A rerun strips them from the downloaded release (`strip-updater-assets`) before checking the
+reviewed set. It signs again only while the release is still a prerelease, which nothing reads
+yet. Once the release is stable its `latest.json` is live, so a rerun keeps the published files. A
+stable release without `latest.json` is the one exception, and gets signed then. A recovery of a
+release older than the updater (no `scripts/release/updater.mjs` in its tree) skips these steps.
+
+The app checks the signature on every download, against `plugins.updater.pubkey` in
+`tauri.conf.json`. With `requireSignedVersion` it also refuses a signature made for another
+version, so a forged `latest.json` cannot pair a newer version number with an older signed
+release. A tampered file fails verification and nothing is installed. The signature covers a
+file and its version, not the manifest's platform keys: a forged manifest could still point one
+installer kind's key at another kind's signed file of the same version. Tauri installs whatever kind
+the downloaded bytes are, so that file would install the same, genuine version.
+`packages/desktop/src-tauri/tests/updater_key.rs` checks that the configured public key verifies a
+fixture signed with the release key, so a wrong key fails CI rather than every install.
+
+The key pair is minisign, made with `pnpm --filter @lurkloot/desktop tauri signer generate`. The
+private key and its password are the `production` secrets `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Keep an offline backup. If the private key is lost, no
+installed app can update again until its user reinstalls by hand.
+
+To rotate the key:
+
+1. Generate the new pair. Put the new public key in `tauri.conf.json`, sign a new
+   `tests/fixtures/updater-key-check.txt.sig` with the new private key, and release that version
+   still signed with the **old** key, which installed apps trust.
+2. Once that release has been out long enough for most installs to take it, replace the two
+   `production` secrets with the new private key and password. Every later release is signed with
+   the new key.
+
+An app that skipped the rotation release cannot verify updates signed with the new key; its user
+installs the new version by hand once.
 
 ## Branch model
 
@@ -279,6 +330,7 @@ The production environment additionally requires:
 - `RELEASE_SYNC_APP_ID`
 - `RELEASE_SYNC_APP_PRIVATE_KEY`
 - `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, once the Firefox Add-ons listing exists (optional until then)
+- `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, the desktop updater's signing key (see "Desktop updates")
 
 ## One-time dedicated App setup
 

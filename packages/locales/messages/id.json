@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "Tutup"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 siap dipasang."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Mulai ulang untuk memperbarui"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Memasang Lurkloot $1. Aplikasi akan dimulai ulang setelah selesai."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 tidak dapat diunduh. Coba lagi nanti."
+  },
   "appTokenTitle": {
     "message": "Token akses"
   },

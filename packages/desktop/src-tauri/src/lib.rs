@@ -14,6 +14,7 @@ pub mod sidecar;
 pub mod token;
 mod tray;
 pub mod twitch_sign_in;
+pub mod updates;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,11 +23,12 @@ use std::time::Duration;
 
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::webview::NewWindowResponse;
+use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{
     AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry,
 };
 use tauri_plugin_opener::OpenerExt;
+use tauri_plugin_updater::UpdaterExt;
 use url::Url;
 
 use navigation::{Navigation, Site};
@@ -40,6 +42,16 @@ const SIGN_IN_WINDOW: &str = "twitch-sign-in";
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(20);
 /// Failures in a row before the window says serve keeps stopping.
 const FAILURES_BEFORE_ERROR: u32 = 3;
+
+#[derive(Default)]
+struct UpdateState {
+    /// The version the last check found; the install checks again for the
+    /// current manifest rather than reuse that one.
+    found: Option<String>,
+    notice: Option<updates::Notice>,
+    /// A check is running: only one at a time.
+    checking: bool,
+}
 
 #[derive(Default)]
 struct Shell {
@@ -63,6 +75,12 @@ struct Shell {
     /// The tray's "Launch at startup" item, to put its check back when the
     /// OS refuses the change.
     launch_at_startup_item: OnceLock<CheckMenuItem<Wry>>,
+    automatic_updates_item: OnceLock<CheckMenuItem<Wry>>,
+    /// The tray's menu, which gains the update item once an update is found.
+    tray_menu: OnceLock<Menu<Wry>>,
+    update_item: OnceLock<MenuItem<Wry>>,
+    /// The update found, and what the tray and window show about it (#1028).
+    update: Mutex<UpdateState>,
     /// Quit has started: serve is being stopped.
     quitting: AtomicBool,
     /// serve is stopped; only now may the app exit.
@@ -116,6 +134,8 @@ pub fn run() {
             show_main(app)
         }))
         .plugin(tauri_plugin_opener::init())
+        // Rust only: no capability grants the page its commands (#1028).
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(Arc::clone(&shell))
         .setup(move |app| {
             setup(app.handle(), &shell)?;
@@ -183,11 +203,19 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
         settings.launch_at_startup = false;
         let _ = settings_file.save(&settings);
     }
+    // An install that failed before the last restart is reported until this
+    // version is the one it tried to install.
+    if settings.failed_update.as_deref() == Some(app.package_info().version.to_string().as_str()) {
+        settings.failed_update = None;
+        let _ = settings_file.save(&settings);
+    }
     let launch_at_startup = settings.launch_at_startup;
+    let automatic_updates = settings.automatic_updates;
     *shell.settings.lock().unwrap() = settings;
     let _ = shell.settings_file.set(settings_file);
 
-    let has_tray = tray::tray_available() && build_tray(app, launch_at_startup).is_ok();
+    let has_tray =
+        tray::tray_available() && build_tray(app, launch_at_startup, automatic_updates).is_ok();
     shell.has_tray.store(has_tray, Ordering::SeqCst);
 
     // A launch at sign-in farms from the tray, with no window until it is
@@ -211,6 +239,7 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     };
     let events = Arc::new(WindowEvents { app: app.clone() });
     let _ = shell.supervisor.set(Supervisor::start(spec, events));
+    start_update_checks(app);
     Ok(())
 }
 
@@ -244,6 +273,22 @@ fn main_window(
     // Main frame only: serve's page has no frames, and no other page
     // ever gets the token.
     .initialization_script(token::token_script(token))
+    // A page that loads (serve's after a restart, a reload) hears about an
+    // update found before it.
+    .on_page_load(|window, payload| {
+        if payload.event() == PageLoadEvent::Finished {
+            let notice = window
+                .state::<Arc<Shell>>()
+                .update
+                .lock()
+                .unwrap()
+                .notice
+                .clone();
+            if let Some(notice) = notice {
+                let _ = window.eval(updates::notice_script(&notice));
+            }
+        }
+    })
     .on_navigation(move |url| match navigate_shell.decide(url) {
         Navigation::Allow => true,
         Navigation::OpenExternally => {
@@ -269,6 +314,8 @@ fn main_window(
 fn open_link(app: &AppHandle, url: &Url) {
     if twitch_sign_in::wants_sign_in_window(url) {
         start_twitch_sign_in(app);
+    } else if updates::wants_install(url) {
+        install_update(app);
     } else {
         open_externally(app, url);
     }
@@ -431,7 +478,11 @@ fn report_sign_in(app: &AppHandle, result: &SignInResult) {
     }
 }
 
-fn build_tray(app: &AppHandle, launch_at_startup: bool) -> tauri::Result<()> {
+fn build_tray(
+    app: &AppHandle,
+    launch_at_startup: bool,
+    automatic_updates: bool,
+) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open Lurkloot", true, None::<&str>)?;
     let startup = CheckMenuItem::with_id(
         app,
@@ -441,13 +492,24 @@ fn build_tray(app: &AppHandle, launch_at_startup: bool) -> tauri::Result<()> {
         launch_at_startup,
         None::<&str>,
     )?;
+    let updates_item = CheckMenuItem::with_id(
+        app,
+        "automatic-updates",
+        "Check for updates automatically",
+        true,
+        automatic_updates,
+        None::<&str>,
+    )?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &startup, &separator, &quit_item])?;
-    let _ = app
-        .state::<Arc<Shell>>()
-        .launch_at_startup_item
-        .set(startup);
+    let menu = Menu::with_items(
+        app,
+        &[&open, &startup, &updates_item, &separator, &quit_item],
+    )?;
+    let shell = app.state::<Arc<Shell>>();
+    let _ = shell.launch_at_startup_item.set(startup);
+    let _ = shell.automatic_updates_item.set(updates_item);
+    let _ = shell.tray_menu.set(menu.clone());
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("Lurkloot")
         .menu(&menu)
@@ -455,6 +517,8 @@ fn build_tray(app: &AppHandle, launch_at_startup: bool) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => show_main(app),
             "launch-at-startup" => toggle_launch_at_startup(app),
+            "automatic-updates" => toggle_automatic_updates(app),
+            "install-update" => install_update(app),
             "quit" => quit(app),
             _ => {}
         })
@@ -534,9 +598,23 @@ fn show_main(app: &AppHandle) {
 /// Quit: hide the window, close serve's stdin, wait for it to save and exit
 /// (killing its process tree after SHUTDOWN_GRACE), then exit.
 fn quit(app: &AppHandle) {
-    let shell = Arc::clone(&app.state::<Arc<Shell>>());
-    if shell.quitting.swap(true, Ordering::SeqCst) {
+    if !begin_shutdown(app) {
         return;
+    }
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        stop_serve(&shell);
+        app.exit(0);
+    });
+}
+
+/// The start of every way out: hides the windows. False when one has already
+/// started.
+fn begin_shutdown(app: &AppHandle) -> bool {
+    let shell = app.state::<Arc<Shell>>();
+    if shell.quitting.swap(true, Ordering::SeqCst) {
+        return false;
     }
     if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
         let _ = window.hide();
@@ -544,13 +622,219 @@ fn quit(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(SIGN_IN_WINDOW) {
         let _ = window.close();
     }
+    true
+}
+
+/// Closes serve's stdin and waits for it to save and exit, killing its process
+/// tree after SHUTDOWN_GRACE. Only then may the app exit or restart.
+fn stop_serve(shell: &Shell) {
+    if let Some(supervisor) = shell.supervisor.get() {
+        supervisor.shutdown(SHUTDOWN_GRACE);
+    }
+    shell.shutdown_done.store(true, Ordering::SeqCst);
+}
+
+/// Checks on start and every CHECK_INTERVAL while automatic updates are on.
+/// Development builds never check.
+fn start_update_checks(app: &AppHandle) {
+    if cfg!(debug_assertions) {
+        return;
+    }
     let app = app.clone();
     std::thread::spawn(move || {
+        std::thread::sleep(updates::FIRST_CHECK_DELAY);
+        loop {
+            check_for_update(&app);
+            std::thread::sleep(updates::CHECK_INTERVAL);
+        }
+    });
+}
+
+/// Asks GitHub for a newer release, one check at a time. A found one is
+/// announced, never installed, and never replaces an install in progress.
+fn check_for_update(app: &AppHandle) {
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    if !shell.settings.lock().unwrap().automatic_updates || shell.quitting.load(Ordering::SeqCst) {
+        return;
+    }
+    {
+        let mut state = shell.update.lock().unwrap();
+        if state.checking || matches!(state.notice, Some(updates::Notice::Installing { .. })) {
+            return;
+        }
+        state.checking = true;
+    }
+    let found = tauri::async_runtime::block_on(async {
+        app.updater_builder()
+            .timeout(updates::CHECK_TIMEOUT)
+            .build()?
+            .check()
+            .await
+    });
+    let mut state = shell.update.lock().unwrap();
+    state.checking = false;
+    match found {
+        Ok(Some(update)) => {
+            if matches!(state.notice, Some(updates::Notice::Installing { .. })) {
+                return;
+            }
+            let version = update.version;
+            let failed_before = shell.settings.lock().unwrap().failed_update.as_deref()
+                == Some(version.as_str())
+                || matches!(&state.notice, Some(updates::Notice::Failed { version: failed }) if *failed == version);
+            state.notice = Some(if failed_before {
+                updates::Notice::Failed {
+                    version: version.clone(),
+                }
+            } else {
+                updates::Notice::Ready {
+                    version: version.clone(),
+                }
+            });
+            state.found = Some(version);
+            drop(state);
+            announce_update(app);
+        }
+        Ok(None) => {}
+        Err(error) => eprintln!("Update check failed: {error}"),
+    }
+}
+
+/// Shows the update's state in the tray and in the window.
+fn announce_update(app: &AppHandle) {
+    let shell = app.state::<Arc<Shell>>();
+    let Some(notice) = shell.update.lock().unwrap().notice.clone() else {
+        return;
+    };
+    let installing = matches!(notice, updates::Notice::Installing { .. });
+    let label = updates::tray_label(&notice);
+    if let Some(item) = shell.update_item.get() {
+        let _ = item.set_text(&label);
+        let _ = item.set_enabled(!installing);
+    } else if let Some(menu) = shell.tray_menu.get() {
+        if let Ok(item) =
+            MenuItem::with_id(app, "install-update", &label, !installing, None::<&str>)
+        {
+            let separator = PredefinedMenuItem::separator(app);
+            if menu.insert(&item, 0).is_ok() {
+                if let Ok(separator) = separator {
+                    let _ = menu.insert(&separator, 1);
+                }
+                let _ = shell.update_item.set(item);
+            }
+        }
+    }
+    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
+        let _ = window.eval(updates::notice_script(&notice));
+    }
+}
+
+/// The user chose to install: check the manifest again, download and verify
+/// the update, stop serve as Quit does, install, and restart. A check,
+/// download or signature failure leaves everything running and the update
+/// ready to try again. The app may not exit until the installer returns.
+fn install_update(app: &AppHandle) {
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    let shown = {
+        let mut state = shell.update.lock().unwrap();
+        let Some(version) = state.found.clone() else {
+            return;
+        };
+        if matches!(state.notice, Some(updates::Notice::Installing { .. }))
+            || shell.quitting.load(Ordering::SeqCst)
+        {
+            return;
+        }
+        state.notice = Some(updates::Notice::Installing {
+            version: version.clone(),
+        });
+        version
+    };
+    announce_update(app);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        // A fresh manifest, so a release repaired since the last check is the
+        // one downloaded, with a deadline so a stalled download ends. The
+        // builder's timeout covers only that check: the Update it returns has
+        // none of its own, so the download's is set on it.
+        let downloaded = tauri::async_runtime::block_on(async {
+            let mut update = app
+                .updater_builder()
+                .timeout(updates::CHECK_TIMEOUT)
+                .build()
+                .map_err(|error| error.to_string())?
+                .check()
+                .await
+                .map_err(|error| error.to_string())?
+                .ok_or_else(|| "no update is available any more".to_owned())?;
+            update.timeout = Some(updates::DOWNLOAD_TIMEOUT);
+            let bytes = update
+                .download(|_, _| {}, || {})
+                .await
+                .map_err(|error| error.to_string())?;
+            Ok::<_, String>((update, bytes))
+        });
+        let (update, bytes) = match downloaded {
+            Ok(downloaded) => downloaded,
+            Err(error) => {
+                eprintln!("The update could not be downloaded: {error}");
+                shell.update.lock().unwrap().notice =
+                    Some(updates::Notice::Failed { version: shown });
+                announce_update(&app);
+                return;
+            }
+        };
+        if !begin_shutdown(&app) {
+            return;
+        }
+        // serve stops as on Quit, but shutdown_done stays false while the
+        // installer runs, so no other way out (the Dock's Quit, the OS's)
+        // can end the app halfway through replacing it.
         if let Some(supervisor) = shell.supervisor.get() {
             supervisor.shutdown(SHUTDOWN_GRACE);
         }
+        // On Windows a successful install hands over to the installer and
+        // exits here. Elsewhere the app restarts into the new version, or into
+        // this one if the install failed, which then says so.
+        if let Err(error) = update.install(bytes) {
+            eprintln!("The update could not be installed: {error}");
+            if let Some(file) = shell.settings_file.get() {
+                let mut settings = shell.settings.lock().unwrap();
+                settings.failed_update = Some(update.version.clone());
+                let _ = file.save(&settings);
+            }
+        }
         shell.shutdown_done.store(true, Ordering::SeqCst);
-        app.exit(0);
+        app.restart();
+    });
+}
+
+/// The tray's "Check for updates automatically". Turning it on checks now.
+fn toggle_automatic_updates(app: &AppHandle) {
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let enabled = {
+            let mut settings = shell.settings.lock().unwrap();
+            let mut next = settings.clone();
+            next.automatic_updates = !settings.automatic_updates;
+            if shell
+                .settings_file
+                .get()
+                .is_some_and(|file| file.save(&next).is_ok())
+            {
+                *settings = next;
+            } else {
+                eprintln!("The update setting could not be saved");
+            }
+            settings.automatic_updates
+        };
+        if let Some(item) = shell.automatic_updates_item.get() {
+            let _ = item.set_checked(enabled);
+        }
+        if enabled && !cfg!(debug_assertions) {
+            check_for_update(&app);
+        }
     });
 }
 
@@ -647,6 +931,21 @@ mod tests {
             shell.status_page("failed").unwrap().as_str(),
             "http://tauri.localhost/index.html#failed"
         );
+    }
+
+    // The install link (#1028) and the sign-in link are caught in open_link,
+    // which only the main window, on serve's own page, may reach. The Twitch
+    // sign-in window shows remote pages, so its links only ever go to the
+    // system browser.
+    #[test]
+    fn only_the_main_window_reaches_open_link() {
+        let source = include_str!("lib.rs");
+        let start = source.find("fn sign_in_window(").unwrap();
+        let end = source.find("fn sign_in_window_closed(").unwrap();
+        let sign_in_window = &source[start..end];
+        assert!(sign_in_window.contains("open_externally("));
+        assert!(!sign_in_window.contains("open_link("));
+        assert!(!sign_in_window.contains("install_update("));
     }
 
     #[test]

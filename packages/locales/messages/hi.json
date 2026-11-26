@@ -2534,6 +2534,18 @@
   "appDismiss": {
     "message": "बंद करें"
   },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 इंस्टॉल होने के लिए तैयार है।"
+  },
+  "appDesktopUpdateRestart": {
+    "message": "अपडेट के लिए फिर से शुरू करें"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Lurkloot $1 इंस्टॉल हो रहा है। पूरा होने पर यह फिर से शुरू होगा।"
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 डाउनलोड नहीं हो सका। बाद में फिर से कोशिश करें।"
+  },
   "appTokenTitle": {
     "message": "एक्सेस टोकन"
   },

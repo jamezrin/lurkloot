@@ -972,6 +972,24 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
   the session bus (`tray.rs`), checked at start and again on each close; without one, closing
   the window quits instead. A second launch
   focuses the running window (the single-instance plugin).
+- **Updates (#1028).** `updates.rs` and `tauri-plugin-updater`, from Rust only: no capability gives
+  the page its commands.
+  - **Checks:** a found update is announced, never installed. The tray item and the window get
+    `UPDATE_EVENT`, re-sent on every page load. The install starts only from the tray item or from
+    the app UI opening the `INSTALL_UPDATE_FRAGMENT` link, which the shell catches like the
+    sign-in link.
+  - **Install:** it checks the manifest again, then downloads, then stops serve as Quit does
+    (`begin_shutdown`). `shutdown_done` stays false until the installer returns, so no other way out
+    ends the app halfway through. Only the main window, on serve's own page, can reach `open_link`.
+    The sign-in window's links go to the system browser, and a `lib.rs` test pins that.
+    The latest notice is also kept on the window (`UPDATE_PROPERTY`) for an app UI that mounts after
+    the event.
+  - **Signatures:** they are checked against the configured key and bound to their version.
+    `tests/updater_key.rs` fails if the configured key stops matching the release key.
+  - **Publishing:** only the production job signs. `latest.json` comes only from the stable
+    release (`releases/latest`), so candidates never feed the updater.
+  - **Tests:** `desktopBoundary.test.ts` keeps the event, fragment and link the same in the shell
+    and the app UI.
 - **Launch at startup (#1027).** This is a shell setting, not a farming one. The tray's check item
   writes `desktop.json` in the app's config folder (`shell_settings.rs`), which serve never reads.
   It also registers or removes this user's startup entry (`autostart.rs`):

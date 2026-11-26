@@ -6,6 +6,7 @@ import { COMPATIBILITY_REGISTRY } from "@lurkloot/core/compatibility/registry";
 import { resolveCompatibility } from "@lurkloot/core/compatibility/resolve";
 import type { LanguageOverride } from "@lurkloot/shared/models";
 import { AccountsView } from "./accounts";
+import { type DesktopUpdate, INSTALL_UPDATE_LINK, onDesktopUpdate } from "./desktopHost";
 import { createHttpPopupAdapter } from "./adapter";
 import type { ControlPlaneClient } from "./api";
 import { createAuthApi } from "./auth";
@@ -42,6 +43,7 @@ export function App({
   const [tokenRequest, setTokenRequest] = useState<TokenRequest | null>(null);
   const [connectionLost, setConnectionLost] = useState(false);
   const [notice, setNotice] = useState<{ id: number; text: string } | undefined>();
+  const [update, setUpdate] = useState<DesktopUpdate | undefined>();
   const noticeId = useRef(0);
   const { t } = catalogs;
   const tRef = useRef(t);
@@ -49,6 +51,8 @@ export function App({
   const api = useMemo(() => createAuthApi(client), [client]);
 
   useEffect(() => subscribeTokenRequests(setTokenRequest), [subscribeTokenRequests]);
+  // The desktop app says when an update is ready (#1028); nothing else does.
+  useEffect(() => onDesktopUpdate(setUpdate), []);
 
   // Whether serve answers at all, and its version, before the popup frame
   // mounts: the frame's first snapshot load has nowhere to show a failure.
@@ -163,6 +167,7 @@ export function App({
           {t("appConnectionLost")}
         </div>
       ) : null}
+      {update ? <UpdateBar update={update} t={t} /> : null}
       {notice ? (
         <div
           key={notice.id}
@@ -182,6 +187,41 @@ export function App({
         </div>
       ) : null}
       {tokenRequest ? <TokenDialog request={tokenRequest} t={t} /> : null}
+    </div>
+  );
+}
+
+/** The desktop app's "Update ready": installs only when clicked. */
+function UpdateBar({
+  update,
+  t,
+}: {
+  update: DesktopUpdate;
+  t: AppCatalogs["t"];
+}): React.ReactElement {
+  const text =
+    update.status === "installing"
+      ? t("appDesktopUpdateInstalling", update.version)
+      : update.status === "failed"
+        ? t("appDesktopUpdateFailed", update.version)
+        : t("appDesktopUpdateReady", update.version);
+  return (
+    <div
+      role="status"
+      data-desktop-update={update.status}
+      className="fixed bottom-4 start-4 z-50 flex max-w-[28rem] items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-[12px] text-zinc-800 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+    >
+      <span className="min-w-0 flex-1 leading-relaxed">{text}</span>
+      {update.status === "installing" ? null : (
+        <button
+          type="button"
+          data-desktop-update-install
+          onClick={() => window.open(INSTALL_UPDATE_LINK, "_blank", "noopener,noreferrer")}
+          className="shrink-0 rounded-lg bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-[var(--ink-contrast)]"
+        >
+          {t("appDesktopUpdateRestart")}
+        </button>
+      )}
     </div>
   );
 }
