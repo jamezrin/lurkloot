@@ -128,6 +128,12 @@ pub fn run() {
                     // Farming goes on in the tray.
                     api.prevent_close();
                     let _ = window.hide();
+                } else if !shell.quitting.load(Ordering::SeqCst) {
+                    // No tray: closing the window quits, through the one
+                    // shutdown path, even while a sign-in window is open
+                    // (the app would otherwise wait for that one to close).
+                    api.prevent_close();
+                    quit(window.app_handle());
                 }
             }
             _ => {}
@@ -278,16 +284,28 @@ fn start_twitch_sign_in(app: &AppHandle) {
             shell.signing_in.store(false, Ordering::SeqCst);
             return;
         }
-        if let Err(error) = sign_in_window(&app, &shell, link) {
-            shell.signing_in.store(false, Ordering::SeqCst);
-            report_sign_in(
-                &app,
-                &SignInResult::failed(
-                    None,
-                    "internal_error",
-                    format!("Could not open the sign-in window: {error}"),
-                ),
-            );
+        match sign_in_window(&app, &shell, link) {
+            // Built hidden, then checked: a Quit that started before this
+            // check is seen here, and one after it finds the window and
+            // closes it. Destroying it reports the sign-in as cancelled.
+            Ok(window) if shell.quitting.load(Ordering::SeqCst) => {
+                let _ = window.destroy();
+            }
+            Ok(window) => {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+            Err(error) => {
+                shell.signing_in.store(false, Ordering::SeqCst);
+                report_sign_in(
+                    &app,
+                    &SignInResult::failed(
+                        None,
+                        "internal_error",
+                        format!("Could not open the sign-in window: {error}"),
+                    ),
+                );
+            }
         }
     });
 }
@@ -303,6 +321,8 @@ fn sign_in_window(app: &AppHandle, shell: &Arc<Shell>, link: Url) -> tauri::Resu
     let popup_app = app.clone();
     WebviewWindowBuilder::new(app, SIGN_IN_WINDOW, WebviewUrl::External(link))
         .title("Sign in to Twitch")
+        // Shown by start_twitch_sign_in once it has checked Quit has not started.
+        .visible(false)
         .inner_size(480.0, 720.0)
         // A throwaway web data store, discarded when the window closes:
         // Twitch's cookies never persist in the app.
