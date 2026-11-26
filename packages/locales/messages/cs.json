@@ -1344,7 +1344,7 @@
     "message": "CLI bez prohlížeče"
   },
   "cliExportHint": {
-    "message": "Exportuje tokeny relace Twitch a Kick, aby CLI „login --import“ mohlo je znovu použít. Soubor držte v soukromí — kdokoli s ním může používat vaše relace."
+    "message": "Exportuje tokeny relace Twitch a Kick, aby CLI „auth import“ mohlo je znovu použít. Soubor držte v soukromí — kdokoli s ním může používat vaše relace."
   },
   "cliExportConfirm": {
     "message": "Stáhne tokeny relace Twitch a Kick do souboru. Kdokoli se souborem může na těchto webech jednat vaším jménem. Pokračovat?"

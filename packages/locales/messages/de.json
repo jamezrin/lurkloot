@@ -1344,7 +1344,7 @@
     "message": "Headless-CLI"
   },
   "cliExportHint": {
-    "message": "Exportiert deine Twitch- und Kick-Sitzungstokens, damit „login --import“ der CLI sie wiederverwenden kann. Halte die Datei geheim – wer sie hat, kann deine Sitzungen nutzen."
+    "message": "Exportiert deine Twitch- und Kick-Sitzungstokens, damit „auth import“ der CLI sie wiederverwenden kann. Halte die Datei geheim – wer sie hat, kann deine Sitzungen nutzen."
   },
   "cliExportConfirm": {
     "message": "Dies lädt deine Twitch- und Kick-Sitzungstokens in eine Datei herunter. Wer diese Datei besitzt, kann auf diesen Seiten in deinem Namen handeln. Fortfahren?"

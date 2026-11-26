@@ -1344,7 +1344,7 @@
     "message": "헤드리스 CLI"
   },
   "cliExportHint": {
-    "message": "Twitch와 Kick 세션 토큰을 내보내 CLI의 “login --import”가 재사용할 수 있게 합니다. 파일은 비공개로 보관하세요 — 누구든 세션을 사용할 수 있습니다."
+    "message": "Twitch와 Kick 세션 토큰을 내보내 CLI의 “auth import”가 재사용할 수 있게 합니다. 파일은 비공개로 보관하세요 — 누구든 세션을 사용할 수 있습니다."
   },
   "cliExportConfirm": {
     "message": "Twitch와 Kick 세션 토큰이 파일로 다운로드됩니다. 그 파일을 가진 사람은 해당 사이트에서 여러분처럼 행동할 수 있습니다. 계속할까요?"
