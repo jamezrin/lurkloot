@@ -20,7 +20,6 @@ const labels: Record<string, string> = {
   openSettings: "Open settings",
   back: "Back",
   settingsSearchPlaceholder: "Search settings…",
-  settingsShowAdvancedTitle: "Show advanced settings",
   settingsExportHint: "Save your settings to a file.",
   settingsExportButton: "Export settings",
   settingsImportButton: "Import settings",

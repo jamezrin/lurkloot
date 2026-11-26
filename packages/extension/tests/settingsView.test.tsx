@@ -27,7 +27,6 @@ afterEach(() => {
 const labels: Record<string, string> = {
   settingsSearchPlaceholder: "Search settings…",
   settingsSearchNoResults: "No settings match",
-  settingsShowAdvancedTitle: "Show advanced settings",
   settingsGroupAppearance: "Appearance & behavior",
   settingsGroupNotifications: "Notifications",
   settingsGroupDrops: "Drops",

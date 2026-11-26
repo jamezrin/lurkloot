@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "未找到与“$1”匹配的设置。"
   },
-  "settingsShowAdvancedTitle": {
-    "message": "显示高级设置"
-  },
   "settingsSectionAdvancedActions": {
     "message": "高级操作"
   },

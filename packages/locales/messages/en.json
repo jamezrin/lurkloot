@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "No settings match “$1”."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Show advanced settings"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Advanced actions"
   },

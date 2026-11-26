@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "“$1”과(와) 일치하는 설정이 없습니다."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "고급 설정 표시"
-  },
   "settingsSectionAdvancedActions": {
     "message": "고급 작업"
   },

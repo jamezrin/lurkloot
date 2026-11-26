@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "「$1」に一致する設定はありません。"
   },
-  "settingsShowAdvancedTitle": {
-    "message": "詳細設定を表示"
-  },
   "settingsSectionAdvancedActions": {
     "message": "高度な操作"
   },

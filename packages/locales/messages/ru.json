@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Настройки, соответствующие «$1», не найдены."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Показать дополнительные настройки"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Дополнительные действия"
   },

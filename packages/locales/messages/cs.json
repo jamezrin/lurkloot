@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Žádné nastavení neodpovídá „$1“."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Zobrazit pokročilá nastavení"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Pokročilé akce"
   },

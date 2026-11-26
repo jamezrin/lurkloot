@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Немає налаштувань за запитом «$1»."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Показати додаткові налаштування"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Додаткові дії"
   },

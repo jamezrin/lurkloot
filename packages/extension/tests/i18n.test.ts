@@ -449,7 +449,6 @@ describe("i18n", () => {
     const required = [
       "settingsSearchPlaceholder",
       "settingsSearchNoResults",
-      "settingsShowAdvancedTitle",
       "settingsGroupAppearance",
       "settingsGroupNotifications",
       "settingsGroupDrops",

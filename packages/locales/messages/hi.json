@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "कोई सेटिंग “$1” से मेल नहीं खाती।"
   },
-  "settingsShowAdvancedTitle": {
-    "message": "उन्नत सेटिंग्स दिखाएँ"
-  },
   "settingsSectionAdvancedActions": {
     "message": "उन्नत कार्रवाइयाँ"
   },

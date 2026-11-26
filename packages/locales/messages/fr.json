@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Aucun paramètre ne correspond à « $1 »."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Afficher les paramètres avancés"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Actions avancées"
   },

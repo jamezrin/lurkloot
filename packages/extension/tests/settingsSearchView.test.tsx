@@ -16,7 +16,6 @@ const labels: Record<string, string> = {
   search: "Search",
   settingsSearchPlaceholder: "Search settings…",
   settingsSearchNoResults: "No settings match",
-  settingsShowAdvancedTitle: "Show advanced settings",
   settingsSectionAdvancedActions: "Advanced actions",
   settingsSectionAdvancedActionsDescription: "Import, export, or reset Lurkloot settings.",
   settingsExportTitle: "Import and export",

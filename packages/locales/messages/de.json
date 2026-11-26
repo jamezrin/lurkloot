@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Keine Einstellungen entsprechen „$1“."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Erweiterte Einstellungen anzeigen"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Erweiterte Aktionen"
   },

@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Tidak ada pengaturan yang cocok dengan “$1”."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Tampilkan pengaturan lanjutan"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Tindakan lanjutan"
   },

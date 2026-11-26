@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "“$1” ile ilgili ayar bulunamadı."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Gelişmiş ayarlar"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Gelişmiş işlemler"
   },

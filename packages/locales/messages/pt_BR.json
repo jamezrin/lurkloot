@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Nenhuma configuração corresponde a “$1”."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Mostrar configurações avançadas"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Ações avançadas"
   },

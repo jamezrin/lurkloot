@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "لا توجد إعدادات تطابق «$1»."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "عرض الإعدادات المتقدمة"
-  },
   "settingsSectionAdvancedActions": {
     "message": "إجراءات متقدمة"
   },

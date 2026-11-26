@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Brak ustawień pasujących do „$1”."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "Pokaż ustawienia zaawansowane"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Działania zaawansowane"
   },

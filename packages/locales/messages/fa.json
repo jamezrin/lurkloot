@@ -209,9 +209,6 @@
   "settingsSearchNoResults": {
     "message": "تنظیمی با «$1» پیدا نشد."
   },
-  "settingsShowAdvancedTitle": {
-    "message": "نمایش تنظیمات پیشرفته"
-  },
   "settingsSectionAdvancedActions": {
     "message": "کارهای پیشرفته"
   },
