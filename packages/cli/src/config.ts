@@ -26,7 +26,7 @@ export interface CliConfig {
   warnings: string[];
 }
 
-export const ENABLED_LOG_LEVELS_WARNING =
+const ENABLED_LOG_LEVELS_WARNING =
   "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
 
 const CONFIG_KEYS = new Set<string>(["transport", "authDir", "settings"]);

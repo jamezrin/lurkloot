@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.mjs"]
+    },
+    "packages/cli": {
+      "entry": [
+        "scripts/*.mjs",
+        "scripts/executable.d.mts",
+        "src/runtime/cycleTlsStandalone.ts",
+        "src/runtime/impitStandalone.ts"
+      ]
+    },
+    "packages/extension": {
+      "entry": ["scripts/**/*.mjs"]
+    },
+    "packages/site": {
+      "entry": ["scripts/*.mjs", "src/guideRouteData.ts"]
+    }
+  },
+  "ignoreDependencies": ["crx3", "tailwindcss", "@lurkloot/app-ui"],
+  "ignoreBinaries": ["rsvg-convert"]
+}

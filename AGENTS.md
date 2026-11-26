@@ -29,7 +29,8 @@ Use pnpm for all package tasks. The root `package.json` orchestrates the workspa
 - `pnpm typecheck`: run `tsc --noEmit` across all packages (`pnpm -r typecheck`).
 - `pnpm build` / `pnpm build:firefox`: create production extension builds.
 - `pnpm build:site`: build the Astro site; `pnpm build:all` builds every package.
-- `pnpm check`: run script tests, workspace typechecks, the workspace test suites, the Astro site build and the app UI build.
+- `pnpm knip`: report unused files, exports, types and dependencies (config in `knip.json`). An export used only in its own file drops the `export` keyword; a file or dependency knip cannot trace, such as a script run by hand, goes in `knip.json`.
+- `pnpm check`: run Biome (including `noUnusedImports`), knip, script tests, workspace typechecks, the workspace test suites, the Astro site build and the app UI build.
 - `pnpm verify`: run `pnpm check` and both browser builds.
 - `pnpm zip` / `pnpm zip:firefox`: package release artifacts into `packages/extension/.output/`.
 - `pnpm store:generate` (and `store:generate:screenshots` / `:promo` / `:descriptions`), `pnpm store:sync`, `pnpm store:verify`: generate the Chrome Web Store listing bundle and sync it to the Developer Dashboard. Operator tooling that needs a signed-in Chrome; see [docs/chrome-web-store-submission.md](docs/chrome-web-store-submission.md).

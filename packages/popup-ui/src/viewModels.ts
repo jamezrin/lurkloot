@@ -35,10 +35,6 @@ import {
 export {
   campaignFilterCategories,
   campaignSection,
-  isCampaignExpired,
-  isCampaignFinished,
-  isCampaignUpcoming,
-  type CampaignSection,
 } from "@lurkloot/shared/campaignFilters";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
@@ -67,7 +63,6 @@ function kickRewardImageUrl(value: string | undefined): string | undefined {
 // settings, so the rank on a card is the position the engine acts on.
 export {
   rankCampaigns,
-  campaignRankTier,
   pinCampaignAt,
   unpinCampaign,
   platformPins,
@@ -454,7 +449,7 @@ export function showsSubscriptionChoice(
   );
 }
 
-export function campaignLifecycleState(campaign: DropCampaign): CampaignLifecycleState | undefined {
+function campaignLifecycleState(campaign: DropCampaign): CampaignLifecycleState | undefined {
   if (isCampaignFinished(campaign)) return "finished";
   if (isCampaignExpired(campaign)) return "expired";
   if (campaign.status === "upcoming") return "upcoming";
@@ -510,7 +505,7 @@ export function streamerItemFromFallback(
 }
 
 /** Structural equality for plain view data: objects, arrays and primitives. */
-export function sameViewData(left: unknown, right: unknown): boolean {
+function sameViewData(left: unknown, right: unknown): boolean {
   if (Object.is(left, right)) return true;
   if (typeof left !== "object" || typeof right !== "object" || left === null || right === null)
     return false;

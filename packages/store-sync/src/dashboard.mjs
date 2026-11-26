@@ -1,7 +1,7 @@
 import { describeLocale } from "./locales.mjs";
 import { sanitizeInPage } from "./snapshot.mjs";
 
-export const SECTIONS = Object.freeze({ localized: "localized", global: "global" });
+const SECTIONS = Object.freeze({ localized: "localized", global: "global" });
 
 const LABELS = Object.freeze({
   language: /listing language|language|locale/i,

@@ -16,7 +16,7 @@ function assertHealthy(status) {
   if (status.warned) throw new Error("Chrome Web Store item has an unresolved policy warning");
 }
 
-export function uploadAction(status, version) {
+function uploadAction(status, version) {
   assertHealthy(status);
   const publishedVersion = revisionVersion(status.publishedItemRevisionStatus);
   const submitted = status.submittedItemRevisionStatus;

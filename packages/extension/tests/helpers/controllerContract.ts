@@ -41,7 +41,7 @@ export interface CapabilitySet {
   readonly resumesOnStartup: boolean;
 }
 
-export const EXTENSION_HOST: CapabilitySet = {
+const EXTENSION_HOST: CapabilitySet = {
   name: "extension",
   declared: EXTENSION_CAPABILITIES,
   persistsSettings: true,
@@ -49,7 +49,7 @@ export const EXTENSION_HOST: CapabilitySet = {
 };
 
 // Mirrors the ports packages/cli/src/runtime/run.ts passes.
-export const CLI_HOST: CapabilitySet = {
+const CLI_HOST: CapabilitySet = {
   name: "cli",
   declared: CLI_CAPABILITIES,
   persistsSettings: false,
@@ -150,7 +150,7 @@ function contractAdapter(platform: Platform): PlatformAdapter {
   };
 }
 
-export interface ContractStorage {
+interface ContractStorage {
   settings: ExtensionSettings;
   state: SchedulerState;
 }
@@ -197,7 +197,7 @@ export interface ContractHost {
 
 // A job scheduler with the port's semantics and no clock: tests fire jobs by
 // hand, and `ensured` records every schedule in order.
-export class FakeJobScheduler {
+class FakeJobScheduler {
   readonly scheduled = new Map<string, JobSchedule>();
   readonly ensured: string[] = [];
   readonly cancelled: string[] = [];

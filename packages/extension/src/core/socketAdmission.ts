@@ -8,8 +8,6 @@ import { socketProfileFor, type SocketProfileName } from "./socketProfiles";
 
 // A platform socket opens only once its Origin can be rewritten (#792). It
 // fails closed: never a handshake with the extension's own origin.
-export type SocketRefusal = "unlisted" | "origin-rules" | "permission";
-
 export interface SocketAdmissionDeps {
   // Resolves true once the browser rewrites socket Origins: the DNR rules on
   // Chrome, the webRequest listener on Firefox.
