@@ -20,11 +20,26 @@ sources or cycletls, and it farms only through `serve`.
 - Keeps the window on serve's own address. Links and `window.open` go to the system browser.
 - If serve exits unexpectedly, starts it again after a backoff of 1 s up to 60 s. After three
   failures in a row it shows an error.
-- Closing the window keeps farming in the tray, which has **Open Lurkloot** and **Quit**. On a
+- Closing the window keeps farming in the tray, which has **Open Lurkloot**, **Launch at startup**
+  and **Quit**. On a
   Linux desktop with no tray, closing the window quits instead.
 - Quit closes serve's stdin and waits up to 20 s for it to save and exit. If it hasn't, the
   shell kills serve's whole process tree, cycletls included.
 - A second launch focuses the running window.
+- **Launch at startup** (#1027), off by default, adds the app to this user's sign-in items
+  (`src/autostart.rs`):
+  - Windows: a `Lurkloot` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+  - macOS: `~/Library/LaunchAgents/name.jamezrin.lurkloot.plist`.
+  - Linux: `name.jamezrin.lurkloot.desktop` in `$XDG_CONFIG_HOME/autostart`, or
+    `~/.config/autostart`. It points at the AppImage itself when the app runs from one.
+
+  The entry starts the app with `--autostart`, which farms from the tray with no window until
+  **Open Lurkloot**. When there's no tray, or no panel has registered to show it, the window opens.
+  The choice is a shell setting, saved in `desktop.json` in the app's config folder, never in
+  serve's `config.json`. Only the tray writes the entry, never a launch. A user who switches it off
+  in the OS (Task Manager, Login Items) stays switched off, and an entry removed outside the app
+  turns the setting off. After a failed change, the check shows what the OS really has. An
+  AppImage moved after turning it on needs it turned off and on again.
 - Signs in to Twitch without pasting (#1026). **Sign in to Twitch** opens Twitch's sign-in page in
   a private window of the app's own. Its cookies are discarded when it closes. When Twitch sends
   that window back with the token, the app closes it and finishes the sign-in through serve, the

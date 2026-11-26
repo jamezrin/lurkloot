@@ -5,9 +5,11 @@
 //! its ready line and closing its stdin. See docs/architecture.md, "Desktop
 //! app".
 
+mod autostart;
 pub mod navigation;
 pub mod ready;
 mod serve_api;
+pub mod shell_settings;
 pub mod sidecar;
 pub mod token;
 mod tray;
@@ -18,16 +20,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::webview::NewWindowResponse;
 use tauri::{
-    AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+    AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent, Wry,
 };
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
 use navigation::{Navigation, Site};
+use shell_settings::{SettingsFile, ShellSettings};
 use sidecar::{SidecarEvents, SidecarSpec, Supervisor};
 use twitch_sign_in::{Redirect, SignInResult};
 
@@ -54,6 +57,12 @@ struct Shell {
     shell_url: OnceLock<Url>,
     supervisor: OnceLock<Supervisor>,
     has_tray: AtomicBool,
+    /// The shell's own settings file (`desktop.json`).
+    settings_file: OnceLock<SettingsFile>,
+    settings: Mutex<ShellSettings>,
+    /// The tray's "Launch at startup" item, to put its check back when the
+    /// OS refuses the change.
+    launch_at_startup_item: OnceLock<CheckMenuItem<Wry>>,
     /// Quit has started: serve is being stopped.
     quitting: AtomicBool,
     /// serve is stopped; only now may the app exit.
@@ -165,13 +174,32 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     let token = token::generate_token();
     let _ = shell.token.set(token.clone());
 
-    let window = main_window(app, shell, &token)?;
+    let settings_file = SettingsFile::in_dir(&app.path().app_config_dir()?);
+    let mut settings = settings_file.load();
+    // The OS entry is never written on launch, only from the tray, so a user
+    // who switched it off in the OS stays switched off. One they removed
+    // entirely turns the setting off to match.
+    if settings.launch_at_startup && matches!(autostart::is_registered(), Ok(false)) {
+        settings.launch_at_startup = false;
+        let _ = settings_file.save(&settings);
+    }
+    let launch_at_startup = settings.launch_at_startup;
+    *shell.settings.lock().unwrap() = settings;
+    let _ = shell.settings_file.set(settings_file);
+
+    let has_tray = tray::tray_available() && build_tray(app, launch_at_startup).is_ok();
+    shell.has_tray.store(has_tray, Ordering::SeqCst);
+
+    // A launch at sign-in farms from the tray, with no window until it is
+    // opened from there.
+    let hidden = shell_settings::start_hidden(
+        shell_settings::is_autostart_launch(std::env::args_os()),
+        has_tray,
+    );
+    let window = main_window(app, shell, &token, !hidden)?;
     if let Ok(url) = window.url() {
         shell.learn_shell_url(&url);
     }
-
-    let has_tray = tray::tray_available() && build_tray(app).is_ok();
-    shell.has_tray.store(has_tray, Ordering::SeqCst);
 
     let spec = SidecarSpec {
         program: sidecar_program(app)?,
@@ -195,7 +223,12 @@ fn sidecar_program(app: &AppHandle) -> tauri::Result<PathBuf> {
     Ok(app.path().resource_dir()?.join("sidecar").join(name))
 }
 
-fn main_window(app: &AppHandle, shell: &Arc<Shell>, token: &str) -> tauri::Result<WebviewWindow> {
+fn main_window(
+    app: &AppHandle,
+    shell: &Arc<Shell>,
+    token: &str,
+    visible: bool,
+) -> tauri::Result<WebviewWindow> {
     let navigate_shell = Arc::clone(shell);
     let navigate_app = app.clone();
     let popup_app = app.clone();
@@ -205,6 +238,7 @@ fn main_window(app: &AppHandle, shell: &Arc<Shell>, token: &str) -> tauri::Resul
         WebviewUrl::App("index.html#starting".into()),
     )
     .title("Lurkloot")
+    .visible(visible)
     .inner_size(1120.0, 780.0)
     .min_inner_size(420.0, 560.0)
     // Main frame only: serve's page has no frames, and no other page
@@ -397,16 +431,30 @@ fn report_sign_in(app: &AppHandle, result: &SignInResult) {
     }
 }
 
-fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+fn build_tray(app: &AppHandle, launch_at_startup: bool) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open Lurkloot", true, None::<&str>)?;
+    let startup = CheckMenuItem::with_id(
+        app,
+        "launch-at-startup",
+        "Launch at startup",
+        true,
+        launch_at_startup,
+        None::<&str>,
+    )?;
+    let separator = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &quit_item])?;
+    let menu = Menu::with_items(app, &[&open, &startup, &separator, &quit_item])?;
+    let _ = app
+        .state::<Arc<Shell>>()
+        .launch_at_startup_item
+        .set(startup);
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("Lurkloot")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => show_main(app),
+            "launch-at-startup" => toggle_launch_at_startup(app),
             "quit" => quit(app),
             _ => {}
         })
@@ -425,6 +473,54 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     }
     tray.build(app)?;
     Ok(())
+}
+
+/// The tray's "Launch at startup": registers or removes this user's startup
+/// entry, then saves the choice. Off the GUI thread, one change at a time.
+/// Whatever fails, the check and the saved choice end up showing what the
+/// OS really has.
+fn toggle_launch_at_startup(app: &AppHandle) {
+    let shell = Arc::clone(&app.state::<Arc<Shell>>());
+    std::thread::spawn(move || {
+        let mut settings = shell.settings.lock().unwrap();
+        let wanted = !settings.launch_at_startup;
+        let file = shell.settings_file.get();
+        let changed = if wanted {
+            autostart::current_program().and_then(|program| autostart::register(&program))
+        } else {
+            autostart::unregister()
+        };
+        let mut next = settings.clone();
+        next.launch_at_startup = wanted;
+        let saved = changed.is_ok() && file.is_some_and(|file| file.save(&next).is_ok());
+        if saved {
+            *settings = next;
+        } else {
+            let reason = match &changed {
+                Err(error) => error.to_string(),
+                Ok(()) => "the setting could not be saved".to_owned(),
+            };
+            eprintln!(
+                "Launch at startup could not be turned {}: {reason}",
+                if wanted { "on" } else { "off" }
+            );
+            if wanted {
+                // Not saved: take the entry back out so the two agree.
+                let _ = autostart::unregister();
+            }
+            if let Ok(registered) = autostart::is_registered() {
+                if registered != settings.launch_at_startup {
+                    settings.launch_at_startup = registered;
+                    if let Some(file) = file {
+                        let _ = file.save(&settings);
+                    }
+                }
+            }
+        }
+        if let Some(item) = shell.launch_at_startup_item.get() {
+            let _ = item.set_checked(settings.launch_at_startup);
+        }
+    });
 }
 
 fn show_main(app: &AppHandle) {
