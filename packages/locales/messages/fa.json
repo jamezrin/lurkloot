@@ -209,15 +209,6 @@
   "settingsSearchNoResults": {
     "message": "تنظیمی با «$1» پیدا نشد."
   },
-  "settingsPlatformSettings": {
-    "message": "تنظیمات $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "نمایش تنظیمات پیشرفته"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "رفتن به بخش"
-  },
   "settingsSectionAdvancedActions": {
     "message": "کارهای پیشرفته"
   },
@@ -226,9 +217,6 @@
   },
   "activityTitle": {
     "message": "فعالیت"
-  },
-  "activeStatus": {
-    "message": "فعال"
   },
   "pausedStatus": {
     "message": "مکث‌شده"
@@ -239,26 +227,14 @@
   "openInventory": {
     "message": "بازکردن موجودی"
   },
-  "openActivity": {
-    "message": "بازکردن فعالیت‌ها"
-  },
-  "closeActivity": {
-    "message": "بستن فعالیت‌ها"
-  },
   "openSettings": {
     "message": "بازکردن تنظیمات"
-  },
-  "closeSettings": {
-    "message": "بستن تنظیمات"
   },
   "back": {
     "message": "بازگشت"
   },
   "loading": {
     "message": "در حال بارگذاری"
-  },
-  "dropsTab": {
-    "message": "دراپ‌ها"
   },
   "watchlistTab": {
     "message": "فهرست تماشا"
@@ -458,9 +434,6 @@
   "campaignSearchNoResults": {
     "message": "کمپینی با «$1» پیدا نشد."
   },
-  "closeSearch": {
-    "message": "بستن جست‌وجو"
-  },
   "search": {
     "message": "جست‌وجو"
   },
@@ -502,9 +475,6 @@
   },
   "notLinked": {
     "message": "پیوند داده نشده"
-  },
-  "subscriptionCampaigns": {
-    "message": "کمپین‌های اشتراکی"
   },
   "subscriptionRequired": {
     "message": "نیازمند اشتراک"
@@ -584,9 +554,6 @@
   "finished": {
     "message": "تمام‌شده"
   },
-  "completedCampaigns": {
-    "message": "کمپین‌های تکمیل‌شده"
-  },
   "upcomingPill": {
     "message": "به‌زودی"
   },
@@ -656,9 +623,6 @@
   "viewerCount": {
     "message": "$1 بیننده"
   },
-  "settingsGeneralTitle": {
-    "message": "تنظیمات عمومی"
-  },
   "settingsGeneralDescription": {
     "message": "زبان، راه‌اندازی و رفتار پنجرهٔ افزونه."
   },
@@ -677,9 +641,6 @@
   "autoStartDescription": {
     "message": "به‌محض بارگذاری افزونه، فارم را شروع کند."
   },
-  "notificationsTitle": {
-    "message": "اعلان‌ها"
-  },
   "notificationsDescription": {
     "message": "هشدار برای آماده‌شدن پاداش‌ها یا پایان کمپین‌ها."
   },
@@ -697,9 +658,6 @@
   },
   "noDropsLeftDescription": {
     "message": "وقتی همهٔ کمپین‌های فعال تمام شدند، اعلان بده."
-  },
-  "dropsSettingsTitle": {
-    "message": "دراپ‌ها"
   },
   "dropsSettingsDescription": {
     "message": "دریافت، واجد شرایط بودن، اولویت‌ها و نمایش کمپین‌ها."
@@ -725,23 +683,11 @@
   "lowAvailabilityFirst": {
     "message": "اول آن‌هایی با کانال کمتر"
   },
-  "watchlistSettingsTitle": {
-    "message": "فهرست تماشا"
-  },
-  "watchlistSettingsDescription": {
-    "message": "کانال‌های جایگزین برای زمان‌هایی که دراپ واجد شرایطی نیست."
-  },
   "preferKnownChannelsTitle": {
     "message": "ترجیح کانال‌های دنبال‌شده و فهرست تماشا"
   },
   "preferKnownChannelsDescription": {
     "message": "اگر دراپ در چند کانال باشد، کانالی را که دنبال می‌کنید یا در فهرست تماشا است به کانال ناآشنا ترجیح می‌دهد."
-  },
-  "platformSettingsTitle": {
-    "message": "تنظیمات پلتفرم"
-  },
-  "farmingTabsTitle": {
-    "message": "تب‌های فارم"
   },
   "farmingTabsDescription": {
     "message": "تنظیمات فارم با تبِ ویدیو. وقتی حالت کم‌مصرف بدون تب روشن باشد، تنظیمات ویژهٔ تب غیرفعال می‌شوند."
@@ -814,9 +760,6 @@
   },
   "tabAndWindow": {
     "message": "تب و پنجره"
-  },
-  "advancedTitle": {
-    "message": "پیشرفته"
   },
   "advancedDescription": {
     "message": "فقط اگر می‌دانید چه می‌کنید این گزینه‌ها را تغییر دهید؛ آن‌ها رفتار زمان‌بند و ثبت گزارش در سطح پایین را کنترل می‌کنند."
@@ -959,17 +902,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "فعلاً هیچ پاداشی در این کمپین قابل فارم نیست."
   },
-  "automationSectionTitle": {
-    "message": "خودکارسازی"
-  },
-  "farmOnPlatform": {
-    "message": "دراپ‌ها را فارم کن و کانال‌های فهرست تماشا را در $1 تماشا کن."
-  },
   "enabled": {
     "message": "فعال"
-  },
-  "watchlistEditHint": {
-    "message": "پس از انتخاب $1، آن را از تبِ فهرست تماشا ویرایش کنید."
   },
   "autoClaimChannelPointsTitle": {
     "message": "دریافت خودکار امتیاز کانال"
@@ -1064,9 +998,6 @@
   "includeCategoriesInstruction": {
     "message": "در $1 فقط این دسته‌بندی‌ها فارم می‌شوند."
   },
-  "categoriesToFarm": {
-    "message": "دسته‌بندی‌های قابل فارم"
-  },
   "noCategoriesSelected": {
     "message": "دسته‌بندی‌ای انتخاب نشده است — در $1 چیزی فارم نمی‌شود. دسته‌بندی‌ها را در پایین اضافه کنید."
   },
@@ -1084,15 +1015,6 @@
   },
   "noCategoriesFound": {
     "message": "دسته‌بندی‌ای پیدا نشد."
-  },
-  "alreadyAdded": {
-    "message": "از قبل اضافه شده است."
-  },
-  "activityLogLevelsTitle": {
-    "message": "سطح‌های گزارش فعالیت"
-  },
-  "activityLogLevelsDescription": {
-    "message": "مشخص کن کدام سطح‌ها در گزارش فعالیت ثبت شوند. خطاها همیشه نگه داشته می‌شوند."
   },
   "rewardFilterTitle": {
     "message": "پاداش‌های قابل فارم"
@@ -1421,9 +1343,6 @@
   "cliExportTitle": {
     "message": "CLI بدون رابط گرافیکی"
   },
-  "cliExportDescription": {
-    "message": "با CLI مربوط به Lurkloot، فارم دراپ را روی سرور یا در Docker و با نشست واردشدهٔ این مرورگر اجرا کنید."
-  },
   "cliExportHint": {
     "message": "نشست‌های Twitch و Kick شما را صادر می‌کند تا دستور «login --import» در CLI از آن‌ها استفاده کند. فایل را خصوصی نگه دارید؛ هرکس آن را داشته باشد می‌تواند از نشست‌هایتان استفاده کند."
   },
@@ -1537,9 +1456,6 @@
   },
   "activitySessionOutside": {
     "message": "خارج از نشست"
-  },
-  "activitySessionEarlier": {
-    "message": "قبلی‌ها"
   },
   "activitySessionEmpty": {
     "message": "هنوز چیزی به دست نیامده. پاداش‌ها و امتیازها همین‌جا نمایش داده می‌شوند، همان‌طور که می‌رسند."
@@ -2147,9 +2063,6 @@
   "campaignRewardsProgress": {
     "message": "$1 از $2 جایزه"
   },
-  "campaignTimeLeft": {
-    "message": "$1 باقی مانده"
-  },
   "campaignFactStarts": {
     "message": "شروع"
   },
@@ -2365,9 +2278,6 @@
   },
   "gamesNoMoreResults": {
     "message": "بازی دیگری پیدا نشد."
-  },
-  "navBeta": {
-    "message": "بتا"
   },
   "navExtensions": {
     "message": "اکستنشن‌ها"

@@ -209,15 +209,6 @@
   "settingsSearchNoResults": {
     "message": "Nenhuma configuração corresponde a “$1”."
   },
-  "settingsPlatformSettings": {
-    "message": "Configurações de $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Mostrar configurações avançadas"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Ir para a seção"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Ações avançadas"
   },
@@ -226,9 +217,6 @@
   },
   "activityTitle": {
     "message": "Atividade"
-  },
-  "activeStatus": {
-    "message": "Ativo"
   },
   "pausedStatus": {
     "message": "Pausado"
@@ -239,26 +227,14 @@
   "openInventory": {
     "message": "Abrir inventário"
   },
-  "openActivity": {
-    "message": "Abrir atividade"
-  },
-  "closeActivity": {
-    "message": "Fechar atividade"
-  },
   "openSettings": {
     "message": "Abrir configurações"
-  },
-  "closeSettings": {
-    "message": "Fechar configurações"
   },
   "back": {
     "message": "Voltar"
   },
   "loading": {
     "message": "Carregando"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Lista de visualização"
@@ -458,9 +434,6 @@
   "campaignSearchNoResults": {
     "message": "Nenhuma campanha corresponde a “$1”."
   },
-  "closeSearch": {
-    "message": "Fechar busca"
-  },
   "search": {
     "message": "Pesquisar"
   },
@@ -502,9 +475,6 @@
   },
   "notLinked": {
     "message": "Não vinculado"
-  },
-  "subscriptionCampaigns": {
-    "message": "Campanhas de assinatura"
   },
   "subscriptionRequired": {
     "message": "Assinatura obrigatória"
@@ -584,9 +554,6 @@
   "finished": {
     "message": "Finalizadas"
   },
-  "completedCampaigns": {
-    "message": "Concluídas"
-  },
   "upcomingPill": {
     "message": "Próxima"
   },
@@ -656,9 +623,6 @@
   "viewerCount": {
     "message": "$1 espectadores"
   },
-  "settingsGeneralTitle": {
-    "message": "Configurações gerais"
-  },
   "settingsGeneralDescription": {
     "message": "Idioma, inicialização e comportamento do pop-up."
   },
@@ -677,9 +641,6 @@
   "autoStartDescription": {
     "message": "Começa o farming assim que a extensão carrega."
   },
-  "notificationsTitle": {
-    "message": "Notificações"
-  },
   "notificationsDescription": {
     "message": "Alertas quando recompensas estão prontas ou campanhas terminam."
   },
@@ -697,9 +658,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Notificar quando todas as campanhas ativas forem esgotadas."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Resgate, elegibilidade, prioridades e visibilidade de campanhas."
@@ -725,23 +683,11 @@
   "lowAvailabilityFirst": {
     "message": "Baixa disponibilidade primeiro"
   },
-  "watchlistSettingsTitle": {
-    "message": "Lista de visualização"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Comportamento compartilhado da lista alternativa."
-  },
   "preferKnownChannelsTitle": {
     "message": "Preferir canais seguidos e da Lista de visualização"
   },
   "preferKnownChannelsDescription": {
     "message": "Quando um drop está disponível em vários canais, escolhe um que você segue ou que está na sua Lista de visualização em vez de um desconhecido."
-  },
-  "platformSettingsTitle": {
-    "message": "Configurações da plataforma"
-  },
-  "farmingTabsTitle": {
-    "message": "Abas de farming"
   },
   "farmingTabsDescription": {
     "message": "Controles para farming com abas de vídeo. Controles específicos de aba ficam desativados no modo sem aba de baixo consumo."
@@ -814,9 +760,6 @@
   },
   "tabAndWindow": {
     "message": "Aba + janela"
-  },
-  "advancedTitle": {
-    "message": "Avançado"
   },
   "advancedDescription": {
     "message": "Altere apenas se souber o que está fazendo: controla agendador e logs de baixo nível."
@@ -959,17 +902,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "Nenhuma recompensa desta campanha pode ser farmada agora."
   },
-  "automationSectionTitle": {
-    "message": "Automação"
-  },
-  "farmOnPlatform": {
-    "message": "Farma drops e assiste à Lista de visualização no $1."
-  },
   "enabled": {
     "message": "Ativado"
-  },
-  "watchlistEditHint": {
-    "message": "Edite na aba Lista de visualização depois de selecionar $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Resgatar pontos de canal automaticamente"
@@ -1064,9 +998,6 @@
   "includeCategoriesInstruction": {
     "message": "Na $1, apenas estas categorias são farmadas."
   },
-  "categoriesToFarm": {
-    "message": "Categorias para farmar"
-  },
   "noCategoriesSelected": {
     "message": "Nenhuma categoria selecionada: nada será farmado no $1. Adicione categorias abaixo."
   },
@@ -1084,15 +1015,6 @@
   },
   "noCategoriesFound": {
     "message": "Nenhuma categoria encontrada."
-  },
-  "alreadyAdded": {
-    "message": "Já adicionado."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Níveis do registro de atividade"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Escolha quais níveis são registrados no log de atividade. Erros são sempre mantidos."
   },
   "rewardFilterTitle": {
     "message": "Recompensas para farmar"
@@ -1421,9 +1343,6 @@
   "cliExportTitle": {
     "message": "CLI sem navegador"
   },
-  "cliExportDescription": {
-    "message": "Execute o farm de drops em um servidor ou no Docker com a CLI do Lurkloot, usando a sessão conectada deste navegador."
-  },
   "cliExportHint": {
     "message": "Exporta seus tokens de sessão da Twitch e da Kick para que o «login --import» da CLI possa reutilizá-los. Mantenha o arquivo em sigilo: qualquer pessoa com ele pode usar suas sessões."
   },
@@ -1537,9 +1456,6 @@
   },
   "activitySessionOutside": {
     "message": "Fora de uma sessão"
-  },
-  "activitySessionEarlier": {
-    "message": "Anteriores"
   },
   "activitySessionEmpty": {
     "message": "Nada obtido ainda. Recompensas e pontos aparecem aqui conforme forem chegando."
@@ -2147,9 +2063,6 @@
   "campaignRewardsProgress": {
     "message": "$1 de $2 recompensas"
   },
-  "campaignTimeLeft": {
-    "message": "Faltam $1"
-  },
   "campaignFactStarts": {
     "message": "Começa"
   },
@@ -2365,9 +2278,6 @@
   },
   "gamesNoMoreResults": {
     "message": "Nenhum outro jogo encontrado."
-  },
-  "navBeta": {
-    "message": "Beta"
   },
   "navExtensions": {
     "message": "Extensões"

@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-The Lurkloot CLI is the same farming engine as the extension, without the browser. You start it once on a machine that stays on, and it keeps farming Twitch and Kick by itself. It is in **beta**.
+The Lurkloot CLI is the same farming engine as the extension, without the browser. You start it once on a machine that stays on, and it keeps farming Twitch and Kick by itself. It is in *beta*.
 
 ## Ways to run it
 

@@ -209,15 +209,6 @@
   "settingsSearchNoResults": {
     "message": "“$1” ile ilgili ayar bulunamadı."
   },
-  "settingsPlatformSettings": {
-    "message": "$1 ayarları"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Gelişmiş ayarlar"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Bölüme git"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Gelişmiş işlemler"
   },
@@ -226,9 +217,6 @@
   },
   "activityTitle": {
     "message": "Geçmiş"
-  },
-  "activeStatus": {
-    "message": "Aktif"
   },
   "pausedStatus": {
     "message": "Duraklatıldı"
@@ -239,26 +227,14 @@
   "openInventory": {
     "message": "Envanteri aç"
   },
-  "openActivity": {
-    "message": "Geçmişi aç"
-  },
-  "closeActivity": {
-    "message": "Geçmişi kapat"
-  },
   "openSettings": {
     "message": "Ayarları aç"
-  },
-  "closeSettings": {
-    "message": "Ayarları kapat"
   },
   "back": {
     "message": "Geri"
   },
   "loading": {
     "message": "Yükleniyor"
-  },
-  "dropsTab": {
-    "message": "Droplar"
   },
   "watchlistTab": {
     "message": "İzleme Listesi"
@@ -458,9 +434,6 @@
   "campaignSearchNoResults": {
     "message": "“$1” ile ilgili kampanya bulunamadı."
   },
-  "closeSearch": {
-    "message": "Aramayı kapat"
-  },
   "search": {
     "message": "Ara"
   },
@@ -502,9 +475,6 @@
   },
   "notLinked": {
     "message": "Bağlı değil"
-  },
-  "subscriptionCampaigns": {
-    "message": "Abonelik kampanyaları"
   },
   "subscriptionRequired": {
     "message": "Abonelik gerekiyor"
@@ -584,9 +554,6 @@
   "finished": {
     "message": "Bitti"
   },
-  "completedCampaigns": {
-    "message": "Tamamlananlar"
-  },
   "upcomingPill": {
     "message": "Gelecek"
   },
@@ -656,9 +623,6 @@
   "viewerCount": {
     "message": "$1 izleyici"
   },
-  "settingsGeneralTitle": {
-    "message": "Genel Ayarlar"
-  },
   "settingsGeneralDescription": {
     "message": "Dil, başlangıç ve açılır pencere davranışı."
   },
@@ -677,9 +641,6 @@
   "autoStartDescription": {
     "message": "Tarayıcı açıldığında otomatik olarak toplamaya başlar."
   },
-  "notificationsTitle": {
-    "message": "Bildirimler"
-  },
   "notificationsDescription": {
     "message": "Ödüller hazır olduğunda veya kampanyalar bittiğinde uyarılar."
   },
@@ -697,9 +658,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Toplanacak tüm droplar bittiğinde haber ver."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drop Ayarları"
   },
   "dropsSettingsDescription": {
     "message": "Talep etme, uygunluk, öncelikler ve kampanya görünürlüğü."
@@ -725,23 +683,11 @@
   "lowAvailabilityFirst": {
     "message": "Önce nadir/süreli olanlar"
   },
-  "watchlistSettingsTitle": {
-    "message": "İzleme Listesi"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Drop yokken izlenecek kanallar."
-  },
   "preferKnownChannelsTitle": {
     "message": "Takip edilen ve izleme listesi kanallarını tercih et"
   },
   "preferKnownChannelsDescription": {
     "message": "Bir drop birden fazla kanalda mevcut olduğunda, tanımadığınız bir kanal yerine takip ettiğiniz veya izleme listesi kanallarınızdan birini seçer."
-  },
-  "platformSettingsTitle": {
-    "message": "Platform Ayarları"
-  },
-  "farmingTabsTitle": {
-    "message": "Sekme Yönetimi"
   },
   "farmingTabsDescription": {
     "message": "Arka planda açılan sekmelerin kontrolü."
@@ -814,9 +760,6 @@
   },
   "tabAndWindow": {
     "message": "Sekme + Pencere"
-  },
-  "advancedTitle": {
-    "message": "Gelişmiş"
   },
   "advancedDescription": {
     "message": "Teknik zamanlama ve günlük ayarları."
@@ -959,17 +902,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "Bu kampanyada şu anda farmlanabilecek ödül yok."
   },
-  "automationSectionTitle": {
-    "message": "Otomasyon"
-  },
-  "farmOnPlatform": {
-    "message": "Drop olmadığında $1 izleme listesine eklenmiş kanalları izle."
-  },
   "enabled": {
     "message": "Açık"
-  },
-  "watchlistEditHint": {
-    "message": "$1 seçeneğini açtıktan sonra İzleme Listesi sekmesinden düzenleyin."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Kanal puanlarını otomatik al"
@@ -1064,9 +998,6 @@
   "includeCategoriesInstruction": {
     "message": "$1 üzerinde yalnızca bu kategoriler toplanır."
   },
-  "categoriesToFarm": {
-    "message": "Seçili kategoriler"
-  },
   "noCategoriesSelected": {
     "message": "Kategori seçilmedi. $1 üzerinde işlem yapılmayacak."
   },
@@ -1084,15 +1015,6 @@
   },
   "noCategoriesFound": {
     "message": "Kategori bulunamadı."
-  },
-  "alreadyAdded": {
-    "message": "Zaten eklendi."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Günlük detay seviyesi"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Hangi işlemlerin geçmişe kaydedileceğini seçin."
   },
   "rewardFilterTitle": {
     "message": "Farmlanacak ödüller"
@@ -1421,9 +1343,6 @@
   "cliExportTitle": {
     "message": "Komut Satırı (CLI) Sürümü"
   },
-  "cliExportDescription": {
-    "message": "Oturumunuzu aktararak sunucuda veya Docker üzerinde tarayıcısız toplama yapın."
-  },
   "cliExportHint": {
     "message": "Twitch ve Kick giriş bilgilerinizi dışa aktarır. Bu dosyayı güvende tutun; erişimi olan herkes hesabınızı kullanabilir."
   },
@@ -1537,9 +1456,6 @@
   },
   "activitySessionOutside": {
     "message": "Bir oturumun dışında"
-  },
-  "activitySessionEarlier": {
-    "message": "Daha önce"
   },
   "activitySessionEmpty": {
     "message": "Henüz bir şey kazanılmadı. Ödüller ve puanlar geldikçe burada görünür."
@@ -2147,9 +2063,6 @@
   "campaignRewardsProgress": {
     "message": "$1/$2 ödül"
   },
-  "campaignTimeLeft": {
-    "message": "$1 kaldı"
-  },
   "campaignFactStarts": {
     "message": "Başlangıç"
   },
@@ -2365,9 +2278,6 @@
   },
   "gamesNoMoreResults": {
     "message": "Başka oyun bulunamadı."
-  },
-  "navBeta": {
-    "message": "Beta"
   },
   "navExtensions": {
     "message": "Eklentiler"
