@@ -2131,7 +2131,7 @@ checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 name = "lurkloot-desktop"
 version = "0.0.0"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "libc",
  "serde",
  "serde_json",
