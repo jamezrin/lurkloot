@@ -40,8 +40,9 @@ behavior.
 
 ## Development setup
 
-CI runs Node 24 and pnpm 11.24.0; use those versions locally to avoid surprises. The repository does
-not pin them itself.
+CI runs Node 24 and the pnpm version in the `packageManager` field of the root `package.json`; use
+those versions locally to avoid surprises. pnpm switches itself to that version when it differs, and
+Renovate keeps the field current.
 
 Fork the repository on GitHub, then clone your fork and add this repository as `upstream` so you can
 keep `develop` current:
