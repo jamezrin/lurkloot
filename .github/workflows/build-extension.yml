@@ -47,6 +47,8 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      # The signer is the root package deployed with its devDependencies, so crx3 must stay a root
+      # devDependency: that keeps it integrity-pinned by pnpm-lock.yaml and tracked by Renovate.
       - name: Prepare signer from the trusted integrity-pinned lockfile
         run: |
           pnpm install --frozen-lockfile --ignore-scripts

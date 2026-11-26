@@ -33,9 +33,14 @@ runs:
         mkdir -p "$scratch"
         printf '{"name":"lurkloot-deploy","private":true}\n' > "$scratch/package.json"
         echo "directory=$scratch" >> "$GITHUB_OUTPUT"
-        # One source of truth for the version: whatever the site package pins, Renovate keeps current.
+        # One source of truth for the version: the exact version the site package pins, which Renovate
+        # keeps current. A caret range here would install the newest release at deploy time rather
+        # than the one the lockfile resolved, so refuse anything but an exact version.
         version=$(node -p "require('$SITE_MANIFEST').devDependencies.wrangler")
-        test -n "$version"
+        if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "packages/site/package.json must pin wrangler to an exact version, found '$version'" >&2
+          exit 1
+        fi
         echo "version=$version" >> "$GITHUB_OUTPUT"
     - uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
       with:
