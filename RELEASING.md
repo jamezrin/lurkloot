@@ -201,7 +201,7 @@ installers with `packages/desktop/scripts/collectInstallers.mjs`:
 
 | Target | Runner | Installers |
 | --- | --- | --- |
-| `windows-x64` | `windows-latest` | `-setup.exe` (NSIS) and `.msi` |
+| `windows-x64` | `windows-latest` | `-setup.exe` (NSIS), `.msi` and the `-portable.zip` |
 | `macos-arm64` | `macos-latest` | `.dmg`, plus the `.app.tar.gz` update |
 | `macos-x64` | `macos-15-intel` | `.dmg`, plus the `.app.tar.gz` update |
 | `linux-x64` | `ubuntu-22.04` | `.AppImage` and `.deb` |
@@ -210,8 +210,8 @@ installers with `packages/desktop/scripts/collectInstallers.mjs`:
 Linux builds on Ubuntu 22.04 because an AppImage needs at least its build machine's glibc, and the
 `.deb` its WebKitGTK. Each leg then checks the sidecar is inside its installers: in the `.deb` and
 the extracted AppImage with its executable bit, in the mounted `.dmg` with `codesign --verify`, and
-in an administrative extraction of the `.msi` and the 7-Zip listing of the NSIS `-setup.exe`,
-and in the listing of the macOS `.app.tar.gz` (with no `._` files). A leg takes about 10 to 20 minutes, most of it the
+in an administrative extraction of the `.msi`, the 7-Zip listing of the NSIS `-setup.exe` and the
+extracted `-portable.zip` (with its `portable.txt` marker), and in the listing of the macOS `.app.tar.gz` (with no `._` files). A leg takes about 10 to 20 minutes, most of it the
 Rust release build and the CLI build, and the legs run in parallel with the `cli` job.
 
 The installers are **unsigned**. macOS builds are ad-hoc signed (`signingIdentity: "-"` in
@@ -221,7 +221,12 @@ too. The user guide's "Install the desktop app" page walks through both.
 
 The names come from `desktopInstallerTargets` in `scripts/release/pipeline.mjs`. `publish` adds them
 under the same trusted-asset rule as the CLI archives, `attest` attests them, and `assert-assets`
-requires all ten (the eight installers and the two macOS updates). A checkout without `collectInstallers.mjs` builds nothing, like the CLI job.
+requires all eleven (the eight installers, the Windows portable zip and the two macOS updates).
+
+The portable zip is no Tauri bundle. `collectInstallers.mjs` packs the `lurkloot-desktop.exe` that
+`tauri build` compiled, as `Lurkloot\Lurkloot.exe`, with the `sidecar\` folder beside it (an
+uninstalled executable's resource folder is its own) and `portable.txt`. That marker turns the app's
+updater off, so the zip is never an update and has no `latest.json` entry. A checkout without `collectInstallers.mjs` builds nothing, like the CLI job.
 
 A release branch's candidate (`release_branch: true`, from Prepare release and from pushes to
 `release/*`) must publish the asset list of its own tree, not only the trusted one, because
@@ -246,7 +251,7 @@ The desktop app updates itself from GitHub releases with Tauri's updater (#1028)
 `https://github.com/jamezrin/lurkloot/releases/latest/download/latest.json`. GitHub's latest
 release is never a prerelease, so a candidate never feeds the updater. Each update is one of the
 reviewed assets: the AppImages, the `.deb`s, the `.msi`, the NSIS `-setup.exe` and the macOS
-`.app.tar.gz`. The app takes only the kind it was installed with, so its `latest.json` entry is
+`.app.tar.gz`, never the Windows portable zip, which does not update itself. The app takes only the kind it was installed with, so its `latest.json` entry is
 `{os}-{arch}-{kind}`, never the bare `{os}-{arch}`.
 
 The approved `publish` job signs them. After `assert-assets` it installs the Tauri CLI

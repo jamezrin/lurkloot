@@ -164,6 +164,13 @@ jobs:
           $listing = & 7z l $setup.FullName
           if ($LASTEXITCODE -ne 0) { throw "7z could not read $($setup.Name)" }
           if (-not ($listing | Select-String -Pattern 'sidecar\\lurkloot\.exe$')) { throw "no sidecar\lurkloot.exe in $($setup.Name)" }
+          # The portable zip: the app, its sidecar and the marker that turns its updater off.
+          $zip = Get-ChildItem desktop-assets -Filter *-portable.zip | Select-Object -First 1
+          $portable = Join-Path $env:RUNNER_TEMP portable-extract
+          Expand-Archive -Path $zip.FullName -DestinationPath $portable
+          foreach ($file in 'Lurkloot.exe', 'portable.txt', 'sidecar\lurkloot.exe') {
+            if (-not (Test-Path -PathType Leaf (Join-Path $portable "Lurkloot\$file"))) { throw "no Lurkloot\$file in $($zip.Name)" }
+          }
       - uses: actions/upload-artifact@v7
         if: steps.support.outputs.available == 'true'
         with:

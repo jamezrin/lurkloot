@@ -1017,7 +1017,10 @@ Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
 - **Installers (#1025).** `build-desktop-installers.yml` bundles the shell with the standalone
   executable built on the same runner, one leg per `desktopInstallerTargets` entry in
   `scripts/release/pipeline.mjs`, and checks the sidecar is inside each installer. The candidate
-  publishes them as release assets like the CLI archives. They are unsigned; macOS is ad-hoc
+  publishes them as release assets like the CLI archives. Windows also gets a portable zip, the
+  compiled executable beside its sidecar folder and a `portable.txt` marker that turns the updater
+  off (`updates::is_portable`); `desktopBoundary.test.ts` keeps the marker's name the same in the
+  shell and the packer. They are unsigned; macOS is ad-hoc
   signed. The app's version is the root manifest's: `tauri.conf.json` reads it by path and
   `scripts/release.mjs` writes it into the crate, failing `check` when the two differ.
   `desktopBoundary.test.ts`, which runs in `pnpm check` on every pull request, also keeps the

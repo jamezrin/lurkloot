@@ -112,7 +112,9 @@ export function cliArchiveName(version, target) {
 // `bundle` is the name `tauri build --bundles` takes, `dir` the folder under target/release/bundle/
 // it writes to (the bundle name when absent) and `suffix` the end of the file name there; `asset`
 // is what follows the target id in the release asset's name. `archive` marks a folder (the macOS
-// .app) that is packed into a .tar.gz rather than copied.
+// .app) that is packed into a .tar.gz rather than copied. `portable` marks the Windows zip that runs
+// without installing: no Tauri bundle, but the built executable and its sidecar folder beside the
+// portable marker, which turns the app's own updater off (`PORTABLE_MARKER` in updates.rs).
 //
 // `updater` (#1028) is the installer kind the app's updater asks for, `{os}-{arch}-{updater}` in
 // latest.json with the target's `updaterPlatform`: Tauri records which installer put the app there
@@ -182,6 +184,7 @@ export const desktopInstallerTargets = [
     installers: [
       { bundle: "msi", suffix: ".msi", asset: ".msi", updater: "msi" },
       { bundle: "nsis", suffix: "-setup.exe", asset: "-setup.exe", updater: "nsis" },
+      { portable: true, asset: "-portable.zip" },
     ],
   },
 ];

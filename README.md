@@ -110,7 +110,7 @@ Open http://127.0.0.1:8420 and enter the token from `.env` once per tab. The por
 
 ### The desktop app
 
-The desktop app is the same app in a window of its own, with the CLI inside it, so it needs no terminal or Docker. It keeps farming from the tray when you close the window. Each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) has its installers: `lurkloot-desktop-*-windows-x64-setup.exe` or `.msi` for Windows, `.dmg` for macOS (Apple Silicon, Intel), and `.AppImage` or `.deb` for Linux (x64, arm64). They are not signed with a Windows or Apple developer certificate yet, so the first launch needs one extra step; the user guide's [Install the desktop app](https://lurkloot.jamezrin.com/guide/headless/desktop) shows it for each system.
+The desktop app is the same app in a window of its own, with the CLI inside it, so it needs no terminal or Docker. It keeps farming from the tray when you close the window. Each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) has its installers: `lurkloot-desktop-*-windows-x64-setup.exe` or `.msi` for Windows (or the `-portable.zip` to run it without installing), `.dmg` for macOS (Apple Silicon, Intel), and `.AppImage` or `.deb` for Linux (x64, arm64). They are not signed with a Windows or Apple developer certificate yet, so the first launch needs one extra step; the user guide's [Install the desktop app](https://lurkloot.jamezrin.com/guide/headless/desktop) shows it for each system.
 
 ## Your account stays yours
 

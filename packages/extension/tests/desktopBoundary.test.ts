@@ -147,6 +147,13 @@ describe("@lurkloot/desktop contract with serve and the app UI", () => {
     );
   });
 
+  it("names the same portable marker as the zip's packer (#1025)", () => {
+    const marker = rustConst(rust("updates.rs"), "PORTABLE_MARKER");
+    expect(marker).toBeTruthy();
+    const packer = readFileSync(join(desktop, "scripts", "collectInstallers.mjs"), "utf8");
+    expect(/const PORTABLE_MARKER = "([^"]+)";/.exec(packer)?.[1]).toBe(marker);
+  });
+
   it("posts to serve's browser-login route and stops at its redirect URI (#1026)", () => {
     const shell = rust("twitch_sign_in.rs");
     const path = rustConst(shell, "BROWSER_LOGIN_PATH");

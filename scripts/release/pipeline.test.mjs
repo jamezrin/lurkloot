@@ -121,6 +121,7 @@ test("expected release assets are the extension builds, the CLI archives, the de
     "lurkloot-desktop-1.6.0-macos-x64.app.tar.gz",
     "lurkloot-desktop-1.6.0-windows-x64.msi",
     "lurkloot-desktop-1.6.0-windows-x64-setup.exe",
+    "lurkloot-desktop-1.6.0-windows-x64-portable.zip",
   ]);
 });
 
@@ -128,7 +129,11 @@ test("each desktop installer target is found by its platform and architecture", 
   const windows = desktopInstallerTarget("win32", "x64");
   assert.deepEqual(
     windows.installers.map((installer) => desktopInstallerName("1.6.0", windows, installer)),
-    ["lurkloot-desktop-1.6.0-windows-x64.msi", "lurkloot-desktop-1.6.0-windows-x64-setup.exe"],
+    [
+      "lurkloot-desktop-1.6.0-windows-x64.msi",
+      "lurkloot-desktop-1.6.0-windows-x64-setup.exe",
+      "lurkloot-desktop-1.6.0-windows-x64-portable.zip",
+    ],
   );
   assert.equal(desktopInstallerTarget("darwin", "x64").id, "macos-x64");
   assert.throws(
@@ -255,6 +260,8 @@ test("every update the app can install has its own installer-specific platform k
   const expected = expectedReleaseAssets("1.6.0");
   for (const update of updates) assert.ok(expected.includes(update.asset), update.asset);
   assert.ok(!updates.some((update) => update.asset.endsWith(".dmg")));
+  // Nor the portable zip, which never updates itself.
+  assert.ok(!updates.some((update) => update.asset.endsWith("-portable.zip")));
   assert.equal(
     updates.find((update) => update.platform === "windows-x86_64-nsis").signature,
     "lurkloot-desktop-1.6.0-windows-x64-setup.exe.sig",
