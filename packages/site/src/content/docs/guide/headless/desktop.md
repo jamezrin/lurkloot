@@ -31,7 +31,7 @@ The installers are not signed with a Windows or Apple developer certificate yet,
 2. If Windows shows *Windows protected your PC*, select *More info*, then *Run anyway*.
 3. Start Lurkloot from the Start menu.
 
-To run it without installing, unzip the `-portable.zip` anywhere you like, such as a USB drive, and run `Lurkloot.exe` from the `Lurkloot` folder. It needs Microsoft Edge WebView2, which Windows 10 and 11 already have. The portable copy does not update itself (see [Updates](#updates)).
+To run it without installing, unzip the `-portable.zip` anywhere you like, such as a USB drive, and run `Lurkloot.exe` from the `Lurkloot` folder. It needs the Microsoft Edge WebView2 Runtime, which Windows 11 and most Windows 10 computers already have. If Lurkloot does not start, install the *Evergreen Bootstrapper* from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/) and try again. The portable copy does not update itself (see [Updates](#updates)).
 
 ### macOS
 
