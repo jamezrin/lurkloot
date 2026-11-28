@@ -22,6 +22,12 @@ import {
   mergeSettings,
 } from "@lurkloot/shared/settings";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
+import {
+  localDayKey,
+  shiftDayKey,
+  WATCH_STREAK_HISTORY_DAYS,
+  type WatchStreakHistory,
+} from "@lurkloot/shared/watchStreakHistory";
 import type { PopupAdapter } from "./types";
 import { openHttpsLink } from "./links";
 
@@ -151,7 +157,7 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
         excludedChannels: ["spoilerboss"],
         strictCampaignAvailability: false,
         channelPointsPushClaim: true,
-        watchlistStreakChannels: [],
+        watchlistStreakChannels: ["rivalspilot", "lootforge"],
         ...DEFAULT_WATCH_STREAK_TUNING,
         categoryMode: "include",
         rewardFilter: defaultRewardFilter("twitch"),
@@ -532,9 +538,41 @@ function defaultDemoSnapshot(): RuntimeSnapshot {
           },
         },
       },
+      watchStreaks: {
+        twitch: {
+          attempts: [],
+          observerAvailable: true,
+          rows: { rivalspilot: "watching", lootforge: "credited" },
+          history: demoWatchStreakHistory(now),
+        },
+      },
       lastTickAt: new Date(now - 45_000).toISOString(),
     },
   };
+}
+
+// Twelve weeks of streak history for the demo's maintained channels, the same
+// on every load: each streams most days, and one missed a day last week.
+function demoWatchStreakHistory(now: number): WatchStreakHistory {
+  const today = localDayKey(now);
+  const history: WatchStreakHistory = {};
+  const channels: Array<[string, number, number]> = [
+    ["rivalspilot", 0.8, 7],
+    ["lootforge", 0.65, 3],
+    ["nightrunlive", 0.35, 11],
+  ];
+  for (const [channel, rate, seed] of channels) {
+    const days: WatchStreakHistory[string] = {};
+    let value = seed;
+    for (let offset = 1; offset < WATCH_STREAK_HISTORY_DAYS; offset += 1) {
+      value = (value * 9301 + 49297) % 233280;
+      if (value / 233280 < rate) days[shiftDayKey(today, -offset)] = "credited";
+    }
+    history[channel] = days;
+  }
+  history.lootforge![shiftDayKey(today, -9)] = "missed";
+  history.lootforge![today] = "credited";
+  return history;
 }
 
 // The tour reads the same data as the default demo, plus what its steps point at:

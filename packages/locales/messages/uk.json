@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "Серія недоступна"
   },
+  "watchlistTabChannels": {
+    "message": "Канали"
+  },
+  "watchlistTabStreaks": {
+    "message": "Серії"
+  },
+  "watchStreaksNone": {
+    "message": "Жоден канал ще не має серії. Оберіть нижче."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Серії ведуться для каналів зі списку перегляду. Спочатку додайте канал."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Додати канали"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Підтримувати серію на"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "Серії перегляду"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "останні 12 тижнів"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "підтверджено"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "днів поспіль"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "найкраща серія"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Канали · $1 дн."
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: підтверджено $2"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: серію підтверджено"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: не підтверджено"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: нічого зберігати"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 підтверджено поспіль"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Остання серія не підтверджена. Перед нею підтверджено поспіль: $1"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Підтверджено Lurkloot, а не власний лічильник серій Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Заповниться, коли Lurkloot збереже ваші серії."
+  },
   "gamesModeAllDescription": {
     "message": "Фармляться всі ігри з активними дропами, крім заблокованих."
   },

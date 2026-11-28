@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "Racha no disponible"
   },
+  "watchlistTabChannels": {
+    "message": "Canales"
+  },
+  "watchlistTabStreaks": {
+    "message": "Rachas"
+  },
+  "watchStreaksNone": {
+    "message": "Ningún canal mantiene una racha todavía. Elige uno abajo."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Las rachas se mantienen en los canales de la lista de visualización. Añade un canal primero."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Añadir canales"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Mantener racha en"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "Rachas de visualización"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "últimas 12 semanas"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "confirmadas"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "días seguidos"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "mejor racha"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Canales · $1 días"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 confirmadas"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: racha confirmada"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: no confirmada"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: nada que mantener"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 confirmadas seguidas"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "La última racha no está confirmada. Antes, $1 confirmadas seguidas"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Lo que confirmó Lurkloot, no el contador de rachas de Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Se completa a medida que Lurkloot mantiene tus rachas."
+  },
   "gamesModeAllDescription": {
     "message": "Se farmean todos los juegos con drops activos, salvo los bloqueados."
   },

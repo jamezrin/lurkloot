@@ -1066,7 +1066,7 @@ tested too (#598).
 | No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
-| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, a round whose playback keeps failing rests instead of ending and the round cap ends it as `playback_failed` (#942), payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
+| Watch streaks: maintained rows first, terminal attempts never reselected by Watch streaks but kept as ordinary Watchlist rows, unhealthy and budget bounds end the opens, a round whose playback keeps failing rests instead of ending and the round cap ends it as `playback_failed` (#942), payouts survive a concurrent tick commit, observing never changes claim delivery or polling (#897) | `watchStreaks.test.ts`; `watchStreakHistory.test.tsx` (day history); `backgroundController/channelPoints.test.ts` ("watch-streak observation"); `twitchChannelPointsPush.test.ts` ("watch-streak payouts") |
 
 ## Runtime Messages
 
@@ -1630,6 +1630,13 @@ claims to know the user's streak count.
   [watch-source priority](watch-source-priority.md). Retention goes through the same chooser. Discovery
   observes maintained rows first (`orderIdleWatchlist`), and the selection cache key
   includes the attempts.
+- **Day history.** `WatchStreakState.history` keeps one outcome per maintained channel and local
+  day (`credited` or `missed`) for 84 days, after the 7-day attempts are gone. `pruneWatchStreaks`
+  folds every finished attempt into it, by the local day the attempt started, before pruning, so
+  no day is lost to pruning, and `mergeWatchStreakState` unions both sides. A credited day never
+  turns back into a miss. `playback_failed` counts as a miss. The pure helpers, which the popup
+  also uses to draw the Watchlist's streak card, live in `@lurkloot/shared/watchStreakHistory`.
+  Like the attempts, it is Lurkloot's own record, never the platform's streak count.
 - **Observation.** The existing Hermes connection follows `community-points-user-v1.<id>`
   whenever a maintained row exists, whatever the claim settings say. `points-earned` with reason
   `WATCH_STREAK` becomes a `TwitchWatchStreakNotice`. The channel id must be consistent, and a

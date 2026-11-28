@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "Serie nicht verfügbar"
   },
+  "watchlistTabChannels": {
+    "message": "Kanäle"
+  },
+  "watchlistTabStreaks": {
+    "message": "Watch-Streaks"
+  },
+  "watchStreaksNone": {
+    "message": "Noch kein Kanal hat einen Watch-Streak. Wähle unten einen aus."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Watch-Streaks werden für Kanäle der Watchlist geführt. Füge zuerst einen Kanal hinzu."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Kanäle hinzufügen"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Watch-Streak aufrechterhalten bei"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "Watch-Streaks"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "letzte 12 Wochen"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "bestätigt"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "Tage in Folge"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "beste Serie"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Kanäle · $1 Tage"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 bestätigt"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: Streak bestätigt"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: nicht bestätigt"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: nichts zu halten"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 in Folge bestätigt"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Letzter Streak nicht bestätigt. Davor $1 in Folge bestätigt"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Was Lurkloot bestätigt hat, nicht Twitchs eigene Streak-Zählung."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Füllt sich, während Lurkloot deine Streaks hält."
+  },
   "gamesModeAllDescription": {
     "message": "Jedes Spiel mit aktiven Drops wird gefarmt, außer blockierte."
   },

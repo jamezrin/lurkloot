@@ -5,12 +5,22 @@ import type {
   SchedulerState,
   WatchSession,
   WatchStreakAttempt,
+  WatchStreakDayOutcome,
   WatchStreakOutcome,
   WatchStreakRowStatus,
   WatchStreakState,
 } from "@lurkloot/shared/models";
 import { watchStreakChannelsFor, watchStreakTuningFor } from "@lurkloot/shared/settings";
 import { isRecord } from "@lurkloot/shared/records";
+import {
+  isWatchStreakDayKey,
+  localDayKey,
+  mergeWatchStreakHistory,
+  pruneWatchStreakHistory,
+  strongerDayOutcome,
+  WATCH_STREAK_HISTORY_MAX_CHANNELS,
+  type WatchStreakHistory,
+} from "@lurkloot/shared/watchStreakHistory";
 
 // Watch-streak maintenance (#897). The rules for one attempt per signed-in
 // account, channel and broadcast: how healthy watching accrues, when an attempt
@@ -451,7 +461,10 @@ export function mergeWatchStreakState(
     (left, right) => Date.parse(left.startedAt) - Date.parse(right.startedAt),
   );
   // Pruned again, so an attempt the tick pruned is not restored from storage.
-  const merged = pruneWatchStreaks({ ...next, attempts }, Date.now());
+  const merged = pruneWatchStreaks(
+    { ...next, attempts, history: mergeWatchStreakHistory(stored.history, next.history) },
+    Date.now(),
+  );
   if (
     merged.observing
     && attempts.some(
@@ -498,18 +511,55 @@ function furtherRound(
 }
 
 // Drops attempts older than the retention window and keeps at most the newest
-// WATCH_STREAK_MAX_ATTEMPTS, so the record cannot grow without bound.
+// WATCH_STREAK_MAX_ATTEMPTS, so the record cannot grow without bound. Finished
+// attempts are folded into the day history first, so pruning an attempt
+// never loses its day.
 export function pruneWatchStreaks(streaks: WatchStreakState, now: number): WatchStreakState {
+  const history = pruneWatchStreakHistory(
+    foldWatchStreakHistory(streaks.history, streaks.attempts),
+    now,
+  );
   const kept = streaks.attempts
     .filter((attempt) => now - Date.parse(attempt.updatedAt) <= WATCH_STREAK_RETENTION_MS)
     .slice(-WATCH_STREAK_MAX_ATTEMPTS);
-  if (kept.length === streaks.attempts.length) return streaks;
   const keys = new Set(kept.map(watchStreakAttemptKey));
-  return {
+  const pruned: WatchStreakState = {
     ...streaks,
     attempts: kept,
     observing: streaks.observing && keys.has(streaks.observing.key) ? streaks.observing : undefined,
   };
+  if (history) pruned.history = history;
+  else delete pruned.history;
+  return pruned;
+}
+
+// The day a finished attempt counts for: the local day its broadcast was
+// first watched. Pending attempts have no outcome yet; playback_failed is a
+// miss, since the broadcast went unwatched either way.
+function attemptDayOutcome(attempt: WatchStreakAttempt): WatchStreakDayOutcome | undefined {
+  if (attempt.outcome === "pending") return undefined;
+  return attempt.outcome === "credited" ? "credited" : "missed";
+}
+
+export function foldWatchStreakHistory(
+  history: WatchStreakHistory | undefined,
+  attempts: readonly WatchStreakAttempt[],
+): WatchStreakHistory | undefined {
+  let next = history;
+  for (const attempt of attempts) {
+    const outcome = attemptDayOutcome(attempt);
+    const started = Date.parse(attempt.startedAt);
+    if (!outcome || !Number.isFinite(started)) continue;
+    const day = localDayKey(started);
+    const current = next?.[attempt.username]?.[day];
+    const stronger = strongerDayOutcome(current, outcome)!;
+    if (current === stronger) continue;
+    next = {
+      ...next,
+      [attempt.username]: { ...next?.[attempt.username], [day]: stronger },
+    };
+  }
+  return next;
 }
 
 // The row statuses the popup shows. A row with no live broadcast keeps the
@@ -626,5 +676,24 @@ export function normalizeWatchStreakState(value: unknown): WatchStreakState | un
   }
   if (typeof value.observerAvailable === "boolean")
     state.observerAvailable = value.observerAvailable;
+  const history = normalizeHistory(value.history);
+  if (history) state.history = history;
   return state;
+}
+
+const HISTORY_CHANNEL = /^[a-z0-9_-]{1,64}$/;
+
+function normalizeHistory(value: unknown): WatchStreakHistory | undefined {
+  if (!isRecord(value)) return undefined;
+  const history: WatchStreakHistory = {};
+  for (const [channel, days] of Object.entries(value).slice(0, WATCH_STREAK_HISTORY_MAX_CHANNELS)) {
+    if (!HISTORY_CHANNEL.test(channel) || !isRecord(days)) continue;
+    const kept: Record<string, WatchStreakDayOutcome> = {};
+    for (const [day, outcome] of Object.entries(days)) {
+      if (isWatchStreakDayKey(day) && (outcome === "credited" || outcome === "missed"))
+        kept[day] = outcome;
+    }
+    if (Object.keys(kept).length > 0) history[channel] = kept;
+  }
+  return Object.keys(history).length > 0 ? history : undefined;
 }

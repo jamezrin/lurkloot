@@ -866,4 +866,13 @@ export interface WatchStreakState {
   // Whether this host can observe the streak payout at all, as of the last
   // tick. Undefined until a tick has run.
   observerAvailable?: boolean;
+  // What Lurkloot saw of each maintained channel, per local day, kept for
+  // WATCH_STREAK_HISTORY_DAYS after the attempts themselves are pruned. Keyed
+  // by lowercased login, then YYYY-MM-DD. A record of Lurkloot's own attempts,
+  // not the platform's streak count.
+  history?: Record<string, Record<string, WatchStreakDayOutcome>>;
 }
+
+// One channel's day in the streak history: "credited" when any attempt that
+// day was paid out, "missed" when attempts that day ended without a payout.
+export type WatchStreakDayOutcome = "credited" | "missed";

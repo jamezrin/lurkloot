@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "تداوم در دسترس نیست"
   },
+  "watchlistTabChannels": {
+    "message": "کانال‌ها"
+  },
+  "watchlistTabStreaks": {
+    "message": "تداوم‌ها"
+  },
+  "watchStreaksNone": {
+    "message": "هنوز هیچ کانالی تداوم تماشا ندارد. یکی را از پایین انتخاب کنید."
+  },
+  "watchStreaksNoChannels": {
+    "message": "تداوم‌ها روی کانال‌های فهرست تماشا ثبت می‌شوند. ابتدا یک کانال اضافه کنید."
+  },
+  "watchStreaksAddChannels": {
+    "message": "افزودن کانال‌ها"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "حفظ تداوم تماشا در"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "رشته‌های تماشا"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "۱۲ هفتهٔ اخیر"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "تأییدشده"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "روز پشت‌سرهم"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "بهترین رشته"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "کانال‌ها · $1 روز"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 تأییدشده"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: رشته تأیید شد"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: تأیید نشد"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: چیزی برای حفظ نیست"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 تأییدشده پشت‌سرهم"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "آخرین رشته تأیید نشده. قبل از آن $1 تأییدشده پشت‌سرهم"
+  },
+  "watchStreakHistoryNote": {
+    "message": "آنچه Lurkloot تأیید کرده، نه شمارش رشته‌های خود Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "با حفظ رشته‌هایت توسط Lurkloot پر می‌شود."
+  },
   "gamesModeAllDescription": {
     "message": "همه بازی‌هایی که دراپ زنده دارند فارم می‌شوند، به‌جز موارد مسدودشده."
   },

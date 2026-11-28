@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "Streak unavailable"
   },
+  "watchlistTabChannels": {
+    "message": "Channels"
+  },
+  "watchlistTabStreaks": {
+    "message": "Streaks"
+  },
+  "watchStreaksNone": {
+    "message": "No channel keeps a streak yet. Pick one below."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Streaks are kept on Watchlist channels. Add a channel first."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Add channels"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Keep a streak on"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "Watch streaks"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "last 12 weeks"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "confirmed"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "days in a row"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "best run"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Channels · $1 days"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 confirmed"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: streak confirmed"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: not confirmed"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: nothing to keep"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 confirmed in a row"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Last streak not confirmed. $1 confirmed in a row before it"
+  },
+  "watchStreakHistoryNote": {
+    "message": "What Lurkloot confirmed, not Twitch's own streak count."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Fills in as Lurkloot keeps your streaks."
+  },
   "gamesModeAllDescription": {
     "message": "Every game with live drops is farmed, except blocked ones."
   },

@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "Serie non disponibile"
   },
+  "watchlistTabChannels": {
+    "message": "Canali"
+  },
+  "watchlistTabStreaks": {
+    "message": "Serie"
+  },
+  "watchStreaksNone": {
+    "message": "Nessun canale mantiene ancora una serie. Sceglierne uno qui sotto."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Le serie vengono mantenute sui canali della Lista di visione. Aggiungi prima un canale."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Aggiungi canali"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Mantieni la serie su"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "Serie di visualizzazione"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "ultime 12 settimane"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "confermati"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "giorni consecutivi"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "serie migliore"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Canali · $1 giorni"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 confermati"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: serie confermata"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: non confermata"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: niente da mantenere"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 confermati di fila"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Ultima serie non confermata. Prima, $1 confermati di fila"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Ciò che Lurkloot ha confermato, non il conteggio serie di Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Si riempie man mano che Lurkloot mantiene le tue serie."
+  },
   "gamesModeAllDescription": {
     "message": "Ogni gioco con drop attivi viene farmato, tranne quelli bloccati."
   },

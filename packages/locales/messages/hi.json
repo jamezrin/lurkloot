@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "स्ट्रीक उपलब्ध नहीं"
   },
+  "watchlistTabChannels": {
+    "message": "चैनल"
+  },
+  "watchlistTabStreaks": {
+    "message": "वॉच स्ट्रीक्स"
+  },
+  "watchStreaksNone": {
+    "message": "अभी कोई चैनल स्ट्रीक नहीं रख रहा। नीचे से एक चुनें।"
+  },
+  "watchStreaksNoChannels": {
+    "message": "स्ट्रीक्स वॉचलिस्ट के चैनलों पर रखी जाती हैं। पहले कोई चैनल जोड़ें।"
+  },
+  "watchStreaksAddChannels": {
+    "message": "चैनल जोड़ें"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "इस पर स्ट्रीक रखें"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "वॉच स्ट्रीक"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "पिछले 12 हफ़्ते"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "पुष्ट"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "लगातार दिन"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "सबसे लंबी लड़ी"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "चैनल · $1 दिन"
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: $2 पुष्ट"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: स्ट्रीक पुष्ट"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: पुष्ट नहीं"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: बचाने के लिए कुछ नहीं"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 लगातार पुष्ट"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "आखिरी स्ट्रीक पुष्ट नहीं हुई। उससे पहले $1 लगातार पुष्ट"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Lurkloot ने जो पुष्ट किया, न कि Twitch की अपनी स्ट्रीक गिनती।"
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Lurkloot आपकी स्ट्रीक बनाए रखेगा तो यह भर जाएगा।"
+  },
   "gamesModeAllDescription": {
     "message": "सक्रिय ड्रॉप्स वाला हर गेम फ़ार्म होता है, ब्लॉक किए गए को छोड़कर।"
   },

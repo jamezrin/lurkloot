@@ -2252,6 +2252,66 @@
   "watchStreakUnavailable": {
     "message": "Серия недоступна"
   },
+  "watchlistTabChannels": {
+    "message": "Каналы"
+  },
+  "watchlistTabStreaks": {
+    "message": "Серии"
+  },
+  "watchStreaksNone": {
+    "message": "Ни у одного канала пока нет серии. Выберите ниже."
+  },
+  "watchStreaksNoChannels": {
+    "message": "Серии ведутся для каналов из списка просмотра. Сначала добавьте канал."
+  },
+  "watchStreaksAddChannels": {
+    "message": "Добавить каналы"
+  },
+  "watchStreaksAvailableTitle": {
+    "message": "Поддерживать серию на"
+  },
+  "watchStreakHistoryTitle": {
+    "message": "Серии просмотра"
+  },
+  "watchStreakHistoryWindow": {
+    "message": "последние 12 недель"
+  },
+  "watchStreakHistoryTotal": {
+    "message": "подтверждено"
+  },
+  "watchStreakHistoryDayRun": {
+    "message": "дней подряд"
+  },
+  "watchStreakHistoryBestRun": {
+    "message": "лучшая серия"
+  },
+  "watchStreakHistoryChannels": {
+    "message": "Каналы · $1 дн."
+  },
+  "watchStreakHistoryDayTip": {
+    "message": "$1: подтверждено $2"
+  },
+  "watchStreakHistoryCellCredited": {
+    "message": "$1: серия подтверждена"
+  },
+  "watchStreakHistoryCellMissed": {
+    "message": "$1: не подтверждено"
+  },
+  "watchStreakHistoryCellNone": {
+    "message": "$1: нечего сохранять"
+  },
+  "watchStreakHistoryRunTip": {
+    "message": "$1 подтверждено подряд"
+  },
+  "watchStreakHistoryAtRisk": {
+    "message": "Последняя серия не подтверждена. До неё подтверждено подряд: $1"
+  },
+  "watchStreakHistoryNote": {
+    "message": "Подтверждено Lurkloot, а не собственный счётчик серий Twitch."
+  },
+  "watchStreakHistoryEmpty": {
+    "message": "Заполняется по мере того, как Lurkloot поддерживает ваши серии."
+  },
   "gamesModeAllDescription": {
     "message": "Фармятся все игры с активными дропсами, кроме заблокированных."
   },
