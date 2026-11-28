@@ -148,6 +148,7 @@ describe("background integrity alarm wiring", () => {
       runDropClaims: vi.fn(async () => undefined),
       runKickChallengeClaims: vi.fn(async () => undefined),
       runAccountProgressPolls: vi.fn(async () => undefined),
+      runWatchPauseBoundary: vi.fn(async () => undefined),
     };
     const listener = controllerModule.createBackgroundAlarmListener({
       runJob: async (name) => {

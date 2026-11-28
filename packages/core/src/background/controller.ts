@@ -29,6 +29,7 @@ import { createSupplementalSources } from "./supplementalSources";
 import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
+import { createWatchPause } from "./watchPause";
 import { assertHostCapabilities, type BackgroundHostPorts, type TabEventsPort } from "./hostPorts";
 import { capabilityScopedJobs, runBackgroundJob } from "./jobs";
 import type { ControllerCalls } from "./types";
@@ -46,6 +47,7 @@ export {
   KICK_CHALLENGES_ALARM_NAME,
   ACCOUNT_PROGRESS_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
+  WATCH_PAUSE_ALARM_NAME,
   TWITCH_INTEGRITY_REFRESH_LEAD_MS,
   TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS,
 } from "./constants";
@@ -144,6 +146,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createChatPresence(ports, transaction, { lifecycleSlice }, calls),
     ...createKickRuntime(ports, transaction, { lifecycleSlice }, calls),
     ...createAccountProgress(ports, { lifecycleSlice }, calls),
+    ...createWatchPause(ports, { lifecycleSlice }, calls),
     ...createFarmingSessions(ports, calls),
     ...createAuthHealth(ports, tabRegistry, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),

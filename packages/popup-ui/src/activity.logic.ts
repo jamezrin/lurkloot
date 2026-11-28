@@ -203,6 +203,8 @@ function formatStopReason(stored: FarmingStopReason, t: TFunction): string {
       return t("activityReasonManualWatch");
     case "manual_tab_close":
       return t("activityReasonManualTabClose");
+    case "scheduled_pause":
+      return t("activityReasonScheduledPause");
     case "permission_missing":
       return t("activityReasonPermissionMissing");
     case "authentication_unhealthy":

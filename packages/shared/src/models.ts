@@ -1,4 +1,5 @@
 import type { CriticalHealthState } from "./criticalHealth";
+import type { WatchPauseSchedule } from "./watchPauseSchedule";
 
 /** Every supported platform, in display order. Derive platform lists from this, never a literal copy. */
 export const PLATFORMS = ["twitch", "kick"] as const;
@@ -305,6 +306,8 @@ export type WatchReasonCode =
   | "no_existing_session"
   | "manual_watch"
   | "manual_tab_close"
+  // Inside the daily watch pause window (#1162).
+  | "scheduled_pause"
   | "automation_disabled"
   | "platform_disabled"
   | "authentication_unhealthy"
@@ -647,6 +650,9 @@ export interface EngineSettings {
   // Kill switch for the critical-failure detector and its popup prompt. On by
   // default; thresholds themselves are fixed constants in core.
   criticalFailurePromptEnabled: boolean;
+  // The optional daily window when watching pauses on every platform (#1162).
+  // See watchPauseSchedule.ts for its time-zone and daylight-saving rules.
+  watchPauseSchedule: WatchPauseSchedule;
 }
 
 // The browser extension's full settings schema: the engine contract plus the

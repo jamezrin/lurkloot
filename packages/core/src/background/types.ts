@@ -60,6 +60,8 @@ export type TickTrigger =
   | "stream_offline"
   // A watch-streak payout ended the attempt being watched (#897).
   | "watch_streak_credited"
+  // A daily watch pause window started or ended (#1162).
+  | "watch_pause"
   | "claim_handoff"
   | "discovery_signal"
   // Another writer committed while the tick ran its effects, so the tick's
@@ -430,6 +432,11 @@ export interface ControllerCalls<S extends EngineSettings> {
   // farmingSessions.ts
   reconcileFarmingSessions(): Promise<void>;
   stampFarmingSessions(events: readonly EngineEvent[]): Promise<EngineEvent[]>;
+
+  // watchPause.ts
+  reconcileWatchPauseJob(settings: EngineSettings, now?: number): Promise<void>;
+  rescheduleWatchPauseJob(): Promise<void>;
+  runWatchPauseBoundary(): Promise<void>;
 
   // accountProgress.ts
   abortAccountProgressPolls(reason: string): void;

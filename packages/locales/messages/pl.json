@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Dalej"
+  },
+  "watchPauseTitle": {
+    "message": "Dzienna przerwa w oglądaniu"
+  },
+  "watchPauseDescription": {
+    "message": "Przestań oglądać na Twitch i Kick o tych samych godzinach każdego dnia. Nagrody są nadal odbierane, a farmienie wznawia się automatycznie po zakończeniu przerwy."
+  },
+  "watchPauseStartLabel": {
+    "message": "Od"
+  },
+  "watchPauseEndLabel": {
+    "message": "Do"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Strefa czasowa"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Kończy się następnego dnia."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Wpisz godzinę, np. 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "Godziny rozpoczęcia i zakończenia muszą być różne."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Wpisz strefę czasową, np. Europe/Madrid lub UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "Przerwa trwa, wznowienie o $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Następna przerwa o $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Dzienna przerwa"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Farmienie wznowi się o $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "Farmienie wznowi się po zakończeniu dziennej przerwy."
+  },
+  "activityReasonScheduledPause": {
+    "message": "dzienna przerwa w oglądaniu"
   }
 }

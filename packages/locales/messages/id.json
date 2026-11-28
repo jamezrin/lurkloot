@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Lanjutkan"
+  },
+  "watchPauseTitle": {
+    "message": "Jeda menonton harian"
+  },
+  "watchPauseDescription": {
+    "message": "Berhenti menonton di Twitch dan Kick pada jam yang sama setiap hari. Hadiah tetap diklaim, dan farming dilanjutkan otomatis saat jeda berakhir."
+  },
+  "watchPauseStartLabel": {
+    "message": "Dari"
+  },
+  "watchPauseEndLabel": {
+    "message": "Sampai"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Zona waktu"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Berakhir hari berikutnya."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Masukkan waktu seperti 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "Waktu mulai dan selesai harus berbeda."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Masukkan zona waktu seperti Europe/Madrid atau UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "Sedang dijeda, dilanjutkan pukul $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Jeda berikutnya pukul $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Jeda harian"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Farming dilanjutkan pukul $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "Farming dilanjutkan saat jeda harian berakhir."
+  },
+  "activityReasonScheduledPause": {
+    "message": "jeda menonton harian"
   }
 }

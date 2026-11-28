@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Continuar"
+  },
+  "watchPauseTitle": {
+    "message": "Pausa diaria de visionado"
+  },
+  "watchPauseDescription": {
+    "message": "Deja de ver en Twitch y Kick a las mismas horas todos los días. Las recompensas se siguen reclamando y el farmeo se reanuda solo cuando termina la pausa."
+  },
+  "watchPauseStartLabel": {
+    "message": "Desde"
+  },
+  "watchPauseEndLabel": {
+    "message": "Hasta"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Zona horaria"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Termina al día siguiente."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Introduce una hora como 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "La hora de inicio y la de fin deben ser distintas."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Introduce una zona horaria como Europe/Madrid o UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "Pausado ahora, se reanuda a las $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Próxima pausa a las $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Pausa diaria"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "El farmeo se reanuda a las $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "El farmeo se reanuda cuando termina la pausa diaria."
+  },
+  "activityReasonScheduledPause": {
+    "message": "pausa diaria de visionado"
   }
 }

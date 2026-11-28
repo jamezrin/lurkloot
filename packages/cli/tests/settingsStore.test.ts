@@ -50,6 +50,12 @@ const MUTATIONS: Record<string, unknown> = {
   criticalFailurePromptEnabled: false,
   notifyRewardEarned: false,
   notifyNoDropsLeft: false,
+  watchPauseSchedule: {
+    enabled: true,
+    start: "22:30",
+    end: "06:15",
+    timeZone: "Europe/Madrid",
+  },
   "platform.twitch.enabled": false,
   "platform.twitch.watchSourcePriority": [
     "watchlist",

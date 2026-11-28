@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Continue"
+  },
+  "watchPauseTitle": {
+    "message": "Daily watch pause"
+  },
+  "watchPauseDescription": {
+    "message": "Stop watching on Twitch and Kick during the same hours every day. Rewards are still claimed, and farming resumes on its own when the pause ends."
+  },
+  "watchPauseStartLabel": {
+    "message": "From"
+  },
+  "watchPauseEndLabel": {
+    "message": "Until"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Time zone"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Ends the next day."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Enter a time such as 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "The start and end times must be different."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Enter a time zone such as Europe/Madrid or UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "Paused now, resumes at $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Next pause at $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Daily pause"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Farming resumes at $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "Farming resumes when the daily pause ends."
+  },
+  "activityReasonScheduledPause": {
+    "message": "daily watch pause"
   }
 }

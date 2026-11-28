@@ -136,6 +136,7 @@ const BACKING: Record<string, Backing> = {
   },
   notifyRewardEarned: engine("controller notifications, logged by the CLI"),
   notifyNoDropsLeft: engine("controller notifications, logged by the CLI"),
+  watchPauseSchedule: engine("scheduler watch pause and its boundary job"),
   "twitchExtensions.nopixel.enabled": engine("supplemental source selection and driver admission"),
   "twitchExtensions.nopixel.autoOpenPacks": engine("NoPixel driver pack opening"),
   "twitchExtensions.fortnite.enabled": engine("supplemental source selection and driver admission"),

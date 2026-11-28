@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "続行"
+  },
+  "watchPauseTitle": {
+    "message": "毎日の視聴一時停止"
+  },
+  "watchPauseDescription": {
+    "message": "毎日同じ時間帯は Twitch と Kick での視聴を停止します。報酬の受け取りは続き、一時停止が終わるとファームは自動で再開します。"
+  },
+  "watchPauseStartLabel": {
+    "message": "開始"
+  },
+  "watchPauseEndLabel": {
+    "message": "終了"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "タイムゾーン"
+  },
+  "watchPauseOvernightHint": {
+    "message": "翌日に終了します。"
+  },
+  "watchPauseInvalidTime": {
+    "message": "01:30 のような時刻を入力してください。"
+  },
+  "watchPauseSameTime": {
+    "message": "開始時刻と終了時刻は異なる必要があります。"
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Europe/Madrid や UTC のようなタイムゾーンを入力してください。"
+  },
+  "watchPauseActiveNow": {
+    "message": "現在一時停止中で、$1 に再開します。"
+  },
+  "watchPauseNextStart": {
+    "message": "次の一時停止は $1 です。"
+  },
+  "automationPausedSchedule": {
+    "message": "毎日の一時停止"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "ファームは $1 に再開します。"
+  },
+  "scheduledPauseDetail": {
+    "message": "毎日の一時停止が終わるとファームは再開します。"
+  },
+  "activityReasonScheduledPause": {
+    "message": "毎日の視聴一時停止"
   }
 }

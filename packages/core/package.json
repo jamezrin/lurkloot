@@ -57,6 +57,7 @@
     "./background/supplementalSources": "./src/background/supplementalSources.ts",
     "./background/tickCommit": "./src/background/tickCommit.ts",
     "./background/tickEffects": "./src/background/tickEffects.ts",
+    "./background/watchPause": "./src/background/watchPause.ts",
     "./extensions/registry": "./src/extensions/registry.ts",
     "./extensions/reports": "./src/extensions/reports.ts",
     "./extensions/fortnite/state": "./src/extensions/fortnite/state.ts",

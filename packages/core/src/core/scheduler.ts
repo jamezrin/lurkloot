@@ -79,6 +79,7 @@ import {
 } from "./criticalHealth";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 import { pausedForManualWatch } from "./manualWatch";
+import { pausedBySchedule } from "./watchPause";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
 import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "./discoverySnapshot";
 import { errorMessage } from "@lurkloot/shared/errors";
@@ -2048,6 +2049,33 @@ export async function* decidePlatformTick(
           emitDiagnostic(emit, platform, event.level, event.message);
         }
       }
+    }
+
+    // The daily watch pause window (#1162). Checked after claims and the
+    // account-level work above, which the window leaves alone, and before
+    // anything that starts or keeps a watch. Page contexts stay: discovery and
+    // claims still use them. The window derives from the clock, so the first
+    // tick past its end resumes from here with no state to clear.
+    if (pausedBySchedule(settings)) {
+      yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+      tick.state.sessions[platform] = clearedWatchSession(previous, {
+        status: "paused",
+        errorChecks: 0,
+        retryAfter: undefined,
+        message: "Daily watch pause",
+        reasonCode: "scheduled_pause",
+      });
+      tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+      observation = preconditionBreakObservation();
+      if (previous.status !== "paused" || previous.reasonCode !== "scheduled_pause") {
+        emitDiagnostic(
+          emit,
+          platform,
+          "info",
+          "Daily watch pause started; not watching until it ends",
+        );
+      }
+      return;
     }
 
     // Watch streaks (#897): what the last tick watched accrues first, so the

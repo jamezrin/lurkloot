@@ -21,6 +21,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "rescheduleKickChallengeJob"
     | "rescheduleTickJobs"
     | "rescheduleTwitchChannelPointsJob"
+    | "rescheduleWatchPauseJob"
     | "withSettingsLock"
     | "diagnosticEvent"
     | "reportBestEffort"
@@ -47,6 +48,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     rescheduleKickChallengeJob,
     rescheduleTickJobs,
     rescheduleTwitchChannelPointsJob,
+    rescheduleWatchPauseJob,
     withSettingsLock,
     diagnosticEvent,
     reportBestEffort,
@@ -60,7 +62,9 @@ export function createSettingsTransitions<S extends EngineSettings>(
 
   // The jobs that follow the saved settings once the settings lock is
   // released: channel points and its push (#590), the drop-claim jobs (#597)
-  // and the Kick challenge job (#588), and the farming sessions, which open and
+  // and the Kick challenge job (#588), the watch pause boundary job (#1162),
+  // which also ticks the platforms a schedule change moved in or out of a
+  // window, and the farming sessions, which open and
   // close with the platform switches. Each runs even if another failed, and
   // the first failure is rethrown.
   async function rescheduleSettingsJobs(): Promise<void> {
@@ -71,6 +75,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
       rescheduleTwitchChannelPointsJob(),
       rescheduleDropClaimJobs(),
       rescheduleKickChallengeJob(),
+      rescheduleWatchPauseJob(),
     ]);
     const failure = results.find(
       (result): result is PromiseRejectedResult => result.status === "rejected",

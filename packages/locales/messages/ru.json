@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Продолжить"
+  },
+  "watchPauseTitle": {
+    "message": "Ежедневная пауза просмотра"
+  },
+  "watchPauseDescription": {
+    "message": "Просмотр на Twitch и Kick останавливается в одни и те же часы каждый день. Награды по-прежнему забираются, а фарм автоматически возобновляется, когда пауза заканчивается."
+  },
+  "watchPauseStartLabel": {
+    "message": "С"
+  },
+  "watchPauseEndLabel": {
+    "message": "До"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Часовой пояс"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Заканчивается на следующий день."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Введите время, например 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "Время начала и окончания должно различаться."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Введите часовой пояс, например Europe/Madrid или UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "Сейчас на паузе, возобновление в $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Следующая пауза в $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Ежедневная пауза"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Фарм возобновится в $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "Фарм возобновится по окончании ежедневной паузы."
+  },
+  "activityReasonScheduledPause": {
+    "message": "ежедневная пауза просмотра"
   }
 }

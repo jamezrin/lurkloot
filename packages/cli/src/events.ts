@@ -46,6 +46,8 @@ function formatStopReason(reason: FarmingStopReason): string {
       return "manual watch";
     case "manual_tab_close":
       return "farming tab closed by the user";
+    case "scheduled_pause":
+      return "daily watch pause";
     case "critical_failure":
       return "a critical failure was detected";
     case "permission_missing":

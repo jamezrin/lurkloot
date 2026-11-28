@@ -17,6 +17,7 @@ import {
 } from "./models";
 import { defaultRewardFilter, normalizeRewardFilter } from "./rewardFilter";
 import { DEFAULT_UNLINKED_CAMPAIGN_MODE, normalizeUnlinkedCampaignMode } from "./unlinkedCampaigns";
+import { DEFAULT_WATCH_PAUSE_SCHEDULE, normalizeWatchPauseSchedule } from "./watchPauseSchedule";
 import {
   DEFAULT_WATCH_SOURCE_PRIORITY,
   normalizePlatformWatchSourcePriority,
@@ -190,6 +191,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   skipUnfinishableRewards: true,
   deadlineSafetyMarginMinutes: 5,
   criticalFailurePromptEnabled: true,
+  watchPauseSchedule: { ...DEFAULT_WATCH_PAUSE_SCHEDULE },
 };
 
 // The extension's full defaults: the engine contract plus the host-only knobs.
@@ -398,6 +400,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       value?.criticalFailurePromptEnabled,
       DEFAULT_ENGINE_SETTINGS.criticalFailurePromptEnabled,
     ),
+    watchPauseSchedule: normalizeWatchPauseSchedule(value?.watchPauseSchedule),
   };
 }
 

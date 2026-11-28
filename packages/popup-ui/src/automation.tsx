@@ -61,7 +61,9 @@ export function AutomationStatusLine({
   // flaps between stays on the fixed single line.
   const roomy =
     Boolean(action) || presentation.state === "blocked" || presentation.state === "unavailable";
-  const detail = presentation.detailKey ? t(presentation.detailKey) : undefined;
+  const detail = presentation.detailKey
+    ? t(presentation.detailKey, presentation.detailArgs)
+    : undefined;
 
   return (
     <div

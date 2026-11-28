@@ -89,6 +89,16 @@ export function defaultConfigJsonc(): string {
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 
+    // A daily window when watching pauses on both platforms; claims keep
+    // running. Times are 24-hour wall-clock times in "timeZone" (an IANA name
+    // such as "Europe/Madrid"); a start after the end crosses midnight.
+    "watchPauseSchedule": {
+      "enabled": ${json(defaults.watchPauseSchedule.enabled)},
+      "start": ${json(defaults.watchPauseSchedule.start)},
+      "end": ${json(defaults.watchPauseSchedule.end)},
+      "timeZone": ${json(defaults.watchPauseSchedule.timeZone)}
+    },
+
     // Enabling a provider allows requests to its backend. Each optional action is opt-in.
     "twitchExtensions": {
       "nopixel": {

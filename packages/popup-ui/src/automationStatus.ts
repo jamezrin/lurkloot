@@ -10,6 +10,7 @@ type AutomationPresentationState =
   | "stopping"
   | "paused"
   | "paused_tab_closed"
+  | "paused_scheduled"
   | "running"
   | "checking"
   | "needs_sign_in"
@@ -22,6 +23,8 @@ export interface AutomationPresentation {
   state: AutomationPresentationState;
   badgeKey: string;
   detailKey?: string;
+  // Substitutions for detailKey's placeholders.
+  detailArgs?: string[];
   tone: AutomationTone;
   operational: boolean;
   action?: AutomationAction;
@@ -49,6 +52,7 @@ export function automationPresentation({
   session,
   manualClosePaused = false,
   manualWatch,
+  scheduledResume,
 }: {
   platform: Platform;
   enabled: boolean;
@@ -60,6 +64,9 @@ export function automationPresentation({
   // state: the record can outlive the pause it explained, and the session's own
   // reason code is the thing that says farming is paused for this reason.
   manualWatch?: ManualWatchState;
+  // When the daily watch pause ends, formatted for display. Read only while
+  // the session says the schedule paused it.
+  scheduledResume?: string;
 }): AutomationPresentation {
   if (pending) {
     return enabled
@@ -85,6 +92,20 @@ export function automationPresentation({
     case "healthy": {
       if (session?.status === "starting") {
         return presentation("starting", "automationStarting", "startingAutomation");
+      }
+      // The daily watch pause (#1162). The session's reason code is what says
+      // the engine paused for it; the resume time comes from the settings.
+      if (session?.status === "paused" && session?.reasonCode === "scheduled_pause") {
+        return scheduledResume
+          ? {
+              ...presentation(
+                "paused_scheduled",
+                "automationPausedSchedule",
+                "scheduledPauseResumeDetail",
+              ),
+              detailArgs: [scheduledResume],
+            }
+          : presentation("paused_scheduled", "automationPausedSchedule", "scheduledPauseDetail");
       }
       if (session?.status === "paused" && session?.reasonCode === "manual_watch") {
         const channel = manualWatch?.channel;

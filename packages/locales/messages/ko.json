@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "계속"
+  },
+  "watchPauseTitle": {
+    "message": "일일 시청 일시 중지"
+  },
+  "watchPauseDescription": {
+    "message": "매일 같은 시간에 Twitch와 Kick 시청을 멈춥니다. 보상은 계속 수령하며, 일시 중지가 끝나면 파밍이 자동으로 재개됩니다."
+  },
+  "watchPauseStartLabel": {
+    "message": "시작"
+  },
+  "watchPauseEndLabel": {
+    "message": "종료"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "시간대"
+  },
+  "watchPauseOvernightHint": {
+    "message": "다음 날 종료됩니다."
+  },
+  "watchPauseInvalidTime": {
+    "message": "01:30과 같은 시간을 입력하세요."
+  },
+  "watchPauseSameTime": {
+    "message": "시작 시간과 종료 시간은 달라야 합니다."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Europe/Madrid 또는 UTC 같은 시간대를 입력하세요."
+  },
+  "watchPauseActiveNow": {
+    "message": "지금 일시 중지 중이며, $1에 재개됩니다."
+  },
+  "watchPauseNextStart": {
+    "message": "다음 일시 중지는 $1입니다."
+  },
+  "automationPausedSchedule": {
+    "message": "일일 일시 중지"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "$1에 파밍이 재개됩니다."
+  },
+  "scheduledPauseDetail": {
+    "message": "일일 일시 중지가 끝나면 파밍이 재개됩니다."
+  },
+  "activityReasonScheduledPause": {
+    "message": "일일 시청 일시 중지"
   }
 }

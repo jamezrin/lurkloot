@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "जारी रखें"
+  },
+  "watchPauseTitle": {
+    "message": "रोज़ाना वॉच पॉज़"
+  },
+  "watchPauseDescription": {
+    "message": "हर दिन एक ही समय पर Twitch और Kick पर देखना रोक दिया जाता है। रिवॉर्ड अब भी क्लेम होंगे, और पॉज़ खत्म होने पर फ़ार्मिंग अपने आप फिर शुरू हो जाएगी।"
+  },
+  "watchPauseStartLabel": {
+    "message": "से"
+  },
+  "watchPauseEndLabel": {
+    "message": "तक"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "समय क्षेत्र"
+  },
+  "watchPauseOvernightHint": {
+    "message": "अगले दिन तक चलेगा।"
+  },
+  "watchPauseInvalidTime": {
+    "message": "01:30 जैसा समय दर्ज करें।"
+  },
+  "watchPauseSameTime": {
+    "message": "शुरुआत और समाप्ति का समय अलग-अलग होना चाहिए।"
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Europe/Madrid या UTC जैसा समय क्षेत्र दर्ज करें।"
+  },
+  "watchPauseActiveNow": {
+    "message": "अभी रुका हुआ है, $1 पर फिर शुरू होगा।"
+  },
+  "watchPauseNextStart": {
+    "message": "अगला पॉज़ $1 पर।"
+  },
+  "automationPausedSchedule": {
+    "message": "रोज़ाना पॉज़"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "फ़ार्मिंग $1 पर फिर शुरू होगी।"
+  },
+  "scheduledPauseDetail": {
+    "message": "रोज़ाना पॉज़ खत्म होने पर फ़ार्मिंग फिर शुरू होगी।"
+  },
+  "activityReasonScheduledPause": {
+    "message": "रोज़ाना वॉच पॉज़"
   }
 }

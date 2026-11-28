@@ -125,6 +125,8 @@ import { ViewToolbarSlotContext } from "./viewToolbar";
 import { CombinedDropsPage, useCombinedDropsViewport } from "./combinedDrops";
 import { AccountChip, WindowHeader, useSidebarCollapsed } from "./windowShell";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
+import { watchPauseWindowAt } from "@lurkloot/shared/watchPauseSchedule";
+import { formatWatchPauseInstant } from "./watchPauseSettings";
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
@@ -1427,6 +1429,11 @@ export function PopupFrame({
     twitch: pendingAutomation.twitch != null,
     kick: pendingAutomation.kick != null,
   };
+  // When the daily watch pause ends, for the status line (#1162).
+  const pauseWindow = watchPauseWindowAt(settings.watchPauseSchedule, Date.now());
+  const scheduledResume = pauseWindow?.active
+    ? formatWatchPauseInstant(pauseWindow.resumesAt, settings.watchPauseSchedule.timeZone)
+    : undefined;
   const automationPresentationByPlatform = Object.fromEntries(
     (Object.keys(PLATFORMS) as Platform[]).map((id) => [
       id,
@@ -1438,6 +1445,7 @@ export function PopupFrame({
         session: snapshot.state.sessions[id],
         manualClosePaused: Boolean(snapshot.state.manualClosePause?.[id]),
         manualWatch: snapshot.state.manualWatch?.[id],
+        scheduledResume,
       }),
     ]),
   ) as Record<Platform, AutomationPresentation>;
