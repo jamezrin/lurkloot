@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Continua"
+  },
+  "watchPauseTitle": {
+    "message": "Pausa giornaliera della visione"
+  },
+  "watchPauseDescription": {
+    "message": "Smetti di guardare su Twitch e Kick alle stesse ore ogni giorno. I premi continuano a essere riscattati e il farming riprende automaticamente al termine della pausa."
+  },
+  "watchPauseStartLabel": {
+    "message": "Da"
+  },
+  "watchPauseEndLabel": {
+    "message": "Fino a"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Fuso orario"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Termina il giorno dopo."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Inserisci un orario, ad esempio 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "L'orario di inizio e quello di fine devono essere diversi."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Inserisci un fuso orario, ad esempio Europe/Madrid o UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "In pausa ora, riprende alle $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Prossima pausa alle $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Pausa giornaliera"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Il farming riprende alle $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "Il farming riprende al termine della pausa giornaliera."
+  },
+  "activityReasonScheduledPause": {
+    "message": "pausa giornaliera della visione"
   }
 }

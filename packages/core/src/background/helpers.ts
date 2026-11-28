@@ -54,6 +54,7 @@ const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   target_changed: true,
   manual_watch: true,
   manual_tab_close: true,
+  scheduled_pause: true,
   critical_failure: true,
   permission_missing: true,
 };

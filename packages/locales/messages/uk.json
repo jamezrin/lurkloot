@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Продовжити"
+  },
+  "watchPauseTitle": {
+    "message": "Щоденна пауза перегляду"
+  },
+  "watchPauseDescription": {
+    "message": "Зупиняти перегляд на Twitch і Kick щодня в один і той самий час. Нагороди й надалі отримуються, а фарм відновлюється автоматично після завершення паузи."
+  },
+  "watchPauseStartLabel": {
+    "message": "З"
+  },
+  "watchPauseEndLabel": {
+    "message": "До"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Часовий пояс"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Завершується наступного дня."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Введіть час, наприклад 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "Час початку і завершення має відрізнятися."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Введіть часовий пояс, наприклад Europe/Madrid або UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "Зараз пауза, відновлення о $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Наступна пауза о $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Щоденна пауза"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Фарм відновиться о $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "Фарм відновиться після завершення щоденної паузи."
+  },
+  "activityReasonScheduledPause": {
+    "message": "щоденна пауза перегляду"
   }
 }

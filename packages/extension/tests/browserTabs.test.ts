@@ -4245,6 +4245,30 @@ describe("tab closure origins", () => {
     expect(tabClosureOrigin(registry, 9)).toBe("user");
   });
 
+  it("reports a managed tab the browser would not close as still open", async () => {
+    const browser = browserMock();
+    browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+    browser.tabs.get.mockResolvedValue({ id: 9, url: channel.url });
+
+    const outcome = await stopWatchTabWithBrowser(registry, browser, managedSession, {
+      closeManagedTabs: true,
+    });
+
+    expect(outcome).toBe("still_open");
+    // Not handed back to the user either: the tab stays the engine's to close.
+    expect(browser.tabs.update).not.toHaveBeenCalled();
+    expect(tabClosureOrigin(registry, 9)).toBe("user");
+  });
+
+  it("reports a closed or already gone managed tab as stopped", async () => {
+    const browser = browserMock();
+    expect(await stopWatchTabWithBrowser(registry, browser, managedSession)).toBe("stopped");
+
+    browser.tabs.remove.mockRejectedValue(new Error("No tab with id: 9"));
+    browser.tabs.get.mockRejectedValue(new Error("No tab with id: 9"));
+    expect(await stopWatchTabWithBrowser(registry, browser, managedSession)).toBe("stopped");
+  });
+
   it("records the origin the engine gives for managed watch tabs", async () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({ id: 9, url: channel.url });

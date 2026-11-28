@@ -39,6 +39,8 @@ export type FarmingStopReason =
   | "target_changed"
   | "manual_watch"
   | "manual_tab_close"
+  // The daily watch pause window began (#1162).
+  | "scheduled_pause"
   // A managed-tab reopen loop was detected; the platform is parked until the
   // breaker releases or the user dismisses the prompt.
   | "critical_failure"

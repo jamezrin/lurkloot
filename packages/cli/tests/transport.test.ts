@@ -1013,7 +1013,7 @@ describe("watch tabs without the browserTabs capability", () => {
         },
         context,
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe("stopped");
   });
 });
 

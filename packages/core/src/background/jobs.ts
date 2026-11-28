@@ -7,6 +7,7 @@ import { HEARTBEAT_JOBS } from "./heartbeat";
 import { KICK_RUNTIME_JOBS } from "./kickRuntime";
 import type { HostCapabilities } from "./hostPorts";
 import { TWITCH_INTEGRITY_JOBS } from "./twitchIntegrity";
+import { WATCH_PAUSE_JOBS } from "./watchPause";
 
 // The job scheduler port (#593): the only way the engine schedules work. The
 // extension implements it with browser.alarms, the CLI with Node timers.
@@ -52,6 +53,7 @@ export interface JobRunner {
   runKickChallengeClaims(): Promise<void>;
   runAccountProgressPolls(): Promise<void>;
   runTwitchIntegrityRefresh(): Promise<void>;
+  runWatchPauseBoundary(): Promise<void>;
 }
 
 export interface BackgroundJob {
@@ -72,6 +74,7 @@ export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   ...KICK_RUNTIME_JOBS,
   ...TWITCH_INTEGRITY_JOBS,
   ...ACCOUNT_PROGRESS_JOBS,
+  ...WATCH_PAUSE_JOBS,
 };
 
 export function jobIsInert(name: string, capabilities: HostCapabilities): boolean {

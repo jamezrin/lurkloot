@@ -43,8 +43,13 @@ export function registerWatchTabEffects(
   watchTabs: WatchTabPort | undefined,
 ): TickEffectExecutor {
   return executor
-    .register("stopWatchTab", async ({ session }, context) => {
-      await watchTabs?.stop(session, { signal: context.signal }, context.emit);
+    .register("stopWatchTab", async ({ session, closeManagedTab }, context) => {
+      if (!watchTabs) return "stopped";
+      return await watchTabs.stop(
+        session,
+        { signal: context.signal, ...(closeManagedTab ? { closeManagedTabs: true } : {}) },
+        context.emit,
+      );
     })
     .register("openWatchTab", async ({ channel, session, managedTab }, context) => {
       if (!watchTabs) {

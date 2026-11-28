@@ -1,4 +1,5 @@
 import type { CriticalHealthState } from "./criticalHealth";
+import type { WatchPauseSchedule } from "./watchPauseSchedule";
 
 /** Every supported platform, in display order. Derive platform lists from this, never a literal copy. */
 export const PLATFORMS = ["twitch", "kick"] as const;
@@ -305,6 +306,8 @@ export type WatchReasonCode =
   | "no_existing_session"
   | "manual_watch"
   | "manual_tab_close"
+  // Inside the daily watch pause window (#1162).
+  | "scheduled_pause"
   | "automation_disabled"
   | "platform_disabled"
   | "authentication_unhealthy"
@@ -356,6 +359,13 @@ export interface WatchTabOptions {
   // "extension-cleanup".
   closureOrigin?: Exclude<TabClosureOrigin, "user">;
 }
+
+// What stopping a watch tab left behind. `still_open` means a tab the
+// extension manages, which the stop asked the browser to close, is still open
+// after the close failed ("Tabs cannot be edited right now"). Its owner must
+// keep it, so the next stop retries the close and nothing opens a replacement
+// beside it (#1162). Releasing a user's own tab always reads as `stopped`.
+export type WatchTabStopOutcome = "stopped" | "still_open";
 
 export interface ManagedPageContextTab {
   platform: Platform;
@@ -647,6 +657,9 @@ export interface EngineSettings {
   // Kill switch for the critical-failure detector and its popup prompt. On by
   // default; thresholds themselves are fixed constants in core.
   criticalFailurePromptEnabled: boolean;
+  // The optional daily window when watching pauses on every platform (#1162).
+  // See watchPauseSchedule.ts for its time-zone and daylight-saving rules.
+  watchPauseSchedule: WatchPauseSchedule;
 }
 
 // The browser extension's full settings schema: the engine contract plus the

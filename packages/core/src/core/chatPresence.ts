@@ -7,6 +7,7 @@ import type {
 } from "@lurkloot/shared/models";
 import { twitchExtensionProvider } from "../extensions/registry";
 import { pausedForManualWatch } from "./manualWatch";
+import { pausedBySchedule } from "./watchPause";
 
 // Chat presence (docs/superpowers/specs/2026-10-05-chat-presence-design.md).
 export interface ChatPresenceTarget {
@@ -49,6 +50,7 @@ export function chatPresenceDecision(
     || state.authHealth[platform].status !== "healthy"
     || state.manualClosePause?.[platform]
     || pausedForManualWatch(settings, state, platform, options.now ?? Date.now())
+    || pausedBySchedule(settings, options.now ?? Date.now())
     || session.status !== "watching"
     || session.watchMode !== "tabless"
     || !channel

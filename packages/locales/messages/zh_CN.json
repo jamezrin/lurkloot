@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "继续"
+  },
+  "watchPauseTitle": {
+    "message": "每日观看暂停"
+  },
+  "watchPauseDescription": {
+    "message": "每天在相同时段停止在 Twitch 和 Kick 上观看。奖励仍会领取，暂停结束后挂机会自动恢复。"
+  },
+  "watchPauseStartLabel": {
+    "message": "开始"
+  },
+  "watchPauseEndLabel": {
+    "message": "结束"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "时区"
+  },
+  "watchPauseOvernightHint": {
+    "message": "次日结束。"
+  },
+  "watchPauseInvalidTime": {
+    "message": "请输入时间，例如 01:30。"
+  },
+  "watchPauseSameTime": {
+    "message": "开始和结束时间不能相同。"
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "请输入时区，例如 Europe/Madrid 或 UTC。"
+  },
+  "watchPauseActiveNow": {
+    "message": "目前已暂停，将于 $1 恢复。"
+  },
+  "watchPauseNextStart": {
+    "message": "下次暂停时间：$1。"
+  },
+  "automationPausedSchedule": {
+    "message": "每日暂停"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "挂机将于 $1 恢复。"
+  },
+  "scheduledPauseDetail": {
+    "message": "每日暂停结束后挂机将恢复。"
+  },
+  "activityReasonScheduledPause": {
+    "message": "每日观看暂停"
   }
 }

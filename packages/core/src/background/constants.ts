@@ -18,6 +18,8 @@ export const KICK_DROP_CLAIMS_ALARM_NAME = "lurkloot.kick-drop-claims";
 export const KICK_CHALLENGES_ALARM_NAME = "lurkloot.kick-challenges";
 export const ACCOUNT_PROGRESS_ALARM_NAME = "lurkloot.account-progress";
 export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
+// One-shot, armed for the next daily watch pause boundary (#1162).
+export const WATCH_PAUSE_ALARM_NAME = "lurkloot.watch-pause";
 export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
 

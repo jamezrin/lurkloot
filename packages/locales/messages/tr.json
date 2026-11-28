@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Devam et"
+  },
+  "watchPauseTitle": {
+    "message": "Günlük izleme duraklatma"
+  },
+  "watchPauseDescription": {
+    "message": "Her gün aynı saatlerde Twitch ve Kick'te izlemeyi durdurur. Ödüller yine alınır ve duraklatma bitince farm kendiliğinden devam eder."
+  },
+  "watchPauseStartLabel": {
+    "message": "Başlangıç"
+  },
+  "watchPauseEndLabel": {
+    "message": "Bitiş"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Saat dilimi"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Ertesi gün biter."
+  },
+  "watchPauseInvalidTime": {
+    "message": "01:30 gibi bir saat girin."
+  },
+  "watchPauseSameTime": {
+    "message": "Başlangıç ve bitiş saatleri farklı olmalı."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Europe/Madrid ya da UTC gibi bir saat dilimi girin."
+  },
+  "watchPauseActiveNow": {
+    "message": "Şu anda duraklatıldı, $1 saatinde devam edecek."
+  },
+  "watchPauseNextStart": {
+    "message": "Sonraki duraklatma $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Günlük duraklatma"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Farm $1 saatinde devam eder."
+  },
+  "scheduledPauseDetail": {
+    "message": "Günlük duraklatma bitince farm devam eder."
+  },
+  "activityReasonScheduledPause": {
+    "message": "günlük izleme duraklatması"
   }
 }

@@ -10,6 +10,7 @@ import {
   type TabClosureOrigin,
   type WatchSession,
   type WatchTabOptions,
+  type WatchTabStopOutcome,
 } from "@lurkloot/shared/models";
 import type {
   EventEmitter,
@@ -579,22 +580,39 @@ export async function stopWatchTabWithBrowser(
   session: WatchSession,
   options?: Partial<WatchTabOptions>,
   emit: EventEmitter = ignoreEvent,
-): Promise<void> {
+): Promise<WatchTabStopOutcome> {
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
   tabOptions.signal?.throwIfAborted();
-  if (!session.tabId) return;
-  try {
-    if (session.tabManagedByExtension && tabOptions.closeManagedTabs && browserApi.tabs.remove) {
-      await closeTab(
-        registry,
-        browserApi,
-        session.tabId,
-        tabOptions.closureOrigin ?? "extension-cleanup",
+  if (!session.tabId) return "stopped";
+  if (session.tabManagedByExtension && tabOptions.closeManagedTabs && browserApi.tabs.remove) {
+    const closed = await closeOwnedTab(
+      registry,
+      browserApi,
+      session.tabId,
+      tabOptions.closureOrigin ?? "extension-cleanup",
+      tabOptions.signal,
+    );
+    tabOptions.signal?.throwIfAborted();
+    if (closed.outcome === "open") {
+      diagnostic(
+        emit,
+        "warn",
+        `Could not close managed watch tab ${session.tabId}: ${errorMessage(closed.error)}`,
+        session.platform,
       );
-      diagnostic(emit, "debug", `Closed managed watch tab ${session.tabId}`, session.platform);
-      tabOptions.signal?.throwIfAborted();
-      return;
+      return "still_open";
     }
+    diagnostic(
+      emit,
+      "debug",
+      closed.outcome === "closed"
+        ? `Closed managed watch tab ${session.tabId}`
+        : `Watch tab ${session.tabId} was already closed`,
+      session.platform,
+    );
+    return "stopped";
+  }
+  try {
     // Handed to the user, so it is no longer the engine's to close.
     forgetOpeningWatchTab(registry, session.tabId);
     await browserApi.tabs.update(session.tabId, {
@@ -613,6 +631,7 @@ export async function stopWatchTabWithBrowser(
     diagnostic(emit, "debug", `Watch tab ${session.tabId} was already closed`, session.platform);
   }
   tabOptions.signal?.throwIfAborted();
+  return "stopped";
 }
 
 // While an ad is rolling, the managed watch tab must be the active tab in a

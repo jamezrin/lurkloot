@@ -14,6 +14,7 @@ import {
   hydrateManagedPageContextTabs,
 } from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
+import { pausedBySchedule } from "../core/watchPause";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 import {
   heartbeatContextKey,
@@ -310,6 +311,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
         const adapter = adapters[platform];
         const wantsTabless =
           settings.platform[platform].enabled
+          && !pausedBySchedule(settings)
           && state.authHealth[platform].status === "healthy"
           && session.status === "watching"
           && session.watchMode === "tabless"
@@ -602,6 +604,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     const contextKey = heartbeatContextKey(session);
     const wantsTabless =
       settings.platform[platform].enabled
+      && !pausedBySchedule(settings)
       && state.authHealth[platform].status === "healthy"
       && session.status === "watching"
       && session.watchMode === "tabless"

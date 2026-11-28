@@ -16,6 +16,7 @@ import type {
   SchedulerState,
   WatchSession,
   WatchTabOptions,
+  WatchTabStopOutcome,
 } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -307,7 +308,12 @@ function watchTabMocks(platform: Platform) {
         managedByExtension: true,
       }),
     ),
-    stop: vi.fn(async (_session: WatchSession, _options?: Partial<WatchTabOptions>) => undefined),
+    stop: vi.fn(
+      async (
+        _session: WatchSession,
+        _options?: Partial<WatchTabOptions>,
+      ): Promise<WatchTabStopOutcome | void> => undefined,
+    ),
   };
 }
 

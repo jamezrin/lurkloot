@@ -1,5 +1,6 @@
 import { discoverTwitchExtensionChannels } from "../discovery";
 import { pausedForManualWatch } from "../../core/manualWatch";
+import { pausedBySchedule } from "../../core/watchPause";
 import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "../registry";
 import type {
   ChannelCandidate,
@@ -466,6 +467,7 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
       || state.authHealth.twitch.status !== "healthy"
       || state.manualClosePause?.twitch
       || pausedForManualWatch(settings, state, "twitch", options.source.now())
+      || pausedBySchedule(settings, options.source.now())
     )
       return;
     // User order governs selection between providers. Retain an earning
@@ -588,7 +590,8 @@ export function createTwitchExtensionHost(options: TwitchExtensionHostOptions) {
     const candidate = session.channel;
     const paused =
       Boolean(state.manualClosePause?.twitch)
-      || pausedForManualWatch(settings, state, "twitch", options.source.now());
+      || pausedForManualWatch(settings, state, "twitch", options.source.now())
+      || pausedBySchedule(settings, options.source.now());
     const canRun =
       !paused
       && settings.platform.twitch.enabled

@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Pokračovat"
+  },
+  "watchPauseTitle": {
+    "message": "Denní pauza sledování"
+  },
+  "watchPauseDescription": {
+    "message": "Přestat sledovat na Twitch a Kick každý den ve stejnou dobu. Odměny se dál vyzvedávají a farmení se po skončení pauzy obnoví samo."
+  },
+  "watchPauseStartLabel": {
+    "message": "Od"
+  },
+  "watchPauseEndLabel": {
+    "message": "Do"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Časové pásmo"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Končí následující den."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Zadejte čas, například 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "Čas začátku a konce se musí lišit."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Zadejte časové pásmo, například Europe/Madrid nebo UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "Pauza právě běží, obnoví se v $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Další pauza v $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Denní pauza"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Farmení se obnoví v $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "Farmení se obnoví po skončení denní pauzy."
+  },
+  "activityReasonScheduledPause": {
+    "message": "denní pauza sledování"
   }
 }

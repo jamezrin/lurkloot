@@ -48,7 +48,7 @@ export function ActivityHostSummary({
         {(Object.keys(PLATFORMS) as Platform[]).map((platform) => {
           const status = presentation[platform];
           const channel = sessions[platform]?.channel;
-          const detail = status.detailKey ? t(status.detailKey) : undefined;
+          const detail = status.detailKey ? t(status.detailKey, status.detailArgs) : undefined;
           return (
             <div
               key={platform}

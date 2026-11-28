@@ -37,6 +37,13 @@ import {
 } from "@lurkloot/shared/settingsExport";
 import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import {
+  DEFAULT_WATCH_PAUSE_SCHEDULE,
+  isValidTimeZone,
+  normalizeWatchPauseSchedule,
+  parseWatchPauseTime,
+  type WatchPauseSchedule,
+} from "@lurkloot/shared/watchPauseSchedule";
+import {
   PLATFORMS,
   type CompatibilitySettings,
   type EngineSettings,
@@ -80,6 +87,8 @@ export interface CliSettings {
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
+  // The daily watch pause window (#1162), run by the shared engine.
+  watchPauseSchedule: WatchPauseSchedule;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
   twitchExtensions: EngineSettings["twitchExtensions"];
@@ -104,6 +113,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   criticalFailurePromptEnabled: DEFAULT_SETTINGS.criticalFailurePromptEnabled,
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
+  watchPauseSchedule: { ...DEFAULT_WATCH_PAUSE_SCHEDULE },
   // Both platforms on by default. The extension ships them off so a fresh
   // install sits idle until the user opts in; the CLI has no such moment — it is
   // started deliberately, and running it with everything disabled would do
@@ -137,6 +147,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "enabledLogLevels",
   "notifyRewardEarned",
   "notifyNoDropsLeft",
+  "watchPauseSchedule",
   "platform",
   "compatibility",
   "twitchExtensions",
@@ -395,6 +406,48 @@ function rewardFilterOffenders(platform: string, raw: unknown): CliSettingsOffen
   return offenders;
 }
 
+// Strict, unlike the engine's normalization, which switches a schedule it
+// cannot read off: a CLI that silently ignored a typo would farm through the
+// hours the user meant to pause.
+function watchPauseScheduleOffenders(raw: unknown): CliSettingsOffender[] {
+  const path = "watchPauseSchedule";
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return [{ path, message: `"${path}" must be a JSON object` }];
+  }
+  const offenders: CliSettingsOffender[] = [];
+  const block = raw as Record<string, unknown>;
+  for (const key of Object.keys(block)) {
+    if (!Object.hasOwn(DEFAULT_WATCH_PAUSE_SCHEDULE, key))
+      offenders.push({ path: `${path}.${key}`, message: `unknown setting "${path}.${key}"` });
+  }
+  if (Object.hasOwn(block, "enabled") && typeof block.enabled !== "boolean")
+    offenders.push({ path: `${path}.enabled`, message: `"${path}.enabled" must be a boolean` });
+  const times: Partial<Record<"start" | "end", number>> = {};
+  for (const key of ["start", "end"] as const) {
+    if (!Object.hasOwn(block, key)) {
+      times[key] = parseWatchPauseTime(DEFAULT_WATCH_PAUSE_SCHEDULE[key]);
+      continue;
+    }
+    times[key] = parseWatchPauseTime(block[key]);
+    if (times[key] === undefined)
+      offenders.push({
+        path: `${path}.${key}`,
+        message: `"${path}.${key}" must be a 24-hour time such as "01:30"`,
+      });
+  }
+  if (times.start !== undefined && times.start === times.end)
+    offenders.push({
+      path: `${path}.end`,
+      message: `"${path}.start" and "${path}.end" must differ`,
+    });
+  if (Object.hasOwn(block, "timeZone") && !isValidTimeZone(block.timeZone))
+    offenders.push({
+      path: `${path}.timeZone`,
+      message: `"${path}.timeZone" must be an IANA time zone such as "Europe/Madrid" or "UTC"`,
+    });
+  return offenders;
+}
+
 function twitchExtensionOffenders(raw: unknown): CliSettingsOffender[] {
   const defaults = DEFAULT_CLI_SETTINGS.twitchExtensions;
   const offenders: CliSettingsOffender[] = [];
@@ -531,6 +584,8 @@ function parseMigratedCliSettings(
 
   if (value.twitchExtensions !== undefined)
     offenders.push(...twitchExtensionOffenders(value.twitchExtensions));
+  if (value.watchPauseSchedule !== undefined)
+    offenders.push(...watchPauseScheduleOffenders(value.watchPauseSchedule));
 
   if (offenders.length > 0) throw new CliSettingsValidationError(offenders);
 
@@ -586,6 +641,7 @@ function parseMigratedCliSettings(
     ),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
+    watchPauseSchedule: normalizeWatchPauseSchedule(v.watchPauseSchedule),
     platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly, diagnostics),
     compatibility: normalizeCompatibility(v.compatibility),
     twitchExtensions: {

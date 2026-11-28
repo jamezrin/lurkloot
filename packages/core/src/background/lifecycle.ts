@@ -104,6 +104,7 @@ export function createLifecycle<S extends EngineSettings>(
     | "persistAndReport"
     | "reconcileKickChallengeJob"
     | "reconcileDropClaimJobs"
+    | "reconcileWatchPauseJob"
     | "reconcileTwitchChannelPointsAlarm"
     | "refreshAuthHealth"
     | "reportBestEffort"
@@ -161,6 +162,7 @@ export function createLifecycle<S extends EngineSettings>(
     persistAndReport,
     reconcileKickChallengeJob,
     reconcileDropClaimJobs,
+    reconcileWatchPauseJob,
     reconcileTwitchChannelPointsAlarm,
     refreshAuthHealth,
     reportBestEffort,
@@ -193,6 +195,7 @@ export function createLifecycle<S extends EngineSettings>(
     await reconcileTwitchChannelPointsAlarm(settings);
     await reconcileDropClaimJobs(settings);
     await reconcileKickChallengeJob(settings);
+    await reconcileWatchPauseJob(settings);
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
@@ -253,6 +256,7 @@ export function createLifecycle<S extends EngineSettings>(
     await reconcileTwitchChannelPointsAlarm(settings);
     await reconcileDropClaimJobs(settings);
     await reconcileKickChallengeJob(settings);
+    await reconcileWatchPauseJob(settings);
     // A restart kills any in-memory watchers; atomically release their lane
     // ownership before host cleanup, then let tick() rebuild fresh instances.
     await clearHeartbeatOwnership(PLATFORMS);

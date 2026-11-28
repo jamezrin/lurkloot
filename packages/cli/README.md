@@ -118,7 +118,7 @@ option is its sole event filter.
 
 Supported `settings` keys: `autoClaim`, `priorityMode`,
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
-`notifyRewardEarned`, `notifyNoDropsLeft`, and per-platform
+`notifyRewardEarned`, `notifyNoDropsLeft`, `watchPauseSchedule`, and per-platform
 `enabled`, `watchSourcePriority`, `watchlistChannels`, `excludedChannels`, `categoryMode`, `rewardFilter`,
 `campaignPins`, `excludedCampaignIds`, `unlinkedCampaigns`,
 `categories`, `favouriteCategories`, `blockedCategories`, plus Twitch's
@@ -196,6 +196,28 @@ linked campaign can be farmed. The old `farmUnlinkedCampaigns` boolean still
 loads, with a warning: `true` becomes `"include"` and `false` becomes `"skip"`. Skipping subscription campaigns is
 `rewardFilter.subscriptions: "skip"`. When every discovered campaign is
 filtered out, the run logs a warning saying so.
+
+`watchPauseSchedule` is one optional daily window when farming stops watching
+on both platforms (#1162). It is off by default:
+
+```jsonc
+"watchPauseSchedule": {
+  "enabled": true,
+  "start": "23:00",            // 24-hour wall-clock time in timeZone
+  "end": "07:00",              // a start after the end crosses midnight
+  "timeZone": "Europe/Madrid"  // an IANA zone name, such as "UTC"
+}
+```
+
+While the window applies, the CLI stops its watch connections and starts none.
+Drop claims, Kick challenge claims and account checks keep running, and farming
+resumes on its own when the window ends, unless the platform is disabled.
+`serve` reports the pause on each platform's session as reason
+`scheduled_pause`. Times follow the zone's wall clock: on a daylight-saving
+night a skipped time means the moment the clock jumps, and a repeated time
+means its first occurrence, so the window never runs twice in one night. An
+invalid time, equal start and end times, or an unknown zone is a config error
+naming the field. Fields left out take their defaults (`01:00`, `07:00`, `UTC`).
 
 Rejected (extension-only, no effect headlessly): `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,

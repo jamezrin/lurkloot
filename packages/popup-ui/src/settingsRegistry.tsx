@@ -24,6 +24,7 @@ import {
   SettingsLinkRow,
 } from "./settingsControls";
 import { PlatformExcludedChannels } from "./settingsPlatform";
+import { WatchPauseScheduleSettings } from "./watchPauseSettings";
 import { RewardFilterFields, UnlinkedCampaignsField } from "./rewardFilterMenu";
 import { PlatformCompatibilitySettings } from "./compatibilitySettings";
 import { WatchSourcePriority, WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
@@ -204,6 +205,17 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                 description={t("pauseManualDescription")}
                 checked={settings.pauseOnManualWatch}
                 onChange={setFlag("pauseOnManualWatch")}
+              />
+            ),
+          },
+          {
+            id: "general.appearance.watchPause",
+            titleKey: "watchPauseTitle",
+            descriptionKey: "watchPauseDescription",
+            render: () => (
+              <WatchPauseScheduleSettings
+                schedule={settings.watchPauseSchedule}
+                onChange={(watchPauseSchedule) => onSettingsChange({ watchPauseSchedule })}
               />
             ),
           },

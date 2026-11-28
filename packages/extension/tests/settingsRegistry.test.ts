@@ -140,6 +140,7 @@ describe("settings registry", () => {
         "general.appearance.language",
         "general.appearance.autoStart",
         "general.appearance.pauseOnManualWatch",
+        "general.appearance.watchPause",
         "general.appearance.hideTips",
         "general.appearance.inPagePanel",
         "general.notifications.rewardEarned",

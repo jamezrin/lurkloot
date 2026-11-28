@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "ادامه"
+  },
+  "watchPauseTitle": {
+    "message": "توقف روزانه تماشا"
+  },
+  "watchPauseDescription": {
+    "message": "هر روز در همین ساعات، تماشا در Twitch و Kick متوقف می‌شود. پاداش‌ها همچنان دریافت می‌شوند و فارم پس از پایان توقف، خودکار از سر گرفته می‌شود."
+  },
+  "watchPauseStartLabel": {
+    "message": "از"
+  },
+  "watchPauseEndLabel": {
+    "message": "تا"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "منطقه زمانی"
+  },
+  "watchPauseOvernightHint": {
+    "message": "روز بعد تمام می‌شود."
+  },
+  "watchPauseInvalidTime": {
+    "message": "زمانی مانند 01:30 وارد کنید."
+  },
+  "watchPauseSameTime": {
+    "message": "زمان شروع و پایان باید متفاوت باشند."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "منطقه زمانی‌ای مانند Europe/Madrid یا UTC وارد کنید."
+  },
+  "watchPauseActiveNow": {
+    "message": "هم‌اکنون متوقف است؛ در $1 از سر گرفته می‌شود."
+  },
+  "watchPauseNextStart": {
+    "message": "توقف بعدی در $1."
+  },
+  "automationPausedSchedule": {
+    "message": "توقف روزانه"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "فارم در $1 از سر گرفته می‌شود."
+  },
+  "scheduledPauseDetail": {
+    "message": "فارم پس از پایان توقف روزانه از سر گرفته می‌شود."
+  },
+  "activityReasonScheduledPause": {
+    "message": "توقف روزانه تماشا"
   }
 }

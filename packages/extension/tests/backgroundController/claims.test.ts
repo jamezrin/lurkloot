@@ -62,6 +62,7 @@ describe("background controller", () => {
         runDropClaims: vi.fn(async () => undefined),
         runKickChallengeClaims: vi.fn(async () => undefined),
         runAccountProgressPolls: vi.fn(async () => undefined),
+        runWatchPauseBoundary: vi.fn(async () => undefined),
       };
       for (const name of [
         TWITCH_DROP_CLAIMS_ALARM_NAME,

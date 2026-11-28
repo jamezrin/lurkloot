@@ -69,7 +69,7 @@ export function createExtensionTabPorts(
       },
       stop: async (session, options, emit) => {
         const settings = await loadSettings();
-        await stopWatchTabWithBrowser(
+        return await stopWatchTabWithBrowser(
           registry,
           browserApi,
           session,

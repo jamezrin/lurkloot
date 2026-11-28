@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "متابعة"
+  },
+  "watchPauseTitle": {
+    "message": "إيقاف المشاهدة اليومي"
+  },
+  "watchPauseDescription": {
+    "message": "أوقف المشاهدة على Twitch وKick خلال الساعات نفسها كل يوم. تظل المكافآت تُجمع، وتُستأنف الزراعة تلقائيًا عند انتهاء الإيقاف."
+  },
+  "watchPauseStartLabel": {
+    "message": "من"
+  },
+  "watchPauseEndLabel": {
+    "message": "إلى"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "المنطقة الزمنية"
+  },
+  "watchPauseOvernightHint": {
+    "message": "ينتهي في اليوم التالي."
+  },
+  "watchPauseInvalidTime": {
+    "message": "أدخل وقتًا مثل 01:30."
+  },
+  "watchPauseSameTime": {
+    "message": "يجب أن يختلف وقت البداية عن وقت النهاية."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "أدخل منطقة زمنية مثل Europe/Madrid أو UTC."
+  },
+  "watchPauseActiveNow": {
+    "message": "متوقف مؤقتًا الآن، وسيُستأنف في $1."
+  },
+  "watchPauseNextStart": {
+    "message": "الإيقاف التالي في $1."
+  },
+  "automationPausedSchedule": {
+    "message": "إيقاف يومي"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "تُستأنف الزراعة في $1."
+  },
+  "scheduledPauseDetail": {
+    "message": "تُستأنف الزراعة عند انتهاء الإيقاف اليومي."
+  },
+  "activityReasonScheduledPause": {
+    "message": "إيقاف المشاهدة اليومي"
   }
 }

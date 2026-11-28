@@ -1404,9 +1404,9 @@ never less.
 Each scheduler tick runs enabled platforms independently:
 
 1. Pause and clean up the platform if recent manual watch activity is detected, global automation is disabled, or that platform is disabled.
-2. Skip the platform while it is in exponential backoff after repeated platform errors.
+2. Inside the [daily watch pause](#daily-watch-pause-1162) window, stop the watch, then skip the platform while it is in exponential backoff after repeated platform errors.
 3. Take the campaigns from the committed discovery snapshot and merge progress. The tick never discovers campaigns itself.
-4. Auto-claim claimable rewards when enabled, then accrue the last tick's watch to its watch-streak attempt (see [Watch-streak maintenance](#watch-streak-maintenance-897)).
+4. Auto-claim claimable rewards when enabled. Inside the daily watch pause window the tick ends here and starts no watch. Otherwise it accrues the last tick's watch to its watch-streak attempt (see [Watch-streak maintenance](#watch-streak-maintenance-897)).
 5. Select the first eligible source in the platform's normalized `watchSourcePriority`, preserving campaign and channel ranking within each source. See [watch-source selection policy](watch-source-priority.md).
 6. Decide whether to keep the current target by checking channel liveness/category and recent playback or heartbeat telemetry.
 7. Use tabless watching when enabled and supported, or open, reuse, retarget, or stop the watch tab through the adapter.
@@ -1681,6 +1681,64 @@ claims to know the user's streak count.
 ## Tabless Watch
 
 Tabless watching is the default (`tablessMode: true`). When it is on, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch's default web heartbeat requests HLS segment headers. Older minute-watched heartbeats stay selectable. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host falls back to a visible muted tab after repeated failures, and that tab plays stream video. The headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
+
+## Daily Watch Pause (#1162)
+
+One optional daily window, `EngineSettings.watchPauseSchedule` (`enabled`, `start`, `end` as
+24-hour `"HH:MM"`, and an IANA `timeZone`), during which every host stops its managed watches on
+Twitch and Kick and starts none. It is off by default. The rules live in
+`@lurkloot/shared/watchPauseSchedule`, pure functions of the schedule and an instant, so the
+engine, the popup and the CLI read the same answer.
+
+- **Validation.** `watchPauseScheduleIssues` names an unreadable time, equal start and end, and an
+  unknown zone. `normalizeWatchPauseSchedule` (every host's merge) falls back to defaults and
+  switches a schedule with any issue off, so the engine never runs one. The popup editor
+  (`popup-ui/src/watchPauseSettings.tsx`) saves only a valid draft and shows the issue; the CLI
+  config rejects one with an error naming the field.
+- **Windows.** Each window belongs to the local date it starts on. A start after the end crosses
+  midnight and ends on the next date. The start is inclusive and the end exclusive.
+- **Daylight saving.** Times are wall-clock times in the zone. A time the clock skips (spring
+  forward) resolves to the first instant after the gap, the moment the clock jumps. A time the
+  clock repeats (fall back) resolves to its first occurrence, so a window that ends in the
+  repeated hour ends the first time the clock reads its end and does not pause again on the
+  repeat. On a transition night a window can run up to an hour shorter or longer in elapsed time,
+  never runs twice and never flaps. A window whose start and end both fall in one gap is empty
+  that night. `packages/extension/tests/watchPauseSchedule.test.ts` pins each case in
+  Europe/Madrid.
+- **Owner: the scheduler tick.** `decidePlatformTick` reads `pausedBySchedule`
+  (`core/watchPause.ts`) once per platform tick. Inside the window it stops the watch right after
+  the manual-pause and disabled gates, before the auth challenge, the error backoff and the
+  farming work, any of which can end the tick early: none of them may leave a stream playing into
+  the window. The tick then still runs Kick challenge claims and reward claims, and ends before
+  watch streaks and selection with the session `paused`, reason code `scheduled_pause`. A
+  platform in backoff keeps its backoff state instead, without the watch. Page contexts stay
+  open, because discovery and claims still use them. Manual close pauses, manual watching and a
+  disabled platform are checked first, so they keep their own state and reason.
+- **Closing the tab.** The pause asks `stopWatchTab` with `closeManagedTab`, so a tab the
+  extension opened closes even with `autoCloseFinishedDrops` off: handing it back to the user
+  would unmute a stream inside the window, and the resume would open a second tab beside it. The
+  user's own reused tab is still only released. `WatchTabPort.stop` reports `still_open` when a
+  managed close fails and the tab is still there (`closeOwnedTab` in `browserTabs.ts`). The tick
+  then keeps the session's `tabId` and the managed watch tab, so every paused tick retries the
+  close and the resume hands the tab to `openWatchTab`, which closes it before it opens a
+  replacement. No tab opens while paused, so a close that keeps failing only retries the close. The verdict derives from settings and the clock alone and nothing persists
+  it, so the first tick past the end resumes with nothing to clear, and a restart or a host that
+  slept through a boundary reads the right answer on its next tick. The heartbeat coordinator,
+  chat presence and the Twitch Extensions host treat the window like a manual pause, so none of
+  them keep a watch alive between the boundary and the tick.
+- **Boundary job** (`background/watchPause.ts`). `lurkloot.watch-pause` is a one-shot job armed
+  for the next boundary plus one second, never more than 15 minutes out: Node timers stop while
+  the machine sleeps, and the cap bounds how late a wake can be. Each run re-arms, then ticks the
+  enabled platforms whose session disagrees with the window (paused by it after it ended, or
+  anything else while it applies). It keeps no state, so the same check runs on install and
+  startup (`ensureAlarm`, `reconcileStartup`, which only arm it), after every settings commit
+  (`rescheduleSettingsJobs`), and on each fire. A disabled schedule cancels the job.
+  `tests/backgroundController/watchPause.test.ts` drives startup inside a window, a settings save,
+  sleeping through boundaries, manual pauses, two days of ticks, a backoff and an auth challenge
+  inside the window, auto-close off, and four hours of failing closes.
+- **Display.** The popup status line shows `scheduled_pause` as the daily pause with its resume
+  time, computed from the settings; activity records the stop as `farming_stopped` with reason
+  `scheduled_pause`.
 
 ## Account Progress
 

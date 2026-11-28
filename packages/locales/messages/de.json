@@ -2560,5 +2560,50 @@
   },
   "appTokenSubmit": {
     "message": "Weiter"
+  },
+  "watchPauseTitle": {
+    "message": "Tägliche Schau-Pause"
+  },
+  "watchPauseDescription": {
+    "message": "Stoppt das Schauen auf Twitch und Kick jeden Tag zur gleichen Zeit. Belohnungen werden weiterhin abgeholt, und das Farmen wird nach der Pause automatisch fortgesetzt."
+  },
+  "watchPauseStartLabel": {
+    "message": "Von"
+  },
+  "watchPauseEndLabel": {
+    "message": "Bis"
+  },
+  "watchPauseTimeZoneLabel": {
+    "message": "Zeitzone"
+  },
+  "watchPauseOvernightHint": {
+    "message": "Endet am nächsten Tag."
+  },
+  "watchPauseInvalidTime": {
+    "message": "Gib eine Uhrzeit wie 01:30 ein."
+  },
+  "watchPauseSameTime": {
+    "message": "Start- und Endzeit müssen unterschiedlich sein."
+  },
+  "watchPauseInvalidTimeZone": {
+    "message": "Gib eine Zeitzone wie Europe/Madrid oder UTC ein."
+  },
+  "watchPauseActiveNow": {
+    "message": "Jetzt pausiert, Fortsetzung um $1."
+  },
+  "watchPauseNextStart": {
+    "message": "Nächste Pause um $1."
+  },
+  "automationPausedSchedule": {
+    "message": "Tägliche Pause"
+  },
+  "scheduledPauseResumeDetail": {
+    "message": "Das Farmen wird um $1 fortgesetzt."
+  },
+  "scheduledPauseDetail": {
+    "message": "Das Farmen wird nach der täglichen Pause fortgesetzt."
+  },
+  "activityReasonScheduledPause": {
+    "message": "tägliche Schau-Pause"
   }
 }
