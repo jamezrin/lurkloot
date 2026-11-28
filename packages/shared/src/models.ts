@@ -360,6 +360,13 @@ export interface WatchTabOptions {
   closureOrigin?: Exclude<TabClosureOrigin, "user">;
 }
 
+// What stopping a watch tab left behind. `still_open` means a tab the
+// extension manages, which the stop asked the browser to close, is still open
+// after the close failed ("Tabs cannot be edited right now"). Its owner must
+// keep it, so the next stop retries the close and nothing opens a replacement
+// beside it (#1162). Releasing a user's own tab always reads as `stopped`.
+export type WatchTabStopOutcome = "stopped" | "still_open";
+
 export interface ManagedPageContextTab {
   platform: Platform;
   tabId: number;

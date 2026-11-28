@@ -26,6 +26,7 @@ import type {
   WatchSession,
   WatchSourceId,
   WatchTabOptions,
+  WatchTabStopOutcome,
 } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 
@@ -74,7 +75,7 @@ export interface HostMocks<S extends EngineSettings> {
     session: WatchSession,
     options: Partial<WatchTabOptions>,
     emit: EventEmitter,
-  ): Promise<void>;
+  ): Promise<WatchTabStopOutcome | void>;
   closeManagedTabs?(
     tabs: ManagedWatchTab[],
     origin?: Exclude<TabClosureOrigin, "user">,
@@ -200,7 +201,7 @@ export function hostPortsFromMocks<S extends EngineSettings>(
                 options: Partial<WatchTabOptions>,
                 emit: EventEmitter,
               ) => {
-                await m.stopWatchTab?.(session, options, emit);
+                return (await m.stopWatchTab?.(session, options, emit)) ?? "stopped";
               },
               closeManaged: async (
                 tabs: ManagedWatchTab[],

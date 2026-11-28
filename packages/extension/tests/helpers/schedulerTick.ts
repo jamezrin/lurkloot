@@ -9,6 +9,7 @@ import {
   type WatchSession,
   type WatchSourceId,
   type WatchTabOptions,
+  type WatchTabStopOutcome,
 } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
@@ -61,7 +62,11 @@ interface WatchTabMocks {
     session?: WatchSession,
     options?: Partial<WatchTabOptions>,
   ): Promise<PreparedWatchTab>;
-  stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
+  // Resolves to nothing for a stop that succeeded.
+  stopWatchTab?(
+    session: WatchSession,
+    options?: Partial<WatchTabOptions>,
+  ): Promise<WatchTabStopOutcome | void>;
 }
 
 export type SchedulerTestAdapter = PlatformAdapter & WatchTabMocks;
@@ -75,7 +80,7 @@ function watchTabsFromMocks(adapters: Record<Platform, SchedulerTestAdapter>): W
       return await prepareWatchTab(channel, session, options);
     },
     stop: async (session, options) => {
-      await adapters[session.platform].stopWatchTab?.(session, options);
+      return (await adapters[session.platform].stopWatchTab?.(session, options)) ?? "stopped";
     },
     closeManaged: async () => undefined,
     applyAdFocus: async () => undefined,

@@ -1404,9 +1404,9 @@ never less.
 Each scheduler tick runs enabled platforms independently:
 
 1. Pause and clean up the platform if recent manual watch activity is detected, global automation is disabled, or that platform is disabled.
-2. Skip the platform while it is in exponential backoff after repeated platform errors.
+2. Inside the [daily watch pause](#daily-watch-pause-1162) window, stop the watch, then skip the platform while it is in exponential backoff after repeated platform errors.
 3. Take the campaigns from the committed discovery snapshot and merge progress. The tick never discovers campaigns itself.
-4. Auto-claim claimable rewards when enabled. Inside the [daily watch pause](#daily-watch-pause-1162) window the tick stops here: it stops the watch and starts none. Otherwise it accrues the last tick's watch to its watch-streak attempt (see [Watch-streak maintenance](#watch-streak-maintenance-897)).
+4. Auto-claim claimable rewards when enabled. Inside the daily watch pause window the tick ends here and starts no watch. Otherwise it accrues the last tick's watch to its watch-streak attempt (see [Watch-streak maintenance](#watch-streak-maintenance-897)).
 5. Select the first eligible source in the platform's normalized `watchSourcePriority`, preserving campaign and channel ranking within each source. See [watch-source selection policy](watch-source-priority.md).
 6. Decide whether to keep the current target by checking channel liveness/category and recent playback or heartbeat telemetry.
 7. Use tabless watching when enabled and supported, or open, reuse, retarget, or stop the watch tab through the adapter.
@@ -1705,13 +1705,23 @@ engine, the popup and the CLI read the same answer.
   never runs twice and never flaps. A window whose start and end both fall in one gap is empty
   that night. `packages/extension/tests/watchPauseSchedule.test.ts` pins each case in
   Europe/Madrid.
-- **Owner: the scheduler tick.** `decidePlatformTick` checks `pausedBySchedule`
-  (`core/watchPause.ts`) after the auth probe, Kick challenge claims and reward claims, and before
-  watch streaks and selection. Inside the window it stops the watch through the `stopWatchTab`
-  effect, forgets the managed watch tab, and leaves the session `paused` with reason code
-  `scheduled_pause`. Page contexts stay open, because discovery and claims still use them. Manual
-  close pauses, manual watching and a disabled platform are checked first, so they keep their
-  own state and reason. The verdict derives from settings and the clock alone and nothing persists
+- **Owner: the scheduler tick.** `decidePlatformTick` reads `pausedBySchedule`
+  (`core/watchPause.ts`) once per platform tick. Inside the window it stops the watch right after
+  the manual-pause and disabled gates, before the auth challenge, the error backoff and the
+  farming work, any of which can end the tick early: none of them may leave a stream playing into
+  the window. The tick then still runs Kick challenge claims and reward claims, and ends before
+  watch streaks and selection with the session `paused`, reason code `scheduled_pause`. A
+  platform in backoff keeps its backoff state instead, without the watch. Page contexts stay
+  open, because discovery and claims still use them. Manual close pauses, manual watching and a
+  disabled platform are checked first, so they keep their own state and reason.
+- **Closing the tab.** The pause asks `stopWatchTab` with `closeManagedTab`, so a tab the
+  extension opened closes even with `autoCloseFinishedDrops` off: handing it back to the user
+  would unmute a stream inside the window, and the resume would open a second tab beside it. The
+  user's own reused tab is still only released. `WatchTabPort.stop` reports `still_open` when a
+  managed close fails and the tab is still there (`closeOwnedTab` in `browserTabs.ts`). The tick
+  then keeps the session's `tabId` and the managed watch tab, so every paused tick retries the
+  close and the resume hands the tab to `openWatchTab`, which closes it before it opens a
+  replacement. No tab opens while paused, so a close that keeps failing only retries the close. The verdict derives from settings and the clock alone and nothing persists
   it, so the first tick past the end resumes with nothing to clear, and a restart or a host that
   slept through a boundary reads the right answer on its next tick. The heartbeat coordinator,
   chat presence and the Twitch Extensions host treat the window like a manual pause, so none of
@@ -1724,7 +1734,8 @@ engine, the popup and the CLI read the same answer.
   startup (`ensureAlarm`, `reconcileStartup`, which only arm it), after every settings commit
   (`rescheduleSettingsJobs`), and on each fire. A disabled schedule cancels the job.
   `tests/backgroundController/watchPause.test.ts` drives startup inside a window, a settings save,
-  sleeping through boundaries, manual pauses and two days of ticks.
+  sleeping through boundaries, manual pauses, two days of ticks, a backoff and an auth challenge
+  inside the window, auto-close off, and four hours of failing closes.
 - **Display.** The popup status line shows `scheduled_pause` as the daily pause with its resume
   time, computed from the settings; activity records the stop as `farming_stopped` with reason
   `scheduled_pause`.

@@ -15,6 +15,7 @@ import type {
   WatchSession,
   WatchSourceId,
   WatchTabOptions,
+  WatchTabStopOutcome,
 } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { selectWatchTargetFromSnapshot, StopPageContextTabs } from "../core/scheduler";
@@ -138,7 +139,13 @@ export interface WatchTabPort {
     options: Partial<WatchTabOptions>,
     emit: EventEmitter,
   ): Promise<PreparedWatchTab>;
-  stop(session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter): Promise<void>;
+  // Closes a managed tab when `closeManagedTabs` says to, and otherwise hands
+  // it back to the user. Reports `still_open` for a managed close that failed.
+  stop(
+    session: WatchSession,
+    options: Partial<WatchTabOptions>,
+    emit: EventEmitter,
+  ): Promise<WatchTabStopOutcome>;
   // Closes the managed watch tabs a state held; `origin` is recorded against
   // each tab it closes, so its removal event is not read as the user's.
   closeManaged(tabs: ManagedWatchTab[], origin: Exclude<TabClosureOrigin, "user">): Promise<void>;

@@ -86,6 +86,119 @@ describe("daily watch pause", () => {
     expect(env.twitch.refreshCampaigns).toHaveBeenCalled();
   });
 
+  it("closes a managed tab whatever the auto-close setting says", async () => {
+    vi.setSystemTime("2026-07-01T23:00:00Z");
+    const env = harness({ ...withSchedule(), autoCloseFinishedDrops: false });
+    watching(env, "twitch", 44);
+
+    await env.controller.tick(["twitch"], "alarm");
+
+    // Handing the tab back would unmute a stream inside the window.
+    expect(env.deps.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 44, tabManagedByExtension: true }),
+      expect.objectContaining({ closeManagedTabs: true }),
+      expect.anything(),
+    );
+  });
+
+  it("keeps owning a tab the browser would not close, and replaces it only after", async () => {
+    vi.setSystemTime("2026-07-01T23:00:00Z");
+    const env = harness(withSchedule());
+    watching(env, "twitch", 44);
+    env.watchTabs.twitch.stop.mockResolvedValue("still_open");
+
+    for (let minute = 0; minute < 4 * 60; minute += 5) {
+      vi.setSystemTime(Date.parse("2026-07-01T23:00:00Z") + minute * 60_000);
+      await env.controller.tick(["twitch"], "alarm");
+    }
+
+    // Every paused tick retries the close of the same tab and opens nothing.
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "scheduled_pause",
+      tabId: 44,
+      tabManagedByExtension: true,
+      channel: undefined,
+    });
+    expect(env.state.managedWatchTabs?.twitch?.tabId).toBe(44);
+    expect(env.watchTabs.twitch.stop).toHaveBeenCalledTimes(48);
+    expect(env.watchTabs.twitch.stop.mock.calls.every(([session]) => session.tabId === 44)).toBe(
+      true,
+    );
+    expect(env.deps.openWatchTab).not.toHaveBeenCalled();
+
+    // The window ends: the open is handed the tab still held, so the host
+    // closes it before it opens a replacement instead of opening beside it.
+    vi.setSystemTime("2026-07-02T06:00:01Z");
+    await env.controller.tick(["twitch"], "alarm");
+    expect(env.deps.openWatchTab).toHaveBeenCalledOnce();
+    expect(env.deps.openWatchTab).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tabId: 44, tabManagedByExtension: true }),
+      expect.objectContaining({ managedTab: expect.objectContaining({ tabId: 44 }) }),
+      expect.anything(),
+    );
+  });
+
+  it("stops the watch while the platform waits out an error backoff", async () => {
+    vi.setSystemTime("2026-07-01T23:00:00Z");
+    const env = harness(withSchedule());
+    watching(env, "twitch", 44);
+    const retryAfter = "2026-07-01T23:20:00Z";
+    env.state.sessions.twitch = {
+      ...env.state.sessions.twitch,
+      status: "error",
+      errorChecks: 2,
+      retryAfter,
+      reasonCode: "platform_error",
+    };
+
+    await env.controller.tick(["twitch"], "alarm");
+
+    expect(env.deps.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 44 }),
+      expect.objectContaining({ closeManagedTabs: true }),
+      expect.anything(),
+    );
+    // The backoff itself is left alone.
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "error",
+      reasonCode: "platform_backoff",
+      errorChecks: 2,
+      retryAfter,
+      tabId: undefined,
+      channel: undefined,
+    });
+    expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
+    expect(env.deps.openWatchTab).not.toHaveBeenCalled();
+  });
+
+  it("stops the watch before an auth challenge fails the tick", async () => {
+    vi.setSystemTime("2026-07-01T23:00:00Z");
+    const env = harness(withSchedule());
+    watching(env, "twitch", 44);
+    vi.mocked(env.twitch.checkAuthHealth).mockResolvedValue({
+      status: "unavailable",
+      reasonCode: "request_challenged",
+      checkedAt: new Date().toISOString(),
+    });
+
+    await env.controller.tick(["twitch"], "alarm");
+
+    expect(env.deps.stopWatchTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 44 }),
+      expect.objectContaining({ closeManagedTabs: true }),
+      expect.anything(),
+    );
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "error",
+      reasonCode: "platform_error",
+      tabId: undefined,
+      channel: undefined,
+    });
+    expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
+  });
+
   it("still claims rewards during the window", async () => {
     vi.setSystemTime("2026-07-01T23:00:00Z");
     const env = harness(withSchedule());

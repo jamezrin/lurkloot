@@ -21,6 +21,7 @@ import {
   type WatchReasonCode,
   type WatchSession,
   type WatchSourceId,
+  type WatchTabStopOutcome,
 } from "@lurkloot/shared/models";
 import { campaignForWatching, campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
@@ -1396,10 +1397,18 @@ export type StopPageContextTabs = (
 // them; the effect executor runs each through its one registered handler,
 // outside the tick's decisions, and resumes the tick with the result.
 export type SchedulerEffects = {
-  // Closes the watch tab `session` describes, when the extension manages it.
+  // Stops the watch tab `session` describes. A tab the extension manages is
+  // closed under the host's close policy, or always with `closeManagedTab`;
+  // otherwise it is handed back to the user. `still_open` reports a managed
+  // close that failed, so the caller can keep owning the tab.
   stopWatchTab: {
-    effect: { type: "stopWatchTab"; platform: Platform; session: WatchSession };
-    result: void;
+    effect: {
+      type: "stopWatchTab";
+      platform: Platform;
+      session: WatchSession;
+      closeManagedTab?: true;
+    };
+    result: WatchTabStopOutcome;
   };
   // Releases the platform's managed page context. With `forgetOnFailure`, a
   // failed release is reported and the context is forgotten anyway.
@@ -1700,7 +1709,10 @@ export async function* decidePlatformTick(
   const { settings, state, signal } = input;
   const emit = tick.emit;
   signal?.throwIfAborted();
-  const previous = tick.state.sessions[platform];
+  // Reassigned once, when the daily watch pause stops the watch below, so every
+  // later exit (backoff, a thrown error, the pause itself) starts from a session
+  // that no longer holds it.
+  let previous = tick.state.sessions[platform];
   const platformSettings = settings.platform[platform];
   const capabilities = input.capabilities[platform]!;
   const selectionView = input.selectionViews[platform]!;
@@ -1822,6 +1834,17 @@ export async function* decidePlatformTick(
         );
       }
       return;
+    }
+
+    // The daily watch pause window (#1162), read once so the whole tick sees
+    // one answer. The watch stops here, ahead of the auth challenge, the error
+    // backoff and the farming work, each of which can end the tick before the
+    // pause decision further down: none of them may leave a stream playing
+    // into the window. The account-level work that follows still runs.
+    const scheduledPause = pausedBySchedule(settings);
+    if (scheduledPause) {
+      previous = yield* stopWatchForScheduledPause(tick, platform, previous);
+      tick.state.sessions[platform] = previous;
     }
 
     const health = tick.state.authHealth[platform];
@@ -2051,21 +2074,21 @@ export async function* decidePlatformTick(
       }
     }
 
-    // The daily watch pause window (#1162). Checked after claims and the
-    // account-level work above, which the window leaves alone, and before
-    // anything that starts or keeps a watch. Page contexts stay: discovery and
-    // claims still use them. The window derives from the clock, so the first
-    // tick past its end resumes from here with no state to clear.
-    if (pausedBySchedule(settings)) {
-      yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
-      tick.state.sessions[platform] = clearedWatchSession(previous, {
+    // The daily watch pause window (#1162). The watch already stopped above;
+    // this ends the tick after claims and the account-level work, which the
+    // window leaves alone, and before anything that starts or keeps a watch.
+    // Page contexts stay: discovery and claims still use them. The window
+    // derives from the clock, so the first tick past its end resumes from here
+    // with no state to clear.
+    if (scheduledPause) {
+      tick.state.sessions[platform] = {
+        ...previous,
         status: "paused",
         errorChecks: 0,
         retryAfter: undefined,
         message: "Daily watch pause",
         reasonCode: "scheduled_pause",
-      });
-      tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+      };
       observation = preconditionBreakObservation();
       if (previous.status !== "paused" || previous.reasonCode !== "scheduled_pause") {
         emitDiagnostic(
@@ -2618,6 +2641,47 @@ export async function* decidePlatformTick(
     }
     applyObservation();
   }
+}
+
+// Stops the watch for the daily pause (#1162) and returns the session without
+// it, leaving its status and backoff alone for the gate that ends the tick. A
+// tab the extension opened is closed whatever the auto-close setting says:
+// handing it back would unmute a stream inside the window the user set aside,
+// and a resume would open a second tab beside it. A close that fails keeps the
+// tab owned, so the next paused tick retries it and a resume closes it before
+// opening a replacement. No tab is opened here, so a persistent failure only
+// retries the close.
+async function* stopWatchForScheduledPause(
+  tick: SchedulerTickDraft,
+  platform: Platform,
+  previous: WatchSession,
+): AsyncGenerator<SchedulerEffect, WatchSession, unknown> {
+  const outcome = yield* yieldEffect({
+    type: "stopWatchTab",
+    platform,
+    session: previous,
+    closeManagedTab: true,
+  });
+  const stopped = clearedWatchSession(previous, {
+    status: previous.status,
+    message: previous.message,
+    reasonCode: previous.reasonCode,
+  });
+  if (outcome === "still_open" && previous.tabId !== undefined) {
+    emitDiagnostic(
+      tick.emit,
+      platform,
+      "warn",
+      `Could not close watch tab ${previous.tabId} for the daily watch pause; retrying on the next tick`,
+    );
+    return {
+      ...stopped,
+      tabId: previous.tabId,
+      tabManagedByExtension: previous.tabManagedByExtension,
+    };
+  }
+  tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+  return stopped;
 }
 
 // A watch tab that showed something other than the channel page (#794). Reusing

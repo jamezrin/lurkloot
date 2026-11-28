@@ -33,17 +33,19 @@ function mount(schedule: WatchPauseSchedule) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const onChange = vi.fn(async (_schedule: WatchPauseSchedule) => undefined);
   const container = document.getElementById("app")!;
-  act(() => {
-    root = createRoot(container);
-    root.render(
+  const render = (next: WatchPauseSchedule) =>
+    root!.render(
       <PopupRuntimeContext.Provider value={{ adapter: {} as PopupAdapter, preview: true }}>
         <I18nContext.Provider value={{ t, dir: "ltr", locale: "en" }}>
-          <WatchPauseScheduleSettings schedule={schedule} onChange={onChange} />
+          <WatchPauseScheduleSettings schedule={next} onChange={onChange} />
         </I18nContext.Provider>
       </PopupRuntimeContext.Provider>,
     );
+  act(() => {
+    root = createRoot(container);
+    render(schedule);
   });
-  return { container, onChange };
+  return { container, onChange, rerender: (next: WatchPauseSchedule) => act(() => render(next)) };
 }
 
 function setInput(input: HTMLInputElement, value: string, blur = false): void {
@@ -111,6 +113,21 @@ describe("daily watch pause settings", () => {
 
     setInput(zone, "Europe/Madrid", true);
     expect(onChange).toHaveBeenLastCalledWith({ ...ON, timeZone: "Europe/Madrid" });
+  });
+
+  it("keeps a zone being typed across a settings refresh with the same values", () => {
+    const { container, onChange, rerender } = mount(ON);
+    const zone = container.querySelector("[data-watch-pause-time-zone]") as HTMLInputElement;
+
+    setInput(zone, "Europe/Mad");
+    // The popup re-reads settings and hands down an equal, new object.
+    rerender({ ...ON });
+    expect(zone.value).toBe("Europe/Mad");
+    expect(onChange).not.toHaveBeenCalled();
+
+    // A stored change made elsewhere still replaces the draft.
+    rerender({ ...ON, timeZone: "Asia/Tokyo" });
+    expect(zone.value).toBe("Asia/Tokyo");
   });
 });
 

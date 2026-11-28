@@ -83,7 +83,14 @@ export function WatchPauseScheduleSettings({
   const now = useNow();
   const zonesId = useId();
   const [draft, setDraft] = useState(schedule);
-  useEffect(() => setDraft(schedule), [schedule]);
+  // Follows the stored schedule only when one of its values changes. Settings
+  // refreshes hand down a new object with the same values, and resetting on
+  // those would throw away a time zone the user is still typing.
+  const { enabled, start: storedStart, end: storedEnd, timeZone } = schedule;
+  useEffect(
+    () => setDraft({ enabled, start: storedStart, end: storedEnd, timeZone }),
+    [enabled, storedStart, storedEnd, timeZone],
+  );
 
   const issues = watchPauseScheduleIssues(draft);
   const commit = (next: WatchPauseSchedule) => {
