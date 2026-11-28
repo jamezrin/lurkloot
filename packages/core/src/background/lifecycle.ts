@@ -1,14 +1,15 @@
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type {
-  EngineSettings,
-  ManagedWatchTab,
-  Platform,
-  SchedulerState,
-  WatchSession,
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type ManagedWatchTab,
+  type Platform,
+  type SchedulerState,
+  type WatchSession,
 } from "@lurkloot/shared/models";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import { registerManagedPageContextTabs } from "../core/tabRegistry";
-import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME } from "./constants";
+import { ALARM_NAME, KICK_ALARM_NAME, TWITCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -26,7 +27,7 @@ function staleStartupCleanup(
   const managedTabs = new Map<number, ManagedWatchTab>();
   const sessions = { ...state.sessions };
 
-  for (const platform of ["twitch", "kick"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     const session = state.sessions[platform];
     const managedTab = state.managedWatchTabs?.[platform];
     const managedPageContextTab = state.managedPageContextTabs?.[platform];
@@ -284,7 +285,7 @@ export function createLifecycle<S extends EngineSettings>(
     ) {
       await withEventCollector(async (emit, events) => {
         await tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
-          platforms: ["twitch", "kick"],
+          platforms: PLATFORMS,
           reason: "runtime_restart",
           emit,
         });
@@ -315,7 +316,7 @@ export function createLifecycle<S extends EngineSettings>(
     };
   }
 
-  function shutdown(): void {
+  function shutdown(): Promise<void> {
     lifecycleSlice.controllerShutdown = true;
     for (const platform of PLATFORMS) {
       stopDiscoveryLane(platform);
@@ -338,8 +339,8 @@ export function createLifecycle<S extends EngineSettings>(
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
     stopDiscoverySignalControllersInBackground(PLATFORMS);
-    stopTwitchChannelPointsPushInBackground();
     stopChatPresenceInBackground(PLATFORMS);
+    return stopTwitchChannelPointsPushInBackground();
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {

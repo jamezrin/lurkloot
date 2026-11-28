@@ -6,7 +6,7 @@
     "message": "Lurkloot - Фарм drops Twitch и Kick"
   },
   "extensionDescription": {
-    "message": "Фармите drops Twitch и Kick через обычные сессии браузера, видимые вкладки без звука и дополнительный режим низкого потребления."
+    "message": "Фармите дропы Twitch и Kick автоматически. Выбирает стрим, следит за прогрессом и забирает награды, пока вы заняты."
   },
   "toolbarTitleOff": {
     "message": "Фарм выключен"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 вне фильтра наград"
   },
+  "queueSkippedGuide": {
+    "message": "Почему кампания пропускается?"
+  },
   "queueActionRequired": {
     "message": "Требуется действие"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "Настройки, соответствующие «$1», не найдены."
   },
-  "settingsPlatformSettings": {
-    "message": "Настройки $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Показать дополнительные настройки"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Перейти к разделу"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Дополнительные действия"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "Активность"
-  },
-  "activeStatus": {
-    "message": "Активно"
   },
   "pausedStatus": {
     "message": "Пауза"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "Открыть инвентарь"
   },
-  "openActivity": {
-    "message": "Открыть активность"
-  },
-  "closeActivity": {
-    "message": "Закрыть активность"
+  "openGuide": {
+    "message": "Руководство пользователя"
   },
   "openSettings": {
     "message": "Открыть настройки"
-  },
-  "closeSettings": {
-    "message": "Закрыть настройки"
   },
   "back": {
     "message": "Назад"
   },
   "loading": {
     "message": "Загрузка"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Список просмотра"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "Кампании, соответствующие «$1», не найдены."
   },
-  "closeSearch": {
-    "message": "Закрыть поиск"
-  },
   "search": {
     "message": "Искать"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "Не привязано"
-  },
-  "subscriptionCampaigns": {
-    "message": "Кампании за подписку"
   },
   "subscriptionRequired": {
     "message": "Требуется подписка"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "Завершённые"
   },
-  "completedCampaigns": {
-    "message": "Завершённые"
-  },
   "upcomingPill": {
     "message": "Предстоящая"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 зрителей"
   },
-  "settingsGeneralTitle": {
-    "message": "Общие настройки"
-  },
   "settingsGeneralDescription": {
     "message": "Язык, запуск и поведение всплывающего окна."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "Начинает фарм, как только расширение загрузится."
   },
-  "notificationsTitle": {
-    "message": "Уведомления"
-  },
   "notificationsDescription": {
     "message": "Оповещения, когда награды готовы или кампании завершаются."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Уведомлять, когда все активные кампании исчерпаны."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Получение, доступность, приоритеты и видимость кампаний."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "Сначала низкая доступность"
   },
-  "watchlistSettingsTitle": {
-    "message": "Список просмотра"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Общее поведение резервного списка."
-  },
   "preferKnownChannelsTitle": {
     "message": "Отдавать предпочтение подписанным каналам и списку просмотра"
   },
   "preferKnownChannelsDescription": {
     "message": "Если drop доступен на нескольких каналах, выбирает тот, на который вы подписаны или который есть в вашем списке просмотра, а не незнакомый канал."
-  },
-  "platformSettingsTitle": {
-    "message": "Настройки платформы"
-  },
-  "farmingTabsTitle": {
-    "message": "Вкладки фарма"
   },
   "farmingTabsDescription": {
     "message": "Управление фармом через видеовкладки. Настройки вкладок отключены, пока активен режим без вкладки."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "Вкладка + окно"
-  },
-  "advancedTitle": {
-    "message": "Дополнительно"
   },
   "advancedDescription": {
     "message": "Меняйте только если понимаете последствия: это низкоуровневые настройки планировщика и логов."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "Сейчас ни одну награду этой кампании нельзя фармить."
   },
-  "automationSectionTitle": {
-    "message": "Автоматизация"
-  },
-  "farmOnPlatform": {
-    "message": "Фармит drops и смотрит список просмотра на $1."
-  },
   "enabled": {
     "message": "Включено"
-  },
-  "watchlistEditHint": {
-    "message": "Редактируйте её на вкладке Список просмотра после выбора $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Автополучение баллов канала"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "На $1 фармятся только эти категории."
   },
-  "categoriesToFarm": {
-    "message": "Категории для фарма"
-  },
   "noCategoriesSelected": {
     "message": "Категории не выбраны: на $1 ничего не будет фармиться. Добавьте категории ниже."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "Категории не найдены."
-  },
-  "alreadyAdded": {
-    "message": "Уже добавлено."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Уровни журнала активности"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Выберите уровни для журнала активности. Ошибки всегда сохраняются."
   },
   "rewardFilterTitle": {
     "message": "Награды для фарма"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "CLI без браузера"
   },
-  "cliExportDescription": {
-    "message": "Запускайте фарм дропов на сервере или в Docker с помощью Lurkloot CLI, используя сессию, в которую выполнен вход в этом браузере."
-  },
   "cliExportHint": {
     "message": "Экспортирует токены сессий Twitch и Kick, чтобы команда «login --import» в CLI могла их использовать. Храните файл в секрете — любой, у кого он есть, сможет использовать ваши сессии."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "Вне сессии"
-  },
-  "activitySessionEarlier": {
-    "message": "Раньше"
   },
   "activitySessionEmpty": {
     "message": "Пока ничего не получено. Награды и баллы появляются здесь по мере поступления."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 из $2 наград"
   },
-  "campaignTimeLeft": {
-    "message": "Осталось $1"
-  },
   "campaignFactStarts": {
     "message": "Начало"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "Других игр не найдено."
   },
-  "navBeta": {
-    "message": "Бета"
-  },
   "navExtensions": {
     "message": "Расширения"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv может убрать её из адресной строки почти сразу. Перед входом откройте инструменты разработчика браузера на вкладке Network и включите Preserve log. Затем войдите, отфильтруйте по access_token и скопируйте заголовок location из перенаправления id.twitch.tv. Вставьте его сюда."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Войдите в Twitch в открывшемся окне. Оно закроется само, когда вы закончите."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Войти в Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Ожидание завершения входа…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Окно входа было закрыто до завершения входа."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Окно входа не смогло прочитать ответ Twitch в этой системе. Воспользуйтесь шагами ниже."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Вставить адрес вместо этого"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Войти по коду"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "Закрыть"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 готов к установке."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Перезапустить для обновления"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Установка Lurkloot $1. По завершении приложение перезапустится."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Не удалось загрузить Lurkloot $1. Повторите попытку позже."
   },
   "appTokenTitle": {
     "message": "Токен доступа"

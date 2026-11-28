@@ -6,7 +6,11 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
-import type { CoreRuntimeMessage, RuntimeMessage } from "@lurkloot/shared/messages";
+import {
+  type ActivityHistoryRepository,
+  InvalidActivityCursorError,
+} from "@lurkloot/shared/activityHistory";
+import type { RuntimeMessage } from "@lurkloot/shared/messages";
 import type { EngineSettings } from "@lurkloot/shared/models";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import {
@@ -26,7 +30,7 @@ import { createLogger } from "../src/logger";
 import { createCliSettingsStore, type CliSettingsStoreOptions } from "../src/settingsStore";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { CLI_VERSION } from "../src/version";
-import { idleTransport, memoryStateStore } from "./helpers/fakeFarming";
+import { discardingActivityHistory, idleTransport, memoryStateStore } from "./helpers/fakeFarming";
 
 const TOKEN = "serve-token-sentinel-0123456789";
 const TWITCH_SECRET = "twitch-secret-sentinel-abcdef";
@@ -118,7 +122,14 @@ afterEach(async () => {
   tempDir = undefined;
 });
 
-async function start(options: { token?: string; host?: string; settingsWritable?: boolean } = {}) {
+async function start(
+  options: {
+    token?: string;
+    host?: string;
+    settingsWritable?: boolean;
+    activityHistory?: ActivityHistoryRepository;
+  } = {},
+) {
   const handleMessage = vi.fn(async (message: ControlPlaneMessage) =>
     message.type === "getSnapshot" ? snapshot() : undefined,
   );
@@ -132,6 +143,7 @@ async function start(options: { token?: string; host?: string; settingsWritable?
       },
       logger: quiet,
       settingsWritable: options.settingsWritable ?? false,
+      ...(options.activityHistory ? { activityHistory: options.activityHistory } : {}),
       describeCredentials: () =>
         describeCredentialHealth("/nonexistent-lurkloot-auth", {
           SA_TWITCH_AUTH_TOKEN: TWITCH_SECRET,
@@ -163,6 +175,15 @@ describe("serve binding", () => {
     ).toEqual({ host: "0.0.0.0", port: 9000, token: TOKEN });
   });
 
+  it("keeps a configured token on a loopback bind", () => {
+    // How a launcher locks its own serve to its window (#1023).
+    expect(resolveServeBinding({ port: 0, env: { [SERVE_TOKEN_ENV]: TOKEN } })).toEqual({
+      host: "127.0.0.1",
+      port: 0,
+      token: TOKEN,
+    });
+  });
+
   it("refuses a short token and an invalid port", () => {
     expect(() => resolveServeBinding({ env: { [SERVE_TOKEN_ENV]: "short" } })).toThrow(
       /at least 16/,
@@ -179,11 +200,16 @@ describe("serve binding", () => {
 });
 
 describe("control plane message allow-list", () => {
-  it("lists only core messages the CLI host supports", () => {
+  it("lists only messages the CLI host supports", () => {
     expect([...SUPPORTED_MESSAGE_TYPES].sort()).toEqual(
       [
+        "clearActivity",
+        "getActivity",
+        "getActivitySessions",
         "claimReward",
         "dismissCriticalFailure",
+        "exportDiagnostics",
+        "setTwitchExtensionEnabled",
         "getSnapshot",
         "saveSettings",
         "searchCategories",
@@ -196,7 +222,8 @@ describe("control plane message allow-list", () => {
     );
   });
 
-  const accepted: CoreRuntimeMessage[] = [
+  const accepted: RuntimeMessage[] = [
+    { type: "setTwitchExtensionEnabled", provider: "fortnite", enabled: true },
     { type: "getSnapshot" },
     { type: "tickNow" },
     { type: "setPlatformEnabled", platform: "twitch", enabled: false },
@@ -219,17 +246,30 @@ describe("control plane message allow-list", () => {
     });
   });
 
-  it.each(["saveSettings", "updateIdleWatchlist", "setPlatformEnabled", "setAutomation"] as const)(
-    "refuses %s while settings are read-only",
-    async (type) => {
-      const { port, handleMessage } = await start();
-      const message = accepted.find((candidate) => candidate.type === type);
-      const reply = await postMessage(port, message);
-      expect(reply.status).toBe(409);
-      expect(errorCode(reply)).toBe("settings_read_only");
-      expect(handleMessage).not.toHaveBeenCalled();
-    },
-  );
+  it("answers exportDiagnostics in the host using the controller snapshot", async () => {
+    const { port, handleMessage } = await start();
+    const reply = await postMessage(port, { type: "exportDiagnostics", platform: "twitch" });
+    expect(reply.status).toBe(200);
+    expect(reply.json).toMatchObject({
+      result: { events: [], report: expect.stringContaining("Lurkloot diagnostics log") },
+    });
+    expect(handleMessage.mock.calls).toEqual([[{ type: "getSnapshot" }]]);
+  });
+
+  it.each([
+    "saveSettings",
+    "updateIdleWatchlist",
+    "setPlatformEnabled",
+    "setAutomation",
+    "setTwitchExtensionEnabled",
+  ] as const)("refuses %s while settings are read-only", async (type) => {
+    const { port, handleMessage } = await start();
+    const message = accepted.find((candidate) => candidate.type === type);
+    const reply = await postMessage(port, message);
+    expect(reply.status).toBe(409);
+    expect(errorCode(reply)).toBe("settings_read_only");
+    expect(handleMessage).not.toHaveBeenCalled();
+  });
 
   const refused: RuntimeMessage[] = [
     { type: "getTabId" },
@@ -242,8 +282,6 @@ describe("control plane message allow-list", () => {
     },
     { type: "resumeAfterManualClose", platform: "twitch" },
     { type: "resetExtension" },
-    { type: "clearActivity" },
-    { type: "setTwitchExtensionEnabled", provider: "fortnite", enabled: true },
   ];
 
   it.each(refused)("refuses $type with a typed 422", async (message) => {
@@ -252,6 +290,96 @@ describe("control plane message allow-list", () => {
     expect(reply.status).toBe(422);
     expect(errorCode(reply)).toBe("unsupported_message");
     expect(handleMessage).not.toHaveBeenCalled();
+  });
+
+  function memoryHistory(): ActivityHistoryRepository & {
+    load: ReturnType<typeof vi.fn>;
+    loadSessions: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+  } {
+    return {
+      load: vi.fn(async () => ({ events: [], nextCursor: "next" })),
+      loadSessions: vi.fn(async () => []),
+      clear: vi.fn(async () => undefined),
+    };
+  }
+
+  it("answers the activity messages from the history, not the controller", async () => {
+    const activityHistory = memoryHistory();
+    const { port, handleMessage } = await start({ activityHistory });
+
+    const page = await postMessage(port, {
+      type: "getActivity",
+      category: "activity",
+      platform: "twitch",
+      limit: 80,
+    });
+    expect(page.status).toBe(200);
+    expect(page.json).toEqual({ result: { events: [], nextCursor: "next" } });
+    expect(activityHistory.load).toHaveBeenCalledWith({
+      category: "activity",
+      platform: "twitch",
+      limit: 80,
+    });
+
+    const sessions = await postMessage(port, { type: "getActivitySessions", platform: "kick" });
+    expect(sessions.json).toEqual({ result: { sessions: [] } });
+    expect(activityHistory.loadSessions).toHaveBeenCalledWith("kick");
+
+    const cleared = await postMessage(port, { type: "clearActivity" });
+    expect(cleared.json).toEqual({ result: null });
+    expect(activityHistory.clear).toHaveBeenCalledOnce();
+
+    expect(handleMessage).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { type: "getActivity", category: "activity" },
+    { type: "getActivitySessions", platform: "twitch" },
+    { type: "clearActivity" },
+  ])("refuses $type without a history", async (message) => {
+    const { port, handleMessage } = await start();
+    const reply = await postMessage(port, message);
+    expect(reply.status).toBe(422);
+    expect(errorCode(reply)).toBe("unsupported_message");
+    expect(handleMessage).not.toHaveBeenCalled();
+  });
+
+  it("refuses malformed activity messages before the history", async () => {
+    const activityHistory = memoryHistory();
+    const { port } = await start({ activityHistory });
+    for (const message of [
+      { type: "getActivity" },
+      { type: "getActivity", category: "everything" },
+      { type: "getActivity", category: "activity", platform: "youtube" },
+      { type: "getActivity", category: "activity", limit: "80" },
+      { type: "getActivity", category: "activity", cursor: 7 },
+      { type: "getActivity", category: "activity", query: ["x"] },
+      { type: "getActivitySessions" },
+      { type: "getActivitySessions", platform: "youtube" },
+    ]) {
+      const reply = await postMessage(port, message);
+      expect([JSON.stringify(message), reply.status, errorCode(reply)]).toEqual([
+        JSON.stringify(message),
+        400,
+        "invalid_message",
+      ]);
+    }
+    expect(activityHistory.load).not.toHaveBeenCalled();
+    expect(activityHistory.loadSessions).not.toHaveBeenCalled();
+  });
+
+  it("answers a cursor the history did not issue with a 400", async () => {
+    const activityHistory = memoryHistory();
+    activityHistory.load.mockRejectedValueOnce(new InvalidActivityCursorError());
+    const { port } = await start({ activityHistory });
+    const reply = await postMessage(port, {
+      type: "getActivity",
+      category: "activity",
+      cursor: "forged",
+    });
+    expect(reply.status).toBe(400);
+    expect(errorCode(reply)).toBe("invalid_message");
   });
 
   it("refuses unknown and prototype-named types", async () => {
@@ -460,9 +588,19 @@ describe("serveLoop", () => {
   it("farms with the shared loop and answers the API until SIGTERM", async () => {
     tempDir = await mkdtemp(join(tmpdir(), "serve-test-"));
     const transport = idleTransport();
+    const createAdapter = transport.createAdapter;
+    transport.createAdapter = (platform, emit, settings) => {
+      emit?.({
+        category: "diagnostic",
+        level: "debug",
+        platform,
+        message: `Unexpected value ${TOKEN}`,
+      });
+      return createAdapter(platform, emit, settings);
+    };
     let port = 0;
     const running = serveLoop({
-      binding: { host: "127.0.0.1", port: 0 },
+      binding: { host: "127.0.0.1", port: 0, token: TOKEN },
       settings: DEFAULT_CLI_SETTINGS,
       statePath: join(tempDir, "state.json"),
       stateStore: memoryStateStore(),
@@ -477,17 +615,33 @@ describe("serveLoop", () => {
     });
     try {
       await vi.waitFor(() => expect(port).not.toBe(0));
-      const session = await send(port, { path: "/v1/session" });
+      const headers = { authorization: `Bearer ${TOKEN}` };
+      const session = await send(port, { path: "/v1/session", headers });
       expect(session.status).toBe(200);
       expect((session.json as { version: string }).version).toBe(CLI_VERSION);
-      const snap = await postMessage(port, { type: "getSnapshot" });
+      const snap = await postMessage(port, { type: "getSnapshot" }, headers);
       expect(snap.status).toBe(200);
       expect((snap.json as { result: { state: unknown } }).result.state).toBeDefined();
       await vi.waitFor(async () => {
-        const reply = await send(port, { path: "/v1/session" });
+        const reply = await send(port, { path: "/v1/session", headers });
         const auth = (reply.json as { platforms: { twitch: { auth: { status: string } } } })
           .platforms.twitch.auth;
         expect(auth.status).toBe("healthy");
+      });
+      const message = { type: "exportDiagnostics", platform: "twitch" };
+      expect((await postMessage(port, message)).status).toBe(401);
+      expect((await postMessage(port, { ...message, platform: "other" }, headers)).status).toBe(
+        400,
+      );
+      await vi.waitFor(async () => {
+        const reply = await postMessage(port, message, headers);
+        expect(reply.status).toBe(200);
+        expect(reply.text).not.toContain(TOKEN);
+        const { result } = reply.json as { result: { events: unknown[]; report: string } };
+        expect(result.events.length).toBeGreaterThan(0);
+        expect(result.report).toContain("Lurkloot diagnostics log");
+        expect(result.report).toContain("auth status: healthy");
+        expect(result.report).toContain("[redacted]");
       });
     } finally {
       process.emit("SIGTERM");
@@ -499,6 +653,7 @@ describe("serveLoop", () => {
   });
 
   it("reads and writes settings through an injected settings store", async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "serve-test-"));
     let stored = toEngineSettings(DEFAULT_CLI_SETTINGS);
     const save = vi.fn(async (next: EngineSettings) => {
       stored = next;
@@ -507,7 +662,8 @@ describe("serveLoop", () => {
     const running = serveLoop({
       binding: { host: "127.0.0.1", port: 0 },
       settings: DEFAULT_CLI_SETTINGS,
-      statePath: "/nonexistent-lurkloot-state.json",
+      statePath: join(tempDir, "state.json"),
+      activityHistory: discardingActivityHistory(),
       stateStore: memoryStateStore(),
       settingsStore: {
         load: async () => stored,
@@ -549,6 +705,7 @@ describe("serveLoop", () => {
           binding: { host: "127.0.0.1", port: taken },
           settings: DEFAULT_CLI_SETTINGS,
           statePath: "/nonexistent-lurkloot-state.json",
+          activityHistory: discardingActivityHistory(),
           stateStore: memoryStateStore(),
           transport,
           logger: quiet,
@@ -702,6 +859,39 @@ describe("serve saves settings to config.json", () => {
     }
   });
 
+  it("validates and persists Twitch Extension toggles", async () => {
+    const serving = await serveConfig();
+    try {
+      for (const fields of [
+        { provider: "unknown", enabled: true },
+        { provider: "nopixel", enabled: 1 },
+      ]) {
+        const reply = await postMessage(serving.port, {
+          type: "setTwitchExtensionEnabled",
+          ...fields,
+        });
+        expect(reply.status).toBe(400);
+      }
+      for (const enabled of [true, false]) {
+        const reply = await postMessage(serving.port, {
+          type: "setTwitchExtensionEnabled",
+          provider: "nopixel",
+          enabled,
+        });
+        expect(reply.status).toBe(200);
+        expect(reply.json).toEqual({ result: { enabled } });
+        expect((await currentSettings(serving.port)).twitchExtensions.nopixel.enabled).toBe(
+          enabled,
+        );
+        expect(loadConfig(serving.configPath).settings.twitchExtensions.nopixel.enabled).toBe(
+          enabled,
+        );
+      }
+    } finally {
+      await serving.stop();
+    }
+  });
+
   const rejected: Array<{
     patch: Record<string, unknown>;
     code: string;
@@ -713,9 +903,9 @@ describe("serve saves settings to config.json", () => {
       paths: ["muteFarmingTabs"],
     },
     {
-      patch: { twitchExtensions: { nopixel: { enabled: true } } },
-      code: "settings_unrepresentable",
-      paths: ["twitchExtensions"],
+      patch: { twitchExtensions: { nopixel: { enabled: "yes" } } },
+      code: "settings_invalid",
+      paths: ["twitchExtensions.nopixel.enabled"],
     },
     {
       patch: { pauseOnManualWatch: true },

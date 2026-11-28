@@ -28,7 +28,8 @@ export interface DeviceLoginFlow {
   poll(signal?: AbortSignal): Promise<DevicePoll>;
   // The credentials to save for an approved token.
   credentials(token: string): PlatformCredentials;
-  // Releases what the flow holds (Kick's cycletls subprocess).
+  // Releases what the flow holds (Kick's impersonating client, and with cycletls
+  // its helper process).
   dispose(): Promise<void>;
 }
 
@@ -58,7 +59,7 @@ export const abortableSleep: Sleep = (ms, signal) =>
   });
 
 // Settles with the promise, or rejects as soon as the signal aborts. A poll
-// that ignores the signal (Kick's cycletls request) then no longer holds a
+// that ignores the signal (a Kick request on cycletls) then no longer holds a
 // cancel or shutdown open; the caller disposes the flow, which ends it.
 function untilAborted<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (!signal) return promise;

@@ -12,11 +12,23 @@ validation instructions are in
 
 ## Implemented
 
+- Core exports the channel and session host from `@lurkloot/core/extensions/host` (#1086).
+  Its ports cover permission decisions, settings and state, credential-free lane memory,
+  viewer login, event publication, tick requests and provider drivers. The extension binds
+  them to its existing browser services, including the admitted Fortnite socket and NoPixelV
+  fetch. The CLI binds the same driver factory, supplemental selector and commit hook
+  to its config store, Node transports and account identity query (#1087).
 - Browser-free descriptors contain optional backend origins, discovery
   categories and refresh floors. Frame registration/relay/protocol code is removed.
 - The selected-channel session source uses Twitch's shipped
-  `CoordinatorExtensionsForChannel` fields through the existing browser session
-  fetcher. It does not acquire page context or create an integrity tab. Active
+  `CoordinatorExtensionsForChannel` fields through an injected GQL transport and
+  Client-ID. The extension supplies its existing browser session fetcher and web
+  Client-ID. The CLI matches Client-ID to its imported web, Android or Smart TV
+  credential. An explicit refusal for a non-web client leaves that provider idle
+  until credentials change, with one warning. The CLI attempts the provider's
+  Hermes broadcast subscription with every sign-in (#1105, #1101). The
+  once-a-minute refresh continues when the connection or topic is refused.
+  The session read runs tabless. Active
   installation, channel binding, viewer role, linked identity and expiry are
   checked; provider backends still perform cryptographic verification.
 - Credentials stay within the privileged source/driver callback. Only bounded
@@ -34,13 +46,14 @@ validation instructions are in
   the popup. Unsolicited grants do not enable providers; disable, revocation and
   reset cancel intents, and reset drains in-flight enable requests.
   Startup verifies grants, revocation stops resources before async cleanup, and
-  stale grants/verification cannot restart disabled resources.
+  stale grants/verification cannot restart disabled resources. On the CLI the
+  enable setting itself is consent to contact the provider backend.
 - Background startup/wake, alarms, settings/scheduler changes, credential
   changes and permission removal reconcile the runtime. Snapshots attach cloned
   transient summaries; no active provider session is restored from storage.
-- Browser-only settings default NoPixelV, Fortnite and takeovers off. CLI config
-  rejects those keys. Required browser grants are unchanged; both vendor
-  backends are optional. Settings places Twitch Extensions immediately after
+- Provider toggles, pack opening and takeovers default off on both hosts.
+  Required browser grants are unchanged; both vendor backends are optional.
+  Settings places Twitch Extensions immediately after
   Twitch, with independent NoPixelV/Fortnite subgroups containing their own
   toggles. Provider enable switches sit in the group headers and remain
   available while collapsed; only provider-specific automation options appear
@@ -131,7 +144,7 @@ Since 1.1.3 an open giveaway carries `eligible_user_type`, which is `any`, `foll
 
 The overlay also listens on the extension's `broadcast` and `global` topics through `Twitch.ext.listen`. It parses each message as `{event, payload}` and dispatches it as `twitch.pubsub.<event>`. In 1.1.2 and 1.1.4 (`/1.1.4/6f4877431f43b6ee80531236f85b557b/`, `useGiveaway-Bn0L1YWx.js`), the giveaway hook sets the open giveaway from the `cards.giveaway.started` payload and clears it on `cards.giveaway.ended`, whose payload lists the `winners`. Its other events are `system.messages.update`, `map.event.*`, `social.posts.*` and `news.posts.*`.
 
-LurkLoot follows the broadcast topic, `channel-ext-v1.<channelId>-nstuq90nghenyqwqme61jgvmtp253a-broadcast`, on its one Hermes connection while NoPixelV is the tabless watch source (#757). Hermes refuses that topic as an ordinary `pubsub` subscription with the user's token (seen live on 2026-10-11). Twitch's web client subscribes it as `{type: "extension", extension: {topic, token}}`, where `token` is the extension JWT for the channel, and LurkLoot does the same with its NoPixelV session JWT. It holds the JWT in memory only, and subscribes only while that session has more than a minute left. A renewed JWT retries a refused subscription. The JWT exists only once the provider session is ready, which is a moment after the tick that chose NoPixelV commits. The runtime therefore asks the controller to re-reconcile the Hermes observer (`reconcileTwitchObservers`) as soon as a session is ready, rather than waiting a minute for the next tick. This matters for the one-minute giveaway re-probes after daily watch time is complete. On either giveaway event it refreshes the driver at once, which reads and joins the giveaway as a scheduled refresh would. It reads only the event name, never the payload. Because the refresh also reads daily watch time, and is the only path when a push is missed or Hermes refuses the topic, the once-a-minute refresh stays. A pushed refresh never runs alongside another; one arriving mid-refresh runs once that one ends. The `global` topic is not followed, and nobody has yet seen a giveaway arrive on `broadcast` live.
+LurkLoot follows the broadcast topic, `channel-ext-v1.<channelId>-nstuq90nghenyqwqme61jgvmtp253a-broadcast`, on its one Hermes connection while NoPixelV is the tabless watch source (#757). Hermes refuses that topic as an ordinary `pubsub` subscription with the user's token (seen live on 2026-10-11). Twitch's web client subscribes it as `{type: "extension", extension: {topic, token}}`, where `token` is the extension JWT for the channel, and LurkLoot does the same with its NoPixelV session JWT. It holds the JWT in memory only, and subscribes only while that session has more than a minute left. A renewed JWT retries a refused subscription. The JWT exists only once the provider session is ready, which is a moment after the tick that chose NoPixelV commits. The runtime therefore asks the controller to re-reconcile the Hermes observer (`reconcileTwitchObservers`) as soon as a session is ready, rather than waiting a minute for the next tick. This matters for the one-minute giveaway re-probes after daily watch time is complete. On either giveaway event it refreshes the driver at once, which reads and joins the giveaway as a scheduled refresh would. It reads only the event name, never the payload. Because the refresh also reads daily watch time, and is the only path when a push is missed or Hermes refuses the topic, the once-a-minute refresh stays. A pushed refresh never runs alongside another; one arriving mid-refresh runs once that one ends. The `global` topic is not followed, and nobody has yet seen a giveaway arrive on `broadcast` live. The CLI follows the same topic over its own Hermes connection for every sign-in when Twitch accepts the connection and topic (#1105, #1101). The once-a-minute refresh runs regardless of push availability.
 
 Daily watch time accrues only while the viewer is in the channel's chat. A 2026-10-04 live A/B test showed this: during tabless farming the counter started climbing as soon as the channel's popout chat was opened. The vendor client has no presence heartbeat, and the streamer must connect their Twitch account so the backend can read the chatter list. NoPixelV therefore declares `needsChatPresence`, and the chat presence service joins the watched channel's chat (#683).
 

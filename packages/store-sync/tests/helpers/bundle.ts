@@ -37,7 +37,7 @@ export function temporaryDirectory(prefix = "store-sync-"): string {
 
 export const NAMES = ["01-drops", "02-extras", "03-easy", "04-settings", "05-updated"];
 
-export type Content = {
+type Content = {
   description?: string;
   screenshots?: number;
 };

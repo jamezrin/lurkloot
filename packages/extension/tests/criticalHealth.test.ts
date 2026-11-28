@@ -11,6 +11,7 @@ import {
   TAB_CHURN_LIMIT,
   TAB_CHURN_WINDOW_MS,
   recordManagedTabOpen,
+  recordRejectedManagedPageContext,
   isManagedTabBreakerOpen,
 } from "@lurkloot/core/criticalHealth";
 import {
@@ -66,7 +67,7 @@ describe("critical health normalization", () => {
     expect(Object.isFrozen(DEFAULT_CRITICAL_HEALTH.records)).toBe(true);
   });
 
-  it("restores a persisted flag while discarding malformed counters", () => {
+  it("restores a persisted flag and valid open times while discarding malformed data", () => {
     const restored = normalizeCriticalHealth({
       status: "flagged",
       reason: "page_context_churn",
@@ -90,7 +91,7 @@ describe("critical health normalization", () => {
     expect(restored.breakerOpen).toBe(true);
     expect(restored.failingMs).toBe(0);
     expect(restored.failingTicks).toBe(0);
-    expect(restored.managedTabOpens).toEqual([]);
+    expect(restored.managedTabOpens).toEqual(["2026-07-25T09:59:00.000Z"]);
     expect(restored.records).toHaveLength(1);
   });
 
@@ -507,6 +508,40 @@ describe("critical health detection", () => {
     expect(after.criticalHealth?.kick?.status).toBe("ok");
   });
 
+  it("keeps an unflagged breaker open while five rejected contexts are within three hours", () => {
+    const rejectedAt = [150, 120, 90, 60, 30].map((minutes) => START - minutes * 60_000);
+    const oldRejection = new Date(START - 181 * 60_000).toISOString();
+    let state: SchedulerState = {
+      ...baseState(),
+      criticalHealth: {
+        kick: {
+          ...DEFAULT_CRITICAL_HEALTH,
+          cooldownUntil: new Date(START + 60_000).toISOString(),
+          rejectedPageContextOpens: rejectedAt.slice(0, -1).map((at) => new Date(at).toISOString()),
+        },
+      },
+    };
+    state = recordRejectedManagedPageContext(state, "kick", rejectedAt[4]).state;
+    const health = state.criticalHealth!.kick!;
+    expect(health.status).toBe("ok");
+    expect(health.breakerOpen).toBe(true);
+    expect(health.managedTabOpens).toEqual([]);
+
+    // Persisted data may contain older stamps before the next observation prunes it.
+    health.rejectedPageContextOpens = [oldRejection, ...health.rejectedPageContextOpens!];
+    state = observeCriticalHealth(state, "kick", {
+      at: START,
+      failing: true,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+
+    expect(state.criticalHealth?.kick?.breakerOpen).toBe(true);
+    expect(state.criticalHealth?.kick?.rejectedPageContextOpens).toEqual(
+      rejectedAt.map((at) => new Date(at).toISOString()),
+    );
+  });
+
   it("keeps a flagged platform's breaker open even after the evidence ages out", () => {
     let state = baseState();
     for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
@@ -574,7 +609,7 @@ describe("critical health detection", () => {
 });
 
 describe("critical health persistence", () => {
-  it("restores a flagged platform but resets its counters across a restart", () => {
+  it("restores a flagged platform and open times but resets its failing-time counters", () => {
     const merged = mergeSchedulerState({
       criticalHealth: {
         kick: {
@@ -600,7 +635,7 @@ describe("critical health persistence", () => {
     expect(merged.criticalHealth?.kick?.status).toBe("flagged");
     expect(merged.criticalHealth?.kick?.breakerOpen).toBe(true);
     expect(merged.criticalHealth?.kick?.failingMs).toBe(0);
-    expect(merged.criticalHealth?.kick?.managedTabOpens).toEqual([]);
+    expect(merged.criticalHealth?.kick?.managedTabOpens).toEqual(["2026-07-25T09:59:00.000Z"]);
     expect(merged.criticalHealth?.kick?.records).toHaveLength(1);
   });
 

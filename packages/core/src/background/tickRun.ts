@@ -1,8 +1,9 @@
-import type {
-  EngineSettings,
-  Platform,
-  SchedulerState,
-  WatchSession,
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+  type WatchSession,
 } from "@lurkloot/shared/models";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { isFarmingActive } from "@lurkloot/shared/settings";
@@ -12,13 +13,11 @@ import type {
   SnapshotSelectionResult,
 } from "../core/scheduler";
 import { syncManagedTabBreakers } from "../core/tabRegistry";
-import { recordManagedTabOpen } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
 import {
   adapterFromDiscoverySnapshot,
   selectionAdapterFromDiscoverySnapshot,
 } from "../core/discoverySnapshot";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, farmingLifecycleEvents } from "./helpers";
@@ -47,7 +46,7 @@ import { errorMessage } from "@lurkloot/shared/errors";
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  transaction: Pick<StateTransaction<S>, "concludeTick">,
+  transaction: Pick<StateTransaction<S>, "concludeTick" | "onCommit">,
   {
     tickSlice,
     tabRegistry,
@@ -92,6 +91,7 @@ export function createTickRun<S extends EngineSettings>(
     | "stateRevision"
     | "tickInBackground"
     | "twitchChannelPointsPushEpoch"
+    | "twitchChannelPointsPushAvailable"
     | "waitingClaimRewardIds"
     | "withEventCollector"
     | "withStateLock"
@@ -139,6 +139,7 @@ export function createTickRun<S extends EngineSettings>(
     stateRevision,
     tickInBackground,
     twitchChannelPointsPushEpoch,
+    twitchChannelPointsPushAvailable,
     waitingClaimRewardIds,
     withEventCollector,
     withStateLock,
@@ -161,6 +162,22 @@ export function createTickRun<S extends EngineSettings>(
         ),
       ),
     ));
+
+  // Reuse the committed scheduler deadline without an extra storage load on
+  // every tick. A new controller rechecks the identity on its first probe.
+  const authProbeRetryAt: Partial<Record<Platform, number>> = {};
+  transaction.onCommit((change) => {
+    if (change.kind !== "state") return;
+    for (const platform of change.platforms) {
+      const { authHealth, sessions } = change.state;
+      const session = sessions[platform];
+      if (authHealth[platform].reasonCode === "request_challenged" && session.status === "error") {
+        authProbeRetryAt[platform] = Date.parse(session.retryAfter ?? "");
+      } else {
+        delete authProbeRetryAt[platform];
+      }
+    }
+  });
 
   async function tickPlatform(
     platform: Platform,
@@ -234,7 +251,7 @@ export function createTickRun<S extends EngineSettings>(
 
   async function runTick(
     tickContext: TickDiagnosticContext,
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     signal: AbortSignal,
     trigger: TickTrigger,
     tickAdapters: Partial<Record<Platform, TickAdapterHandle<S>>>,
@@ -246,6 +263,11 @@ export function createTickRun<S extends EngineSettings>(
     await reportUnsupportedSettings(settings, tickContext);
     const requestedPlatforms = platforms ?? PLATFORMS;
     const excludedPlatforms = new Set<Platform>();
+    for (const platform of requestedPlatforms)
+      await tabRegistry.managedPageContexts?.prepare(
+        platform,
+        settings.criticalFailurePromptEnabled,
+      );
     if (isFarmingActive(settings)) {
       // A platform's own service may hold it out of the tick until it is
       // ready (#696): Twitch integrity, before Twitch is farmed.
@@ -253,9 +275,18 @@ export function createTickRun<S extends EngineSettings>(
         const ready = policySlice.tickReadiness[platform];
         if (ready && !(await ready(settings, signal, tickContext))) excludedPlatforms.add(platform);
       }
-      const authPlatforms = requestedPlatforms.filter(
-        (platform) => !excludedPlatforms.has(platform),
-      );
+      const authPlatforms = requestedPlatforms.filter((platform) => {
+        if (excludedPlatforms.has(platform)) return false;
+        // A challenge at the identity endpoint uses the scheduler's platform
+        // retry window. Explicit auth checks still run through the auth owner.
+        const retryAt = authProbeRetryAt[platform];
+        return (
+          !retryAt
+          || retryAt <= Date.now()
+          || trigger === "manual_tick"
+          || trigger === "manual_resume"
+        );
+      });
       if (authPlatforms.length > 0) {
         const authStartedAt = Date.now();
         try {
@@ -305,6 +336,11 @@ export function createTickRun<S extends EngineSettings>(
         // Dependents stop what the refreshed auth no longer allows from their
         // after-commit hooks (#595); the tick goes on once they have.
         await settleCommitHooks(authPlatforms);
+        // Settings the built adapters cannot honour (#1090). Only adapters the
+        // auth probe already built are read, so the check builds none.
+        await reportUnsupportedSettings(settings, tickContext, (adapterPlatform) =>
+          tickAdapters[adapterPlatform]?.built(settings),
+        );
       }
     }
 
@@ -543,7 +579,11 @@ export function createTickRun<S extends EngineSettings>(
               capabilities: Object.fromEntries(
                 schedulerPlatforms.map((schedulerPlatform) => [
                   schedulerPlatform,
-                  tickCapabilities(adapters[schedulerPlatform], ports.capabilities.browserTabs),
+                  tickCapabilities(
+                    adapters[schedulerPlatform],
+                    ports.capabilities.browserTabs,
+                    twitchChannelPointsPushAvailable(adapters[schedulerPlatform]),
+                  ),
                 ]),
               ),
             },
@@ -629,6 +669,16 @@ export function createTickRun<S extends EngineSettings>(
             return;
           }
           const tickState = rebased.state;
+          if (latest.criticalHealth?.[platform]?.status === "flagged") {
+            // A concurrent accounting commit already reported the flag it owns.
+            for (let index = events.length - 1; index >= eventsBeforeTick; index -= 1) {
+              const event = events[index];
+              if (event.platform === platform && event.code === "critical_failure_detected") {
+                events.splice(index, 1);
+              }
+            }
+          }
+          if (rebased.event) emit(rebased.event);
           for (const schedulerPlatform of schedulerPlatforms) {
             if (discoverySnapshot(schedulerPlatform).lastAttempt?.complete === true) {
               discoveryComplete.add(schedulerPlatform);
@@ -655,24 +705,6 @@ export function createTickRun<S extends EngineSettings>(
           signal.throwIfAborted();
           assertSelectionsCurrent();
           nextState = tickState;
-          if (settings.criticalFailurePromptEnabled) {
-            // Page-context tabs are created deep inside tabs.ts, which has no access
-            // to scheduler state, and their events come from the adapters' own
-            // emitter rather than the tick's. Reading them back off this tick's
-            // collected events catches every emitter, not just the wrapped one.
-            for (const event of events.slice(eventsBeforeTick)) {
-              if (event.category !== "activity" || event.code !== "page_context_opened") continue;
-              const transition = recordManagedTabOpen(nextState, event.platform, Date.now(), {
-                source: "page_context",
-                reason: event.data.reason,
-              });
-              nextState = transition.state;
-              if (transition.event) emit(transition.event);
-            }
-            // Keep the registry that gates page-context creation in step with the
-            // state we are about to persist, so the very next fetch is suppressed.
-            syncManagedTabBreakers(tabRegistry, nextState, schedulerPlatforms);
-          }
         } catch (error) {
           try {
             if (signal.aborted) {
@@ -737,6 +769,11 @@ export function createTickRun<S extends EngineSettings>(
             await commitFacts(await loadLatest(), staleSelection.message, factEvents);
             return;
           }
+          syncManagedTabBreakers(
+            tabRegistry,
+            settings.criticalFailurePromptEnabled ? nextState : {},
+            schedulerPlatforms,
+          );
           afterCommit = {
             heartbeat,
             adFocus: nextState,

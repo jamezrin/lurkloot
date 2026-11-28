@@ -8,11 +8,16 @@ The repository is a pnpm workspace whose root `package.json` is a pure orchestra
 
 - `packages/extension` — the WXT extension shell (`entrypoints/`, browser-specific `src/`, `wxt.config.ts`, `public/`, `tests/`). Builds to `packages/extension/.output/{chrome-mv3,firefox-mv2}`.
 - `packages/core` — the browser-free farming engine (`@lurkloot/core`): scheduler, background controller, platform adapters/parsers, tab/watch abstractions, tabless watch logic, and Twitch integrity helpers. It is consumed by both the extension and CLI.
-- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`.
+- `packages/cli` — the headless Node/Docker runtime (`@lurkloot/cli`) with auth, config, storage, and HTTP/impersonation transports around `@lurkloot/core`. `build` bundles `dist/index.mjs` (ESM, `impit` and `ws` left in `node_modules`), copies CycleTLS's Go binary to `dist/cycletls/` and the app UI to `dist/app`; `build:executable` builds the standalone executable (see "Standalone CLI executable" below).
 - `packages/locales` — the localized message catalogs and async catalog loader (`@lurkloot/locales`), used by extension code and shared UI.
 - `packages/popup-ui` — the shared React popup UI (`@lurkloot/popup-ui`), consumed by the extension, the site and the app UI.
 - `packages/app-ui` — the full-window app UI for `lurkloot serve` (`@lurkloot/app-ui`): popup-ui's views in a window frame, over an HTTP `PopupAdapter`. Builds a static bundle to `packages/app-ui/dist`.
+- `packages/desktop` — the desktop app (`@lurkloot/desktop`, #1024): a Tauri 2 shell in `src-tauri/` that runs the bundled standalone `lurkloot serve` and shows its app UI. Packaging only (see "Desktop app" below).
 - `packages/shared` — framework-agnostic models, messages, settings, i18n, and logging (`@lurkloot/shared`).
+  The platform list is declared once, as `PLATFORMS` in `@lurkloot/shared/models`, and the
+  `Platform` type is derived from it. Code that iterates or validates platforms uses `PLATFORMS`
+  rather than a `["twitch", "kick"]` literal; `packages/extension/tests/platformList.test.ts`
+  fails on a copy of the list or of the `"twitch" | "kick"` union in any package's `src/`.
 - `packages/site` — the Astro marketing/landing page, which imports the real popup UI for its demo.
 
 Package-qualified paths below are written as `packages/<package>/...` when ownership matters. Bare extension paths such as `entrypoints/...` are relative to `packages/extension/`.
@@ -64,30 +69,72 @@ infeasible and statically disallowed campaigns stay in the inventory with empty
 channel observations. Claimable rewards and uncertain channel eligibility retain
 their existing behavior. This gate uses the same evaluator as selection.
 
-Kick checks eligible campaigns through an optional adapter batch contract. Three
-workers process independent campaigns; each campaign checks candidates in order
-and stops at its first valid channel. This avoids speculative requests after an
-early match. Watchlist checks are independent jobs and all remain observed.
-Raw API/page responses are shared by URL only within that discovery revision;
-each candidate retains its own campaign, ACL metadata and category expectation.
-The next revision fetches fresh evidence. A single campaign's candidate chain
-remains sequential, trading its latency for the existing early-match request
-budget. Campaign and candidate result ordering never depends on completion order.
+General campaigns start with directory candidates. With `preferKnownChannels`
+enabled, discovery also considers the platform's Watchlist and live follows.
+It filters drop exclusions, deduplicates by login, and fills a per-refresh probe
+pool in Watchlist order followed by live follows. The pool is capped at 40
+logins on Kick and 100 on Twitch. The full fetched follow list still ranks
+observed channels. Campaigns with a channel allow list use that list. Disabling
+the preference skips follow lookup and expansion. Idle Watchlist and watch
+streak checks remain available.
 
-Missing Kick inventory/progress, malformed general-channel directories, missing
-required category evidence, cancellation or failed checks do not replace the
-last coherent snapshot. On failure, workers stop taking new work and drain active
-requests before returning. The collector also drains paired inventory and
+Kick's `checkChannels` batch runs ordinary candidates in directory order and
+stops that chain at the first valid match. Known directory candidates receive
+their own best-effort observations so selection can rank them. Outside channels
+must be live in the campaign's category. Three workers process the batch and
+share raw API and page responses by URL within the revision, including across
+Drops and idle checks. Missing evidence for a known campaign candidate drops
+that observation. An HTTP 429 stops new optional requests for the rest of the
+revision. Started checks drain and the ordinary directory path keeps its
+required-evidence rules. Every idle Watchlist entry requires an observation
+even when it is also probed for a campaign. If the idle check cannot obtain
+evidence from the shared response or its usual lookup, the refresh fails.
+
+Twitch batches public stream checks for the known pool once per revision and
+reuses them for category checks and idle Watchlist selection. For a regular
+Drops campaign, a channel outside the directory or current watch needs a
+positive AvailableDrops match (or cached progress-confirmed availability),
+even with strict availability turned off. The Drops-enabled directory remains
+the ordinary source. For a sitewide campaign, a stream in an allowed campaign
+category is sufficient because those campaigns are absent from AvailableDrops.
+Optional Twitch batches run sequentially, skip unusable results and single
+retries, and stop admitting optional requests after a 429. Idle entries without
+usable probe evidence still run through ordinary idle selection, including its
+single-channel and page fallbacks. An uncached
+AvailableDrops probe runs at most once per channel per revision. Snapshots
+keep candidates scoped to their campaign, even when campaigns share a category.
+
+Missing Kick inventory or progress, malformed directories, missing required
+channel evidence and cancellation leave the last coherent snapshot in place.
+On failure, workers stop taking new work and drain active requests.
+The collector also drains paired inventory and
 followed-channel operations. Strict Kick discovery awaits stale followed-cache
 refreshes, including an existing refresh, before cycle-level fetch observation is
 consumed. This adds the followed lookup's latency once per five-minute cache
-expiry, while fresh-cache reads remain immediate. HTTP 429 never retries through a different
-execution context. Discovery diagnostics report duration, inventory count,
-campaigns skipped before channel work, candidate observations and unique channel
-checks. Failed attempts without counters report that work metrics are unavailable
+expiry, while fresh-cache reads remain immediate. Kick never retries an HTTP 429
+through a different execution context. Discovery diagnostics report duration, inventory count,
+campaigns skipped before channel work, candidate checks, and distinct channel
+logins checked. Kick's candidate count includes each returned batch check,
+including best-effort checks with usable evidence. Twitch's candidate count
+includes ordinary selection inputs and known channels admitted to campaigns.
+The distinct-login count includes attempted known-channel probes on both
+platforms. Twitch reports the shared probe's actual batch requests once per
+refresh. Failed attempts without counters report that work metrics are unavailable
 rather than reporting zero work. The attribution fields contain only counts;
 strict missing-evidence failures use fixed messages. Both extension and CLI run
 this collector and the same Kick adapter.
+
+Failed followed-channel lookups on either platform remain best effort and cache
+an empty list for the existing five-minute window. The followed-list cache in
+each platform's discovery state also records whether it has warned for the
+current failure streak. Only the first failure emits a warning, with a fixed
+cause class (WAF block, auth, network, or other). The warning treats recognized
+Kick challenge responses as WAF blocks and HTTP server errors as other. The
+warning reports the lookup outcome independently of the identity probe. A
+successful lookup, including an empty list, resets the streak. Twitch replaces
+its cache and streak on an account switch. Strict Twitch discovery also waits
+for stale refreshes so the refresh's warning reaches the discovery event
+collector.
 
 ## Background controller ownership and concurrency
 
@@ -179,12 +226,12 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
 | Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's settings come from an injectable `SettingsStore` (`packages/cli/src/runtime/run.ts`); the default store (`run`) drops saves and applies no patch. `serve` uses the config-file store (`packages/cli/src/settingsStore.ts`, #1000), which applies and saves them |
-| Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The Kick runtime's `releasePageContexts` effect handler (#588), `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start, removal of the context's tab (forgotten whoever closed it, without pausing; #588) | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
+| Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The Kick runtime's `releasePageContexts` effect handler (#588), `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start, removal of the context's tab (forgotten whoever closed it, without pausing; #588) | Mirrored into `SchedulerState` by the controller and its state transaction. The tab owner records physical opens before inspection. | Hydrated from storage before the first probe or acquisition in a worker | Extension only |
 | Claim operations (the claim service's drop-claim operations, waiting reward ids and handoffs, the Kick runtime's challenge claim operations, the channel-points service's claim operations, push-claim queue and push observer) and claim guards (the claim service's `RewardClaimGuard`s, the Kick runtime's `KickChallengeClaimGate`, the channel-points `ChannelPointsClaimGate`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | None for the request: the tick (#599), the drop-claim job and manual claims (#597), the channel-points job and push (#590) and the Kick challenge job (#588) claim with no lock, then commit their result onto the latest state under the platform lock. The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (the token, the persisted token, the lifecycle generation) | The integrity service's own state (#589). The token has one in-memory copy, in the tab registry, with the capture waiters and in-flight acquisition; the service is its only writer; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, and Twitch's enabled flag from any settings save (#589): a save that disables Twitch cancels a mint in flight and holds off integrity work until it ends, and a serialized reconcile after it follows the stored flag, so a failed save needs no rollback | A newer lifecycle generation, and for persistence a host reset | The service's own lanes, no controller lock (#589): token bookkeeping, then the refresh alarm. A schedule re-checks it owns the lifecycle inside the alarm lane, where a disable's clear also runs | Token reloaded from storage | Extension only |
 | Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
 | Host jobs | The job scheduler port: `browser.alarms` (extension), Node timers (CLI) | `ensureCadenceJobs`, `rescheduleTickJobs`, each service's reconcile and reschedule, integrity scheduling | Settings changes, disable | After the settings lock is released, from the latest stored settings; the integrity alarm has its own lane (#589) | Alarms survive a service-worker restart; the CLI re-ensures its cadence jobs on start | Both; jobs whose capability a host lacks are inert (#593) |
-| Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/extension/src/extensions/host.ts`; the completion and cooldown deadlines are also stored under `twitchExtensionLane` in local storage (#594) | The host's reconcile loop | The controller's accepted commits, through the lane's commit hook (`src/extensions/commitHook.ts`, #594): Twitch state commits and settings commits that are not ranking-only | Outside the controller | Deadlines restored from `twitchExtensionLane`, validated and with expired entries dropped; summaries and sessions are re-acquired | Extension only |
+| Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/core/src/extensions/host/host.ts`; deadlines in extension local storage (`twitchExtensionLane`, #594) or CLI `twitch-extension-lane.json` | The host's reconcile loop | Accepted Twitch state commits and settings commits that affect the lane, through `packages/core/src/extensions/host/commitHook.ts` (#594) | Outside the controller | The memory port restores validated, unexpired deadlines; summaries and sessions are re-acquired | Core implementation, wired in both hosts |
 
 ### Locks and queues
 
@@ -406,8 +453,10 @@ type to exactly one handler and throws when a second one registers. `createTickE
 starts empty: each owning service registers its handlers, binding the host ports they use, and the
 tick composes them once per controller. No interim handler remains (#591).
 `runSchedulerTickEffects` drives the platforms in order, running each yielded effect through the
-executor, and mirrors the page contexts and managed-tab breaker of the controller's tab registry around them. The deciding
-code never touches either.
+executor, and reads back the page contexts from the controller's tab registry. Before readiness
+or auth can reach a provider, `managedPageContexts.ts` hydrates ownership and synchronizes the
+persisted managed-tab breaker. Standalone probes and browser acquisitions use the same preparation
+path. The tick updates the breaker mirror only after its state commits.
 
 `runTick` runs a tick in four steps:
 1. **Under the platform lock:** read the settings and state, and settle the prepared selections.
@@ -432,6 +481,12 @@ The rebase is a three-way merge per platform-owned key:
     same tab;
   - heartbeat fields stay with the heartbeat's commit;
   - the other writer's claims carry into the tick's inventory;
+  - the newest challenge poll stamp wins;
+  - critical health keeps the tick's observation and incorporates page-context opens and rejections
+    committed during its effects, including the open breadcrumbs and any committed flag. An open
+    breaker on either side stays open, and the combined open counts can also trip it. A concurrent
+    dismissal supersedes the tick's observation;
+  - the live registry supplies managed page-context ownership at publication;
   - anything else is a conflict.
 
 On a conflict, or when the selection went stale, the decision is dropped. `tickEffectFacts` still
@@ -540,13 +595,13 @@ of optional hooks:
 | Port | Extension | CLI |
 | --- | --- | --- |
 | `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings through an injectable `SettingsStore`: under `run` the config file's, never written; under `serve` the config-file store (`src/settingsStore.ts`, #1000), which saves them to `config.json` |
-| `events` | Activity store, OS notifications, locale catalogs | The logger |
+| `events` | Activity store (IndexedDB), OS notifications, locale catalogs | The logger and bounded activity and diagnostics histories |
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
 | `credentials` | Cookie observation | The file/env credential store |
 | `tabs` (`watch`: `WatchTabPort`, `pageContexts`: `PageContextPort`, which also carries page-context recovery), `tabRegistry` | Browser tabs. Watch tabs are the host's, not `PlatformAdapter`'s (#598) | Absent: every watch is tabless |
 | `twitch.integrity` | Page capture | Absent |
-| `twitch.supplementalSources` | Twitch Extensions host (#587 adds `prepare`) | Absent |
+| `twitch.supplementalSources` | Twitch Extensions host | Same host, with Node transports and config-based opt-in |
 
 The CLI settings store (`packages/cli/src/settingsStore.ts`, #976) is what `serve` (#975) gives
 the controller as `storage.loadSettings`/`saveSettings`. It maps engine settings back to the CLI
@@ -578,6 +633,37 @@ capability's ports are present without the capability or the other way round, so
 never switches a feature off silently. A setting that needs a capability the host lacks
 (`tablessMode: false` or `pauseOnManualWatch` without browser tabs) is reported once per
 controller as an English diagnostic, with no platform, and changes nothing else.
+
+Host-wide flags cannot see a gap in one platform's adapter (the CLI declares `chatPresence`,
+but its Kick adapter on the `http` transport has no presence client), so per-platform settings
+are also checked against the adapter the tick built (#1090).
+`packages/core/src/background/adapterSettings.ts` owns the
+table: `ADAPTER_BACKED_SETTINGS` names each per-platform field whose effect needs an adapter
+feature some host lacks (`alwaysEnterChat` → chat presence; `channelPointsPushClaim`,
+`watchlistStreakChannels` and the `watchStreak*` tuning → the push connection). Every
+candidate must differ from the platform's shared default and still request the feature.
+`adapterOffers` reads the feature from the built adapter (`createChatPresenceClient`,
+`createChannelPointsPushController`, …). `autoClaimChannelPoints` and `autoClaimChallenges`
+also need adapter features, but every real adapter offers them, so they stay out of the
+runtime table (controller-test fakes lack them) and the CLI guard maps them itself.
+`tickCapabilities` reads the same helper.
+
+After the auth probe, `reportUnsupportedSettings` checks the current tick's built adapters via
+`TickAdapterHandle.built`, which constructs none. It remembers only warnings it emitted.
+A key supported in an earlier tick can warn when a subsequent adapter lacks its feature.
+It warns once per key per controller lifetime, even if support returns and is lost again.
+The diagnostic carries its platform, as in “Kick on this host cannot join channel chat, so
+platform.kick.alwaysEnterChat has no effect”. The tick owns this warning.
+
+`packages/cli/tests/inertSettings.test.ts` maps every CLI setting to how it takes effect.
+For adapter-backed settings the guard uses the production transports and checks every
+Twitch sign-in (web, Android, Smart TV) on every transport (`http`, `impersonate`, `impit`, `cycletls`), plus Kick on
+each transport. `KNOWN_GAPS` lists each missing feature with its issue and the cases
+where it is missing. Narrow a row's cases when support lands for some combinations,
+and remove the row when all its cases gain support. The Kick chat gap applies to
+`kick/http` (#1099).
+The guard fails for unexpected gaps and stale exceptions. It also checks
+that changed values requesting a missing feature produce a warning.
 
 Without `browserTabs`, the watch surface is derived rather than configured: the tick passes
 `watchTabs: false` in each platform's `PlatformTickCapabilities`, so the scheduler always watches
@@ -623,7 +709,43 @@ let heartbeat recovery resume the previous watch from its persisted cadence.
 reconciliation, and the loop closes it first on shutdown; `run` passes none and starts no server
 (`packages/cli/tests/runNoServer.test.ts`). The control plane only forwards the popup's
 `RuntimeMessage` contract to `controller.handleMessage`, behind an explicit allow-list of
-messages the CLI host supports; it holds no farming logic. Core stays free of HTTP.
+messages the CLI host supports. `serve.ts` handles activity through the shared history handler
+and answers `exportDiagnostics` from the CLI diagnostics ring before forwarding core messages.
+The CLI host handles `setTwitchExtensionEnabled` through the lane and submits its settings patch
+to the controller through the same config store as other settings. Snapshot replies attach the
+lane's transient provider summaries. Core stays free of HTTP.
+
+The loop has one shutdown. SIGINT, SIGTERM and the loop's optional `stopSignal` (an `AbortSignal`)
+all run it. Shutdown stops timers and closes the host first, waiting for it to finish binding if
+necessary. It then waits for any startup reconciliation in progress, which can begin a state save
+after shutdown starts. Once the controller shuts down, including closing the Hermes socket,
+`runLoop` unsubscribes the Twitch Extensions commit hook and closes the lane, including its
+drivers, sockets and queued writes. It gives in-flight jobs and detached background work a shared
+five-second window to report commits. Watcher cleanup waits for any reserved heartbeat result
+commit, including one still reading the latest state before its save. It then closes storage
+writes to new requests and waits for accepted state and settings writes to finish, so an alarm
+tick still reading state cannot start a save after the drain. It disposes the transport. The
+teardown finally block gives disposal reports up to five seconds to settle, then closes the
+activity history followed by the diagnostics history even if disposal fails. `--once` and host
+startup failure use the same farming teardown.
+The host's `ready` hook runs once the loop has taken the host and yielded to I/O for two
+event-loop turns, provided shutdown has yet to begin. `serve --exit-with-stdin` (#1023) aborts the
+stop signal when stdin ends, closes or fails. A launcher can stop `serve` by closing the pipe,
+including on Windows or when the launcher crashes. An already-ended or destroyed input or
+file-backed stdin such as `/dev/null` stops the loop before binding. For pipes, the yield gives
+pending EOF a chance to arrive. If EOF arrives after the ready line, the subsequent exit with code
+0 is normal. Once the loop stops, `serve` stops reading stdin, so an open
+pipe does not hold the process. `serve --ready-json` writes one JSON line,
+`{"event":"ready","url":…}`, to stdout from that hook, once the control plane listens. A failed
+write (the launcher stopped reading) is logged and farming goes on. The URL is the control
+plane's `localUrl`, which is also what its log line names. Lurkloot's logger writes to stderr, but
+stdout is not exclusive to the ready line, so a
+launcher scans stdout line by line for the `"event":"ready"` JSON. With either option, `serve`
+attaches a no-op error listener to stdout and stderr when the command starts
+(`tolerateClosedReader` in `logger.ts`), so a launcher that closes its readers before stdin cannot
+turn a log line into an EPIPE crash midway through shutdown. Both options are off by default and
+`run` has neither. `packages/cli/tests/serveLauncher.test.ts` drives them with
+injected streams and through the built CLI.
 
 Settings reach the controller through the loop's `SettingsStore` seam: `load`, `save` and an
 optional `applyPatch`. The default, which `run` uses, keeps the CLI's long-standing behavior (the
@@ -646,7 +768,7 @@ The Twitch device-code flow and the Kick TV link share one start/poll shape
 and `serve` both drive that shape. The browser login's parse-validate-replace path is
 `completeTwitchBrowserLogin`, used the same way. `serve` keeps one device login per platform. A new
 start, a browser login, a logout or shutdown aborts the old flow's sleep and poll, and it releases the
-flow's resources (Kick's cycletls). A start claims the platform's slot before it awaits anything, so racing starts leave one flow. A poll that ignores the abort, such as a hung cycletls request, is raced against the signal, so a cancel never waits on it. A flow aborted after approval saves nothing. The routes write only
+flow's resources (Kick's cycletls process). A start claims the platform's slot before it awaits anything, so racing starts leave one flow. A poll that ignores the abort, such as a hung cycletls request, is raced against the signal, so a cancel never waits on it. A flow aborted after approval saves nothing. The routes write only
 the auth store. Auth health stays the probe's: after a change, `serve` sends `tickNow` and the probe
 reports the result.
 
@@ -665,6 +787,243 @@ every request; a loopback bind refuses non-loopback `Host` headers (DNS rebindin
 never reads one, the sign-in routes answer with presence, source and the Twitch login name only, and `GET /v1/session` is assembled from named fields of the snapshot's auth
 health and the credential store's presence reading, never by spreading objects, so it carries no
 account id either. A `getSnapshot` answer is the popup's full snapshot, account id included.
+
+### CLI transports and impersonating clients
+
+`config.json`'s `transport` picks how the CLI reaches the platforms. `http` uses Node's own
+fetch. `impit` and `cycletls` send Kick, the Kick TV-link sign-in and the Twitch HLS heartbeat
+through a library that presents a browser's TLS and HTTP/2 fingerprint, which Kick's Cloudflare
+WAF inspects. `impersonate`, the default, names the default library, impit, and is resolved in
+`src/transport/index.ts` (`impersonationBackendOf`), never rewritten in `config.json`. Twitch GQL
+always uses plain fetch.
+
+Every caller talks to the library through one interface, `ImpersonatingClient`
+(`src/transport/impersonation.ts`): a request with method, headers, body, an optional user agent,
+redirect mode and abort signal, answered with status, headers, body text and final URL. The Kick
+fetcher, the TV-link authenticator and the viewer socket's headers live once in
+`src/transport/kick.ts` over that interface, so the 401/403 classification (`kickHttpError`) is the
+same on both libraries. The backends are `src/transport/impit.ts` (impit's `chrome124` profile, pinned to `CHROME_UA`'s version and bounded by a 30 s request timeout, in
+process, cancellable by the signal) and `src/transport/cycle.ts` (the pinned Chrome 124 JA3/HTTP-2
+strings in `common.ts`, through CycleTLS's Go binary, which cannot cancel one request; see "The
+CycleTLS binary" below). Every Kick
+request sends `CHROME_UA` on either library, and the cycletls backend sends it whenever a caller
+names no user agent, so the user agent always matches the JA3; the user agent the viewer socket sends. impit's
+defaults are those of a page navigation, so its backend sends each request as a page's `fetch()`
+would (cors mode, empty destination, the site relation of the request's Origin) and rewrites its
+client hints to describe the user agent sent, or drops them for a non-browser one such as the
+Twitch Android app's.
+
+impit is imported only inside its backend, dynamically, so a CLI on cycletls or `http` never loads
+impit's native add-on. Nothing imports the cycletls npm package at all.
+`packages/cli/tests/impersonationBackends.test.ts` scans the sources to enforce both. `auth kick
+device-login` and `serve`'s sign-in route use the configured library (`signInBackendOf`), and
+impit under `http`, whose plain fetch the TV-link endpoint can refuse.
+
+### The CycleTLS binary (#1031)
+
+CycleTLS is GPL-3.0 and the CLI is Apache-2.0, so no CycleTLS code runs in the CLI's process. Its Go
+binary is a separate program: the CLI starts it and talks to it over its local WebSocket, through
+Lurkloot's own client, `src/transport/cycleTlsClient.ts`. The client was written from the protocol
+the binary speaks (traffic observed between the binary and the npm wrapper 2.0.5, and CycleTLS's
+documented request options), not from the wrapper's code; the file's header describes the frames.
+A request is one JSON text frame (`requestId` and `options`: URL, method, headers, body, `ja3`,
+`http2Fingerprint`, `userAgent`, optional `timeout` and `disableRedirect`, and the fixed
+proxy/TLS/protocol defaults). The answer is binary frames tagged with the request id: `response`
+(status, final URL, headers), `data` chunks, `end`, or `error` (status and reason, returned as a
+response like the wrapper did). `tests/cycleTlsClient.test.ts` compares the frames sent with the
+ones the wrapper sent for the same calls (`tests/fixtures/cycletlsWrapperFrames.json`), so the
+fingerprint is unchanged, and drives the real binary when the build-time package is installed.
+
+The client owns its process. `startCycleTls` asks the OS for a free loopback port, starts the binary
+directly with `WS_PORT` set (no shell, so any path works, spaces and shell characters included), and
+connects only to that process: the socket must stay open while the binary is still running a
+moment after it connects, so if the port turned out to be taken (the binary then exits) the start
+fails, and it never joins an instance it did not start (the wrapper joined anything on port 9119).
+A request the binary leaves unanswered is given up after its own timeout plus 30 s (60 s without
+one), so the pending map cannot grow. `initCycle` wraps the client in `restartingCycleTls`: when
+the binary exits or its socket closes, the next request ends what is left of it and starts a new
+one, so a long `run` recovers from a crash instead of failing every request until restarted.
+The binary's stdout and stderr are drained into a short tail for start errors, never onto the
+CLI's stdout. `close()` sends SIGTERM and SIGKILL after a grace period. As a backstop the client
+kills every binary it started on the CLI's `exit`, and on SIGINT, SIGTERM or SIGHUP when nothing
+else handles the signal (it then re-raises it with Node's default behavior, and exits with the
+signal's code if the process ignores it, as PID 1 in a container does). That listener is prepended,
+so it runs before a command's own `process.once` handler removes itself and sees it. `run` and `serve`
+handle those signals themselves, `serve --exit-with-stdin` included, and close the client through
+the transport's `dispose`. Two CLIs on one machine each run their own binary. The binary itself
+listens on every interface, as it did under the wrapper; it is not exposed outside a container.
+
+The binary comes from the `cycletls` npm package, now a build-time dev dependency only.
+`scripts/copyCycleTls.mjs` (part of `build`) copies this platform's binary, CycleTLS's `LICENSE`
+and a `NOTICE` that names it a separate program and links its exact source commit into
+`dist/cycletls/`; `cycleTlsBinaryPath` (`src/runtime/standalone.ts`) finds it beside the bundle,
+or beside the executable inside one. `scripts/checkNoGplJavaScript.mjs` fails when a GPL package
+(or the `cycletls` package by name) is in a shipped `node_modules`, following pnpm's links, or in a bundle's esbuild metafile; the Docker build runs it on the
+image's `node_modules` and `dist/index.mjs`'s metafile, and the executable build runs both checks
+on its bundle and archive.
+
+### Standalone CLI executable (#1022)
+
+The release also ships the CLI as a standalone `lurkloot` executable per OS, for users without
+Node and as the desktop app's sidecar (#981). `packages/cli/scripts/buildExecutable.mjs` bundles
+`src/index.ts` a second time, as CommonJS with every dependency inside but impit (a
+single-executable application's main script can only `require` built-ins), and injects it into a
+copy of the building Node binary with postject. The build refuses a bundle with GPL code in it.
+The archive puts CycleTLS's Go binary beside the executable in `cycletls/`
+(`cycletls`/`cycletls.exe`, its `LICENSE` and `NOTICE`), the same folder the Docker image has in
+`dist/cycletls/`, and no cycletls JavaScript. impit's native add-on cannot load from inside
+the executable either, so the build aliases `impit` to `src/runtime/impitStandalone.ts` and ships
+`impit/`: the package's `package.json` and JavaScript, unmodified, and this platform's add-on
+(`impit-node.<platform>.node`, every libc build installed) beside them, where impit's own loader
+looks before its binding packages. `loadStandaloneImpit` loads it on the first impit client, under
+the same `confineRequires`, and a missing folder is a `MissingImpitError` naming it. Beside them go the app UI (`app/`),
+`LICENSE` and a generated `NOTICE`. The NOTICE describes the CycleTLS binary as a separate program,
+links to its exact source commit, and the build rejects an installed version that differs from the
+source pin. It also includes the app UI's
+license reports. Vite lists the bundled JavaScript packages and the app build adds the CSS and
+font licenses from the popup's styles. Both reports go with `dist/app`, including in Docker.
+
+What `node dist/index.mjs` finds beside the bundle or in `node_modules`, the executable finds
+beside itself. `packages/cli/src/runtime/standalone.ts` is the one place that decides this: it
+answers `undefined` unless `node:sea`'s `isSea()` is true, and then resolves paths from
+`dirname(process.execPath)`. `cycleTlsBinaryPath` points at `cycletls/` there, and a missing binary
+is a `MissingCycleTlsError` naming it rather than a fallback to some other copy; commands that never
+start cycletls run without it. `loadStandaloneImpit` loads impit from `impit/`, and nothing it
+requires may come from outside that folder: Node would otherwise look for a missing dependency in
+every `node_modules` above the install (`~/Downloads/node_modules`, say). `confineRequires` makes
+any resolution from inside the folder to a file outside it fail as `MODULE_NOT_FOUND`.
+`defaultAppRoot` (`src/runtime/appAssets.ts`) serves that `app/`. The build machine's paths never
+reach the binary. `packages/cli/tests/standalone.test.ts` guards the resolution in both modes, and
+`scripts/smokeExecutable.mjs` runs each built archive with no Node on `PATH` in CI. It extracts
+archives and copies directory inputs into scratch space so the missing-folder probes can
+rename `impit/` and `cycletls/` without changing the supplied build. It makes a Kick request through
+each library, checks that `serve` on one library starts with the other's folder gone, and that
+`cycletls/` holds only the binary, its `LICENSE` and `NOTICE`.
+
+### Desktop app (#1024)
+
+`packages/desktop` is a Tauri 2 shell around the standalone executable above. It is packaging
+only: it never farms, never imports `@lurkloot/core`, `@lurkloot/shared`, the CLI's sources or
+cycletls, and talks to `serve` only by starting it, reading its ready line and closing its stdin.
+`packages/extension/tests/desktopBoundary.test.ts` guards the imports and the package's
+dependencies.
+
+```
+Lurkloot (Tauri shell, Rust)                     lurkloot serve (sidecar)
+ ├─ supervisor ── spawn, stdin pipe ───────────▶ --port 0 --ready-json --exit-with-stdin
+ │      ◀── {"event":"ready","url":…} on stdout   --config <app data>/config.json
+ │      stdout + stderr ──▶ <app log dir>/serve.log    ├─ farming loop (@lurkloot/core)
+ ├─ window ── http://127.0.0.1:<port>/ ────────▶       ├─ control plane + app UI
+ │      token in sessionStorage (init script)           └─ cycletls binary (#1031)
+ └─ tray: Open, Quit
+```
+
+- **Sidecar.** The whole executable folder ships as the app's `sidecar/` resource, not as a
+  Tauri `externalBin`, so `app/`, `impit/` and `cycletls/` stay beside `lurkloot` as the
+  executable expects. `packages/desktop/scripts/prepareSidecar.mjs` builds it with the CLI's
+  `build:executable` script and copies it to `src-tauri/sidecar/`. The supervisor
+  (`src-tauri/src/sidecar.rs`) knows nothing about Tauri. It reads both of serve's output streams
+  for its whole life into `serve.log` (truncated per launch, moved to `serve.log.1` at 8 MiB),
+  so a full pipe never stalls farming, and takes the first stdout line that parses as a ready event with a plain-HTTP
+  loopback URL (`ready.rs`). A start with no ready line in 60 s, or an exit, restarts serve after
+  1 s, doubling to at most 60 s. The count starts again once a serve ran 60 s past ready. After
+  three failures in a row the window shows the shell's status page with an error and comes
+  back from the tray; it goes on retrying.
+- **Environment.** serve runs with the shell's environment minus every `LURKLOOT_*` and `SA_*`
+  variable, so a CLI user's shell cannot point it at another token or credential override.
+  Then `LURKLOOT_SERVE_TOKEN` (32 random bytes, fresh for each app launch and kept across
+  restarts within it) is added. The token never appears
+  on a command line or in a log.
+- **Token.** A main-frame initialization script writes the token to sessionStorage under the
+  app UI's `lurkloot.app.serveToken` key, before the page loads, on plain-HTTP loopback origins
+  only. The window never asks for it, and nothing else on the machine can use the API.
+- **Navigation.** The window loads only the running serve's origin and the shell's own status
+  page (`shell/`, served from Tauri's own origin, read from the window rather than hard-coded:
+  it differs on Windows). `window.open`, `target="_blank"` and navigations to any other http(s)
+  address open in the system browser; anything else is refused (`navigation.rs`). Restarting
+  serve gives it a new port, which becomes the only allowed serve origin. Remote pages get no
+  Tauri commands (no capabilities are granted).
+- **Twitch sign-in window (#1026).** In the desktop app Twitch's browser sign-in needs no paste.
+  The main window's initialization script also defines `window.lurklootDesktop`
+  (`{ twitchSignInWindow: true }`), and the app UI's Twitch card then shows one **Sign in to
+  Twitch** button (`packages/app-ui/src/desktopHost.ts`). It opens the sign-in link marked with
+  `#lurkloot-sign-in-window`; the shell catches that in `on_new_window`, takes the link from
+  serve's `GET /v1/session/auth/twitch/browser-login` itself (never the page's), adds a fresh
+  `state`, and opens it in a second, incognito window with no token script, whose web data is
+  discarded when it closes. That window may load any https page and `about:blank` frames, since
+  Twitch's sign-in spans several hosts. Every navigation to the redirect URI,
+  `https://www.twitch.tv/` exactly, is stopped (`twitch_sign_in.rs`). Only an answer that carries
+  the sign-in's `state` back is kept; the shell closes the window and posts that one address to
+  serve's `POST` route, the one the paste flow uses, over loopback HTTP with the launch token and
+  no proxy (`serve_api.rs`). The main window is told the outcome with a `lurkloot:twitch-sign-in`
+  event (signed in as whom, cancelled when the window was closed early, or serve's refusal), which
+  never carries the token or the address. An answer the web view hid (no fragment) or one without
+  this sign-in's `state` is not posted, and the app UI switches to the paste steps, whose unmarked
+  link opens in the system browser. In a plain browser there is no signal and nothing changes.
+  Checked on WebKitGTK: the navigation handler sees the fragment after a 302 and after a script
+  redirect, Twitch's login page renders in the private window and carries `state` through, and
+  nothing from it reaches the app-data folder. Not yet checked on WebView2 or WKWebView; the
+  paste fallback covers a web view that hides the fragment.
+- **Data.** `config.json` lives in the OS's app-data folder for the bundle identifier
+  `name.jamezrin.lurkloot`; serve keeps `auth/` and `state.json` beside it. The identifier fixes
+  that path, so it must never change (#1028 updates keep it).
+- **Window and tray.** Closing the window hides it and farming continues; the tray has Open and
+  Quit. On Linux the tray counts as present only while a StatusNotifierWatcher owns its name on
+  the session bus (`tray.rs`), checked at start and again on each close; without one, closing
+  the window quits instead. A second launch
+  focuses the running window (the single-instance plugin).
+- **Updates (#1028).** `updates.rs` and `tauri-plugin-updater`, from Rust only: no capability gives
+  the page its commands.
+  - **Checks:** a found update is announced, never installed. The tray item and the window get
+    `UPDATE_EVENT`, re-sent on every page load. The install starts only from the tray item or from
+    the app UI opening the `INSTALL_UPDATE_FRAGMENT` link, which the shell catches like the
+    sign-in link.
+  - **Install:** it checks the manifest again, then downloads, then stops serve as Quit does
+    (`begin_shutdown`). `shutdown_done` stays false until the installer returns, so no other way out
+    ends the app halfway through. Only the main window, on serve's own page, can reach `open_link`.
+    The sign-in window's links go to the system browser, and a `lib.rs` test pins that.
+    The latest notice is also kept on the window (`UPDATE_PROPERTY`) for an app UI that mounts after
+    the event.
+  - **Signatures:** they are checked against the configured key and bound to their version.
+    `tests/updater_key.rs` fails if the configured key stops matching the release key.
+  - **Publishing:** only the production job signs. `latest.json` comes only from the stable
+    release (`releases/latest`), so candidates never feed the updater.
+  - **Tests:** `desktopBoundary.test.ts` keeps the event, fragment and link the same in the shell
+    and the app UI.
+- **Launch at startup (#1027).** This is a shell setting, not a farming one. The tray's check item
+  writes `desktop.json` in the app's config folder (`shell_settings.rs`), which serve never reads.
+  It also registers or removes this user's startup entry (`autostart.rs`):
+  - Windows: the HKCU Run value, never HKLM or `StartupApproved`.
+  - macOS: a LaunchAgent plist written with XML escaping.
+  - Linux: an XDG autostart entry with its `Exec` path quoted to the Desktop Entry spec.
+
+  No plugin is involved, so the page has no command for it. The entry passes `--autostart`. A
+  launch with it builds the main window hidden when a registered tray host exists, and shown
+  otherwise. A launch never writes the entry, so an OS-side opt-out stands. A failed toggle
+  leaves the check and `desktop.json` showing the OS's real state.
+- **Quit.** Every way out (tray Quit, the last window closed without a tray, the OS's quit)
+  goes through one path: hide the window, close serve's stdin, wait up to 20 s for it to save
+  and exit, then kill its process tree and exit. serve runs in its own process group on Linux
+  and macOS and in a job object on Windows (taskkill's tree kill when the job cannot be set up),
+  so a kill takes its cycletls helper with it. When the shell crashes, the OS closes serve's
+  stdin pipe and serve saves and exits on its own; the job has no kill-on-close limit, so that
+  holds on Windows too. Every exit's status goes to `serve.log`.
+- **Tests.** `cargo test` in `packages/desktop/src-tauri` covers the ready-line parser, the
+  navigation rules, the token script, the sign-in redirect matcher and its `state` check, the shell
+  settings file and the startup-launch rules, the
+  calls to serve against a stand-in (only the address is posted), and the supervisor against a stand-in serve (ready URL,
+  stdin-close shutdown, killing a tree that will not stop, restart and failure counting). The
+  `build-desktop` CI workflow runs it with clippy on Linux, macOS and Windows.
+- **Installers (#1025).** `build-desktop-installers.yml` bundles the shell with the standalone
+  executable built on the same runner, one leg per `desktopInstallerTargets` entry in
+  `scripts/release/pipeline.mjs`, and checks the sidecar is inside each installer. The candidate
+  publishes them as release assets like the CLI archives. They are unsigned; macOS is ad-hoc
+  signed. The app's version is the root manifest's: `tauri.conf.json` reads it by path and
+  `scripts/release.mjs` writes it into the crate, failing `check` when the two differ.
+  `desktopBoundary.test.ts`, which runs in `pnpm check` on every pull request, also keeps the
+  names the shell repeats from TypeScript in step: the sessionStorage key, `LURKLOOT_SERVE_TOKEN`,
+  serve's flags, the ready line, and the sign-in window's host signal, event, link fragment, route
+  and redirect URI.
 
 ### Characterization coverage
 
@@ -691,14 +1050,16 @@ tested too (#598).
 | Duplicate and late job fires coalesce; no job runs after shutdown | `controllerContract.test.ts` ("jobs") |
 | Job scheduler semantics on each host | `hostPorts.test.ts` (`browser.alarms`); `packages/cli/tests/jobs.test.ts` (Node timers) |
 | Declared capabilities match the ports; unsupported settings are reported once | `hostPorts.test.ts`; `controllerContract.test.ts` ("capabilities") |
+| A changed per-platform setting that requests a missing adapter feature warns once per key, including after support is lost; the CLI guard checks effects and known gaps per transport and sign-in (#1090) | `adapterSettings.test.ts`; `backgroundController/chatPresence.test.ts`; `packages/cli/tests/inertSettings.test.ts` |
 | Without browser tabs every watch is tabless and heartbeat failures never fall back to a tab | `controllerContract.test.ts` ("watch surface") |
 | Only a user close of the watch tab pauses; the extension's own closes (finished campaign, restart) do not, and late playback from a closed tab is ignored | `controllerContract.test.ts` ("browser tabs", extension host) |
 | The CLI's `state.json` save is atomic | `packages/cli/tests/storage.test.ts` |
+| The CLI's activity history is bounded, survives a restart, clears, keeps no diagnostics, and is answered over `serve` | `packages/cli/tests/activityStore.test.ts`, `packages/cli/tests/serveActivity.test.ts`, `packages/cli/tests/serve.test.ts` ("control plane message allow-list") |
 | The popup reads the stored settings and state verbatim | `controllerContract.test.ts` ("runtime snapshot") |
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
 | `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Watchlist changes from the page") |
 | Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
-| Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
+| Supplemental lane: restore completion for the same viewer, including after a transient lookup failure | `twitchExtensionHost.test.ts`; `packages/cli/tests/twitchExtensions.test.ts` |
 | The scheduler tick decides from plain inputs and names its effects; one handler per effect type | `schedulerEffects.test.ts` |
 | A tick's effects run with no lock held; concurrent telemetry is kept, a contradicting writer drops the decision but not the claims or tabs it produced, and an overlapping claim is requested once (#599) | `backgroundController/tickEffects.test.ts`; `tickCommit.test.ts` |
 | No I/O while a lock is held, with no exceptions (#591) | `lockedIo.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
@@ -758,9 +1119,9 @@ facade (#583, #591). "Background controller ownership and concurrency" above has
   reward stays reserved until that commit lands. Sign-in loss ends claim work, and a claim the
   provider accepted before an abort is still recorded.
 - **Hosts.** Both hosts construct the controller from the same host ports and run the same jobs and
-  startup reconciliation. The extension declares every capability: browser tabs, Twitch
-  integrity capture and supplemental sources. The CLI declares none of them, so it always watches
-  tabless and its jobs that need those capabilities are inert.
+  startup reconciliation and declare supplemental sources. The extension also declares browser
+  tabs and Twitch integrity capture. The CLI always watches tablessly, and jobs that need
+  browser capabilities are inert there.
 
 ### Campaign ranking
 
@@ -795,6 +1156,19 @@ acts on. Four tiers, in order:
    walks this order, so an unlinked campaign is farmed only once no linked one
    above it has a channel, and it gives way, mid-reward, as soon as one does,
    as any lower-ranked watch does.
+
+Inside tiers 2–4, a campaign with an open repeat window (`hasOpenRepeatWindow`)
+goes ahead of the strategy (#1118). That is a reward earned once per window,
+such as a Twitch reward-campaign group earned one hour a day on six days, that
+the user's reward filter farms, whose window is open now and which still has
+grants to earn. A missed window cannot be made up, and each window needs little
+time, so the campaign's end date is the wrong urgency for it: by end date the
+GTA VI campaign ranked 56th and was never reached. Once the window's grant is
+in, the parser sets `availableFrom` to the next window, the reward is no longer
+available to earn, and the campaign falls back to its strategy position until
+then. Pin order is never changed. `rankCampaigns` takes `now`, so the order is
+a function of time; `ranking.test.ts` and `twitchRewardCampaigns.test.ts`
+cover the climb, the fall back after a grant, the filter, and the tiers.
 
 Eligibility is always decided before ranking (`evaluateCampaignFarming`), so a
 pin can never rescue a campaign an exclusion, a block or a class filter refused.
@@ -1045,7 +1419,14 @@ Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in the user's order, then the single live
 strategy, then name and id, and last the unlinked campaigns of a platform set to
-farm them last. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Watchlist channels. The per-platform `unlinkedCampaigns` (`skip` only) and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
+farm them last. Channel ordering within the selected campaign is also shared.
+Allow-listed channels rank first. With `preferKnownChannels` (on by default),
+Watchlist channels rank ahead of live follows, and live follows rank ahead of
+other channels. Viewer count breaks ties. Per-platform excluded drop channels
+filter campaign and supplemental provider candidates; explicitly listed
+Watchlist channels remain available for idle watching. The per-platform
+`unlinkedCampaigns` (`skip` only), `rewardFilter`, and `blockedCategories`
+narrow eligibility before ranking.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 
@@ -1057,7 +1438,7 @@ For Kick, `pageFetchJson` reads `session_token` from the Kick page context and a
 
 Temporary page-context tabs are reference-counted per origin and removed after the fetches complete when the extension created them. Existing user tabs reused for page-context fetches are not closed.
 
-Kick may retain an extension-owned page-context tab when its service-worker fetch is rejected. One extension-host tracker receives successful route callbacks from every Kick fetcher, including the controller-lifetime tabless watcher, and drains only after scheduler state persists; residual evidence is discarded on every uncommitted tick exit. A fallback always resets recovery immediately, including on an incomplete cycle; only a complete, error-free direct cycle advances it once, regardless of request count. After the configurable number of consecutive direct cycles (three by default, 1–10 in Advanced settings), the extension verifies and closes that exact managed tab. Unreadable or concurrently changed tab ownership is retained for a safe retry, while ownership is released synchronously immediately before removal so a new fallback acquires a separate context. The counter is persisted with scheduler state so service-worker restarts do not reset or resurrect ownership. The engine drives recovery through the host's `PageContextPort` (#598): `recover(platform, { countBackgroundSuccess }, emit)` after a committed cycle, and `discardRecoveryEvidence(platform)` on an uncommitted exit. The extension's port (`createExtensionTabPorts`) holds the tracker, applies the configured threshold and runs the registry's recovery rule. The CLI has no browser page-context tabs and does not expose this setting.
+Kick may retain an extension-owned page-context tab when its service-worker fetch is rejected. One extension-host tracker receives successful route callbacks from every Kick fetcher, including the controller-lifetime tabless watcher, and drains only after scheduler state persists; residual evidence is discarded on every uncommitted tick exit. A fallback always resets recovery immediately, including on an incomplete cycle; only a complete, error-free direct cycle advances it once, regardless of request count. After the configurable number of consecutive direct cycles (three by default, 1–10 in Advanced settings), the extension verifies and closes that exact managed tab. Unreadable ownership is retained for a safe retry. While recovery closes a tab, the owner keeps tracking it and prevents a fallback from opening a replacement until closure is confirmed. The counter is persisted with scheduler state so service-worker restarts do not reset or resurrect ownership. The engine drives recovery through the host's `PageContextPort` (#598): `recover(platform, { countBackgroundSuccess }, emit)` after a committed cycle, and `discardRecoveryEvidence(platform)` on an uncommitted exit. The extension's port (`createExtensionTabPorts`) holds the tracker, applies the configured threshold and runs the registry's recovery rule. The CLI has no browser page-context tabs and does not expose this setting.
 
 ## Platform Origins and the Socket Host
 
@@ -1073,7 +1454,15 @@ The extension never presents its own `chrome-extension://` or `moz-extension://`
 
 - **Twitch Extension providers (#798).** A provider with its own socket backend declares `backendSocketOrigin` in `packages/core/src/extensions/registry.ts` (Fortnite today). It is optional, requested in the same prompt as `backendOrigin` and required with it (`twitchExtensionProviderOrigins`). Its socket opens in the socket host like the platforms' sockets, under a websocket-only rule (ids from 9105) that presents the provider's extension frame origin, `https://<extension-id>.ext-twitch.tv`. On Firefox the same `webRequest` listener covers it. The Fortnite profile forwards every frame, because its driver reads them all.
 
-Core is unchanged by any of this: it asks a `WebSocketFactory` for a URL. The CLI passes plain Node sockets.
+Core asks a `WebSocketFactory` to open a URL. The CLI passes Node `ws` sockets,
+which set their headers directly:
+
+- **CLI Hermes (#1084).** `packages/cli/src/transport/twitchHermes.ts` builds the Twitch push socket for both CLI transports. It permits only `wss://hermes.twitch.tv` URLs without userinfo and sets only `Origin: https://www.twitch.tv`. An error listener absorbs Node's socket error before the close event. The adapter's socket close resolves on that event. The `ws` two-second close timeout destroys the connection if the peer stays silent. Controller shutdown awaits this close for one-shot runs, signals and stdin EOF. `twitchHermes.test.ts` checks the URL allow-list and upgrade headers. `runHermes.test.ts` drives shutdown against a local peer that ignores close.
+- **CLI Twitch chat IRC.** The CLI passes a plain `ws` socket as its own
+  `chatWebSocketFactory`. IRC needs no Origin header.
+- **CLI Kick.** The chat socket uses the same realtime endpoint allow-list as the
+  extension and sets only `Origin: https://kick.com` in the handshake options.
+  The viewer and Pusher discovery sockets retain their existing handshake.
 
 ## Twitch Integration
 
@@ -1110,7 +1499,48 @@ Core is unchanged by any of this: it asks a `WebSocketFactory` for a URL. The CL
 
 ## Kick Integration
 
-`KickAdapter` uses Kick JSON APIs from the Kick page context.
+`KickAdapter` uses Kick JSON APIs. Native fetch (the CLI's `http` transport and
+the extension background) and the CLI's impersonated Kick fetcher share `kickHttpError`. A non-empty,
+non-JSON 401 or 403 becomes a `KickWafBlockedError` with `challenge: true`, the
+HTTP status and a fixed message. JSON credential rejections and empty 401 or
+403 responses map to `authentication_rejected`. JSON security-policy blocks
+map to `security_policy_blocked` and retain their safe reference.
+
+When the identity probe receives an HTTP challenge it reports unavailable
+(`request_challenged`, a platform-neutral reason). The scheduler records a
+platform API failure with code `request_challenged` in critical health and
+applies the usual exponential backoff. The identity probe owns auth health.
+Scheduled ticks defer the probe until the committed retry deadline. A fresh
+controller probes immediately on its first tick, and explicit auth checks can
+probe immediately. A successful probe lets discovery and farming resume.
+
+An HTML 401 or 403 in the service worker takes the existing extension
+fallback. The tab owner can reuse a usable Kick context or open a managed
+one. If the in-page fetch (`pageFetchJson`) receives a non-empty, non-JSON
+401 or 403, it returns a challenge marker with the status. Kick's extension
+wiring supplies `kickHttpChallenge` as `PageFetchOptions.challengeError` so
+the identity probe can classify that result as `request_challenged`. Other
+callers can receive a plain `http_error` through the default mapping.
+The browser tab owner reports each new managed page context to the controller at
+creation, before document inspection or page fetch. This persists a churn timestamp
+even when the operation is an auth probe, the document is rejected, or the scheduler
+decision is superseded. Activity events remain presentation data. Ownership is
+registered before inspection and cleared after a confirmed close or tab removal. A
+temporary tab is stored with cleanup pending so a fresh worker can clean it up
+before replacing it. A retained tab is re-inspected before reuse.
+
+The shared breaker counts five managed opens in ten minutes. Five newly opened
+page contexts rejected by document inspection or an in-page HTTP challenge in
+three hours also open it. This covers retries near the 30-minute backoff cap,
+which fall outside the short window. Both sets of timestamps survive worker
+restarts. A reused tab adds no open or rejection from a new acquisition. A saved
+open breaker blocks new tabs on the first probe while still allowing reuse.
+The controller updates the live breaker after accounting commits and after the
+tick prunes expired evidence, so standalone probes in the same worker respect
+both transitions. When the breaker or pending tab cleanup blocks Kick's fallback,
+the adapter preserves the original service-worker failure for auth classification.
+The tab owner holds the acquisition entry while it closes a temporary or discarded
+context. Releasing a retained context frees the entry immediately.
 
 - Campaign discovery fetches `https://web.kick.com/api/v1/drops/campaigns`.
 - Progress refresh fetches `https://web.kick.com/api/v1/drops/progress`.
@@ -1225,9 +1655,28 @@ claims to know the user's streak count.
   progress ends.
 - **Merge.** `watchStreaks` has its own merge kind (`mergeWatchStreakState`). Attempts combine by
   key and only move forward, so a payout committed while a tick ran survives that tick's commit.
-- **Hosts without Hermes.** The tick capability `observeWatchStreaks` comes from the adapter's
-  push factory. Without it (the CLI), maintained rows read as unavailable and are watched in
-  their ordinary place, so the toggle never takes a channel out of rotation.
+- **Hermes availability.** Every CLI Twitch sign-in attempts Hermes (#1084, #1101)
+  with its effective Client-ID and OAuth token through the shared Origin-only
+  socket factory. Each CLI adapter carries an opaque in-memory credential revision, stable
+  across builds for the same login. The observer slot revokes old callbacks
+  and drains the previous socket before replacing it on a revision change.
+  The push controller reports itself unavailable after three consecutive
+  upgrade, authentication or points-topic failures and retries after 5, 10, 20
+  and then every 30 minutes. The channel-points service owns the diagnostic.
+  It reports at debug level by default and warns once per observer when streak
+  rows are maintained or an active push-claim setting differs from its default.
+  The one-minute channel-points claim job takes over when push claiming is inactive.
+  A confirmed points subscription clears the suspension.
+  The channel-points service reads availability from the observer
+  for the current revision, and the tick combines it with the adapter's factory
+  when deciding streak priority and accrual. This signal never writes auth
+  health. The extension uses its existing retry policy. `runHermes.test.ts`
+  exercises credential reload, three hours of timed refusals, diagnostic levels,
+  claim polling, and payouts after recovery for CLI sign-ins. Live acceptance
+  per sign-in is unverified. While watching a Twitch channel with the points
+  topic requested, look for the debug line
+  `Twitch channel-points push subscribed to community-points-user-v1.<id>`
+  to confirm the subscription.
 
 ## Tabless Watch
 
@@ -1269,7 +1718,17 @@ semantics adds its own shape instead of bending a common one.
 
 Some rewards need the account in the watched channel's chat: NoPixelV credits daily watch time from the channel's chatter list (#683). `background/chatPresence.ts` keeps one `ChatPresenceClient` per platform in an `ObserverSlot` and reconciles it after each tick commit and settings save, against the committed session only (`chatPresenceDecision` in `core/chatPresence.ts`). Presence is wanted while a platform watches **tablessly** with healthy auth and no manual pause, and either `platform.<p>.alwaysEnterChat` is on or the watching Twitch Extension provider declares `needsChatPresence`. Tab watches never use it: the page joins chat itself. A commit that leaves auth unhealthy or ends the watch stops it before any await. Presence never affects heartbeat health, rotation or tab fallback; its status is attached to snapshots as `state.chatPresence` and never persisted.
 
-The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat without starting Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect; Kick on the CLI is one, because it has no realtime connection there. See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
+The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE` without retrying (a credential change, a settings save or a restart replaces a blocked client; a tick keeps it), drops and retries a connection whose room is not confirmed within 30 s or whose idle `PING` goes unanswered for 10 s, and sends an idle `PING` after 20 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Both hosts declare the `chatPresence` capability. The CLI gives the Twitch adapter a `chatWebSocketFactory` and its stored token, so it joins chat independently of Hermes. An IRC login rejection (a device-login token without chat access, for instance) blocks the client with `reason: "auth"` and is not retried. Any platform whose adapter offers no presence client warns once that `alwaysEnterChat` has no effect, from the tick's unsupported-settings report (`adapterSettings.ts`, #1090) including Kick on the CLI's `http` transport (#1099). See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
+
+On the CLI's impersonating transports (`impersonate`, `impit`, `cycletls`), the Kick adapter offers
+`createChatPresenceClient` and asks for the transport-owned realtime connection
+only when the controller starts chat presence. The connection is reused across
+adapters and negotiates and authenticates through the existing `PageFetcher`.
+Drop discovery keeps its own Pusher-only connection pending a live check that
+discovery signals arrive over the negotiated realtime connection. The presence
+observer releases its subscription on shutdown, and transport disposal also
+stops the realtime connection before closing the impersonating client. The CLI tests cover
+socket cleanup on SIGTERM, stdin EOF and `run --once`.
 
 ## Playback Telemetry and Control
 
@@ -1350,7 +1809,7 @@ A host of `@lurkloot/popup-ui` says what it supports through the optional
 toolbar popup and the site demo declare nothing. A host that declares the
 object has to set every flag, so a new flag is a type error there rather
 than a control it silently shows. The app UI over the headless CLI (#979)
-declares `language` and nothing else (`CLI_HOST_CAPABILITIES` in
+declares `language` and `twitchExtensions` (`CLI_HOST_CAPABILITIES` in
 `packages/app-ui/src/adapter.ts`).
 
 - `tabs`: the Farming tabs group (tabless, auto-close, mute, keep videos
@@ -1360,15 +1819,17 @@ declares `language` and nothing else (`CLI_HOST_CAPABILITIES` in
   settings section, and their rows in the watch order and its "place" text.
 - `credentialExport`: Settings → Export credentials.
 - `extensionPreferences`: start on browser launch, the Queue's tips banner and
-  its setting, the in-page panel, diagnostic logging, and the rate and GitHub star nudges.
+  its setting, the in-page panel, diagnostic logging (and with it the Activity
+  log's diagnostics stream, which a host without the preference never shows,
+  whatever the merged settings default to), and the rate and GitHub star nudges.
 - `language`: the language setting. Split from `extensionPreferences` because
   the app UI keeps a language of its own (in `localStorage`, since the CLI
   config cannot hold `languageOverride`) without the extension's preferences.
 - `activityHistory`: the Activity log's fetches, sessions, clear and export,
-  and the critical-failure report's activity prefetch. The CLI writes its
-  events to its log and keeps no history, so without it the Activity view is
-  `ActivityHostSummary` (`activitySummary.tsx`): a note saying so, the last
-  check and each platform's status from the snapshot.
+  and the critical-failure report's activity prefetch. Both hosts keep a
+  history (the CLI since #1088). A host without one gets
+  `ActivityHostSummary` (`activitySummary.tsx`) instead: a note saying so, the
+  last check and each platform's status from the snapshot.
 
 A control that depends on a missing capability is left out, not disabled.
 Settings entries name their capability as `requires` in
@@ -1518,11 +1979,68 @@ Activity records are structured (`code` plus `data`) and localized by the host a
 
 Every activity event therefore also emits a diagnostic mirror. `packages/core/src/core/activityDiagnostics.ts` wraps the controller's event collector — the one choke point all engine emitters funnel through — and restates each activity event in English with the context the localized sentence drops: campaign and reward ids, raw reason codes, claim method, session detail. Emit sites do not hand-write a matching diagnostic.
 
-The extension stores activity in a bounded IndexedDB database owned by the background and queries it from the popup through runtime messages. Normal activity is always retained; diagnostic persistence is extension-only and opt-in, so hosts with diagnostics disabled drop the mirrors when they filter by category. Each category has its own record budget, so mirrors never evict activity history. Activity database failures are isolated from farming state mutations.
+Each host keeps activity in a bounded store it owns and answers the popup's `getActivity`, `getActivitySessions` and `clearActivity` from it. What a history is lives once, in `packages/shared/src/activityHistory.ts`: the retention (30 days of activity, 7 of diagnostics), the per-category record budget, the stored record format, `foldActivityBatch` (the session fold, including ending a session left open when the platform starts its next one), page selection and its cursor, the message handler and the reporter that filters a batch. The backends only map that onto their storage: IndexedDB in the extension (`packages/extension/src/core/activityStorage.ts`), one JSON file in the CLI. Core never owns the history (`coreBoundary.test.ts`). Normal activity is always retained. The extension stores diagnostics and their mirrors in IndexedDB when diagnostic logging is enabled. The CLI retains diagnostic rows in a separate ring for export. Each category has its own record budget, so mirrors never evict activity history. Activity store failures are isolated from farming state mutations.
 
 The popup shows one category at a time. The activity/diagnostics switch selects a view rather than interleaving both, since the mirror means a merged list would state everything twice.
 
-The CLI has no activity store. Its output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains new event data, and legacy event fields disappear after the state is loaded and saved.
+The CLI's output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Log retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains event data, and legacy event fields disappear after the state is loaded and saved.
+
+The CLI reporter queues each batch for the activity store and sends the batch to the logger.
+Both `run` and `serve` use `packages/cli/src/activityStore.ts`. The default file is
+`state.json.activity.json` beside `state.json`. The store retains structured timeline
+events and session summaries.
+Both backends use the shared batch filter and stored event conversion. Stored timeline
+rows keep stable interruption reasons and details. The shared diagnostic redactor
+replaces credential-shaped detail text and caps details at 1,024 characters. HTTPS activity
+links keep their query parameters and anchors with embedded credentials removed. Activity
+follows the shared 30-day and 2,000-record limits. Session
+summaries keep open sessions and recent ended sessions within the 200-per-platform
+response limit.
+
+The CLI serializes in-memory mutations and writes compact snapshots through the same
+atomic file helper as `state.json`. Batches coalesce within a 30-second write interval.
+A failed write keeps the live history available. Both histories resolve sidecar paths through
+`stateSidecarPath` in `packages/cli/src/storage.ts`, appending `.activity.json` or
+`.diagnostics.json` to the full state filename. Both use `readJsonSidecar` with a 4 MiB
+limit and the same atomic JSON writer. An unsupported activity file version leaves the
+disk snapshot intact and keeps new history in memory.
+The same store answers the three activity messages in `serve`. Clear joins the initial
+load and any previous write, then atomically saves an empty history before acknowledging
+the request. Clear fails if the disk snapshot uses an unsupported version.
+`activityStore.test.ts` exercises the shared limits, coalescing, sanitization and atomic
+clearing. `serveActivity.test.ts` covers restart, claims over HTTP, a claim whose state
+write finishes after controller shutdown starts, and both sidecars flushing on SIGTERM
+and stdin EOF when disposal fails.
+
+### Diagnostics export (#1089)
+
+`@lurkloot/shared/diagnostics` builds the text report for the extension download and both
+CLI export paths. It reuses the critical-failure report's named settings and health fields,
+selects diagnostic rows, and redacts credential-shaped text and (when supplied by the CLI)
+known secret values, including the encoded and wire forms of Kick session tokens.
+Reports carry session status and start time, without raw session
+objects, auth payloads, user lists or event metadata. The extension's activity message
+handler projects the IndexedDB rows before returning them, and the popup supplies the
+environment and snapshot for the file.
+
+The CLI reporter also sends diagnostics to the host-owned ring in `runtime/diagnostics.ts`
+before stderr filtering. It projects and redacts rows before retention, caps the ring at
+500 entries and caps the length of each message. Startup restores that bounded history
+from the sidecar after reapplying current redaction. One writer coalesces compact atomic
+snapshots beside the chosen state file at least five seconds apart during farming. An
+unref'd timer publishes pending rows at the end of that interval, including when no new
+batch arrives. Writes run outside the controller's locks and the reporter does not wait
+for them. A failed snapshot leaves the previous file intact and keeps the buffer dirty for
+retry. Shutdown cancels the timer and flushes pending rows.
+
+The `serve` host answers `exportDiagnostics` with the live ring and the controller's snapshot,
+under the same HTTP authorization as other messages. The standalone command reads the
+redacted sidecar plus the existing config and persisted state, including when no server
+is running. Both reports label their diagnostic source, and the standalone report uses the
+sidecar modification time from the same file handle as the rows. There is no added engine
+message or state writer. CLI diagnostics tests guard
+the ring, file bounds, and redaction. The serve tests exercise export dispatch and access
+control over HTTP.
 
 ### Activity sessions and reward kinds
 
@@ -1537,7 +2055,7 @@ Rewards come in two shapes, declared in `@lurkloot/shared/rewardEvents` and `far
 
 A new reward type or Twitch Extension provider emits `reward_obtained` with a new `ListedRewardKind` member. The popup's registry (`packages/popup-ui/src/activityRewards.ts`) maps each kind to a layout; a kind without one is drawn by the generic row from the general fields, so a provider needs no popup change to show up.
 
-The extension's activity database (version 3) adds a `sessions` store. `append` folds every stamped event into its session summary with the pure `foldSessionEvent` reducer inside the same readwrite transaction that stores the rows, so concurrent batches each fold onto the latest record. Summaries keep tallies and per-kind reward counters, so a collapsed past session shows correct totals before its rows are paged in. Sessions ended more than 30 days ago are pruned with the rest of the activity; an open session never is. The popup reads them with `getActivitySessions` and groups rows by local day, then by `sessionId`: each day lists its sessions (under the day they started), an "Outside a session" block for rows stamped `null`, and the rows stored before sessions existed, all drawn through the same reward rows. Kick reports no card name, so the Kick adapter reads one from the card art's file name (`<Name>_<Rarity>_card_<hash>`) when it matches exactly; art stored under a bare UUID gets the rarity title instead. Tab open and close (`page_context_*`) stay in the engine's contract, because the churn breaker reads them, but are stored only as their diagnostic mirror (`isActivityTimelineEvent`).
+The extension's activity database (version 3) adds a `sessions` store. `append` folds every stamped event into its session summary with the pure `foldSessionEvent` reducer inside the same readwrite transaction that stores the rows, so concurrent batches each fold onto the latest record. Summaries keep tallies and per-kind reward counters, so a collapsed past session shows correct totals before its rows are paged in. Sessions ended more than 30 days ago are pruned with the rest of the activity; an open session never is. The popup reads them with `getActivitySessions` and groups rows by local day, then by `sessionId`: each day lists its sessions (under the day they started), an "Outside a session" block for rows stamped `null`, and the rows stored before sessions existed, all drawn through the same reward rows. Kick reports no card name, so the Kick adapter reads one from the card art's file name (`<Name>_<Rarity>_card_<hash>`) when it matches exactly; art stored under a bare UUID gets the rarity title instead. Tab open and close (`page_context_*`) activity is stored only as its diagnostic mirror (`isActivityTimelineEvent`).
 
 Kick fetch diagnostics keep individual initial-route, fallback, recovery, and
 lifecycle-update-failure evidence. Unchanged successes use fixed counters for
@@ -1566,11 +2084,40 @@ diagnostics before disposing the transport.
 
 ## Tabless Twitch Extension rewards
 
-The extension host injects a browser-free supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. The platform's configured watch-source order controls selection and preemption; completion or unavailability releases the lane with bounded reprobes. See [source-priority decisions](watch-source-priority.md).
+The host factory and its ports are exported from `@lurkloot/core/extensions/host` (#1086). Core owns the lane, commit hook, permission policy, session lifecycle and provider drivers. The extension's background entrypoint supplies the settings and state access, permission checks, lane memory, viewer login, event publication and tick requests. The shared driver factory reads provider settings per session and maps rewards and diagnostics to the session-scoped event publisher. The extension supplies the NoPixelV HTTP fetcher and the Fortnite socket factory. Native grants, local storage, cookie reads, socket admission and the browser manifest stay in the extension.
+
+Both hosts inject the same supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. The platform's configured watch-source order controls selection and preemption. Completion or unavailability releases the lane with bounded reprobes. See [source-priority decisions](watch-source-priority.md).
 
 Supplemental sessions carry their own watch identity and `tablessOnly` marker. Their heartbeat does not require invented campaign/reward IDs, and neither heartbeat failures nor ambiguous ordinary campaign discovery may cause tab fallback. Instead, once a failing heartbeat result reaches `tablessFallbackFailureLimit`, the lane's commit hook cools that provider's channel for five minutes, like an unavailable report, so the next selection moves to another channel or source. A failed due reprobe consumes its turn, and further failures never renew an active cooldown (#594). Ordinary drop sessions retain their existing watch-mode policy.
 
-Channel-scoped viewer authorization is acquired through the normal Twitch background transport. Privileged provider drivers send it directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider sessions are not restored after a worker restart. The lane's completion and cooldown deadlines are (#594): the host stores them under `twitchExtensionLane` whenever they change, as provider ids, epoch deadlines and channel logins only, and restores them on the next start after validating each entry and dropping expired ones. Without that, an MV3 worker that is stopped between alarms would forget a finished provider and probe it again on every wake. The memory is tied to the signed-in Twitch login, read from Twitch's `login` cookie (a username, not a credential). It is restored only for the same login, and a change of Twitch's auth cookie stops the providers at once but forgets what the lane learned only if the login changed: Twitch re-sets that cookie on ordinary page loads. A restore never brings back what the host has already cleared (an account change, a disable, an ordinary invalidation), and reset clears the key with the rest of local storage. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results. Every report and every piece of driver activity (a pack opened, a giveaway joined, a sprite captured, each reported as `reward_obtained`, and a takeover started, logged as a diagnostic) is published through the provider's runtime session, which drops it once the session is no longer the provider's current one or was aborted. Each of those transitions stops or replaces the session first, so the lane meets #585's rule that stale work publishes nothing, without going through the controller's commits (#594). The lane follows the controller's accepted commits through an after-commit hook, not storage events or alarms. A change to its authority (Twitch enabled, a provider's settings, auth, the session's status or channel, a manual pause or watch) stops the providers synchronously, then a reconcile brings them back in line. The hook never waits on that reconcile, so a Twitch tick or auth refresh that settles its commit hooks never waits on provider session reads. Reconciles run one at a time. A tabless-only session commits a heartbeat result every minute, which keeps the driver refresh and session renewal cadence the every-alarm reconcile used to give.
+The GQL session source takes a Client-ID from its host and delegates authentication to the supplied transport. The extension passes the Twitch adapter's existing web Client-ID and its normal authenticated background fetcher. Privileged provider drivers send channel-scoped viewer authorization directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider sessions are not restored after a worker restart. The lane's completion and cooldown deadlines are (#594): the host stores them under `twitchExtensionLane` whenever they change, as provider ids, epoch deadlines and channel logins only, and restores them on the next start after validating each entry and dropping expired ones. Without that, an MV3 worker that is stopped between alarms would forget a finished provider and probe it again on every wake. The memory is tied to the signed-in Twitch login, read from Twitch's `login` cookie (a username, not a credential). It is restored only for the same login, and a change of Twitch's auth cookie stops the providers at once but forgets what the lane learned only if the login changed: Twitch re-sets that cookie on ordinary page loads. A restore never brings back what the host has already cleared (an account change, a disable, an ordinary invalidation), and reset clears the key with the rest of local storage. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results. Every report and every piece of driver activity (a pack opened, a giveaway joined, a sprite captured, each reported as `reward_obtained`, and a takeover started, logged as a diagnostic) is published through the provider's runtime session, which drops it once the session is no longer the provider's current one or was aborted. Each of those transitions stops or replaces the session first, so the lane meets #585's rule that stale work publishes nothing, without going through the controller's commits (#594). The lane follows the controller's accepted commits through an after-commit hook, not storage events or alarms. A change to its authority (Twitch enabled, a provider's settings, auth, the session's status or channel, a manual pause or watch) stops the providers synchronously, then a reconcile brings them back in line. The hook never waits on that reconcile, so a Twitch tick or auth refresh that settles its commit hooks never waits on provider session reads. Reconciles run one at a time. A tabless-only session commits a heartbeat result every minute, which keeps the driver refresh and session renewal cadence the every-alarm reconcile used to give.
+
+The CLI binds the shared lane in `runtime/run.ts` (#1087). A provider's `enabled` setting
+authorizes contact with its backend. `serve` validates provider toggles and persists them to
+`config.json`. The CLI uses Node fetch for NoPixelV and the existing Twitch chat observer when
+NoPixelV holds the watch slot. Fortnite uses Node `ws` for its declared
+`backendSocketOrigin` and fixed handler path, with no URL userinfo or redirects. The handshake
+sets only the provider frame's `Origin`. The socket port consumes late errors and waits for
+close with a two-second close timeout on shutdown. The CLI wires the optional Hermes broadcast
+ports, `supplementalSources.refreshNow` and `broadcastToken`, to the lane as the extension does
+(#1105). The lane supplies the JWT once it has a provider session. For any sign-in,
+the Hermes connection subscribes to the watching provider's broadcast topic with
+that JWT and refreshes the provider on its refresh events. The once-a-minute provider
+refresh continues if Twitch refuses the connection or the broadcast topic.
+
+Both CLI transports match GQL Client-ID to the effective credential and resolve the viewer
+login through Twitch's identity query. The lane starts when a configured provider is needed
+or a provider is enabled explicitly. A disable with no active lane saves the setting directly.
+If the viewer lookup fails, the shared host defers provider selection and memory writes and
+retries on a later tick. It keeps previously learned completion until the lookup confirms
+a different account or sign-out. An explicit non-web client refusal parks that provider for the
+lifetime of the credential revision. The lane emits one English warning, yields to other watch sources
+and leaves auth health to the regular probe. Reloading credentials aborts stale provider
+sessions and discovery, then permits a new probe. The CLI's `twitch-extension-lane.json`
+sits beside `state.json` and uses the same atomic writer. Both reads and writes are bounded.
+Core validates provider and channel keys and expiry, and restores only deadlines belonging
+to the authenticated login. The CLI lane and socket tests cover selection, NoPixelV chat and
+pack logging, restart, refusal across hours of ticks, socket admission and shutdown.
 
 NoPixelV uses its normal REST watchtime/giveaway protocol. Fortnite uses its normal socket handshake, versioned state reads and sprite capture commands; authoritative participant increments confirm captures, and actual server reward state determines completion. Optional takeovers require separate opt-in, server eligibility and ownership confirmation. See [provider details and live acceptance](twitch-extensions/foundation.md).
 

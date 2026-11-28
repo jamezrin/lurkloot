@@ -6,7 +6,7 @@
     "message": "Lurkloot - فارم Drops على Twitch وKick"
   },
   "extensionDescription": {
-    "message": "فارم Drops على Twitch وKick عبر جلسات المتصفح العادية، وعلامات تبويب مرئية مكتومة، ووضع اختياري منخفض الموارد."
+    "message": "فارم Drops على Twitch وKick تلقائيًا. يختار بثًا، يتابع التقدم ويستلم مكافآتك أثناء انشغالك بأمور أخرى."
   },
   "toolbarTitleOff": {
     "message": "الفارم متوقف"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 خارج تصفية المكافآت لديك"
   },
+  "queueSkippedGuide": {
+    "message": "لماذا تُتجاوَز حملة؟"
+  },
   "queueActionRequired": {
     "message": "يلزم إجراء"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "لا توجد إعدادات تطابق «$1»."
   },
-  "settingsPlatformSettings": {
-    "message": "إعدادات $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "عرض الإعدادات المتقدمة"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "الانتقال إلى قسم"
-  },
   "settingsSectionAdvancedActions": {
     "message": "إجراءات متقدمة"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "النشاط"
-  },
-  "activeStatus": {
-    "message": "نشط"
   },
   "pausedStatus": {
     "message": "متوقف مؤقتًا"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "فتح المخزون"
   },
-  "openActivity": {
-    "message": "فتح النشاط"
-  },
-  "closeActivity": {
-    "message": "إغلاق النشاط"
+  "openGuide": {
+    "message": "دليل المستخدم"
   },
   "openSettings": {
     "message": "فتح الإعدادات"
-  },
-  "closeSettings": {
-    "message": "إغلاق الإعدادات"
   },
   "back": {
     "message": "رجوع"
   },
   "loading": {
     "message": "جارٍ التحميل"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "قائمة المشاهدة"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "لا توجد حملات تطابق «$1»."
   },
-  "closeSearch": {
-    "message": "إغلاق البحث"
-  },
   "search": {
     "message": "بحث"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "غير مرتبط"
-  },
-  "subscriptionCampaigns": {
-    "message": "حملات الاشتراك"
   },
   "subscriptionRequired": {
     "message": "الاشتراك مطلوب"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "مكتملة"
   },
-  "completedCampaigns": {
-    "message": "المكتملة"
-  },
   "upcomingPill": {
     "message": "قادمة"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 مشاهد"
   },
-  "settingsGeneralTitle": {
-    "message": "الإعدادات العامة"
-  },
   "settingsGeneralDescription": {
     "message": "اللغة وبدء التشغيل وسلوك النافذة المنبثقة."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "ابدأ الفارم بمجرد تحميل الإضافة."
   },
-  "notificationsTitle": {
-    "message": "الإشعارات"
-  },
   "notificationsDescription": {
     "message": "تنبيهات عند جاهزية المكافآت أو انتهاء الحملات."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "إشعار عند نفاد كل الحملات النشطة."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "المطالبة والأهلية والأولويات وظهور الحملات."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "الأقل توفرًا أولًا"
   },
-  "watchlistSettingsTitle": {
-    "message": "قائمة المشاهدة"
-  },
-  "watchlistSettingsDescription": {
-    "message": "سلوك قائمة الاحتياط المشترك."
-  },
   "preferKnownChannelsTitle": {
     "message": "تفضيل القنوات المتابَعة وقنوات قائمة المشاهدة"
   },
   "preferKnownChannelsDescription": {
     "message": "عند توفر drop على عدة قنوات، يتم اختيار قناة تتابعها أو مدرجة في قائمة المشاهدة بدلاً من قناة غير معروفة."
-  },
-  "platformSettingsTitle": {
-    "message": "إعدادات المنصة"
-  },
-  "farmingTabsTitle": {
-    "message": "علامات تبويب الفارم"
   },
   "farmingTabsDescription": {
     "message": "عناصر التحكم لفارم تبويبات الفيديو. تُعطّل عناصر التحكم الخاصة بالتبويب أثناء وضع منخفض الموارد بدون تبويب."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "التبويب + النافذة"
-  },
-  "advancedTitle": {
-    "message": "متقدم"
   },
   "advancedDescription": {
     "message": "غيّرها فقط إذا كنت تعرف ما تفعل: تتحكم بالمجدول والتسجيل منخفض المستوى."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "لا يمكن جمع أي مكافأة من هذه الحملة حاليًا."
   },
-  "automationSectionTitle": {
-    "message": "الأتمتة"
-  },
-  "farmOnPlatform": {
-    "message": "فارم Drops وشاهد قائمة المشاهدة على $1."
-  },
   "enabled": {
     "message": "مفعل"
-  },
-  "watchlistEditHint": {
-    "message": "حررها من تبويب قائمة المشاهدة بعد اختيار $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "استلام نقاط القناة تلقائيًا"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "لن يتم الفارم على $1 إلا في هذه الفئات."
   },
-  "categoriesToFarm": {
-    "message": "الفئات للفارم"
-  },
   "noCategoriesSelected": {
     "message": "لم يتم تحديد فئات: لن يتم فارم أي شيء على $1. أضف فئات أدناه."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "لم يتم العثور على فئات."
-  },
-  "alreadyAdded": {
-    "message": "مضاف بالفعل."
-  },
-  "activityLogLevelsTitle": {
-    "message": "مستويات سجل النشاط"
-  },
-  "activityLogLevelsDescription": {
-    "message": "اختر المستويات المسجلة في سجل النشاط. تبقى الأخطاء دائمًا."
   },
   "rewardFilterTitle": {
     "message": "المكافآت للفارم"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "واجهة سطر الأوامر بدون متصفح"
   },
-  "cliExportDescription": {
-    "message": "شغّل جمع المكافآت (drops) على خادم أو في Docker باستخدام أداة Lurkloot CLI، مستعينًا بجلسة تسجيل الدخول في هذا المتصفح."
-  },
   "cliExportHint": {
     "message": "يُصدّر رموز جلسات Twitch وKick لكي يتمكن الأمر «login --import» في الأداة من إعادة استخدامها. احتفظ بالملف خاصًا — فأي شخص يملكه يمكنه استخدام جلساتك."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "خارج الجلسة"
-  },
-  "activitySessionEarlier": {
-    "message": "سابقًا"
   },
   "activitySessionEmpty": {
     "message": "لم يُحصل على شيء بعد. تظهر المكافآت والنقاط هنا فور حصولك عليها."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 من $2 مكافآت"
   },
-  "campaignTimeLeft": {
-    "message": "متبقٍ $1"
-  },
   "campaignFactStarts": {
     "message": "يبدأ"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "لم يُعثر على ألعاب أخرى."
   },
-  "navBeta": {
-    "message": "تجريبي"
-  },
   "navExtensions": {
     "message": "الإضافات"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "قد يزيل twitch.tv هذا الجزء من شريط العناوين تقريبًا فورًا. قبل تسجيل الدخول، افتح DevTools في المتصفح على تبويب Network وفعّل Preserve log. ثم سجّل الدخول، وفلتر بكلمة access_token، وانسخ قيمة location من إعادة توجيه id.twitch.tv. الصقها هنا بدلًا من ذلك."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "سجّل الدخول إلى Twitch في النافذة التي ستُفتح. تُغلق النافذة تلقائيًا عند الانتهاء."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "تسجيل الدخول إلى Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "في انتظار إنهاء تسجيل الدخول…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "أُغلقت نافذة تسجيل الدخول قبل أن تنتهي."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "تعذّر على نافذة تسجيل الدخول قراءة ردّ Twitch على هذا النظام. استخدم الخطوات أدناه بدلًا من ذلك."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "الصق العنوان بدلًا من ذلك"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "سجّل الدخول برمز"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "إغلاق"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 جاهز للتثبيت."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "إعادة التشغيل للتحديث"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "جارٍ تثبيت Lurkloot $1. سيُعاد تشغيله عند الانتهاء."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "تعذّر تنزيل Lurkloot $1. حاول مرة أخرى لاحقًا."
   },
   "appTokenTitle": {
     "message": "رمز الوصول"

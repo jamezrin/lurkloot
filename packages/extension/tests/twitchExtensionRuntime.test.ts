@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { createTwitchExtensionRuntime } from "../src/extensions/runtime";
+import { createTwitchExtensionRuntime } from "@lurkloot/core/extensions/host/runtime";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
-import type { DriverSession } from "../src/extensions/session";
+import type { DriverSession } from "@lurkloot/core/extensions/host/session";
 import type { EngineEvent } from "@lurkloot/shared/events";
 
 const provider = twitchExtensionProviders[0];

@@ -1,7 +1,8 @@
+import { buildDiagnosticsExport } from "@lurkloot/shared/diagnostics";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, Clock3, RotateCcw, Settings as SettingsIcon } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import { RotateCcw } from "lucide-react";
 import type {
   ActivityPage,
   ActivitySessionsPage,
@@ -53,6 +54,7 @@ import { DEFAULT_HOST_CAPABILITIES, HostCapabilitiesContext } from "./hostCapabi
 import { GamesPanel } from "./games";
 import {
   GITHUB_STAR_NUDGE_MIN_DAYS,
+  GUIDE_URL,
   PLATFORM_INVENTORY_URLS,
   PLATFORMS,
   RATE_NUDGE_MIN_DAYS,
@@ -75,7 +77,6 @@ import {
   reuseIfUnchanged,
   reuseUnchangedViews,
   channelViewFromSession,
-  fallbackGame,
   gameItemsFromCampaigns,
   campaignSection,
   pinCampaignAt,
@@ -93,7 +94,6 @@ import {
   applyActivityMutationForRequest,
   beginActivityMutation,
   beginDiagnosticsExport,
-  buildActivityExport,
   buildDiagnosticsExportFilename,
   createActivityMutationSequence,
   createActivityRequestScope,
@@ -443,6 +443,11 @@ export function PopupFrame({
   const [extensionPending, setExtensionPending] = useState(false);
   const activityOpen = view === "activity" && !hostView;
   const activityHistory = hostCapabilities.activityHistory;
+  // Diagnostic logging is one of the extension's own preferences. A host
+  // without them (the CLI app) keeps no diagnostic history, whatever the
+  // merged settings default to, so its Activity view has no diagnostics stream.
+  const diagnosticLogging =
+    hostCapabilities.extensionPreferences && Boolean(snapshot?.settings.diagnosticLogging);
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
   const [activitySessions, setActivitySessions] = useState<FarmingSessionSummary[]>([]);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
@@ -679,8 +684,8 @@ export function PopupFrame({
   }, [platform, trimmedDiagnosticSearchQuery]);
 
   useEffect(() => {
-    if (!snapshot?.settings.diagnosticLogging) handleShowDiagnosticsChange(false);
-  }, [snapshot?.settings.diagnosticLogging]);
+    if (!diagnosticLogging) handleShowDiagnosticsChange(false);
+  }, [diagnosticLogging]);
 
   // The failure report needs recent activity, but the Activity view's stream is
   // only populated once the user opens that tab — and the panel lives on the
@@ -709,7 +714,7 @@ export function PopupFrame({
       || preview
       || clearingActivity
       || !showDiagnostics
-      || !snapshot?.settings.diagnosticLogging
+      || !diagnosticLogging
     )
       return;
     let cancelled = false;
@@ -760,7 +765,7 @@ export function PopupFrame({
     clearingActivity,
     preview,
     showDiagnostics,
-    snapshot?.settings.diagnosticLogging,
+    diagnosticLogging,
   ]);
 
   function loadMoreActivity(): void {
@@ -796,7 +801,7 @@ export function PopupFrame({
           }),
       );
     }
-    if (showDiagnostics && snapshot?.settings.diagnosticLogging && diagnosticStream.nextCursor) {
+    if (showDiagnostics && diagnosticLogging && diagnosticStream.nextCursor) {
       const cursor = diagnosticStream.nextCursor;
       const pageRequest = beginActivityMutation(diagnosticMutationSequenceRef.current);
       requests.push(
@@ -1004,24 +1009,25 @@ export function PopupFrame({
       platform: request.platform,
     });
     if (!isDiagnosticsExportCurrent(request, diagnosticsExportRequestRef.current)) return undefined;
+    const { events, report } = buildDiagnosticsExport({
+      events: result.events,
+      platform: request.platform,
+      coverage: "full",
+      version: adapter.version,
+      environment: {
+        label: "browser",
+        value: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+      },
+      locale,
+      at: exportedAt.toISOString(),
+      snapshot,
+    });
     downloadFile(
       buildDiagnosticsExportFilename(request.platform, exportedAt),
-      buildActivityExport(
-        {
-          events: result.events,
-          platform: request.platform,
-          diagnostics: true,
-          coverage: "full",
-          version: adapter.version,
-          userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
-          locale,
-          at: exportedAt.toISOString(),
-        },
-        t,
-      ),
+      report,
       "text/plain",
     );
-    return result.events.length;
+    return events.length;
   }
 
   // The provider views drive the same handler the settings list does, with a
@@ -1733,6 +1739,7 @@ export function PopupFrame({
                         onOpenInventory={() =>
                           openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)
                         }
+                        onOpenGuide={() => openHttpsLink(GUIDE_URL, adapter.openLink)}
                         onOpenChangelog={
                           adapter.changelogUrl
                             ? () =>
@@ -1912,7 +1919,7 @@ export function PopupFrame({
                                     diagnosticEvents={diagnosticStream.events}
                                     platform={platform}
                                     lastTickAt={snapshot.state.lastTickAt}
-                                    diagnosticLogging={settings.diagnosticLogging}
+                                    diagnosticLogging={diagnosticLogging}
                                     showDiagnostics={showDiagnostics}
                                     hasMore={Boolean(
                                       showDiagnostics

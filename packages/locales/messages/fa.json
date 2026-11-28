@@ -6,7 +6,7 @@
     "message": "Lurkloot - فارم دراپ‌های Twitch و Kick"
   },
   "extensionDescription": {
-    "message": "دراپ‌های Twitch و Kick را با نشست عادی مرورگر و تب‌های بی‌صدا فارم کنید؛ حالت کم‌مصرف هم اختیاری است."
+    "message": "دراپ‌های Twitch و Kick را خودکار فارم کنید. استریم انتخاب می‌کند، پیشرفت را دنبال می‌کند و جایزه‌ها را می‌گیرد."
   },
   "toolbarTitleOff": {
     "message": "فارم خاموش است"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 با فیلتر پاداش شما سازگار نیست"
   },
+  "queueSkippedGuide": {
+    "message": "چرا یک کمپین رد می‌شود؟"
+  },
   "queueActionRequired": {
     "message": "نیازمند اقدام"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "تنظیمی با «$1» پیدا نشد."
   },
-  "settingsPlatformSettings": {
-    "message": "تنظیمات $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "نمایش تنظیمات پیشرفته"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "رفتن به بخش"
-  },
   "settingsSectionAdvancedActions": {
     "message": "کارهای پیشرفته"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "فعالیت"
-  },
-  "activeStatus": {
-    "message": "فعال"
   },
   "pausedStatus": {
     "message": "مکث‌شده"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "بازکردن موجودی"
   },
-  "openActivity": {
-    "message": "بازکردن فعالیت‌ها"
-  },
-  "closeActivity": {
-    "message": "بستن فعالیت‌ها"
+  "openGuide": {
+    "message": "راهنمای کاربر"
   },
   "openSettings": {
     "message": "بازکردن تنظیمات"
-  },
-  "closeSettings": {
-    "message": "بستن تنظیمات"
   },
   "back": {
     "message": "بازگشت"
   },
   "loading": {
     "message": "در حال بارگذاری"
-  },
-  "dropsTab": {
-    "message": "دراپ‌ها"
   },
   "watchlistTab": {
     "message": "فهرست تماشا"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "کمپینی با «$1» پیدا نشد."
   },
-  "closeSearch": {
-    "message": "بستن جست‌وجو"
-  },
   "search": {
     "message": "جست‌وجو"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "پیوند داده نشده"
-  },
-  "subscriptionCampaigns": {
-    "message": "کمپین‌های اشتراکی"
   },
   "subscriptionRequired": {
     "message": "نیازمند اشتراک"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "تمام‌شده"
   },
-  "completedCampaigns": {
-    "message": "کمپین‌های تکمیل‌شده"
-  },
   "upcomingPill": {
     "message": "به‌زودی"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 بیننده"
   },
-  "settingsGeneralTitle": {
-    "message": "تنظیمات عمومی"
-  },
   "settingsGeneralDescription": {
     "message": "زبان، راه‌اندازی و رفتار پنجرهٔ افزونه."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "به‌محض بارگذاری افزونه، فارم را شروع کند."
   },
-  "notificationsTitle": {
-    "message": "اعلان‌ها"
-  },
   "notificationsDescription": {
     "message": "هشدار برای آماده‌شدن پاداش‌ها یا پایان کمپین‌ها."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "وقتی همهٔ کمپین‌های فعال تمام شدند، اعلان بده."
-  },
-  "dropsSettingsTitle": {
-    "message": "دراپ‌ها"
   },
   "dropsSettingsDescription": {
     "message": "دریافت، واجد شرایط بودن، اولویت‌ها و نمایش کمپین‌ها."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "اول آن‌هایی با کانال کمتر"
   },
-  "watchlistSettingsTitle": {
-    "message": "فهرست تماشا"
-  },
-  "watchlistSettingsDescription": {
-    "message": "کانال‌های جایگزین برای زمان‌هایی که دراپ واجد شرایطی نیست."
-  },
   "preferKnownChannelsTitle": {
     "message": "ترجیح کانال‌های دنبال‌شده و فهرست تماشا"
   },
   "preferKnownChannelsDescription": {
     "message": "اگر دراپ در چند کانال باشد، کانالی را که دنبال می‌کنید یا در فهرست تماشا است به کانال ناآشنا ترجیح می‌دهد."
-  },
-  "platformSettingsTitle": {
-    "message": "تنظیمات پلتفرم"
-  },
-  "farmingTabsTitle": {
-    "message": "تب‌های فارم"
   },
   "farmingTabsDescription": {
     "message": "تنظیمات فارم با تبِ ویدیو. وقتی حالت کم‌مصرف بدون تب روشن باشد، تنظیمات ویژهٔ تب غیرفعال می‌شوند."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "تب و پنجره"
-  },
-  "advancedTitle": {
-    "message": "پیشرفته"
   },
   "advancedDescription": {
     "message": "فقط اگر می‌دانید چه می‌کنید این گزینه‌ها را تغییر دهید؛ آن‌ها رفتار زمان‌بند و ثبت گزارش در سطح پایین را کنترل می‌کنند."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "فعلاً هیچ پاداشی در این کمپین قابل فارم نیست."
   },
-  "automationSectionTitle": {
-    "message": "خودکارسازی"
-  },
-  "farmOnPlatform": {
-    "message": "دراپ‌ها را فارم کن و کانال‌های فهرست تماشا را در $1 تماشا کن."
-  },
   "enabled": {
     "message": "فعال"
-  },
-  "watchlistEditHint": {
-    "message": "پس از انتخاب $1، آن را از تبِ فهرست تماشا ویرایش کنید."
   },
   "autoClaimChannelPointsTitle": {
     "message": "دریافت خودکار امتیاز کانال"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "در $1 فقط این دسته‌بندی‌ها فارم می‌شوند."
   },
-  "categoriesToFarm": {
-    "message": "دسته‌بندی‌های قابل فارم"
-  },
   "noCategoriesSelected": {
     "message": "دسته‌بندی‌ای انتخاب نشده است — در $1 چیزی فارم نمی‌شود. دسته‌بندی‌ها را در پایین اضافه کنید."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "دسته‌بندی‌ای پیدا نشد."
-  },
-  "alreadyAdded": {
-    "message": "از قبل اضافه شده است."
-  },
-  "activityLogLevelsTitle": {
-    "message": "سطح‌های گزارش فعالیت"
-  },
-  "activityLogLevelsDescription": {
-    "message": "مشخص کن کدام سطح‌ها در گزارش فعالیت ثبت شوند. خطاها همیشه نگه داشته می‌شوند."
   },
   "rewardFilterTitle": {
     "message": "پاداش‌های قابل فارم"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "CLI بدون رابط گرافیکی"
   },
-  "cliExportDescription": {
-    "message": "با CLI مربوط به Lurkloot، فارم دراپ را روی سرور یا در Docker و با نشست واردشدهٔ این مرورگر اجرا کنید."
-  },
   "cliExportHint": {
     "message": "نشست‌های Twitch و Kick شما را صادر می‌کند تا دستور «login --import» در CLI از آن‌ها استفاده کند. فایل را خصوصی نگه دارید؛ هرکس آن را داشته باشد می‌تواند از نشست‌هایتان استفاده کند."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "خارج از نشست"
-  },
-  "activitySessionEarlier": {
-    "message": "قبلی‌ها"
   },
   "activitySessionEmpty": {
     "message": "هنوز چیزی به دست نیامده. پاداش‌ها و امتیازها همین‌جا نمایش داده می‌شوند، همان‌طور که می‌رسند."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 از $2 جایزه"
   },
-  "campaignTimeLeft": {
-    "message": "$1 باقی مانده"
-  },
   "campaignFactStarts": {
     "message": "شروع"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "بازی دیگری پیدا نشد."
   },
-  "navBeta": {
-    "message": "بتا"
-  },
   "navExtensions": {
     "message": "اکستنشن‌ها"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv ممکن است آن بخش را تقریباً بلافاصله از نوار نشانی حذف کند. پیش از ورود، DevTools مرورگر را روی برگهٔ Network باز کنید و Preserve log را روشن کنید. سپس وارد شوید، با access_token فیلتر کنید و مقدار location را در تغییرمسیر id.twitch.tv کپی کنید. به‌جای نشانی کامل، همان را اینجا بچسبانید."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "در پنجرهٔ بازشده به Twitch وارد شوید. پس از پایان، خودبه‌خود بسته می‌شود."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "ورود به Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "در انتظار تکمیل ورود شما…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "پنجرهٔ ورود پیش از تکمیل ورود بسته شد."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "پنجرهٔ ورود در این سیستم نتوانست پاسخ Twitch را بخواند. به‌جای آن از مراحل زیر استفاده کنید."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "به‌جایش نشانی را بچسبانید"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "با کد وارد شوید"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "بستن"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 آماده نصب است."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "راه‌اندازی مجدد برای به‌روزرسانی"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "در حال نصب Lurkloot $1. پس از پایان، دوباره راه‌اندازی می‌شود."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 دانلود نشد. بعداً دوباره تلاش کنید."
   },
   "appTokenTitle": {
     "message": "توکن دسترسی"

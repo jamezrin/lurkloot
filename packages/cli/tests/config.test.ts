@@ -1,5 +1,8 @@
-import { beforeAll, describe, expect, it } from "vitest";
-import { execFileSync, spawnSync } from "node:child_process";
+import { PLATFORMS } from "@lurkloot/shared/models";
+import { toEngineSettings } from "../src/settings";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -8,6 +11,7 @@ import { parse as parseJsonc } from "jsonc-parser";
 import { defaultConfigJsonc, loadConfig, parseConfig } from "../src/config";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
+import { saveCredentials } from "../src/authStore";
 
 const CONFIG_PATH = "/tmp/lurkloot/config.json";
 const CLI_PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
@@ -19,16 +23,22 @@ beforeAll(() => {
   execFileSync("pnpm", ["build"], { cwd: CLI_PACKAGE_DIR, stdio: "pipe" });
 });
 
-function runCli(configPath: string, args: string[]) {
+function cliEnv(overrides?: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    SA_TWITCH_AUTH_TOKEN: undefined,
+    SA_TWITCH_DEVICE_ID: undefined,
+    SA_TWITCH_CLIENT_ID: undefined,
+    SA_KICK_SESSION_TOKEN: undefined,
+    ...overrides,
+  };
+}
+
+function runCli(configPath: string, args: string[], overrides?: NodeJS.ProcessEnv) {
   return spawnSync(process.execPath, [CLI_PATH, ...args, "--config", configPath], {
     cwd: CLI_PACKAGE_DIR,
     encoding: "utf8",
-    env: {
-      ...process.env,
-      SA_TWITCH_AUTH_TOKEN: undefined,
-      SA_TWITCH_DEVICE_ID: undefined,
-      SA_KICK_SESSION_TOKEN: undefined,
-    },
+    env: cliEnv(overrides),
   });
 }
 
@@ -79,7 +89,7 @@ describe("parseConfig", () => {
 
   it("loads a top-level farmPinnedOnly with one warning, farming only pins on both platforms", () => {
     const config = parseConfig({ settings: { farmPinnedOnly: true } }, CONFIG_PATH);
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(config.settings.platform[platform].rewardFilter).toMatchObject({
         kinds: [],
         favouriteKinds: [],
@@ -167,7 +177,7 @@ describe("parseConfig", () => {
       { settings: { campaignPins: ["pin"], excludedCampaignIds: ["skip"] } },
       CONFIG_PATH,
     );
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(config.settings.platform[platform].campaignPins).toEqual(["pin"]);
       expect(config.settings.platform[platform].excludedCampaignIds).toEqual(["skip"]);
     }
@@ -225,7 +235,7 @@ describe("parseConfig", () => {
   });
 
   it("accepts every known transport", () => {
-    for (const transport of ["http", "impersonate"] as const) {
+    for (const transport of ["http", "impersonate", "impit", "cycletls"] as const) {
       expect(parseConfig({ transport }, CONFIG_PATH).transport).toBe(transport);
     }
   });
@@ -379,7 +389,7 @@ describe("loadConfig", () => {
     // These gate what a headless run earns, so an omitted key is a real
     // documentation gap — and the round-trip above cannot catch it.
     const platforms = parseJsonc(defaultConfigJsonc()).settings.platform;
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
       expect(platforms[platform]).toMatchObject({
         rewardFilter: defaults.rewardFilter,
@@ -549,10 +559,150 @@ describe("config export/import", () => {
   });
 });
 
-it("rejects browser-only Twitch provider integration settings", () => {
+it("exports redacted diagnostics from a custom state path in the bundled CLI", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lurkloot-command-"));
+  try {
+    const configPath = join(dir, "custom-config.json");
+    const statePath = join(dir, "custom-state.json");
+    const sidecar = `${statePath}.diagnostics.json`;
+    const outputPath = join(dir, "diagnostics.log");
+    const twitch = {
+      authToken: "test-twitch-auth-1094",
+      deviceId: "test-twitch-device-1094",
+      clientId: "test-twitch-client-1094",
+      kasadaSessionCookie: "test-kasada-session-1094",
+    };
+    const wireToken = "12345|test-kick-session-1094";
+    const sessionToken = encodeURIComponent(wireToken);
+    const serveToken = "test-serve-access-1094";
+    const env = { LURKLOOT_SERVE_TOKEN: serveToken };
+    const secrets = [...Object.values(twitch), sessionToken, wireToken, serveToken];
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        transport: "http",
+        settings: {
+          schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
+          platform: { twitch: { enabled: false }, kick: { enabled: false } },
+        },
+      }),
+    );
+    saveCredentials(join(dir, "auth"), { twitch, kick: { sessionToken } });
+    const seedSidecar = () =>
+      writeFileSync(
+        sidecar,
+        JSON.stringify(
+          [
+            "Prior process diagnostic",
+            ...secrets.map((secret) => `Unexpected value ${secret}`),
+          ].map((message, i) => ({
+            id: String(i),
+            at: "2026-11-19T00:00:00.000Z",
+            category: "diagnostic",
+            level: "debug",
+            message,
+          })),
+        ),
+      );
+    const expectRedacted = (text: string) => {
+      expect(text).toContain("Prior process diagnostic");
+      expect(text).toContain("[redacted]");
+      for (const secret of secrets) expect(text).not.toContain(secret);
+    };
+
+    seedSidecar();
+    const writtenAt = statSync(sidecar).mtime.toISOString();
+    const stateArgs = ["--state", statePath];
+    const exportArgs = ["diagnostics", "export", ...stateArgs];
+    const printed = runCli(configPath, exportArgs, env);
+    expect(printed.status, printed.stderr).toBe(0);
+    expectRedacted(printed.stdout);
+    expect(printed.stdout).toContain("diagnostic source: saved sidecar");
+    expect(printed.stdout).toContain(`sidecar written at: ${writtenAt}`);
+
+    const fileArgs = [...exportArgs, "--out", outputPath];
+    const exported = runCli(configPath, fileArgs, env);
+    expect(exported.status, exported.stderr).toBe(0);
+    expect(exported.stdout).toBe("");
+    const report = readFileSync(outputPath, "utf8");
+    expectRedacted(report);
+    if (process.platform !== "win32") {
+      expect(statSync(outputPath).mode & 0o777).toBe(0o600);
+    }
+    const refused = runCli(configPath, fileArgs, env);
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toBe("");
+    expect(refused.stderr).toBe(
+      "Diagnostics output file already exists. Choose a new --out path.\n",
+    );
+    expect(readFileSync(outputPath, "utf8")).toBe(report);
+
+    const ran = runCli(configPath, ["run", "--once", "--log", "error", ...stateArgs], env);
+    expect(ran.status, ran.stderr).toBe(0);
+    const restored = readFileSync(sidecar, "utf8");
+    expectRedacted(restored);
+    expect(JSON.parse(restored).length).toBeGreaterThan(secrets.length + 1);
+
+    seedSidecar();
+    const child = spawn(
+      process.execPath,
+      [CLI_PATH, "serve", "--port", "0", "--config", configPath, ...stateArgs],
+      { env: cliEnv(env), stdio: ["ignore", "ignore", "pipe"], timeout: 10_000 },
+    );
+    const exited = once(child, "exit");
+    let stderr = "";
+    child.stderr.setEncoding("utf8").on("data", (chunk) => {
+      stderr += chunk;
+    });
+    try {
+      const url = await vi.waitFor(
+        () => {
+          const url = stderr.match(/\[serve\].* (http:\/\/127\.0\.0\.1:\d+)/)?.[1];
+          if (!url) throw new Error(`Serve did not report a bound address: ${stderr}`);
+          return url;
+        },
+        { timeout: 5_000 },
+      );
+      const response = await fetch(`${url}/v1/session/messages`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${serveToken}`, "content-type": "application/json" },
+        body: JSON.stringify({ type: "exportDiagnostics", platform: "kick" }),
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(response.status).toBe(200);
+      const body = await response.text();
+      expectRedacted(body);
+      expect(body).toContain("diagnostic source: live buffer");
+    } finally {
+      child.kill();
+      await exited;
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}, 15_000);
+
+it("round-trips Twitch Extension settings through the config and its engine mapping", () => {
+  const twitchExtensions = {
+    nopixel: { enabled: true, autoOpenPacks: true },
+    fortnite: { enabled: true, allowTakeovers: true },
+  };
+  const template = parseJsonc(defaultConfigJsonc());
+  expect(template.settings.twitchExtensions).toEqual({
+    nopixel: { enabled: false, autoOpenPacks: false },
+    fortnite: { enabled: false, allowTakeovers: false },
+  });
+  const config = parseConfig({ settings: { twitchExtensions } }, CONFIG_PATH);
+  expect(config.settings.twitchExtensions).toEqual(twitchExtensions);
+  expect(toEngineSettings(config.settings).twitchExtensions).toEqual(twitchExtensions);
   expect(() =>
-    parseConfig({ settings: { twitchExtensions: { nopixel: { enabled: true } } } }, CONFIG_PATH),
-  ).toThrow(/extension-only/);
+    parseConfig(
+      {
+        settings: { twitchExtensions: { fortnite: { allowTakeovers: "yes" } } },
+      },
+      CONFIG_PATH,
+    ),
+  ).toThrow(/twitchExtensions.fortnite.allowTakeovers/);
 });
 
 describe("subscription marks in the generated config", () => {

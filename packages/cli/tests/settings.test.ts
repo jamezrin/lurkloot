@@ -1,3 +1,4 @@
+import { PLATFORMS } from "@lurkloot/shared/models";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import { describe, expect, it } from "vitest";
 import { mergeSettings } from "@lurkloot/shared/settings";
@@ -290,7 +291,7 @@ describe("parseCliSettings", () => {
     const result = parseCliSettingsWithDiagnostics({ farmPinnedOnly: true });
 
     expect(result.settings).not.toHaveProperty("farmPinnedOnly");
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(result.settings.platform[platform].rewardFilter).toMatchObject({
         kinds: [],
         favouriteKinds: [],
@@ -307,7 +308,7 @@ describe("parseCliSettings", () => {
     });
 
     expect(result.settings).not.toHaveProperty("farmingEligibility");
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(result.settings.platform[platform].unlinkedCampaigns).toBe("skip");
       expect(result.settings.platform[platform].rewardFilter.subscriptions).toBe("skip");
     }
@@ -338,7 +339,7 @@ describe("parseCliSettings", () => {
       campaignVisibility: { notLinked: false, upcoming: false },
     });
     expect(settings).not.toHaveProperty("dropsListFilter");
-    for (const platform of ["twitch", "kick"] as const) {
+    for (const platform of PLATFORMS) {
       expect(settings.platform[platform].unlinkedCampaigns).toBe("include");
       expect(settings.platform[platform].rewardFilter.subscriptions).toBe("include");
     }

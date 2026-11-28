@@ -1,4 +1,4 @@
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -10,6 +10,11 @@ import {
   STORAGE_PREFIX,
 } from "../src/adapter";
 import { App } from "../src/App";
+import {
+  DESKTOP_UPDATE_EVENT,
+  DESKTOP_UPDATE_PROPERTY,
+  INSTALL_UPDATE_FRAGMENT,
+} from "../src/desktopHost";
 import { loadAppCatalogs } from "../src/i18n";
 import { createTokenPromptBridge } from "../src/tokenPrompt";
 import { resetFixture } from "../fixture/controlPlane";
@@ -51,20 +56,20 @@ function adapterFor(client = fixtureClient(), onError = vi.fn()) {
 }
 
 describe("HTTP popup adapter", () => {
-  it("declares the CLI host's capabilities", () => {
+  it("declares the CLI host's capabilities", async () => {
     const { adapter } = adapterFor();
     expect(adapter.hostCapabilities).toBe(CLI_HOST_CAPABILITIES);
     expect(CLI_HOST_CAPABILITIES).toEqual({
       tabs: false,
-      twitchExtensions: false,
+      twitchExtensions: true,
       credentialExport: false,
       extensionPreferences: false,
       language: true,
-      activityHistory: false,
+      activityHistory: true,
     });
     // Nothing that only the extension can do.
     expect(adapter.exportCredentials).toBeUndefined();
-    expect(adapter.requestTwitchExtensionPermission).toBeUndefined();
+    await expect(adapter.requestTwitchExtensionPermission?.("nopixel")).resolves.toBe(true);
     expect(adapter.resetExtension).toBeUndefined();
     expect(adapter.getPendingOnboarding).toBeUndefined();
     expect(adapter.reviewStore).toBeNull();
@@ -164,10 +169,10 @@ describe("app over the control plane", () => {
   it("shows no extension-only control anywhere", async () => {
     const { container } = await mountApp();
 
-    // The rail: no Twitch Extension providers; Accounts is there.
-    expect(container.querySelector('[data-rail-group="navExtensions"]')).toBeNull();
-    expect(container.querySelector('button[data-view="nopixel"]')).toBeNull();
-    expect(container.querySelector('button[data-view="fortnite"]')).toBeNull();
+    // The rail includes Twitch Extension providers and Accounts.
+    expect(container.querySelector('[data-rail-group="navExtensions"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="nopixel"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="fortnite"]')).not.toBeNull();
     expect(container.querySelector('button[data-host-view="accounts"]')).not.toBeNull();
     // No tips, rate or star nudges, update notice or onboarding tour.
     expect(container.textContent).not.toContain(text("rateNudgeTitle"));
@@ -194,12 +199,59 @@ describe("app over the control plane", () => {
       expect(settings, key).not.toContain(text(key));
     }
     expect(container.querySelector('[id="settings-section-general.farmingTabs"]')).toBeNull();
-    expect(container.querySelector('[id="settings-section-twitch.extensions"]')).toBeNull();
+    expect(container.querySelector('[id="settings-section-twitch.extensions"]')).not.toBeNull();
     // The language is the app's own, so its picker stays.
     expect(settings).toContain(text("settingsLanguageTitle"));
 
+    // The CLI keeps an activity history (#1088), so Activity is the log, with
+    // no diagnostics stream: the CLI keeps diagnostics in its log only.
     await click(container.querySelector('button[data-view="activity"]'));
-    expect(container.querySelector("[data-activity-summary]")).not.toBeNull();
+    expect(container.querySelector("[data-activity-summary]")).toBeNull();
+    expect(container.querySelector("[data-activity-view-tab]")).toBeNull();
+    expect(container.textContent).not.toContain(text("exportAllDiagnostics"));
+  });
+
+  it("pages and clears the CLI's activity history over HTTP", async () => {
+    const { container, client } = await mountApp();
+    const sent = () =>
+      client.calls.map((call) => (call.body as { type?: string } | undefined)?.type);
+
+    await click(container.querySelector('button[data-view="activity"]'));
+    await vi.waitFor(() => {
+      expect(sent()).toContain("getActivity");
+      expect(sent()).toContain("getActivitySessions");
+    });
+    // The history's sessions and rows, drawn by the popup's own Activity log.
+    const sessions = () => container.querySelectorAll("[data-activity-session]");
+    await vi.waitFor(() => expect(sessions().length).toBeGreaterThan(0));
+    // The open session's point tally, from getActivitySessions.
+    expect([...sessions()].map((session) => session.textContent).join(" ")).toContain(
+      "RivalsPilot",
+    );
+    const clear = () =>
+      [...container.querySelectorAll("button")].find((button) =>
+        [text("clearActivityHistory"), text("confirmClearActivityHistory")].includes(
+          button.textContent ?? "",
+        ),
+      );
+    await click(clear());
+    await click(clear());
+    await vi.waitFor(() => expect(sent()).toContain("clearActivity"));
+    await vi.waitFor(() => expect(sessions()).toHaveLength(0));
+  });
+
+  it("enables Fortnite from its provider view through the control plane", async () => {
+    const { container, client } = await mountApp();
+    await click(container.querySelector('button[data-view="fortnite"]'));
+    const toggle = () => container.querySelector('[role="switch"][aria-label="Fortnite"]');
+    await vi.waitFor(() => expect(toggle()?.getAttribute("aria-checked")).toBe("false"));
+    await click(toggle());
+    await vi.waitFor(() => expect(toggle()?.getAttribute("aria-checked")).toBe("true"));
+    expect(client.calls).toContainEqual({
+      method: "POST",
+      path: "/v1/session/messages",
+      body: { type: "setTwitchExtensionEnabled", provider: "fortnite", enabled: true },
+    });
   });
 
   it("polls the snapshot over HTTP at the popup's five-second cadence", async () => {
@@ -230,5 +282,62 @@ describe("app over the control plane", () => {
     );
     await click(container.querySelector('[data-auth-action="kick"]'));
     await vi.waitFor(() => expect(container.querySelector("[data-accounts]")).not.toBeNull());
+  });
+});
+
+describe("desktop app updates (#1028)", () => {
+  function report(detail: unknown) {
+    act(() => {
+      window.dispatchEvent(new CustomEvent(DESKTOP_UPDATE_EVENT, { detail }));
+    });
+  }
+
+  it("shows nothing until the desktop app reports an update", async () => {
+    const { container } = await mountApp();
+    expect(container.querySelector("[data-desktop-update]")).toBeNull();
+    // A malformed report is ignored.
+    report({ status: "ready" });
+    report({ status: "elsewhere", version: "2.1.0" });
+    expect(container.querySelector("[data-desktop-update]")).toBeNull();
+  });
+
+  it("offers the install, and asks the desktop app for it only when clicked", async () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    const { container } = await mountApp();
+    report({ status: "ready", version: "2.1.0" });
+    const bar = container.querySelector('[data-desktop-update="ready"]');
+    expect(bar?.textContent).toContain(text("appDesktopUpdateReady").replace("$1", "2.1.0"));
+    expect(open).not.toHaveBeenCalled();
+    await click(container.querySelector("[data-desktop-update-install]"));
+    expect(open).toHaveBeenCalledWith(
+      `https://lurkloot.jamezrin.com/guide/headless/desktop#${INSTALL_UPDATE_FRAGMENT}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
+
+  it("shows an update the desktop app reported before the app mounted", async () => {
+    Reflect.set(window, DESKTOP_UPDATE_PROPERTY, { status: "ready", version: "2.1.0" });
+    try {
+      const { container } = await mountApp();
+      expect(container.querySelector('[data-desktop-update="ready"]')).not.toBeNull();
+    } finally {
+      Reflect.deleteProperty(window, DESKTOP_UPDATE_PROPERTY);
+    }
+  });
+
+  it("shows the install's progress and a failure that can be tried again", async () => {
+    const { container } = await mountApp();
+    report({ status: "installing", version: "2.1.0" });
+    expect(container.querySelector('[data-desktop-update="installing"]')?.textContent).toContain(
+      text("appDesktopUpdateInstalling").replace("$1", "2.1.0"),
+    );
+    expect(container.querySelector("[data-desktop-update-install]")).toBeNull();
+    report({ status: "failed", version: "2.1.0" });
+    expect(container.querySelector('[data-desktop-update="failed"]')?.textContent).toContain(
+      text("appDesktopUpdateFailed").replace("$1", "2.1.0"),
+    );
+    expect(container.querySelector("[data-desktop-update-install]")).not.toBeNull();
   });
 });

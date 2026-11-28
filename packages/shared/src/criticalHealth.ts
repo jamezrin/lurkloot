@@ -37,7 +37,10 @@ export interface CriticalHealthState {
   lastObservedAt?: string;
   lastWatchedMinutes?: number;
   // Both managed page contexts and managed watch tabs, sharing one churn window.
+  // Open timestamps survive worker restarts.
   managedTabOpens: readonly string[];
+  // A longer window for newly created page contexts rejected by the platform.
+  rejectedPageContextOpens?: readonly string[];
   breakerOpen: boolean;
   dismissedAt?: string;
   cooldownUntil?: string;
@@ -71,6 +74,15 @@ export const DEFAULT_CRITICAL_HEALTH: CriticalHealthState = Object.freeze({
 
 function isoOrUndefined(value: unknown): string | undefined {
   return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : undefined;
+}
+
+function normalizeOpenTimes(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value
+        .map(isoOrUndefined)
+        .filter((stamp): stamp is string => stamp !== undefined)
+        .slice(-CRITICAL_HEALTH_RECORD_LIMIT)
+    : [];
 }
 
 function normalizeRecord(candidate: unknown): FailureRecord | undefined {
@@ -112,9 +124,12 @@ export function normalizeCriticalHealth(candidate: unknown): CriticalHealthState
         .filter((record): record is FailureRecord => record !== undefined)
         .slice(-CRITICAL_HEALTH_RECORD_LIMIT)
     : [];
+  const rejectedOpens = normalizeOpenTimes(value.rejectedPageContextOpens);
   const state: CriticalHealthState = {
     ...DEFAULT_CRITICAL_HEALTH,
     status,
+    managedTabOpens: normalizeOpenTimes(value.managedTabOpens),
+    ...(rejectedOpens.length ? { rejectedPageContextOpens: rejectedOpens } : {}),
     breakerOpen: value.breakerOpen === true,
     records,
   };

@@ -19,10 +19,13 @@ export const SITE = {
 // unified release workflow. Used verbatim in the CLI section's snippet.
 export const DOCKER_IMAGE = "ghcr.io/jamezrin/lurkloot-cli:latest";
 
+// Where the site sends people to set up the CLI: the user guide, not the
+// package README, which is written for contributors.
+export const CLI_GUIDE_PATH = "/guide/headless/overview";
+
 export const EXTERNAL_URLS = {
   chrome: "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
   github: "https://github.com/jamezrin/lurkloot",
-  cli: "https://github.com/jamezrin/lurkloot/tree/main/packages/cli",
   ghcr: "https://github.com/jamezrin/lurkloot/pkgs/container/lurkloot-cli",
 } as const;
 
@@ -39,11 +42,32 @@ export const LINKS = {
   // On-site pages (no trailing slash, matching `trailingSlash: "ignore"`).
   privacy: "/privacy",
   changelog: "/changelog",
+  guide: "/guide",
   twitchFarmer: "/twitch-drops-farmer",
   kickFarmer: "/kick-drops-farmer",
   x: "https://x.com/jamezrin",
   // The open-source repo (not the profile) — surfaced across hero/CLI/footer.
   github: withCampaign(EXTERNAL_URLS.github, "open_source"),
-  cli: withCampaign(`${EXTERNAL_URLS.cli}#readme`, "open_source"),
   ghcr: withCampaign(EXTERNAL_URLS.ghcr, "open_source"),
 } as const;
+
+// The main links in the bar at the top of every page except the homepage,
+// which links to its own sections. The guide's header shows the same ones.
+// The header's links, the same on every page (the guide's header uses them
+// too). The logo links home.
+export const NAV_LINKS = [
+  { href: LINKS.twitchFarmer, label: "Twitch" },
+  { href: LINKS.kickFarmer, label: "Kick" },
+  { href: LINKS.guide, label: "Guide" },
+  { href: LINKS.changelog, label: "Changelog" },
+];
+
+// The homepage's sections, shown as a second row under its header so you can
+// jump straight to one. Each href is a section id on the homepage.
+export const HOME_SECTIONS = [
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#priorities", label: "Priorities" },
+  { href: "#platforms", label: "Platforms" },
+  { href: "#cli", label: "Headless", badge: "Beta" },
+  { href: "#faq", label: "FAQ" },
+];

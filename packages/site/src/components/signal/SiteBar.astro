@@ -1,0 +1,44 @@
+---
+// The site's header bar: logo, page links, GitHub and Get Lurkloot. Every page
+// uses this one component, the guide included (src/components/guide/Header.astro),
+// so the header cannot drift between them. A page adds to it through slots:
+// the guide puts its search box in "search", the site its menu button in "end".
+import { LINKS, NAV_LINKS } from "../../consts";
+import logo from "../../assets/logo-ring.svg";
+import { GITHUB_ICON_PATH as githubPath, STAR_ICON_PATH as starPath } from "./icons";
+
+interface Props {
+  // The page's own path, without a trailing slash, to mark its link.
+  current?: string;
+}
+const { current = Astro.url.pathname.replace(/\/$/, "") } = Astro.props;
+const isCurrent = (href: string) => current === href || current.startsWith(`${href}/`);
+---
+<div class="sg-bar">
+  <a class="sg-brand" href="/" aria-label="Lurkloot home">
+    <img src={logo.src} width="26" height="26" alt="" />
+    <span>Lurkloot</span>
+  </a>
+  <nav class="sg-bar__links" aria-label="Main navigation">
+    {NAV_LINKS.map((link) => (
+      <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>{link.label}</a>
+    ))}
+  </nav>
+  {Astro.slots.has("search") && <div class="sg-bar__search"><slot name="search" /></div>}
+  <div class="sg-bar__end">
+    <a class="sg-pill sg-pill--ghost sg-bar__gh" href={LINKS.github} target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={githubPath} /></svg>
+      <span>GitHub</span>
+      <span class="sg-nav__stars" data-github-stars-wrap hidden>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={starPath} /></svg>
+        <span data-github-stars></span><span class="sg-sr"> stars</span>
+      </span>
+    </a>
+    <a class="sg-pill sg-bar__get" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot</a>
+    <slot name="end" />
+  </div>
+</div>
+
+<script>
+  import "../../scripts/github-stars.ts";
+</script>

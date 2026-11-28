@@ -1,12 +1,18 @@
-import type {
-  ManagedPageContextTab,
-  Platform,
-  SchedulerManagedPageContexts,
-  TabClosureOrigin,
+import {
+  PLATFORMS,
+  type ManagedPageContextTab,
+  type Platform,
+  type SchedulerManagedPageContexts,
+  type TabClosureOrigin,
 } from "@lurkloot/shared/models";
-import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
+import type {
+  DiagnosticEvent,
+  EventEmitter,
+  PageContextCloseReason,
+} from "@lurkloot/shared/events";
+import type { PageContextOpenAccountingReason } from "./criticalHealth";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import type { TwitchIntegrity, TwitchIntegrityRequest } from "./twitchIntegrity";
+import type { TwitchIntegrity } from "./twitchIntegrity";
 export type { TwitchIntegrityRequest } from "./twitchIntegrity";
 import type { KickPageContextCycleObservation } from "../platforms/adapter";
 import { createTwitchRequestIdentity, type TwitchRequestIdentity } from "./transport";
@@ -39,6 +45,7 @@ export interface PageContextTab {
   createdByExtension: boolean;
   retainedContext?: ManagedPageContextTab;
   openedForRequest?: boolean;
+  recordRejection?: () => Promise<void>;
   source?: PageContextSource;
 }
 
@@ -55,6 +62,18 @@ export interface PageContextEntry {
 // handed the same instance.
 export interface TabRegistry {
   pageContextTabs: Map<string, PageContextEntry>;
+  // Controller-owned persistence, called by the browser tab owner for all
+  // acquisitions, regardless of which adapter operation requested one.
+  managedPageContexts?: {
+    prepare(platform: Platform, criticalFailurePromptEnabled?: boolean): Promise<void>;
+    opened(
+      platform: Platform,
+      at: number,
+      reason: PageContextOpenAccountingReason,
+      tickContext?: Required<Pick<DiagnosticEvent, "globalTickId" | "platformTickId">>,
+    ): Promise<void>;
+    rejected(platform: Platform, at: number): Promise<void>;
+  };
   retainedPageContextTabs: Map<Platform, ManagedPageContextTab>;
   // Tabs the engine is closing or has closed, and why (#598). Recorded before
   // the browser call, so the removal event that follows it finds the entry.
@@ -138,12 +157,10 @@ export function createTabRegistry(): TabRegistry {
   return registry;
 }
 
-const ALL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
-
 export function syncManagedTabBreakers(
   registry: TabRegistry,
   state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
-  platforms: readonly Platform[] = ALL_PLATFORMS,
+  platforms: readonly Platform[] = PLATFORMS,
 ): void {
   for (const platform of platforms) {
     if (state.criticalHealth?.[platform]?.breakerOpen)
@@ -533,12 +550,15 @@ export function waitForIntegrityCapture(
 export function registerManagedPageContextTabs(
   registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
-  platforms: readonly Platform[] = ALL_PLATFORMS,
+  platforms: readonly Platform[] = PLATFORMS,
 ): void {
   for (const platform of platforms) {
     registry.retainedPageContextTabs.delete(platform);
     const context = contexts[platform];
-    if (context) registry.retainedPageContextTabs.set(platform, context);
+    if (context) {
+      registry.retainedPageContextTabs.set(platform, context);
+      noteExtensionCreatedTab(registry, context.tabId);
+    }
     registry.retainedPageContextRevision += 1;
   }
 }
@@ -550,7 +570,7 @@ export function registerManagedPageContextTabs(
 export function hydrateManagedPageContextTabs(
   registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
-  platforms: readonly Platform[] = ALL_PLATFORMS,
+  platforms: readonly Platform[] = PLATFORMS,
   expectedRevision?: number,
 ): boolean {
   if (expectedRevision !== undefined && expectedRevision !== registry.retainedPageContextRevision)
@@ -560,6 +580,7 @@ export function hydrateManagedPageContextTabs(
     const context = contexts[platform];
     if (!context) continue;
     registry.retainedPageContextTabs.set(platform, context);
+    noteExtensionCreatedTab(registry, context.tabId);
     registry.retainedPageContextRevision += 1;
   }
   return true;
@@ -749,7 +770,7 @@ export function forgetRemovedPageContextTab(
 ): { contexts: SchedulerManagedPageContexts; platforms: Platform[] } {
   const next = { ...contexts };
   const platforms: Platform[] = [];
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const retained = registry.retainedPageContextTabs.get(platform);
     const stored = next[platform];
     if (retained?.tabId === tabId) {
@@ -765,9 +786,13 @@ export function forgetRemovedPageContextTab(
 export function forgetManagedPageContextTabs(
   registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
+  options: {
+    platforms?: readonly Platform[];
+    reason?: PageContextCloseReason;
+    emit?: EventEmitter;
+  } = {},
 ): SchedulerManagedPageContexts {
-  const platforms = options.platforms ?? ["twitch", "kick"];
+  const platforms = options.platforms ?? PLATFORMS;
   const next = { ...contexts };
   for (const platform of platforms) {
     if (!next[platform]) continue;

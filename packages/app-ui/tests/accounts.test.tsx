@@ -1,4 +1,4 @@
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -9,6 +9,11 @@ import {
 } from "../src/accounts";
 import { ControlPlaneError } from "../src/api";
 import { type AuthApi, createAuthApi, type DeviceLogin } from "../src/auth";
+import {
+  DESKTOP_HOST_PROPERTY,
+  SIGN_IN_WINDOW_FRAGMENT,
+  TWITCH_SIGN_IN_EVENT,
+} from "../src/desktopHost";
 import { resetFixture } from "../fixture/controlPlane";
 import { fixtureClient } from "./helpers";
 import { createDemoPopupAdapter } from "@lurkloot/popup-ui";
@@ -256,5 +261,107 @@ describe("describeAuthError", () => {
 
   it("names both platforms only when the request was not for one", () => {
     expect(describeAuthError(unavailable, i18n.t)).toBe("appErrorUpstreamUnavailable");
+  });
+});
+
+describe("Twitch sign-in in the desktop app (#1026)", () => {
+  const signInLink = (container: HTMLElement) =>
+    container.querySelector<HTMLButtonElement>("[data-sign-in-window-open]");
+  const pasteInput = (container: HTMLElement) =>
+    container.querySelector<HTMLInputElement>("[data-browser-login-address]");
+  const report = async (detail: unknown) =>
+    act(async () => {
+      window.dispatchEvent(new CustomEvent(TWITCH_SIGN_IN_EVENT, { detail }));
+    });
+
+  afterEach(() => {
+    Reflect.deleteProperty(window, DESKTOP_HOST_PROPERTY);
+  });
+
+  function asDesktopApp() {
+    Object.defineProperty(window, DESKTOP_HOST_PROPERTY, {
+      value: Object.freeze({ twitchSignInWindow: true }),
+      configurable: true,
+    });
+  }
+
+  it("keeps the paste flow in a plain browser", async () => {
+    const { container } = await mountAccounts();
+    expect(container.querySelector("[data-sign-in-window]")).toBeNull();
+    expect(pasteInput(container)).not.toBeNull();
+  });
+
+  it("asks the desktop app for its sign-in window and shows who signed in", async () => {
+    asDesktopApp();
+    const { container, adapter, client } = await mountAccounts();
+    expect(pasteInput(container)).toBeNull();
+
+    await act(async () => signInLink(container)!.click());
+    await vi.waitFor(() => expect(adapter.openLink).toHaveBeenCalledTimes(1));
+    const opened = new URL(adapter.openLink.mock.calls[0][0] as string);
+    expect(opened.hash).toBe(`#${SIGN_IN_WINDOW_FRAGMENT}`);
+    expect(container.querySelector("[data-sign-in-window-waiting]")).not.toBeNull();
+
+    await report({ status: "signedIn", login: "fixture_viewer", environmentOverride: false });
+    expect(container.querySelector('[data-account-notice="ok"]')?.textContent).toBe(
+      "appTwitchBrowserLoginDoneAs:fixture_viewer",
+    );
+    expect(container.querySelector("[data-sign-in-window-waiting]")).toBeNull();
+    // The shell posted the address itself: the page never did.
+    expect(
+      client.calls.filter(
+        (call) => call.method === "POST" && call.path === "/v1/session/auth/twitch/browser-login",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("says when the window was closed early, and shows serve's refusal", async () => {
+    asDesktopApp();
+    const { container } = await mountAccounts();
+    await report({ status: "cancelled" });
+    expect(container.querySelector('[data-account-notice="error"]')?.textContent).toBe(
+      "appTwitchSignInWindowCancelled",
+    );
+    await report({
+      status: "failed",
+      error: { status: 400, code: "login_rejected", message: "Twitch rejected the token" },
+    });
+    expect(container.querySelector('[data-account-notice="error"]')?.textContent).toBe(
+      "appErrorLoginRejected",
+    );
+    expect(pasteInput(container)).toBeNull();
+  });
+
+  it.each(["redirect_unreadable", "redirect_unverified"])(
+    "falls back to pasting when the window cannot use Twitch's answer (%s)",
+    async (code) => {
+      asDesktopApp();
+      const { container, adapter } = await mountAccounts();
+      await report({ status: "failed", error: { code, message: "x" } });
+      expect(container.querySelector('[data-account-notice="error"]')?.textContent).toBe(
+        "appTwitchSignInWindowUnreadable",
+      );
+      expect(pasteInput(container)).not.toBeNull();
+      // The paste steps' link is unmarked, so the desktop app opens it in the
+      // system browser, where the address can be copied.
+      await act(async () =>
+        container.querySelector<HTMLButtonElement>("[data-browser-login-open]")!.click(),
+      );
+      await vi.waitFor(() => expect(adapter.openLink).toHaveBeenCalledTimes(1));
+      expect(new URL(adapter.openLink.mock.calls[0][0] as string).hash).toBe("");
+    },
+  );
+
+  it("offers the paste flow on request and ignores events it cannot read", async () => {
+    asDesktopApp();
+    const { container } = await mountAccounts();
+    await report({ status: "somethingElse" });
+    await report("not an object");
+    expect(container.querySelector("[data-account-notice]")).toBeNull();
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>("[data-browser-login-paste]")!.click(),
+    );
+    expect(pasteInput(container)).not.toBeNull();
+    expect(signInLink(container)).not.toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 export type SafeFetchFailureKind =
   | "authentication_rejected"
   | "security_policy_blocked"
+  | "request_challenged"
   | "http_error"
   | "invalid_response"
   | "network_error";
@@ -15,6 +16,7 @@ export interface SafeFetchFailure {
 const FAILURE_KINDS = new Set<SafeFetchFailureKind>([
   "authentication_rejected",
   "security_policy_blocked",
+  "request_challenged",
   "http_error",
   "invalid_response",
   "network_error",
@@ -60,6 +62,20 @@ export class SafeFetchError extends Error {
     );
     this.name = "SafeFetchError";
     this.failure = failure;
+  }
+}
+
+export class ManagedPageContextBlockedError extends Error {
+  constructor() {
+    super("Managed tab creation is suspended after repeated reopening");
+    this.name = "ManagedPageContextBlockedError";
+  }
+}
+
+export class ManagedPageContextCleanupError extends Error {
+  constructor(message = "Managed page context cleanup is already in progress") {
+    super(message);
+    this.name = "ManagedPageContextCleanupError";
   }
 }
 

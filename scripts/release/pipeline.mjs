@@ -75,6 +75,185 @@ export function validatePromotion({ stableVersion, version, label }) {
   return { bump, version };
 }
 
+// The standalone `lurkloot` executables (#1022), one archive per target. Each target is built on
+// a runner of its own OS and architecture (.github/workflows/build-cli-executables.yml), and
+// packages/cli/scripts/buildExecutable.mjs names its archive with cliArchiveName.
+export const cliExecutableTargets = [
+  { id: "linux-x64", platform: "linux", arch: "x64", archive: "tar.gz" },
+  { id: "linux-arm64", platform: "linux", arch: "arm64", archive: "tar.gz" },
+  { id: "macos-arm64", platform: "darwin", arch: "arm64", archive: "tar.gz" },
+  { id: "macos-x64", platform: "darwin", arch: "x64", archive: "tar.gz" },
+  { id: "windows-x64", platform: "win32", arch: "x64", archive: "zip" },
+];
+
+/** Selects the archive target matching the build runner. */
+export function cliExecutableTarget(platform, arch) {
+  const target = cliExecutableTargets.find(
+    (candidate) => candidate.platform === platform && candidate.arch === arch,
+  );
+  if (!target) throw new Error(`no lurkloot executable target for ${platform}-${arch}`);
+  return target;
+}
+
+/** Names the archive's top-level directory. */
+export function cliArchiveBase(version, target) {
+  parseManifestVersion(version);
+  return `lurkloot-cli-${version}-${target.id}`;
+}
+
+/** Adds the target's archive extension to the release asset name. */
+export function cliArchiveName(version, target) {
+  return `${cliArchiveBase(version, target)}.${target.archive}`;
+}
+
+// The desktop app's unsigned installers (#1025). Each target is built on a runner of its own OS and
+// architecture (.github/workflows/build-desktop-installers.yml), and
+// packages/desktop/scripts/collectInstallers.mjs renames Tauri's bundles with desktopInstallerName.
+// `bundle` is the name `tauri build --bundles` takes, `dir` the folder under target/release/bundle/
+// it writes to (the bundle name when absent) and `suffix` the end of the file name there; `asset`
+// is what follows the target id in the release asset's name. `archive` marks a folder (the macOS
+// .app) that is packed into a .tar.gz rather than copied.
+//
+// `updater` (#1028) is the installer kind the app's updater asks for, `{os}-{arch}-{updater}` in
+// latest.json with the target's `updaterPlatform`: Tauri records which installer put the app there
+// and only takes that kind, so an .msi install never updates from the NSIS installer and a .deb
+// never from an AppImage. No entry is published under the bare `{os}-{arch}`, which the updater
+// would fall back to for any installer kind.
+export const desktopInstallerTargets = [
+  {
+    id: "linux-x64",
+    platform: "linux",
+    arch: "x64",
+    updaterPlatform: "linux-x86_64",
+    installers: [
+      { bundle: "appimage", suffix: ".AppImage", asset: ".AppImage", updater: "appimage" },
+      { bundle: "deb", suffix: ".deb", asset: ".deb", updater: "deb" },
+    ],
+  },
+  {
+    id: "linux-arm64",
+    platform: "linux",
+    arch: "arm64",
+    updaterPlatform: "linux-aarch64",
+    installers: [
+      { bundle: "appimage", suffix: ".AppImage", asset: ".AppImage", updater: "appimage" },
+      { bundle: "deb", suffix: ".deb", asset: ".deb", updater: "deb" },
+    ],
+  },
+  {
+    id: "macos-arm64",
+    platform: "darwin",
+    arch: "arm64",
+    updaterPlatform: "darwin-aarch64",
+    installers: [
+      { bundle: "dmg", suffix: ".dmg", asset: ".dmg" },
+      {
+        bundle: "app",
+        dir: "macos",
+        suffix: ".app",
+        asset: ".app.tar.gz",
+        archive: true,
+        updater: "app",
+      },
+    ],
+  },
+  {
+    id: "macos-x64",
+    platform: "darwin",
+    arch: "x64",
+    updaterPlatform: "darwin-x86_64",
+    installers: [
+      { bundle: "dmg", suffix: ".dmg", asset: ".dmg" },
+      {
+        bundle: "app",
+        dir: "macos",
+        suffix: ".app",
+        asset: ".app.tar.gz",
+        archive: true,
+        updater: "app",
+      },
+    ],
+  },
+  {
+    id: "windows-x64",
+    platform: "win32",
+    arch: "x64",
+    updaterPlatform: "windows-x86_64",
+    installers: [
+      { bundle: "msi", suffix: ".msi", asset: ".msi", updater: "msi" },
+      { bundle: "nsis", suffix: "-setup.exe", asset: "-setup.exe", updater: "nsis" },
+    ],
+  },
+];
+
+/** Selects the installer target matching the build runner. */
+export function desktopInstallerTarget(platform, arch) {
+  const target = desktopInstallerTargets.find(
+    (candidate) => candidate.platform === platform && candidate.arch === arch,
+  );
+  if (!target) throw new Error(`no desktop installer target for ${platform}-${arch}`);
+  return target;
+}
+
+/** Names one installer's release asset. */
+export function desktopInstallerName(version, target, installer) {
+  parseManifestVersion(version);
+  return `lurkloot-desktop-${version}-${target.id}${installer.asset}`;
+}
+
+/** Every installer's release asset name for one version. */
+export function desktopInstallerNames(version) {
+  return desktopInstallerTargets.flatMap((target) =>
+    target.installers.map((installer) => desktopInstallerName(version, target, installer)),
+  );
+}
+
+// The desktop updater's own files (#1028), added to the stable release only, by the approved
+// production job that holds the signing key: a .sig beside each update and the latest.json manifest
+// the app reads from releases/latest. Candidates never carry them, so a candidate never feeds the
+// updater, and Release strips them before it checks the reviewed assets.
+export const updaterManifestName = "latest.json";
+
+/** Each update the app can install: its latest.json platform key, asset and signature file. */
+export function desktopUpdates(version) {
+  return desktopInstallerTargets.flatMap((target) =>
+    target.installers
+      .filter((installer) => installer.updater)
+      .map((installer) => {
+        const asset = desktopInstallerName(version, target, installer);
+        return {
+          platform: `${target.updaterPlatform}-${installer.updater}`,
+          asset,
+          signature: `${asset}.sig`,
+        };
+      }),
+  );
+}
+
+/** The files the production job adds for the updater: the signatures and latest.json. */
+export function updaterAssetNames(version) {
+  return [...desktopUpdates(version).map((update) => update.signature), updaterManifestName];
+}
+
+/**
+ * The latest.json the app's updater reads. `signatures` maps each update's asset name to the
+ * contents of its .sig file; every update must have one.
+ */
+export function updaterManifest({ version, pubDate, notes, signatures, downloadBase }) {
+  parseManifestVersion(version);
+  const platforms = {};
+  for (const update of desktopUpdates(version)) {
+    const signature = signatures[update.asset];
+    if (typeof signature !== "string" || signature.trim() === "")
+      throw new Error(`no updater signature for ${update.asset}`);
+    platforms[update.platform] = {
+      signature: signature.trim(),
+      url: `${downloadBase.replace(/\/+$/, "")}/${encodeURIComponent(update.asset)}`,
+    };
+  }
+  return { version, notes, pub_date: pubDate, platforms };
+}
+
 // The upload steps glob their assets directory, so anything a build step leaves behind would be
 // published. Both the candidate prerelease and the stable release must carry exactly this set.
 export function expectedReleaseAssets(version) {
@@ -84,6 +263,8 @@ export function expectedReleaseAssets(version) {
     `lurkloot-${version}-chrome.zip`,
     `lurkloot-${version}-firefox-sources.zip`,
     `lurkloot-${version}-firefox.zip`,
+    ...cliExecutableTargets.map((target) => cliArchiveName(version, target)),
+    ...desktopInstallerNames(version),
   ];
 }
 

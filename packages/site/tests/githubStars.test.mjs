@@ -29,14 +29,34 @@ const pages = [
   "changelog/index.html",
   "twitch-drops-farmer/index.html",
   "kick-drops-farmer/index.html",
+  "guide/index.html",
+  "guide/getting-started/install/index.html",
 ];
+
+// The page and the scripts it loads, one import deep: a script that several
+// headers share is bundled into its own file rather than into the page.
+async function withScripts(page) {
+  const dist = new URL("../dist/", import.meta.url);
+  const html = await readFile(new URL(page, dist), "utf8");
+  const read = (path) => readFile(new URL(path.replace(/^\//, ""), dist), "utf8").catch(() => "");
+  const scripts = await Promise.all(
+    [...html.matchAll(/<script[^>]*src="(\/_astro\/[^"]+\.js)"/g)].map(async ([, src]) => {
+      const code = await read(src);
+      const imports = [...code.matchAll(/(?:from|import)\s*"\.\/([^"]+\.js)"/g)].map(([, file]) =>
+        read(`/_astro/${file}`),
+      );
+      return [code, ...(await Promise.all(imports))].join("\n");
+    }),
+  );
+  return { html, code: scripts.join("\n") };
+}
 
 test("leaves the star slot empty until the browser asks GitHub", async () => {
   for (const page of pages) {
-    const html = await readFile(new URL(`../dist/${page}`, import.meta.url), "utf8");
+    const { html, code } = await withScripts(page);
     assert.match(html, /data-github-stars-wrap hidden/, page);
     assert.match(html, /<span data-github-stars><\/span>/, page);
-    assert.match(html, new RegExp(GITHUB_REPO_API.replaceAll(".", "\\.")), page);
+    assert.match(`${html}\n${code}`, new RegExp(GITHUB_REPO_API.replaceAll(".", "\\.")), page);
     assert.doesNotMatch(html, /localStorage/, page);
   }
 });

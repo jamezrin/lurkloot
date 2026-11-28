@@ -1,0 +1,9 @@
+---
+// Starlight's header, replaced with the site's own bar (SiteBar.astro) plus the
+// guide's search box, so the guide's header is the one every page has.
+import Search from "virtual:starlight/components/Search";
+import SiteBar from "../signal/SiteBar.astro";
+---
+<SiteBar>
+  <Search slot="search" />
+</SiteBar>

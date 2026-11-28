@@ -40,8 +40,9 @@ behavior.
 
 ## Development setup
 
-CI runs Node 24 and pnpm 11.24.0; use those versions locally to avoid surprises. The repository does
-not pin them itself.
+CI runs Node 24 and the pnpm version in the `packageManager` field of the root `package.json`; use
+those versions locally to avoid surprises. pnpm switches itself to that version when it differs, and
+Renovate keeps the field current.
 
 Fork the repository on GitHub, then clone your fork and add this repository as `upstream` so you can
 keep `develop` current:
@@ -80,7 +81,8 @@ pnpm build:all      # every package
 | --- | --- |
 | `pnpm test` | Every package's test script (`pnpm -r --if-present test`). |
 | `pnpm typecheck` | `tsc --noEmit` in every package. |
-| `pnpm check` | Script tests (`cws:test`, `release:test`), workspace typechecks, package tests, and the site build. |
+| `pnpm knip` | [knip](https://knip.dev) with `knip.json`: unused files, exports, types and dependencies. |
+| `pnpm check` | Biome, knip, script tests (`cws:test`, `release:test`), workspace typechecks, package tests, and the site build. |
 | `pnpm verify` | `pnpm check` plus both browser builds. |
 
 For a change confined to one package, `pnpm test` and `pnpm typecheck` are usually enough. Run

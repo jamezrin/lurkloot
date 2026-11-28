@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { withTwitchExtensionSession } from "../src/extensions/session";
+import { withTwitchExtensionSession } from "@lurkloot/core/extensions/host/session";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 
 const provider = twitchExtensionProviders[0];

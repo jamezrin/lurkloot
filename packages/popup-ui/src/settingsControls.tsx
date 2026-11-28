@@ -1,8 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { Ban, ChevronDown, Lock, Minus, Plus } from "lucide-react";
+import { Ban, ChevronDown, Minus, Plus } from "lucide-react";
 import { NumberField } from "@base-ui/react/number-field";
-import type { ExtensionSettings } from "@lurkloot/shared/models";
 import { COLLAPSED_SETTINGS_SECTIONS_KEY } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
@@ -224,24 +223,6 @@ export function SettingsSearchBox({
       onChange={onChange}
       placeholder={t("settingsSearchPlaceholder")}
     />
-  );
-}
-
-export function AdvancedSettingsSwitch({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange(value: boolean): void;
-}) {
-  const t = useT();
-  return (
-    <div className="flex items-center justify-between gap-3 px-1">
-      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
-        {t("settingsShowAdvancedTitle")}
-      </span>
-      <Toggle checked={checked} onChange={onChange} label={t("settingsShowAdvancedTitle")} />
-    </div>
   );
 }
 

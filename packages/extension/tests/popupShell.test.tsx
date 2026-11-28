@@ -3,7 +3,8 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createDemoPopupAdapter, Popup } from "@lurkloot/popup-ui";
+import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popup-ui";
+import { GUIDE_URL } from "../../popup-ui/src/constants";
 import { WorkspaceRail } from "../../popup-ui/src/shell";
 import type { AutomationPresentation } from "../../popup-ui/src/automationStatus";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
@@ -21,7 +22,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function mountPopup(): Promise<HTMLElement> {
+async function mountPopup(adapter: PopupAdapter = createDemoPopupAdapter()): Promise<HTMLElement> {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -36,7 +37,7 @@ async function mountPopup(): Promise<HTMLElement> {
   const container = document.getElementById("app")!;
   await act(async () => {
     root = createRoot(container);
-    root.render(<Popup adapter={createDemoPopupAdapter()} />);
+    root.render(<Popup adapter={adapter} />);
   });
   await waitForCatalog();
   return container;
@@ -248,7 +249,7 @@ describe("popup workspace shell", () => {
       ...rail.querySelectorAll<HTMLButtonElement>("button[data-view], button[data-rail-link]"),
     ].map((button) => button.dataset.view ?? `link:${button.dataset.railLink}`);
 
-    expect(order.slice(-3)).toEqual(["link:inventory", "activity", "settings"]);
+    expect(order.slice(-4)).toEqual(["link:inventory", "link:guide", "activity", "settings"]);
     // And it is a way out, never a destination that could read as current.
     expect(rail.querySelector("[data-rail-link]")?.hasAttribute("aria-current")).toBe(false);
     expect(
@@ -343,6 +344,7 @@ describe("workspace rail sources", () => {
           onViewChange={() => undefined}
           onPlatformChange={() => undefined}
           onOpenInventory={() => undefined}
+          onOpenGuide={() => undefined}
           {...props}
         />,
       );
@@ -385,5 +387,24 @@ describe("workspace rail sources", () => {
     expect(sources(container)).toEqual(["watchlist"]);
     // With no extensions on Kick, the group and its heading are left out.
     expect(container.querySelector('[data-rail-group="navExtensions"]')).toBeNull();
+  });
+});
+
+describe("links to the user guide", () => {
+  function linkSpy(): { adapter: PopupAdapter; opened: string[] } {
+    const opened: string[] = [];
+    const adapter = createDemoPopupAdapter();
+    return { adapter: { ...adapter, openLink: (url: string) => opened.push(url) }, opened };
+  }
+
+  it("opens the guide from the rail", async () => {
+    const { adapter, opened } = linkSpy();
+    const container = await mountPopup(adapter);
+
+    const link = container.querySelector<HTMLButtonElement>('button[data-rail-link="guide"]');
+    expect(link?.getAttribute("aria-label")).toBe("User guide");
+    act(() => link?.click());
+
+    expect(opened).toEqual([GUIDE_URL]);
   });
 });

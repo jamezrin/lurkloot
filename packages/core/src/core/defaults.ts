@@ -1,10 +1,11 @@
-import type {
-  Platform,
-  PlatformAuthHealth,
-  PlatformAuthMessageKey,
-  PlatformAuthReasonCode,
-  PlatformAuthStatus,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type Platform,
+  type PlatformAuthHealth,
+  type PlatformAuthMessageKey,
+  type PlatformAuthReasonCode,
+  type PlatformAuthStatus,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { isRecord } from "@lurkloot/shared/records";
@@ -26,7 +27,12 @@ const AUTH_REASONS: Record<PlatformAuthStatus, readonly PlatformAuthReasonCode[]
   missing_credentials: ["credentials_missing"],
   invalid_credentials: ["credentials_rejected"],
   blocked: ["security_policy_blocked"],
-  unavailable: ["credential_lookup_failed", "platform_unavailable", "network_unavailable"],
+  unavailable: [
+    "credential_lookup_failed",
+    "platform_unavailable",
+    "request_challenged",
+    "network_unavailable",
+  ],
 };
 
 const AUTH_MESSAGE_KEYS: Record<
@@ -44,6 +50,7 @@ const AUTH_MESSAGE_KEYS: Record<
   security_policy_blocked: "authSecurityPolicyBlocked",
   credential_lookup_failed: "authCredentialLookupFailed",
   platform_unavailable: "authPlatformUnavailable",
+  request_challenged: "authPlatformUnavailable",
   network_unavailable: "authNetworkUnavailable",
 };
 
@@ -174,7 +181,7 @@ function currentSessionReasonCodes(
   sessions: SchedulerState["sessions"],
 ): SchedulerState["sessions"] {
   const current = { ...sessions };
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const session = current[platform];
     if (session?.reasonCode && currentReasonCode(session.reasonCode) !== session.reasonCode)
       current[platform] = { ...session, reasonCode: currentReasonCode(session.reasonCode) };
@@ -185,7 +192,7 @@ function currentSessionReasonCodes(
 function normalizeStoredWatchStreaks(value: unknown): SchedulerState["watchStreaks"] {
   if (!isRecord(value)) return undefined;
   const normalized: NonNullable<SchedulerState["watchStreaks"]> = {};
-  for (const platform of ["twitch", "kick"] as const) {
+  for (const platform of PLATFORMS) {
     const entry = normalizeWatchStreakState(value[platform]);
     if (entry) normalized[platform] = entry;
   }

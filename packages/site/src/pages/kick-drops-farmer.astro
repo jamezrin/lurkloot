@@ -7,20 +7,20 @@
 // the same results. Section order is deliberately not the Twitch page's.
 import Base from "../layouts/SitePage.astro";
 import Faq from "../components/Faq.astro";
-import { DOCKER_IMAGE, LINKS } from "../consts";
+import { CLI_GUIDE_PATH, DOCKER_IMAGE, LINKS } from "../consts";
 import { kickFaqItems } from "../faq";
 
 const sections = [
   { href: "#discovery", label: "Campaign discovery" },
   { href: "#afk", label: "AFK farming" },
-  { href: "#headless", label: "Headless" },
+  { href: "#headless", label: "Headless", badge: "Beta" },
   { href: "#faq", label: "FAQ" },
 ];
 
 const steps = [
   {
     title: "Sign in to Kick as usual",
-    body: "Install the extension and log in to kick.com normally. Lurkloot uses that session directly — it never asks for your Kick password and never copies your cookies anywhere.",
+    body: "Install the extension and log in to kick.com normally. Lurkloot uses that session directly — it never asks for your Kick password and sends your session only to Kick.",
   },
   {
     title: "Turn Kick on in the popup",
@@ -61,7 +61,7 @@ const steps = [
           <a class="sg-pill sg-pill--lg sg-pill--ghost" href="#headless">Run it headless</a>
         </div>
         <div class="lp-hero__meta">
-          <span> No password, no cookie export</span>
+          <span> No password needed</span>
           <span>Open source</span>
           <span>Realtime campaign signals</span>
         </div></div><aside class="guide-overview" aria-label="Kick farming workflow"><h2>Ready when a campaign is.</h2><ol><li><strong>Hear about new drops</strong><p>Realtime signals speed up discovery.</p></li><li><strong>Keep the session going</strong><p>Follow a live, eligible channel.</p></li><li><strong>Pick up the extras</strong><p>Collect drops and daily challenge cards.</p></li></ol></aside>
@@ -214,7 +214,7 @@ const steps = [
         </p>
         <p><code class="lp-code">{DOCKER_IMAGE}</code></p>
         <p>
-          <a href={LINKS.cli} target="_blank" rel="noopener">Read the headless CLI guide →</a>
+          <a href={CLI_GUIDE_PATH}>Read the headless CLI guide →</a>
         </p>
       </div></div>
     </section>

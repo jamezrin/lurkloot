@@ -122,7 +122,7 @@ export default defineConfig({
     },
     browser_specific_settings: {
       gecko: {
-        id: "lurkloot@jamezrin.name",
+        id: "lurkloot@jamezrin.com",
         strict_min_version: "140.0",
         data_collection_permissions: {
           required: ["none"],

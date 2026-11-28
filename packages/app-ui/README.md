@@ -22,10 +22,10 @@ Every request goes to the same origin, under `/v1`
 - `/v1/session/auth/...`: Twitch browser sign-in (recommended), Twitch device
   code, Kick TV link (a QR code to scan in the Kick phone app), sign-out.
 
-Only what the CLI supports is shown: no tab settings, no Twitch Extension
-providers, no credential export, none of the extension's own preferences. The
-CLI keeps no activity history (it logs instead), so Activity shows the last
-check and each platform's status.
+The app shows CLI farming settings, including controls and live status for
+NoPixelV and Fortnite. Activity pages through the CLI's history kept by
+`run` and `serve`, groups events by farming session, and can clear the history.
+The CLI offers recent diagnostics through its separate export.
 
 What stays in the browser:
 

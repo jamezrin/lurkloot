@@ -96,6 +96,70 @@ describe("ObserverSlot", () => {
     expect(observer.stops).toBe(2);
   });
 
+  it("waits for teardown and abandons a credential replacement interrupted by a stop", async () => {
+    const slot = new ObserverSlot<FakeObserver>("twitch", "test observer", "retain");
+    const closing = deferred();
+    const original = new FakeObserver();
+    original.stop = () => closing.promise;
+    const originalRevision = Symbol();
+    const replacementRevision = Symbol();
+    const request = { wanted: true, start: async () => {}, open, emit };
+    await slot.reconcile({
+      ...request,
+      factory: () => original,
+      revision: originalRevision,
+      since: slot.epoch,
+    });
+
+    const replacement = vi.fn(() => new FakeObserver());
+    const reconciling = slot.reconcile({
+      ...request,
+      factory: replacement,
+      revision: replacementRevision,
+      since: slot.epoch,
+    });
+    expect(slot.observerFor(originalRevision)).toBeUndefined();
+    expect(replacement).not.toHaveBeenCalled();
+    const stopped = vi.fn();
+    const stopping = slot.stop(emit).then(stopped);
+    await Promise.resolve();
+    expect(stopped).not.toHaveBeenCalled();
+
+    closing.resolve();
+    await Promise.all([reconciling, stopping]);
+    expect(stopped).toHaveBeenCalledOnce();
+    expect(replacement).not.toHaveBeenCalled();
+  });
+
+  it("keeps a second reconcile from creating an observer during credential teardown", async () => {
+    const slot = new ObserverSlot<FakeObserver>("twitch", "test observer", "retain");
+    const closing = deferred();
+    const original = new FakeObserver();
+    original.stop = () => closing.promise;
+    const request = { wanted: true, start: async () => {}, open, emit };
+    await slot.reconcile({
+      ...request,
+      factory: () => original,
+      revision: Symbol(),
+      since: slot.epoch,
+    });
+
+    const replacement = new FakeObserver();
+    const factory = vi.fn(() => replacement);
+    const next = { ...request, factory, revision: Symbol() };
+    const first = slot.reconcile({ ...next, since: slot.epoch });
+    const second = slot.reconcile({ ...next, since: slot.epoch });
+    try {
+      await Promise.resolve();
+      expect(factory).not.toHaveBeenCalled();
+    } finally {
+      closing.resolve();
+      await Promise.all([first, second]);
+    }
+    expect(factory).toHaveBeenCalledOnce();
+    expect(slot.current).toBe(replacement);
+  });
+
   it("creates nothing when a stop landed after the caller read its state", async () => {
     const slot = new ObserverSlot<FakeObserver>("kick", "test observer", "retain");
     const since = slot.epoch;

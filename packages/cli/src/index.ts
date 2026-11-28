@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "yargs";
 import { hideBin } from "yargs/helpers";
-import type { DropCampaign, Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type DropCampaign, type Platform } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { KickWafBlockedError } from "@lurkloot/core/transport";
 import {
@@ -26,14 +27,22 @@ import {
 import {
   createCredentialRefreshingTransport,
   createTransport,
+  signInBackendOf,
   type EnabledPlatforms,
 } from "./transport";
 import { runLoop } from "./runtime/run";
+import {
+  diagnosticCredentialValues,
+  exportCliDiagnostics,
+  loadDiagnostics,
+} from "./runtime/diagnostics";
+import { loadState } from "./storage";
 import { serveLoop } from "./runtime/serve";
 import {
   DEFAULT_SERVE_HOST,
   DEFAULT_SERVE_PORT,
   resolveServeBinding,
+  SERVE_TOKEN_ENV,
   ServeConfigError,
 } from "./runtime/controlPlane";
 import { formatDiscoveredCampaign } from "./runtime/status";
@@ -41,7 +50,7 @@ import { importCredentials } from "./auth/importCredentials";
 import { twitchBrowserLogin } from "./auth/twitchBrowserLogin";
 import { twitchDeviceLogin } from "./auth/twitchDeviceFlow";
 import { kickDeviceLogin } from "./auth/kickDeviceFlow";
-import { createLogger } from "./logger";
+import { createLogger, tolerateClosedReader } from "./logger";
 import { reportCliEvents } from "./events";
 import { toEngineSettings } from "./settings";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -162,6 +171,64 @@ const configCommand: CommandModule = {
   },
 };
 
+const diagnosticsCommand: CommandModule = {
+  command: "diagnostics",
+  describe: "Export recent farming diagnostics",
+  builder: (y) =>
+    y
+      .command({
+        command: "export",
+        describe: "Generate a diagnostics report for a bug report",
+        builder: (yy) =>
+          yy
+            .option("out", {
+              type: "string",
+              default: "-",
+              describe: 'New output file, or "-" for stdout',
+            })
+            .option("state", {
+              type: "string",
+              describe: "State file used by run or serve (default: <configDir>/state.json)",
+            }),
+        handler: async (argv) => {
+          const config = configOf(argv, loggerOf(argv));
+          const path = statePath(argv.state, config);
+          const secrets = [
+            process.env[SERVE_TOKEN_ENV]?.trim(),
+            ...diagnosticCredentialValues(loadCredentials(config.authDir)),
+          ];
+          const [state, { events, savedAt }] = await Promise.all([
+            loadState(path),
+            loadDiagnostics(path, secrets),
+          ]);
+          const { report } = exportCliDiagnostics({
+            snapshot: { state, settings: toEngineSettings(config.settings) },
+            events,
+            secrets,
+            history: { source: "saved sidecar", savedAt },
+          });
+          if (argv.out === "-") {
+            process.stdout.write(report);
+          } else {
+            try {
+              await writeFile(resolve(argv.out), report, { flag: "wx", mode: 0o600 });
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+              process.stderr.write(
+                "Diagnostics output file already exists. Choose a new --out path.\n",
+              );
+              process.exitCode = 1;
+            }
+          }
+        },
+      })
+      .demandCommand(1, "Specify the diagnostics export subcommand")
+      .strict(),
+  handler: () => {
+    /* a subcommand always runs; see demandCommand above */
+  },
+};
+
 const discoverCommand: CommandModule = {
   command: "discover",
   describe: "Run one discovery pass per enabled platform",
@@ -179,7 +246,7 @@ const discoverCommand: CommandModule = {
     const enabled = enabledPlatforms(config);
     const handle = await createTransport(transport, creds, config.authDir, enabled);
     try {
-      for (const platform of ["twitch", "kick"] as Platform[]) {
+      for (const platform of PLATFORMS) {
         if (!enabled[platform]) {
           logger.info("disabled in config — skipping", platform);
           continue;
@@ -239,6 +306,10 @@ const runCommand: CommandModule = {
       transport: handle,
       logger,
       once: Boolean(argv.once),
+      diagnosticSecrets: () => [
+        process.env[SERVE_TOKEN_ENV]?.trim(),
+        ...diagnosticCredentialValues(creds),
+      ],
       checkCredentialAvailability: async (platform) =>
         runCredentialAvailability(config.authDir, platform),
     });
@@ -264,8 +335,26 @@ const serveCommand: CommandModule = {
       .option("state", {
         type: "string",
         describe: "State file (default: <configDir>/state.json)",
+      })
+      // For launchers such as the desktop app (#1023); see the README.
+      .option("ready-json", {
+        type: "boolean",
+        default: false,
+        describe:
+          'Print {"event":"ready","url":…} as one JSON line on stdout once the server listens',
+      })
+      .option("exit-with-stdin", {
+        type: "boolean",
+        default: false,
+        describe: "Shut down cleanly, as on SIGTERM, when stdin closes",
       }),
   handler: async (argv) => {
+    // A launcher may stop reading our output before it closes stdin; from here
+    // on no failed write may interrupt the run or its cleanup.
+    if (argv.readyJson || argv.exitWithStdin) {
+      tolerateClosedReader(process.stdout);
+      tolerateClosedReader(process.stderr);
+    }
     // Refuse an unsafe bind before anything else starts.
     let binding: ReturnType<typeof resolveServeBinding>;
     try {
@@ -299,8 +388,11 @@ const serveCommand: CommandModule = {
       logger,
       checkCredentialAvailability: async (platform) =>
         runCredentialAvailability(config.authDir, platform),
+      diagnosticSecrets: () => diagnosticCredentialValues(creds),
       describeCredentials: () => describeCredentialHealth(config.authDir),
-      auth: { authDir: config.authDir },
+      auth: { authDir: config.authDir, kickSignInBackend: signInBackendOf(transport) },
+      ...(argv.readyJson ? { readyOutput: process.stdout } : {}),
+      ...(argv.exitWithStdin ? { exitWithInput: process.stdin } : {}),
     });
   },
 };
@@ -320,7 +412,7 @@ const twitchBrowserLoginCommand: CommandModule = {
 
 // `auth <platform> device-login | logout` — declared explicitly per platform so
 // each verb gets its own --help entry and shows up in shell completion.
-function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
+function platformAuthCommand(platform: Platform): CommandModule {
   const loginBrief =
     platform === "twitch"
       ? "Twitch device-code OAuth (no browser)"
@@ -335,9 +427,9 @@ function platformAuthCommand(platform: "twitch" | "kick"): CommandModule {
           describe: loginBrief,
           handler: async (argv) => {
             const logger = loggerOf(argv);
-            const { authDir } = configOf(argv, logger);
+            const { authDir, transport } = configOf(argv, logger);
             if (platform === "twitch") await twitchDeviceLogin(authDir, logger);
-            else await kickDeviceLogin(authDir, logger);
+            else await kickDeviceLogin(authDir, logger, signInBackendOf(transport));
           },
         })
         // Twitch only: Kick has no equivalent sign-in (see twitchBrowserLogin.ts).
@@ -469,7 +561,7 @@ async function discoverPlatform(
   } catch (error) {
     if (error instanceof KickWafBlockedError) {
       logger.warn(
-        `Cloudflare WAF blocked the request (HTTP 403). Use the "impersonate" transport to reach Kick without a browser. (${error.message})`,
+        `Cloudflare WAF blocked the request. Use the "impersonate" transport to reach Kick without a browser. (${error.message})`,
         platform,
       );
       return;
@@ -497,6 +589,7 @@ function buildCli(argv: string[]): Argv {
     })
     .command(validateConfigCommand)
     .command(configCommand)
+    .command(diagnosticsCommand)
     .command(discoverCommand)
     .command(runCommand)
     .command(serveCommand)

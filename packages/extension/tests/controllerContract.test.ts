@@ -15,7 +15,12 @@ import {
 import { integrityBundle, integrityHeaders } from "./helpers/backgroundController";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
-import type { DropCampaign, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type SchedulerState,
+  type WatchSession,
+} from "@lurkloot/shared/models";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import {
   CAPABILITY_SETS,
@@ -357,7 +362,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       vi.mocked(restarted.adapters.twitch.refreshCampaigns).mockReturnValue(discovery.promise);
       vi.mocked(restarted.adapters.kick.refreshCampaigns).mockReturnValue(discovery.promise);
       const watchers: CountingWatcher[] = [];
-      for (const platform of ["twitch", "kick"] as const) {
+      for (const platform of PLATFORMS) {
         restarted.adapters[platform].createTablessWatcher = () => {
           const watcher = new CountingWatcher(platform);
           watchers.push(watcher);
@@ -368,7 +373,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       const boot = restarted.boot();
       await vi.waitFor(() => expect(restarted.savedStates.length).toBeGreaterThan(0));
       const cleaned = restarted.savedStates[0];
-      for (const platform of ["twitch", "kick"] as const) {
+      for (const platform of PLATFORMS) {
         expect(cleaned.sessions[platform]).toMatchObject({
           status: "paused",
           reasonCode: "runtime_restart",
@@ -458,7 +463,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
         .map(([name]) => name);
       for (const name of [...inert, "unrelated.alarm"]) await host.fire(name);
       expect(host.savedStates).toHaveLength(0);
-      for (const platform of ["twitch", "kick"] as const) {
+      for (const platform of PLATFORMS) {
         expect(host.adapters[platform].refreshCampaigns).not.toHaveBeenCalled();
         expect(host.adapters[platform].claimReward).not.toHaveBeenCalled();
       }
@@ -548,7 +553,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       for (const name of Object.keys(BACKGROUND_JOBS)) await host.fire(name);
       await host.controller.settleBackgroundWork();
       expect(host.savedStates).toHaveLength(0);
-      for (const platform of ["twitch", "kick"] as const) {
+      for (const platform of PLATFORMS) {
         expect(host.adapters[platform].refreshCampaigns).not.toHaveBeenCalled();
       }
     });
@@ -791,7 +796,9 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
           status: "watching",
           watchMode: "tabless",
         });
-        expect(host.deps.openWatchTab).not.toHaveBeenCalled();
+        if (capabilities.declared.browserTabs)
+          expect(host.deps.openWatchTab).not.toHaveBeenCalled();
+        else expect(host.deps.openWatchTab).toBeUndefined();
         expect(
           host.reported.some(
             (event) =>
@@ -1087,7 +1094,11 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
           }),
           "A settings save",
         );
-        expect(host.storage.settings.pollIntervalMinutes).toBe(7);
+        expect(host.deps.saveSettings).toHaveBeenCalledWith(
+          expect.objectContaining({ pollIntervalMinutes: 7 }),
+        );
+        if (capabilities.persistsSettings)
+          expect(host.storage.settings.pollIntervalMinutes).toBe(7);
 
         host.controller.shutdown();
         await within(
@@ -1179,7 +1190,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       expect(Object.keys(snapshot).sort()).toEqual(["settings", "state"]);
       expect(snapshot.settings).toEqual(host.storage.settings);
       expect(snapshot.state).toEqual(host.storage.state);
-      for (const platform of ["twitch", "kick"] as const) {
+      for (const platform of PLATFORMS) {
         expect(snapshot.state.sessions[platform]).toMatchObject({
           platform,
           status: "watching",

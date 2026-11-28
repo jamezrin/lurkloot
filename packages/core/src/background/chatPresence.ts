@@ -1,9 +1,10 @@
 import type { EventEmitter } from "@lurkloot/shared/events";
-import type {
-  ChatPresenceStatus,
-  EngineSettings,
-  Platform,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type ChatPresenceStatus,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import {
   chatPresenceDecision,
@@ -12,9 +13,8 @@ import {
 } from "../core/chatPresence";
 import { hasRecentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
-import { emitHostCallbackError, platformLabel } from "./helpers";
+import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import { ObserverSlot } from "./observerSlot";
 import type { StateTransaction } from "./stateTransaction";
@@ -57,8 +57,6 @@ export function createChatPresence<S extends EngineSettings>(
   // "<provider>:<channel>" last announced per platform, so the provider
   // announcement is made once per presence session.
   const announced: Partial<Record<Platform, string>> = {};
-  // Platforms already told that alwaysEnterChat has no effect on them.
-  const reportedUnavailable = new Set<Platform>();
   // Platforms this controller has reconciled at least once. Until then a
   // running watch may predate it (an MV3 worker restart), so a commit may
   // start presence; afterwards ticks and settings saves keep it current, and
@@ -86,18 +84,10 @@ export function createChatPresence<S extends EngineSettings>(
     const decision = chatPresenceDecision(platform, settings, state, {
       capability: ports.capabilities.chatPresence,
     });
+    // An adapter without a client leaves alwaysEnterChat inert; the tick's
+    // unsupported-settings report says so once (adapterSettings.ts). A provider
+    // that needs presence the platform cannot give says so on its own card.
     const factory = adapter.createChatPresenceClient;
-    // Only the setting promises chat. A provider that needs presence the
-    // platform cannot give says so on its own card.
-    if (decision?.trigger.kind === "setting" && !factory && !reportedUnavailable.has(platform)) {
-      reportedUnavailable.add(platform);
-      emit({
-        category: "diagnostic",
-        platform,
-        level: "warn",
-        message: `Chat presence is not available for ${platformLabel(platform)}, so platform.${platform}.alwaysEnterChat has no effect`,
-      });
-    }
     await slots[platform].reconcile({
       wanted: decision !== undefined,
       factory,

@@ -1,21 +1,26 @@
-import type { ClaimedChallenge, PlatformAdapter } from "../platforms/adapter";
-import type {
-  CampaignSearchBackoff,
-  ChannelCandidate,
-  DropCampaign,
-  DropReward,
-  EngineSettings,
-  ManagedWatchTab,
-  Platform,
-  PlaybackTelemetry,
-  PreparedWatchTab,
-  SchedulerManagedPageContexts,
-  SchedulerState,
-  SupplementalWatchTarget,
-  WatchDecision,
-  WatchReasonCode,
-  WatchSession,
-  WatchSourceId,
+import {
+  channelCandidateForLogin as fallbackChannel,
+  type ClaimedChallenge,
+  type PlatformAdapter,
+} from "../platforms/adapter";
+import {
+  PLATFORMS,
+  type CampaignSearchBackoff,
+  type ChannelCandidate,
+  type DropCampaign,
+  type DropReward,
+  type EngineSettings,
+  type ManagedWatchTab,
+  type Platform,
+  type PlaybackTelemetry,
+  type PreparedWatchTab,
+  type SchedulerManagedPageContexts,
+  type SchedulerState,
+  type SupplementalWatchTarget,
+  type WatchDecision,
+  type WatchReasonCode,
+  type WatchSession,
+  type WatchSourceId,
 } from "@lurkloot/shared/models";
 import { campaignForWatching, campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
@@ -39,7 +44,6 @@ import {
 import { isCampaignUnlinked } from "@lurkloot/shared/unlinkedCampaigns";
 import {
   applySubscriptionMarks,
-  canClaimReward,
   isRewardAvailableToEarn,
   isRewardDeadlineFeasible,
   isRewardObtained,
@@ -63,7 +67,7 @@ import type {
 import { perform } from "./effectExecutor";
 import { challengeRewardData, claimChannel, type ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import { authHealthFromError, isSafeFetchError } from "./fetchError";
+import { authHealthFromError, isSafeFetchError, SafeFetchError } from "./fetchError";
 import { UnusableWatchTabError } from "./watchTabError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
@@ -92,7 +96,6 @@ import {
   type IdleWatchlistStreakPlan,
 } from "./watchStreaks";
 
-const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
 export { MANUAL_WATCH_TTL_MS } from "./manualWatch";
 
@@ -269,7 +272,11 @@ export async function chooseCampaignDecision(
   settings: EngineSettings,
   adapter: Pick<
     PlatformAdapter,
-    "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+    | "listCandidateChannels"
+    | "campaignScopedCandidates"
+    | "selectCandidateChannel"
+    | "checkChannel"
+    | "listFollowedChannels"
   >,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
@@ -351,9 +358,10 @@ export async function chooseCampaignDecision(
 
     const excludedChannels = settings.platform[platform].excludedChannels ?? [];
     signal?.throwIfAborted();
-    const reusableDirectoryKey = campaign.allowedChannels?.length
-      ? undefined
-      : (campaign.categoryId ?? campaign.slug);
+    const reusableDirectoryKey =
+      adapter.campaignScopedCandidates || campaign.allowedChannels?.length
+        ? undefined
+        : (campaign.categoryId ?? campaign.slug);
     let listedCandidates = reusableDirectoryKey
       ? generalCandidatesByCategory.get(reusableDirectoryKey)
       : undefined;
@@ -397,7 +405,8 @@ export async function chooseCampaignDecision(
       list.sort((left, right) => {
         // ACL stays the strongest key: for an ACL-restricted campaign a followed
         // channel outside the allow list cannot earn the drop at all.
-        if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
+        const acl = Number(Boolean(right.isAclMatch)) - Number(Boolean(left.isAclMatch));
+        if (acl !== 0) return acl;
         const preference =
           channelPreferenceScore(left, idleWatchlist, followed)
           - channelPreferenceScore(right, idleWatchlist, followed);
@@ -804,16 +813,6 @@ function channelFromCheck(
   };
 }
 
-function fallbackChannel(platform: Platform, username: string): ChannelCandidate {
-  const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
-  return {
-    platform,
-    username,
-    displayName: username,
-    url: `${host}/${username}`,
-  };
-}
-
 // The channel, tab, playback, and heartbeat are gone. Status, message, and
 // reason come from the caller. A counter the caller does not pass keeps the
 // previous session's value: an auth pause leaves errorChecks, an idle decision
@@ -922,7 +921,11 @@ async function selectWatchTarget(
   settings: EngineSettings,
   adapter: Pick<
     PlatformAdapter,
-    "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+    | "listCandidateChannels"
+    | "campaignScopedCandidates"
+    | "selectCandidateChannel"
+    | "checkChannel"
+    | "listFollowedChannels"
   >,
   signal?: AbortSignal,
   includeIdleWatchlist = true,
@@ -1179,6 +1182,7 @@ export function campaignSearchFingerprint(
     campaign,
     settings: {
       priorityMode: settings.priorityMode,
+      preferKnownChannels: settings.preferKnownChannels,
       // Carries this platform's pins and exclusions.
       platform: settings.platform[campaign.platform],
     },
@@ -1380,7 +1384,11 @@ export interface SchedulerTickResult {
 // the real tabs.
 export type StopPageContextTabs = (
   contexts: SchedulerManagedPageContexts,
-  options?: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter },
+  options?: {
+    platforms?: readonly Platform[];
+    reason?: PageContextCloseReason;
+    emit?: EventEmitter;
+  },
 ) => Promise<SchedulerManagedPageContexts> | SchedulerManagedPageContexts;
 
 // Every side effect a scheduler tick can ask for (#599). The tick only names
@@ -1452,7 +1460,11 @@ export type SchedulerEffect = SchedulerEffects[SchedulerEffectType]["effect"];
 // in memory (selectionAdapterFromDiscoverySnapshot). Never a provider.
 export type SelectionView = Pick<
   PlatformAdapter,
-  "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+  | "listCandidateChannels"
+  | "campaignScopedCandidates"
+  | "selectCandidateChannel"
+  | "checkChannel"
+  | "listFollowedChannels"
 >;
 
 // What the platform's host can do, declared rather than probed from an adapter.
@@ -1483,7 +1495,7 @@ export interface SchedulerTickDiscovery {
 export interface SchedulerTickInput {
   state: SchedulerState;
   settings: EngineSettings;
-  platforms?: Platform[];
+  platforms?: readonly Platform[];
   // Required for every ticked platform: the tick never discovers campaigns.
   discovery: Partial<Record<Platform, SchedulerTickDiscovery>>;
   selectionViews: Partial<Record<Platform, SelectionView>>;
@@ -1811,7 +1823,21 @@ export async function* decidePlatformTick(
       return;
     }
 
-    if (tick.state.authHealth[platform].status !== "healthy") {
+    const health = tick.state.authHealth[platform];
+    const authChallenge = health.reasonCode === "request_challenged";
+    // A probe skipped during backoff can still be the last observed health
+    // if the retry deadline passed while this tick was being prepared.
+    const inBackoff =
+      isInBackoff(previous)
+      || (authChallenge
+        && Date.parse(health.checkedAt ?? "") < Date.parse(previous.retryAfter ?? ""));
+    if (authChallenge && !inBackoff) {
+      throw new SafeFetchError({
+        kind: "request_challenged",
+        reason: "Identity request challenged",
+      });
+    }
+    if (health.status !== "healthy" && !authChallenge) {
       yield* suspendPlatformForAuthentication(tick, platform, previous);
       return;
     }
@@ -1821,7 +1847,8 @@ export async function* decidePlatformTick(
     // stopped. Failures are swallowed — gamification is strictly additive to
     // farming and must never fail the tick or trip the error backoff.
     const challengesDue =
-      autoClaimChallengesFor(settings, platform)
+      !authChallenge
+      && autoClaimChallengesFor(settings, platform)
       && capabilities.claimChallenges
       && challengePollDue(tick.state, platform, Date.now());
     if (challengesDue) {
@@ -1853,7 +1880,7 @@ export async function* decidePlatformTick(
       }
     }
 
-    if (isInBackoff(previous)) {
+    if (inBackoff) {
       tick.state.sessions[platform] = {
         ...previous,
         status: "error",

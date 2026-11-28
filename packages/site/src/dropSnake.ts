@@ -10,7 +10,7 @@
 // directly; scripts/drop-snake.ts draws it and handles input.
 
 export type Direction = "up" | "down" | "left" | "right";
-export type ItemKind = "gift" | "chest" | "gem";
+type ItemKind = "gift" | "chest" | "gem";
 
 export interface Cell {
   col: number;

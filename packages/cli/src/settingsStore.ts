@@ -3,7 +3,7 @@ import { chmod, open, readFile, realpath, rename, rm, stat } from "node:fs/promi
 import { basename, dirname, join, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { applyEdits, modify, type FormattingOptions, type JSONPath } from "jsonc-parser";
-import type { EngineSettings, Platform } from "@lurkloot/shared/models";
+import type { EngineSettings } from "@lurkloot/shared/models";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import { overlaySettingsPatch, type SettingsPatch } from "@lurkloot/shared/settings";
 import { errorMessage } from "@lurkloot/shared/errors";
@@ -30,7 +30,7 @@ import {
 //   the value toEngineSettings pins or defaults it to (tablessMode, the
 //   pauseOnManualWatch and autoStartDropFarming invariants, ...). Any other value,
 //   or a field the engine contract does not have at all (an extension-only knob
-//   such as muteFarmingTabs or twitchExtensions), is rejected with
+//   such as muteFarmingTabs), is rejected with
 //   CliSettingsStoreError instead of being dropped.
 
 export type CliSettingsStoreErrorCode =
@@ -63,7 +63,7 @@ export class CliSettingsStoreError extends Error {
 // The two file operations a save performs, injectable so tests can fail either
 // one. `writeTempFile` creates `path` (it must not exist), writes `text`, makes
 // its permission bits exactly `mode` and flushes it to disk.
-export interface SettingsStoreFileSystem {
+interface SettingsStoreFileSystem {
   writeTempFile(path: string, text: string, mode: number): Promise<void>;
   rename(from: string, to: string): Promise<void>;
 }
@@ -100,8 +100,7 @@ export interface CliSettingsStore {
   applyPatch(current: EngineSettings, patch: SettingsPatch): EngineSettings;
 }
 
-const PLATFORMS: Platform[] = ["twitch", "kick"];
-const NESTED_KEYS = ["platform", "compatibility"] as const;
+const NESTED_KEYS = ["platform", "compatibility", "twitchExtensions"] as const;
 type NestedKey = (typeof NESTED_KEYS)[number];
 const SCHEMA_VERSION_KEY = "schemaVersion";
 
@@ -110,7 +109,7 @@ const SCHEMA_VERSION_KEY = "schemaVersion";
 const TOP_LEVEL_CLI_KEYS = Object.keys(DEFAULT_CLI_SETTINGS).filter(
   (key) => !(NESTED_KEYS as readonly string[]).includes(key),
 ) as (keyof CliSettings)[];
-const NESTED_CLI_KEYS: Record<NestedKey, Record<Platform, string[]>> = {
+const NESTED_CLI_KEYS: Record<NestedKey, Record<string, string[]>> = {
   platform: {
     twitch: Object.keys(DEFAULT_CLI_SETTINGS.platform.twitch),
     kick: Object.keys(DEFAULT_CLI_SETTINGS.platform.kick),
@@ -119,14 +118,20 @@ const NESTED_CLI_KEYS: Record<NestedKey, Record<Platform, string[]>> = {
     twitch: Object.keys(DEFAULT_CLI_SETTINGS.compatibility.twitch),
     kick: Object.keys(DEFAULT_CLI_SETTINGS.compatibility.kick),
   },
+  twitchExtensions: Object.fromEntries(
+    Object.entries(DEFAULT_CLI_SETTINGS.twitchExtensions).map(([id, settings]) => [
+      id,
+      Object.keys(settings),
+    ]),
+  ),
 };
 
 // Every settings path the CLI schema holds, as [key] or [block, platform, key].
 export function cliSettingsPaths(): string[][] {
   const paths: string[][] = TOP_LEVEL_CLI_KEYS.map((key) => [key]);
   for (const block of NESTED_KEYS) {
-    for (const platform of PLATFORMS) {
-      for (const key of NESTED_CLI_KEYS[block][platform]) paths.push([block, platform, key]);
+    for (const [group, keys] of Object.entries(NESTED_CLI_KEYS[block])) {
+      for (const key of keys) paths.push([block, group, key]);
     }
   }
   return paths;
@@ -163,12 +168,12 @@ export function engineToCliSettings(engine: EngineSettings): CliSettings {
     const source = input[block];
     if (!isRecord(source)) continue;
     const out: Record<string, Record<string, unknown>> = {};
-    for (const platform of PLATFORMS) {
-      const entry = source[platform];
+    for (const [group, keys] of Object.entries(NESTED_CLI_KEYS[block])) {
+      const entry = source[group];
       if (!isRecord(entry)) continue;
-      out[platform] = {};
-      for (const key of NESTED_CLI_KEYS[block][platform]) {
-        if (Object.hasOwn(entry, key)) out[platform][key] = entry[key];
+      out[group] = {};
+      for (const key of keys) {
+        if (Object.hasOwn(entry, key)) out[group][key] = entry[key];
       }
     }
     picked[block] = out;
@@ -219,12 +224,12 @@ export function engineToCliSettings(engine: EngineSettings): CliSettings {
     if ((NESTED_KEYS as readonly string[]).includes(key) && isRecord(value)) {
       const block = key as NestedKey;
       for (const [platform, entry] of Object.entries(value)) {
-        if (!PLATFORMS.includes(platform as Platform) || !isRecord(entry)) {
+        if (!Object.hasOwn(NESTED_CLI_KEYS[block], platform) || !isRecord(entry)) {
           check([block, platform], entry, expected[block]);
           continue;
         }
         for (const [nestedKey, nestedValue] of Object.entries(entry)) {
-          if (NESTED_CLI_KEYS[block][platform as Platform].includes(nestedKey)) continue;
+          if (NESTED_CLI_KEYS[block][platform].includes(nestedKey)) continue;
           check([block, platform, nestedKey], nestedValue, valueAt(expected, [block, platform]));
         }
       }
@@ -343,6 +348,7 @@ function rewriteSettingsBlock(file: ConfigFile, target: CliSettings): string {
     ...target,
     platform: nested("platform"),
     compatibility: nested("compatibility"),
+    twitchExtensions: nested("twitchExtensions"),
   };
   const settings = ordered(rawSettings, canonical, (key) => key === "enabledLogLevels");
   const edits = modify(file.text, ["settings"], settings, {
@@ -360,7 +366,7 @@ function inCurrentSchemaForm(file: ConfigFile): boolean {
 
 // Renders the config text that holds `target`, or undefined when the file
 // already does. The result is parsed back before anything is written.
-export function renderConfigWithSettings(
+function renderConfigWithSettings(
   text: string,
   configPath: string,
   target: CliSettings,
@@ -430,13 +436,12 @@ function patchOffenders(patch: Record<string, unknown>, result: EngineSettings):
       offenders.push(key);
       continue;
     }
-    // The overlay keeps only twitch and kick, so name any other key here
-    // rather than let it vanish.
-    for (const name of Object.keys(value)) {
-      if (!PLATFORMS.includes(name as Platform)) offenders.push(`${key}.${name}`);
-    }
-    for (const platform of PLATFORMS) {
-      const entry = value[platform];
+    const groups = NESTED_CLI_KEYS[key as NestedKey];
+    for (const [platform, entry] of Object.entries(value)) {
+      if (!Object.hasOwn(groups, platform)) {
+        offenders.push(`${key}.${platform}`);
+        continue;
+      }
       if (entry === undefined) continue;
       if (!isRecord(entry)) {
         offenders.push(`${key}.${platform}`);
@@ -452,10 +457,7 @@ function patchOffenders(patch: Record<string, unknown>, result: EngineSettings):
 
 // Applies a settings patch for the CLI: the shared overlay, then the rules
 // save checks. See CliSettingsStore.applyPatch.
-export function applyCliSettingsPatch(
-  current: EngineSettings,
-  patch: SettingsPatch,
-): EngineSettings {
+function applyCliSettingsPatch(current: EngineSettings, patch: SettingsPatch): EngineSettings {
   const input: unknown = patch;
   if (!isRecord(input)) {
     throw new CliSettingsStoreError("invalid", "A settings patch must be a JSON object");

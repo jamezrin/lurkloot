@@ -24,7 +24,7 @@ export function createContext({ command = "store-sync" } = {}) {
   };
 }
 
-export async function setLocaleDescription({
+async function setLocaleDescription({
   context,
   locale,
   description,

@@ -15,6 +15,84 @@ node packages/cli/dist/index.mjs validate-config --config ./config.json
 pnpm cli validate-config --config ./config.json
 ```
 
+## Standalone executables
+
+Each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest)
+has the CLI as one archive per system, with no Node to install:
+
+| System | Archive |
+|---|---|
+| Linux x64 | `lurkloot-cli-<version>-linux-x64.tar.gz` |
+| Linux arm64 | `lurkloot-cli-<version>-linux-arm64.tar.gz` |
+| macOS Apple Silicon | `lurkloot-cli-<version>-macos-arm64.tar.gz` |
+| macOS Intel | `lurkloot-cli-<version>-macos-x64.tar.gz` |
+| Windows x64 | `lurkloot-cli-<version>-windows-x64.zip` |
+
+`SHA256SUMS` on the same release covers every archive, and each one has build
+provenance (`gh attestation verify <archive> --repo jamezrin/lurkloot`).
+
+An archive unpacks to one folder:
+
+- `lurkloot` (`lurkloot.exe` on Windows): the CLI, built as a Node.js
+  [single executable application](https://nodejs.org/api/single-executable-applications.html).
+- `impit/`: the [impit](https://github.com/apify/impit) package (Apache-2.0)
+  that carries Kick requests past Cloudflare on the default transport. It holds
+  the unmodified package's `package.json` and JavaScript, with this platform's
+  native add-on (`impit-node.<platform>.node`) beside them. Its add-on cannot
+  load from inside `lurkloot`, so the CLI loads it from this folder, as the
+  Docker image loads it from `node_modules`. Keep the folder next to `lurkloot`.
+  If it is missing, `run`, `serve` and `discover` on the default `impersonate`
+  (or `impit`) transport, and `auth kick device-login` on any transport but
+  `cycletls`, stop with an error naming the folder.
+- `cycletls/`: the Go binary of [CycleTLS](https://github.com/Danny-Dasilva/CycleTLS)
+  as `cycletls` (`cycletls.exe`), the `cycletls` transport's alternative to
+  impit, with its GPL-3.0 `LICENSE` and a `NOTICE` linking its source. It is a
+  separate program: the CLI starts it as its own process and talks to it over
+  a local socket, as it does from `dist/cycletls/` under Node and in Docker.
+  Keep the folder next to `lurkloot`. If it is missing, `run`, `serve`,
+  `discover` and `auth kick device-login` on the `cycletls` transport stop with
+  an error naming it; other transports never start it.
+- `app/`: the app `lurkloot serve` serves at `/`.
+- `LICENSE` and `NOTICE`. The NOTICE lists the third-party software in the
+  archive, with its licenses.
+
+First run, on Linux or macOS:
+
+```bash
+tar -xzf lurkloot-cli-<version>-linux-x64.tar.gz
+cd lurkloot-cli-<version>-linux-x64
+./lurkloot auth twitch browser-login   # creates config.json here on first use
+./lurkloot serve                       # App and control plane at http://127.0.0.1:8420/
+```
+
+On Windows, unzip the archive and run `.\lurkloot.exe serve` from PowerShell
+in that folder. Every command below works the same with `lurkloot` in place of
+`node dist/index.mjs` or `pnpm cli`. Config, state and credentials go where
+`--config` points (`config.json` in the current directory by default), not
+beside the executable, so an upgrade is unpacking the new archive.
+
+- **macOS:** the binaries are signed ad hoc, not notarized. A browser download
+  is quarantined, so Gatekeeper blocks the first start; clear the flag with
+  `xattr -dr com.apple.quarantine lurkloot-cli-<version>-macos-arm64`, or allow
+  `lurkloot`, `impit/impit-node.darwin-*.node` and `cycletls/cycletls` under
+  System Settings → Privacy & Security.
+- **Windows:** the executables are not code-signed, so SmartScreen may warn on
+  the first start (More info → Run anyway).
+- **Linux:** built on the GitHub-hosted Ubuntu runners against the official
+  Node.js binary, so they need glibc 2.28 or newer; there is no musl (Alpine)
+  build. Use the Docker image there.
+
+To build one for the machine you are on (the Node version running the build is
+the one inside the executable; releases use Node 24):
+
+```bash
+pnpm install
+pnpm --filter @lurkloot/cli build:executable   # dist/executable/lurkloot-cli-<version>-<target>/
+node packages/cli/scripts/smokeExecutable.mjs packages/cli/dist/executable/lurkloot-cli-*
+```
+
+`--archive <dir>` after `build:executable` also writes the release archive.
+
 ## Config
 
 The CLI creates the requested config file automatically when it does not exist.
@@ -72,6 +150,15 @@ are earned. A config still using the old `campaignPriorities` map,
 or `farmingEligibility` is migrated automatically, with a deprecation warning
 naming each moved key.
 
+`preferKnownChannels` defaults to `true`. For a general Drops campaign, the
+CLI can pick a live Watchlist or followed channel outside the Twitch or Kick
+directory results when the stream is in an allowed category and passes the
+campaign's eligibility checks. Eligible Watchlist channels rank ahead of
+followed channels, then other directory channels. Campaign allow lists and
+`excludedChannels` still apply to Drops. Setting `preferKnownChannels` to
+`false` skips the follow lookup and uses viewer count to rank campaign channels
+within the same allow-list priority.
+
 `watchSourcePriority` selects the first eligible watch source independently for
 each platform. Twitch defaults to `["drops", "nopixel", "fortnite", "watchlist"]`;
 Kick defaults to `["drops", "watchlist"]`. Reorder the array to prefer a
@@ -79,8 +166,6 @@ source, including while already watching. Unknown, duplicate and wrong-platform
 entries are discarded; missing sources append in their default order. Idle
 Watchlist keeps its own channel order. Excluded drop channels also apply to
 supplemental providers; explicitly listed Watchlist channels remain allowed.
-The CLI currently has no NoPixelV or Fortnite provider, so those
-sources yield to the next eligible source even when placed first.
 
 The deprecated `idleWatchlistFallbackOnly` field remains accepted for existing
 configs. When a platform has no explicit priority and that field is `false`, it
@@ -120,7 +205,7 @@ every host, with a deprecation warning.
 
 ```jsonc
 {
-  "transport": "impersonate",   // default; use "http" for Twitch-only setups
+  "transport": "impersonate",   // default (impit); also "impit", "cycletls", or "http" for Twitch-only setups
   "authDir": "auth",            // resolved relative to this file
   "settings": {                 // CLI settings schema, merged over defaults
     "pollIntervalMinutes": 5,
@@ -132,12 +217,74 @@ every host, with a deprecation warning.
 }
 ```
 
+### Settings with limited CLI support
+
+These settings can be shared with the extension. Their CLI support depends on
+the platform and transport. A per-platform setting that asks for an unavailable
+feature and differs from its default logs one warning per run. If the signed-in
+identity changes during a run, the warning can first appear when the new adapter
+lacks the feature. Once logged, it stays quiet for the rest of that run.
+
+| Setting | Why | Tracked in |
+|---|---|---|
+| `platform.kick.alwaysEnterChat` on `http` | The HTTP transport cannot reach Kick realtime through the WAF | [#1099](https://github.com/jamezrin/lurkloot/issues/1099) |
+
+All Twitch sign-ins attempt push. If the connection stays unavailable, the
+CLI polls for channel-point claims and treats streak channels as ordinary
+Watchlist rows. See [Twitch push (Hermes)](#twitch-push-hermes) for retry
+behavior and how to verify live acceptance. `tests/inertSettings.test.ts`
+checks adapter support per transport and Twitch sign-in.
+
+## Twitch Extensions
+
+NoPixelV and Fortnite are available in `run` and `serve` and disabled by default.
+Enable a provider in the app's Twitch Extensions settings or in `config.json`:
+
+```jsonc
+"twitchExtensions": {
+  "nopixel": { "enabled": true, "autoOpenPacks": false },
+  "fortnite": { "enabled": true, "allowTakeovers": false }
+}
+```
+
+Enabling a provider authorizes the CLI to contact its backend. NoPixelV joins
+the selected channel's Twitch chat for watchtime credit. Enable `autoOpenPacks`
+to open eligible packs when they arrive. Fortnite records confirmed sprite
+captures. `allowTakeovers` opts in to eligible takeover actions. The CLI logs
+confirmed rewards and saves completion and cooldown deadlines to
+`twitch-extension-lane.json` beside `state.json`, keyed to the Twitch login.
+A custom `--state` file gets its own companion file. Lane memory contains no credentials.
+
+Both providers use the Client-ID of the sign-in on file, on either CLI
+transport. Some providers require you to share your Twitch identity with
+the extension on Twitch.
+
+| Twitch sign-in | NoPixelV | Fortnite |
+| --- | --- | --- |
+| Imported web session (`auth import`) | Supported web-client path | Supported web-client path |
+| Android (`auth twitch browser-login`) | Attempted with the Android Client-ID, subject to Twitch accepting the provider queries | Same |
+| Smart TV (`auth twitch device-login`) | Attempted with the Smart TV Client-ID, subject to Twitch accepting the provider queries | Same |
+
+Live CLI earning is unverified for each sign-in. If Twitch explicitly refuses
+a provider query for a non-web sign-in, the CLI logs one warning for that
+provider and leaves it idle until the credentials change. Other farming
+continues.
+
+Each provider session refreshes once a minute. With any sign-in, the CLI also
+follows NoPixelV's broadcast topic when Twitch accepts the connection and
+topic, and refreshes the provider when it receives a giveaway start or end
+notification. Live acceptance of the broadcast subscription and delivery of
+these notifications remain unverified for CLI sign-ins. See
+[Twitch push (Hermes)](#twitch-push-hermes).
+
 ## Transports
 
 | Transport | Twitch | Kick | Notes |
 |---|---|---|---|
-| `http` | ✅ plain Node fetch | ❌ Cloudflare WAF (403) | Lightest; Twitch-only in practice. |
-| `impersonate` | ✅ | ✅ **cycletls Chrome JA3/HTTP-2** | Recommended default. Reaches both with no browser. |
+| `http` | ✅ plain Node fetch | ⚠️ Cloudflare WAF may refuse it (403) | Lightest; Twitch-only in practice. |
+| `impersonate` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | Recommended default. Reaches both with no browser. Names the default library, impit today. |
+| `impit` | ✅ | ✅ **impit Chrome 124 TLS/HTTP-2** | impit by name, in process (a native add-on). |
+| `cycletls` | ✅ | ✅ **cycletls Chrome 124 JA3/HTTP-2** | The previous default, kept as a fallback. Runs CycleTLS's Go binary as a separate process, one per CLI, ended when the CLI exits. |
 
 New Twitch device logins use the **SMARTBOX (Smart TV) client**. Previously
 issued Android tokens retain their recorded client ID. Twitch may hide its
@@ -148,10 +295,26 @@ dashboard request was verified live. Twitch drop claiming with the CLI alone
 still needs an account-level live test.
 
 Kick's Cloudflare WAF inspects the TLS/JA3 + HTTP-2 fingerprint, so a plain Node
-request is rejected (HTTP 403). The `impersonate` transport sends a real Chrome
-fingerprint via [cycletls](https://github.com/Danny-Dasilva/CycleTLS) and reaches
-Kick's API without a browser. The viewer socket uses Node's WebSocket client
-with the same Kick session bearer.
+request can be rejected (HTTP 403), most often from datacenter addresses. The
+`impersonate` transport sends a real Chrome fingerprint through
+[impit](https://github.com/apify/impit) and reaches Kick's API without a
+browser; `cycletls` sends the pinned Chrome 124 fingerprint through
+[cycletls](https://github.com/Danny-Dasilva/CycleTLS) instead. Both send the
+same Chrome user agent to Kick, and impit's client hints are made to match it.
+The Twitch HLS heartbeat rides the same library. The viewer socket uses Node's
+WebSocket client with the same Kick session bearer. `auth kick device-login`
+uses the configured library, and impit when the transport is `http`.
+
+On `http`, a Kick 401 or 403 with a non-empty, non-JSON body is reported as a WAF
+challenge. At the identity endpoint, this makes the account check report Kick
+as temporarily unavailable, and farming retries with platform backoff. JSON
+credential rejections still ask you to sign in again.
+
+On `impersonate`, `impit` and `cycletls`, set `platform.kick.alwaysEnterChat` to `true` to join the
+channel's chat while watching. The CLI opens the chat socket only when needed,
+and `serve` reports presence in `state.chatPresence.kick` in the snapshot.
+Drop discovery signals use their own Pusher connection with the existing
+handshake.
 
 ## Auth
 
@@ -203,6 +366,47 @@ Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
 `SA_KICK_SESSION_TOKEN`. The rotating Kasada cookie is loaded only from the
 private auth store, so a stale environment value cannot override a refresh.
+
+### Twitch push (Hermes)
+
+The CLI attempts Twitch's Hermes push connection for every sign-in: **web**
+(`auth import`), **Android** (`auth twitch browser-login`), and **Smart TV**
+(`auth twitch device-login`). It uses the sign-in's Client-ID and authenticates
+with its OAuth token. The only identity header it sets on the socket is
+`Origin: https://www.twitch.tv`. When Twitch accepts the relevant subscriptions,
+the CLI can do the following.
+
+- claims channel-point bonuses as Twitch announces them
+  (`channelPointsPushClaim`), with the one-minute claim job as the fallback;
+- sees watch-streak payouts, so `watchlistStreakChannels` rows are maintained
+  the way the extension maintains them, tuned by `watchStreakBudgetMinutes`,
+  `watchStreakRetryCooldownMinutes` and `watchStreakMaxRounds`;
+- hears when the watched stream ends, checks it 60 s later and switches
+  channel without waiting for the next discovery;
+- while NoPixelV holds the watch slot, follows its Twitch Extension broadcast
+  topic with the provider session's token, held in memory and never logged,
+  and refreshes the provider when a giveaway starts or ends.
+
+After three consecutive connection, authentication, or points-topic failures,
+the CLI logs at debug level with default settings. It warns once per observer
+when maintained watch-streak rows or an explicitly enabled non-default
+push-claim setting depend on the connection. It suspends streak priority and
+accrual and retries after 5, 10, 20, and then 30 minutes between attempts.
+The one-minute job claims channel-point bonuses when automatic claiming is
+enabled and push claiming is inactive. Periodic stream checks and provider
+refreshes continue. A confirmed points subscription restores streak tracking.
+Updating the Twitch login replaces the old connection on the next
+reconciliation. Chat presence (`alwaysEnterChat`) uses a separate connection
+for every sign-in.
+
+Live Hermes acceptance per CLI sign-in is unverified. To confirm it for your
+sign-in, run with `--log debug` while the CLI is watching a Twitch channel
+and wants the points topic (for example, with default claim settings). Look for
+`Twitch channel-points push subscribed to community-points-user-v1.<id>`.
+
+`run --once`, SIGINT, SIGTERM, and `serve --exit-with-stdin` wait for the
+Hermes socket to close. The socket is dropped if the peer takes more than
+2 s to answer the close frame.
 
 ## Commands
 
@@ -281,7 +485,7 @@ server. On SIGINT/SIGTERM the server closes first, then the loop shuts down as
 | --- | --- |
 | `GET /v1/health` | `{ "status": "ok" }`, for liveness checks. |
 | `GET /v1/session` | `{ id, version, platforms }`. `id` is `"default"` (one process serves one account; the id exists so more can follow). Each platform has `enabled` and `auth`: the engine's last live `status` with its `reasonCode`/`checkedAt`, plus `credential: { present, source, status }`, the same network-free reading as `auth status`. Never a token, cookie or account id. |
-| `POST /v1/session/messages` | Body: one `RuntimeMessage` (`@lurkloot/shared/messages`), the popup's own contract, with `Content-Type: application/json`. Answers `{ "result": … }`: the controller's `handleMessage` result (a snapshot for most messages), or `null`. |
+| `POST /v1/session/messages` | Body: one `RuntimeMessage` (`@lurkloot/shared/messages`), the popup's own contract, with `Content-Type: application/json`. Answers `{ "result": … }`: the CLI host or controller result (a snapshot for most messages), or `null`. |
 
 ### Signing in over the control plane
 
@@ -318,10 +522,22 @@ were. Sign-in errors use these codes:
 | 422 | `login_rejected` | Twitch rejected the token, or it was not issued to the sign-in link's client. |
 | 502 | `upstream_unavailable` | Twitch or Kick could not be reached to start a flow or check a token. |
 
-Supported messages: `getSnapshot`, `tickNow`, `claimReward`,
-`selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, and the
-settings messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`
-and `setAutomation`. Live updates come from polling `getSnapshot`.
+Supported messages: `getSnapshot`, `exportDiagnostics`, `tickNow`, `claimReward`,
+`selectRewardLane`, `searchCategories`, `dismissCriticalFailure`, the settings
+messages `saveSettings`, `updateIdleWatchlist`, `setPlatformEnabled`, `setAutomation`
+and `setTwitchExtensionEnabled`, and the activity messages `getActivity`,
+`getActivitySessions` and `clearActivity`. The provider toggle takes
+`provider` (`nopixel` or `fortnite`) and a boolean `enabled`. Its result is
+`{ enabled }`. Live updates come from polling `getSnapshot`, including provider
+summaries in `state.twitchExtensions`.
+
+The activity messages read the [activity history](#activity-history):
+
+| Message | Answer |
+| --- | --- |
+| `{ "type": "getActivity", "category": "activity", "platform"?, "limit"?, "cursor"? }` | `{ events, nextCursor? }`, newest first, at most 100 per page (80 by default). Pass `nextCursor` back as `cursor` for the next page. `category: "diagnostic"` returns an empty activity page. Use `exportDiagnostics` for recent diagnostics. |
+| `{ "type": "getActivitySessions", "platform": "twitch" }` | `{ sessions }`: the platform's farming sessions with their point tallies and reward counts, newest first. |
+| `{ "type": "clearActivity" }` | `null`, once the history and its sessions are emptied. |
 
 A settings message is applied by the running loop and saved to the config file
 (`--config`, `config.json` by default) at once. Only the values that change are
@@ -343,7 +559,7 @@ also carries `paths`, the dotted settings paths it is about (for example
 
 | Status | `code` | When |
 | --- | --- | --- |
-| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, a missing/unknown `platform`, or a settings message without its fields (`settingsPatch` object, boolean `enabled`, string `channel`). |
+| 400 | `invalid_json`, `invalid_message` | Unparseable body, no string `type`, a missing/unknown `platform`, a settings message without its fields (`settingsPatch` object, boolean `enabled`, string `channel`), or a `getActivity` with no `category`, a wrong field type, or a `cursor` this server did not issue. |
 | 400 | `settings_unrepresentable` | The change sets something the CLI config cannot hold, or changes a value the CLI pins. Nothing is written. |
 | 400 | `settings_invalid` | The change has a value the CLI settings rules reject. Nothing is written. |
 | 401 | `unauthorized` | A token is configured and the request lacks `Authorization: Bearer <token>`. |
@@ -352,7 +568,7 @@ also carries `paths`, the dotted settings paths it is about (for example
 | 409 | `settings_read_only` | A settings message to a host started without a settings store that saves (not `lurkloot serve`). |
 | 413 | `payload_too_large` | Body over 64 KiB. |
 | 415 | `unsupported_media_type` | A POST that is not `application/json`. |
-| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, activity and reset messages). |
+| 422 | `unsupported_message` | A message type the CLI host does not support, including the extension-only ones (`getTabId`, `playbackTelemetry`, `getPlaybackControl`, `exportCliCredentials`, `resumeAfterManualClose`, `resetExtension`, `setTwitchExtensionEnabled`). |
 | 500 | `internal_error` | The controller failed; the details go to the log only. |
 | 500 | `settings_not_saved` | The edited config would not load back as the new settings; nothing was written. Details in the log. |
 | 503 | `settings_unavailable` | The config file cannot be read or parsed (fix it, then retry); nothing was written. Details in the log. |
@@ -406,15 +622,84 @@ curl -s -H 'content-type: application/json' \
 LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" lurkloot serve --host 0.0.0.0
 ```
 
+### Running under a launcher
+
+Two `serve` options exist for a parent process that starts `serve` as its child,
+such as the desktop app. Both are off by default, and `run` has neither.
+
+- **`--ready-json`** prints one line on stdout once the control plane listens:
+
+  ```json
+  {"event":"ready","url":"http://127.0.0.1:49152/"}
+  ```
+
+  `url` is the address that reaches the server from this machine. With
+  `--port 0` it carries the port the OS picked; on a wildcard bind it names
+  `127.0.0.1`. It never carries the token. The human log line is still written.
+  Lurkloot's own logger writes to stderr, but do not rely on stdout holding
+  only the ready line. Read stdout line by line
+  and take the first line that parses as JSON with `"event":"ready"`; do not
+  assume it is the first or only line. With `--exit-with-stdin`, `serve` skips
+  the ready line if it observes EOF before announcing readiness. Pipe EOF can
+  arrive after the ready line. A subsequent exit with code 0 is normal.
+- **`--exit-with-stdin`** shuts down when stdin ends, closes or fails, the same
+  way as SIGINT/SIGTERM. The server closes, any startup reconciliation and
+  pending state writes finish, and the process exits with code 0. A launcher
+  stops `serve` by closing the pipe, including on Windows. If the launcher
+  crashes, the OS closes the pipe. `serve` reads and discards anything written
+  to stdin. Give the launcher a pipe for this option. With stdin redirected
+  from a file or the null device (such as `/dev/null` under `docker run` without
+  `-i`), `serve` exits before binding or printing a ready line.
+
+With either option, output is best effort: a launcher may stop reading stdout
+and stderr before it closes stdin, and the lines `serve` then cannot write are
+dropped instead of stopping it, so the shutdown still runs to the end.
+
+To keep other programs on the machine out of the API, the launcher sets a fresh
+`LURKLOOT_SERVE_TOKEN` for each launch. A token applies to a loopback bind too
+(see [Security model](#security-model)).
+
+```bash
+LURKLOOT_SERVE_TOKEN="$(openssl rand -hex 32)" \
+  lurkloot serve --port 0 --ready-json --exit-with-stdin
+```
+
 ## Event logging
 
 The farming engine reports typed activity and diagnostic batches directly to
 the CLI. The CLI preserves their causal order, formats activity records into
 human-readable lines, and passes diagnostic messages through unchanged. Lines
 go to stderr and are filtered only by `--log`; `state.json` contains scheduler
-state, never new event history. Use Docker logs, systemd/journald, Loki, or
-another external collector when retention is needed. Loading and saving an old
+state. Use Docker logs, systemd/journald, Loki, or another external collector
+when long-term retention is needed. Loading and saving an old
 state file also removes any legacy embedded `events` field.
+
+### Activity history
+
+`run` and `serve` also keep the activity the extension's Activity view shows
+(claims, farming starts and stops, interruptions, obtained rewards and each
+farming session's point and reward totals) in `state.json.activity.json`, beside
+`state.json` in the data directory. The CLI appends `.activity.json` to the
+full state filename, including when you set `--state`. History keeps up to 2,000
+events from the last 30 days and up to 200 session summaries per platform,
+including open sessions and ones that ended in the last 30 days.
+The app localizes the structured records. Activity snapshots contain structured
+timeline events and session summaries. They keep interruption details up to
+1,024 characters and redact credential-shaped text. HTTPS activity links retain
+publisher query parameters and anchors, with embedded credentials removed.
+
+The CLI saves activity atomically and combines batches into at most one
+scheduled write every 30 seconds. On shutdown the CLI awaits controller and
+Twitch Extensions lane teardown, then gives in-flight farming jobs and background
+work up to five seconds to finish. SIGINT, SIGTERM and stdin EOF with
+`serve --exit-with-stdin` all settle state writes, dispose the transport and
+flush both histories. The app's Clear activity action saves the empty history
+before returning success.
+
+The CLI reads activity snapshots up to 4 MiB. If an activity file is unreadable
+or exceeds the limit, it logs a warning and starts with an empty history.
+If the file declares an unsupported version, the CLI leaves it on disk,
+keeps new activity in memory for that run, and rejects requests to clear it.
 
 Subscription requirements are reported separately from watch progress. The CLI
 never tries to satisfy them by opening or farming a stream, and it reports
@@ -424,6 +709,50 @@ waiting requirement is logged only when it first appears; once Twitch confirms
 the reward, the next poll detects and claims it, with the existing reward-claimed
 engine event providing the notification. Run `pnpm cli run --once` whenever an
 immediate non-interactive refresh is needed.
+
+## Diagnostics export
+
+After reproducing a problem with `run` or `serve`, export from the same working
+directory or pass absolute paths. Use the same `--config` and, if set,
+`--state` as the farming process. The paths below are examples:
+
+```sh
+lurkloot diagnostics export --config /path/to/config.json --state /path/to/state.json --out diagnostics.log
+# Save the Compose service's report on the host:
+docker compose exec -T lurkloot node /app/dist/index.mjs diagnostics export --config /data/config.json > diagnostics.log
+```
+
+Append the matching `--state` path to the command before `>` if the container
+uses a custom state file. For Docker without Compose, replace
+`docker compose exec -T lurkloot` with `docker exec <container>`.
+
+Attach the resulting text file under **Additional context** in your bug report.
+Omit `--out` (or pass `--out -`) for stdout. A file specified with `--out` must be new.
+
+The command works while farming or after shutdown. It reads the local config,
+last saved scheduler state, and up to 500 recent engine diagnostics from the
+saved sidecar. The report identifies its source and includes the sidecar's last
+write time when available. The loop keeps diagnostics across restarts regardless
+of `--log`. It writes a private atomic snapshot beside the state file
+(the full state filename with `.diagnostics.json` appended, so
+`state.json.diagnostics.json` by default) at most once every five seconds
+during farming. It publishes pending rows when the interval ends, even if
+no new diagnostics arrive. Clean shutdown flushes any remaining rows.
+Missing, unreadable or oversized history yields a report with no events.
+Both history sidecars share a 4 MiB read limit. A disk write
+failure leaves the in-memory history available to `serve` and is retried.
+Run one farming process per state file.
+
+The report includes Lurkloot and runtime versions, selected farming settings,
+auth health codes, session status and recent English diagnostic lines for both
+platforms. Credential values are used only to redact text. Raw settings,
+account IDs, headers, credential fields and diagnostic metadata are excluded.
+
+For a live, platform-scoped export, post
+`{"type":"exportDiagnostics","platform":"twitch"}` (or `"kick"`) to
+`/v1/session/messages` on `serve` using its usual authentication. The response's
+`result.report` is the attachable text and `result.events` contains the redacted
+diagnostic rows for that platform plus unscoped diagnostics.
 
 ## Docker
 

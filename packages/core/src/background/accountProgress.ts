@@ -1,12 +1,13 @@
-import type {
-  AccountProgressPoll,
-  EngineSettings,
-  Platform,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type AccountProgressPoll,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { ACCOUNT_PROGRESS_ALARM_NAME, PLATFORMS } from "./constants";
+import { ACCOUNT_PROGRESS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { BackgroundJob } from "./jobs";
@@ -20,17 +21,13 @@ import type { ControllerCalls } from "./types";
 // per-platform view renders it.
 
 // A level or streak moves with watch time; ten minutes is fresh enough.
-export const ACCOUNT_PROGRESS_POLL_INTERVAL_MS = 10 * 60 * 1000;
+const ACCOUNT_PROGRESS_POLL_INTERVAL_MS = 10 * 60 * 1000;
 // The job only compares the stored stamp until a read is due, so it can wake
 // every minute: a sign-in, a restart or a platform turned on shows progress
 // within a minute while the platform is still read at most every ten.
-export const ACCOUNT_PROGRESS_JOB_PERIOD_MINUTES = 1;
+const ACCOUNT_PROGRESS_JOB_PERIOD_MINUTES = 1;
 
-export function accountProgressPollDue(
-  state: SchedulerState,
-  platform: Platform,
-  now: number,
-): boolean {
+function accountProgressPollDue(state: SchedulerState, platform: Platform, now: number): boolean {
   const last = Date.parse(state.accountProgress?.[platform]?.lastCheckedAt ?? "");
   // A stamp in the future means the clock moved backwards; treat it as stale.
   if (!Number.isFinite(last) || last > now) return true;
@@ -39,7 +36,7 @@ export function accountProgressPollDue(
 
 // Whether a platform's progress is worth reading now: farming on, signed in,
 // and due. Manual watching does not pause it; progress is the account's.
-export function accountProgressWanted(
+function accountProgressWanted(
   settings: EngineSettings,
   state: SchedulerState,
   platform: Platform,

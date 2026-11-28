@@ -16,7 +16,7 @@ Each platform has `platform[platform].watchSourcePriority`. Twitch defaults to W
 
 Authentication, manual-watch/manual-close pauses, campaign/category eligibility, exclusions and host capabilities remain authoritative. Automatic Drops and supplemental provider selection honor excluded channels; explicitly listed Idle channels retain the existing exception. The default subscription-only fallback restriction is preserved; putting Idle ahead of Drops makes Idle an explicit preferred source.
 
-Supplemental targets retain the existing tabless-only contract and never fall back to a video tab. The CLI carries the same source-order setting but currently has no NoPixelV or Fortnite implementation, so those sources yield. No permissions, credential storage or dependencies are added.
+Supplemental targets retain the existing tabless-only contract and never fall back to a video tab. Both the browser extension and the CLI support NoPixelV and Fortnite in the same source order. The browser extension checks optional grants, and the CLI uses each provider’s enabled setting as consent to contact its backend.
 
 ## Watch streaks
 

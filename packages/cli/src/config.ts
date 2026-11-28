@@ -12,7 +12,9 @@ import {
 } from "./settings";
 import { errorMessage } from "@lurkloot/shared/errors";
 
-export const TRANSPORTS = ["http", "impersonate"] as const;
+// "impersonate" is an alias for the default impersonating library (impit);
+// "impit" and "cycletls" pick one by name.
+export const TRANSPORTS = ["http", "impersonate", "impit", "cycletls"] as const;
 export type Transport = (typeof TRANSPORTS)[number];
 
 export interface CliConfig {
@@ -24,7 +26,7 @@ export interface CliConfig {
   warnings: string[];
 }
 
-export const ENABLED_LOG_LEVELS_WARNING =
+const ENABLED_LOG_LEVELS_WARNING =
   "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
 
 const CONFIG_KEYS = new Set<string>(["transport", "authDir", "settings"]);
@@ -42,8 +44,10 @@ export function defaultConfigJsonc(): string {
   const twitch = defaults.platform.twitch;
   const kick = defaults.platform.kick;
   return `{
-  // "impersonate" works with both Twitch and Kick. Use "http" only for a
-  // lighter Twitch-only setup; Kick's API rejects plain Node TLS requests.
+  // "impersonate" works with both Twitch and Kick: it sends a browser's TLS
+  // fingerprint through the default library, impit. "impit" and "cycletls"
+  // pick that library by name. Use "http" only for a lighter Twitch-only
+  // setup; Kick's API can reject plain Node TLS requests.
   "transport": "impersonate",
 
   // Credentials are stored separately in this directory, relative to this file.
@@ -85,6 +89,18 @@ export function defaultConfigJsonc(): string {
     "notifyRewardEarned": ${json(defaults.notifyRewardEarned)},
     "notifyNoDropsLeft": ${json(defaults.notifyNoDropsLeft)},
 
+    // Enabling a provider allows requests to its backend. Each optional action is opt-in.
+    "twitchExtensions": {
+      "nopixel": {
+        "enabled": ${json(defaults.twitchExtensions.nopixel.enabled)},
+        "autoOpenPacks": ${json(defaults.twitchExtensions.nopixel.autoOpenPacks)}
+      },
+      "fortnite": {
+        "enabled": ${json(defaults.twitchExtensions.fortnite.enabled)},
+        "allowTakeovers": ${json(defaults.twitchExtensions.fortnite.allowTakeovers)}
+      }
+    },
+
     // Compatibility identifiers are bundled with this LurkLoot release.
     // "auto" is recommended. Raw destinations and hashes cannot be supplied.
     "compatibility": {
@@ -104,12 +120,13 @@ export function defaultConfigJsonc(): string {
     "platform": {
       "twitch": {
         "enabled": ${json(twitch.enabled)},
-        // First eligible source wins. Providers without a host implementation
-        // yield to the next source; the CLI currently skips NoPixelV and Fortnite.
+        // First eligible source wins. NoPixelV and Fortnite also need enabling
+        // under "twitchExtensions" above.
         "watchSourcePriority": ${json(twitch.watchSourcePriority)},
         "watchlistChannels": ${json(twitch.watchlistChannels)},
-        // Watchlist channels whose watch streak to maintain. The CLI has no
-        // Twitch push connection to see the payout, so it skips these rows.
+        // Watchlist channels whose watch streak to maintain. The payout is
+        // seen over Twitch's push connection (Hermes) for any sign-in.
+        // If push stays unavailable, these are ordinary Watchlist rows.
         "watchlistStreakChannels": ${json(twitch.watchlistStreakChannels ?? [])},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
@@ -154,7 +171,8 @@ export function defaultConfigJsonc(): string {
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
         // Advanced: claim channel-point bonuses from Twitch's live Hermes
-        // notification. Has no effect without a WebSocket factory.
+        // notifications on any sign-in. The one-minute check claims bonuses
+        // while the points subscription is unavailable.
         "channelPointsPushClaim": ${json(twitch.channelPointsPushClaim)},
         // Advanced: only farm a campaign on channels Twitch's AvailableDrops
         // query lists it for. Twitch often omits farmable campaigns there, so
@@ -188,8 +206,7 @@ export function defaultConfigJsonc(): string {
         // Lurkloot treats their subscription as made, like the popup's
         // "Mark as subscribed".
         "subscribedRewardMarks": ${json(kick.subscribedRewardMarks ?? [])},
-        // Join each watched channel's chat. Not supported by the CLI yet: it
-        // logs a warning once and ignores this.
+        // Join each watched channel's chat (impersonate, impit and cycletls transports).
         "alwaysEnterChat": ${json(kick.alwaysEnterChat ?? false)},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}

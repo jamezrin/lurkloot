@@ -6,7 +6,7 @@
     "message": "Lurkloot - Farm de drops Twitch et Kick"
   },
   "extensionDescription": {
-    "message": "Farmez les drops Twitch et Kick avec des sessions normales du navigateur, des onglets visibles et muets, et un mode basse consommation optionnel."
+    "message": "Farmez les drops Twitch et Kick en tâche de fond : il choisit un stream, suit l'avancée et réclame vos récompenses."
   },
   "toolbarTitleOff": {
     "message": "Farm désactivé"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 hors de votre filtre de récompenses"
   },
+  "queueSkippedGuide": {
+    "message": "Pourquoi une campagne est-elle ignorée ?"
+  },
   "queueActionRequired": {
     "message": "Action requise"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "Aucun paramètre ne correspond à « $1 »."
   },
-  "settingsPlatformSettings": {
-    "message": "Paramètres de $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Afficher les paramètres avancés"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Aller à la section"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Actions avancées"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "Activité"
-  },
-  "activeStatus": {
-    "message": "Actif"
   },
   "pausedStatus": {
     "message": "En pause"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "Ouvrir l’inventaire"
   },
-  "openActivity": {
-    "message": "Ouvrir l’activité"
-  },
-  "closeActivity": {
-    "message": "Fermer l’activité"
+  "openGuide": {
+    "message": "Guide d’utilisation"
   },
   "openSettings": {
     "message": "Ouvrir les paramètres"
-  },
-  "closeSettings": {
-    "message": "Fermer les paramètres"
   },
   "back": {
     "message": "Retour"
   },
   "loading": {
     "message": "Chargement"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Liste de visionnage"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "Aucune campagne ne correspond à « $1 »."
   },
-  "closeSearch": {
-    "message": "Fermer la recherche"
-  },
   "search": {
     "message": "Rechercher"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "Non lié"
-  },
-  "subscriptionCampaigns": {
-    "message": "Campagnes avec abonnement"
   },
   "subscriptionRequired": {
     "message": "Abonnement requis"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "Terminées"
   },
-  "completedCampaigns": {
-    "message": "Terminées"
-  },
   "upcomingPill": {
     "message": "À venir"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 spectateurs"
   },
-  "settingsGeneralTitle": {
-    "message": "Paramètres généraux"
-  },
   "settingsGeneralDescription": {
     "message": "Langue, démarrage et comportement de la fenêtre contextuelle."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "Commence le farm dès que l’extension se charge."
   },
-  "notificationsTitle": {
-    "message": "Notifications"
-  },
   "notificationsDescription": {
     "message": "Alertes lorsque les récompenses sont prêtes ou que les campagnes se terminent."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Avertir lorsque toutes les campagnes actives sont épuisées."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Réclamation, éligibilité, priorités et visibilité des campagnes."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "Faible disponibilité d’abord"
   },
-  "watchlistSettingsTitle": {
-    "message": "Liste de visionnage"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Comportement partagé de la liste de secours."
-  },
   "preferKnownChannelsTitle": {
     "message": "Préférer les chaînes suivies et celles de la Liste de visionnage"
   },
   "preferKnownChannelsDescription": {
     "message": "Lorsqu’un drop est disponible sur plusieurs chaînes, choisit une chaîne que vous suivez ou qui figure dans votre Liste de visionnage plutôt qu’une chaîne inconnue."
-  },
-  "platformSettingsTitle": {
-    "message": "Paramètres de plateforme"
-  },
-  "farmingTabsTitle": {
-    "message": "Onglets de farm"
   },
   "farmingTabsDescription": {
     "message": "Contrôles du farm avec onglets vidéo. Les contrôles propres aux onglets sont désactivés en mode sans onglet basse consommation."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "Onglet + fenêtre"
-  },
-  "advancedTitle": {
-    "message": "Avancé"
   },
   "advancedDescription": {
     "message": "Ne modifiez ces options que si vous savez ce que vous faites : elles contrôlent le planificateur et les journaux bas niveau."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "Aucune récompense de cette campagne ne peut être farmée actuellement."
   },
-  "automationSectionTitle": {
-    "message": "Automatisation"
-  },
-  "farmOnPlatform": {
-    "message": "Farme les drops et regarde la liste de visionnage sur $1."
-  },
   "enabled": {
     "message": "Activé"
-  },
-  "watchlistEditHint": {
-    "message": "Modifiez-la depuis l’onglet Liste de visionnage après avoir sélectionné $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Réclamer automatiquement les points de chaîne"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "Seules ces catégories sont farmées sur $1."
   },
-  "categoriesToFarm": {
-    "message": "Catégories à farmer"
-  },
   "noCategoriesSelected": {
     "message": "Aucune catégorie sélectionnée : rien ne sera farmé sur $1. Ajoutez des catégories ci-dessous."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "Aucune catégorie trouvée."
-  },
-  "alreadyAdded": {
-    "message": "Déjà ajouté."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Niveaux du journal d’activité"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Choisissez les niveaux enregistrés dans le journal d’activité. Les erreurs sont toujours conservées."
   },
   "rewardFilterTitle": {
     "message": "Récompenses à farmer"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "CLI sans navigateur"
   },
-  "cliExportDescription": {
-    "message": "Exécutez le farming de drops sur un serveur ou dans Docker avec la CLI Lurkloot, en utilisant la session connectée de ce navigateur."
-  },
   "cliExportHint": {
     "message": "Exporte vos jetons de session Twitch et Kick pour que « login --import » de la CLI puisse les réutiliser. Gardez le fichier privé : quiconque le possède peut utiliser vos sessions."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "Hors session"
-  },
-  "activitySessionEarlier": {
-    "message": "Plus tôt"
   },
   "activitySessionEmpty": {
     "message": "Rien d'obtenu pour l'instant. Les récompenses et les points s'affichent ici au fur et à mesure."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 récompenses sur $2"
   },
-  "campaignTimeLeft": {
-    "message": "Encore $1"
-  },
   "campaignFactStarts": {
     "message": "Début"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "Aucun autre jeu trouvé."
   },
-  "navBeta": {
-    "message": "Bêta"
-  },
   "navExtensions": {
     "message": "Extensions"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv peut la retirer de la barre d’adresse presque aussitôt. Avant de vous connecter, ouvrez les outils de développement du navigateur sur l’onglet Network et activez Preserve log. Connectez-vous ensuite, filtrez sur access_token et copiez l’en-tête location de la redirection id.twitch.tv. Collez-le ici à la place."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Connectez-vous à Twitch dans la fenêtre qui s’ouvre. Elle se ferme d’elle-même une fois terminé."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Se connecter à Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "En attente de la fin de votre connexion…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "La fenêtre de connexion a été fermée avant la fin de la connexion."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "La fenêtre de connexion n’a pas pu lire la réponse de Twitch sur ce système. Suivez plutôt les étapes ci-dessous."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Coller l’adresse à la place"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Se connecter avec un code"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "Ignorer"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 est prêt à être installé."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Redémarrer pour mettre à jour"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Installation de Lurkloot $1. Il redémarre une fois terminé."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Impossible de télécharger Lurkloot $1. Réessayez plus tard."
   },
   "appTokenTitle": {
     "message": "Jeton d’accès"

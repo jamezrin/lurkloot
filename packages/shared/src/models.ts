@@ -1,6 +1,9 @@
 import type { CriticalHealthState } from "./criticalHealth";
 
-export type Platform = "twitch" | "kick";
+/** Every supported platform, in display order. Derive platform lists from this, never a literal copy. */
+export const PLATFORMS = ["twitch", "kick"] as const;
+
+export type Platform = (typeof PLATFORMS)[number];
 
 export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "watch_streaks" | "watchlist";
 
@@ -18,6 +21,7 @@ export type PlatformAuthReasonCode =
   | "security_policy_blocked"
   | "credential_lookup_failed"
   | "platform_unavailable"
+  | "request_challenged"
   | "network_unavailable";
 
 export type PlatformAuthMessageKey =
@@ -359,6 +363,8 @@ export interface ManagedPageContextTab {
   originUrl: string;
   origin: string;
   ownedByExtension: true;
+  // A temporary tab that needs cleanup before replacement.
+  cleanupPending?: true;
   lastFallbackAt?: string;
   fallbackHost?: string;
   backgroundSuccesses?: number;
@@ -624,6 +630,7 @@ export interface EngineSettings {
   priorityMode: PriorityMode;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
+  twitchExtensions: TwitchExtensionsSettings;
   offlineRetryLimit: number;
   // Consecutive failed tabless heartbeats before falling back to a watch tab.
   tablessFallbackFailureLimit: number;
@@ -700,7 +707,6 @@ export interface TwitchExtensionsSettings {
 }
 
 export interface ExtensionSettings extends EngineSettings {
-  twitchExtensions: TwitchExtensionsSettings;
   // Number of committed Kick scheduler cycles using direct background fetches
   // required before an extension-owned fallback page is closed.
   kickPageContextRecoverySuccesses: number;

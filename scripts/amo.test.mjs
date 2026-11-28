@@ -10,6 +10,7 @@ import {
   validationErrors,
   versionAction,
 } from "./amo.mjs";
+import { FIREFOX_ADDON_ID } from "./release/cli.mjs";
 
 const decode = (part) => JSON.parse(Buffer.from(part, "base64url").toString());
 
@@ -98,13 +99,13 @@ function fakeAmo(routes) {
   const client = new AddonsClient({
     issuer: "user:1:2",
     secret: "s3cret",
-    addonId: "lurkloot@jamezrin.name",
+    addonId: FIREFOX_ADDON_ID,
     fetchImpl,
   });
   return { client, calls };
 }
 
-const addon = "/api/v5/addons/addon/lurkloot%40jamezrin.name";
+const addon = `/api/v5/addons/addon/${encodeURIComponent(FIREFOX_ADDON_ID)}`;
 const publishArgs = (client) => ({
   client,
   version: "1.25.0",

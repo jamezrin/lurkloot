@@ -10,6 +10,8 @@ repository. Tracking issue: [#485](https://github.com/jamezrin/lurkloot/issues/4
 /                        product + brand hub (both platforms)
 ├── twitch-drops-farmer/ Twitch search intent
 ├── kick-drops-farmer/   Kick search intent
+├── guide/               user guide: how to use Lurkloot (Starlight, src/content/docs/guide/)
+│   └── <section>/<page>/
 ├── changelog/           release notes
 └── privacy/             privacy policy
 ```
@@ -28,6 +30,12 @@ metadata this structure replaces.
 | `/kick-drops-farmer` | `farm kick drops`, `kick drops farmer` | `auto farm kick drops`, `afk kick drops`, `kick drops auto claim`, `kick drops extension`, `headless kick drops` |
 | `/changelog` | `lurkloot changelog`, version-specific queries | — |
 | `/privacy` | `lurkloot privacy` | — |
+| `/guide/*` | how-to questions ("farm drops on multiple accounts") | Long-tail help queries |
+
+The guide answers how to *use* Lurkloot; the platform pages sell it. Link from
+one to the other rather than repeating copy, and keep guide pages task-shaped
+(one question per page) so they do not compete with the platform pages for
+their head terms.
 
 Every page carries a distinct `<title>` and description; `tests/consts.test.mjs`
 asserts that, so two pages cannot silently converge on the same snippet.

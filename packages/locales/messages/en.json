@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch & Kick Drop Farmer"
   },
   "extensionDescription": {
-    "message": "Farm Twitch and Kick drops through normal browser sessions, visible muted tabs, and optional low-resource mode."
+    "message": "Farm Twitch and Kick drops automatically. It picks a stream, tracks progress and claims your rewards while you do other things."
   },
   "toolbarTitleOff": {
     "message": "Farming is off"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 outside your reward filter"
   },
+  "queueSkippedGuide": {
+    "message": "Why is a campaign skipped?"
+  },
   "queueActionRequired": {
     "message": "Action required"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "No settings match “$1”."
   },
-  "settingsPlatformSettings": {
-    "message": "$1 settings"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Show advanced settings"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Jump to section"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Advanced actions"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "Activity"
-  },
-  "activeStatus": {
-    "message": "Active"
   },
   "pausedStatus": {
     "message": "Paused"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "Open inventory"
   },
-  "openActivity": {
-    "message": "Open activity"
-  },
-  "closeActivity": {
-    "message": "Close activity"
+  "openGuide": {
+    "message": "User guide"
   },
   "openSettings": {
     "message": "Open settings"
-  },
-  "closeSettings": {
-    "message": "Close settings"
   },
   "back": {
     "message": "Back"
   },
   "loading": {
     "message": "Loading"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Watchlist"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "No campaigns match “$1”."
   },
-  "closeSearch": {
-    "message": "Close search"
-  },
   "search": {
     "message": "Search"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "Not linked"
-  },
-  "subscriptionCampaigns": {
-    "message": "Subscription campaigns"
   },
   "subscriptionRequired": {
     "message": "Subscription required"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "Finished"
   },
-  "completedCampaigns": {
-    "message": "Completed"
-  },
   "upcomingPill": {
     "message": "Upcoming"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 viewers"
   },
-  "settingsGeneralTitle": {
-    "message": "General settings"
-  },
   "settingsGeneralDescription": {
     "message": "Language, startup, and popup behavior."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "Begin farming as soon as the extension loads."
   },
-  "notificationsTitle": {
-    "message": "Notifications"
-  },
   "notificationsDescription": {
     "message": "Alerts when rewards are ready or campaigns finish."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Notify when all active campaigns are exhausted."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Claiming, eligibility, priorities, and campaign visibility."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "Low availability first"
   },
-  "watchlistSettingsTitle": {
-    "message": "Watchlist"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Fallback channels used when no eligible drops are available."
-  },
   "preferKnownChannelsTitle": {
     "message": "Prefer followed and Watchlist channels"
   },
   "preferKnownChannelsDescription": {
     "message": "When a drop is available on several channels, picks one you follow or listed in your Watchlist over an unfamiliar one."
-  },
-  "platformSettingsTitle": {
-    "message": "Platform settings"
-  },
-  "farmingTabsTitle": {
-    "message": "Farming tabs"
   },
   "farmingTabsDescription": {
     "message": "Controls for video-tab farming. Tab-specific controls are disabled while tabless low-resource mode is enabled."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "Tab + window"
-  },
-  "advancedTitle": {
-    "message": "Advanced"
   },
   "advancedDescription": {
     "message": "Only change these if you know what you are doing — they control low-level scheduler and logging behavior."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "No reward in this campaign can currently be farmed."
   },
-  "automationSectionTitle": {
-    "message": "Automation"
-  },
-  "farmOnPlatform": {
-    "message": "Farm drops and watch Watchlist channels on $1."
-  },
   "enabled": {
     "message": "Enabled"
-  },
-  "watchlistEditHint": {
-    "message": "Edit it from the Watchlist tab after selecting $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Auto-claim channel points"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "Only these categories are farmed on $1."
   },
-  "categoriesToFarm": {
-    "message": "Categories to farm"
-  },
   "noCategoriesSelected": {
     "message": "No categories selected — nothing will be farmed on $1. Add categories below."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "No categories found."
-  },
-  "alreadyAdded": {
-    "message": "Already added."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Activity log levels"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Choose which levels are recorded in the Activity log. Errors are always kept."
   },
   "rewardFilterTitle": {
     "message": "Rewards to farm"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "Headless CLI"
   },
-  "cliExportDescription": {
-    "message": "Run drop farming on a server or in Docker with the Lurkloot CLI, using this browser's logged-in session."
-  },
   "cliExportHint": {
     "message": "Exports your Twitch and Kick session tokens so the CLI's “login --import” can reuse them. Keep the file private — anyone with it can use your sessions."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "Outside a session"
-  },
-  "activitySessionEarlier": {
-    "message": "Earlier"
   },
   "activitySessionEmpty": {
     "message": "Nothing obtained yet. Rewards and points show up here as they come in."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 of $2 rewards"
   },
-  "campaignTimeLeft": {
-    "message": "$1 left"
-  },
   "campaignFactStarts": {
     "message": "Starts"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "No other games found."
   },
-  "navBeta": {
-    "message": "Beta"
-  },
   "navExtensions": {
     "message": "Extensions"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv can remove it from the address bar almost at once. Before you sign in, open the browser's developer tools on the Network tab and turn on Preserve log. Then sign in, filter for access_token, and copy the location header of the id.twitch.tv redirect. Paste that here instead."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Sign in to Twitch in the window that opens. It closes by itself when you're done."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Sign in to Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Waiting for you to finish signing in…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "The sign-in window was closed before you finished."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "The sign-in window couldn't read Twitch's answer on this system. Use the steps below instead."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Paste the address instead"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Sign in with a code"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "Dismiss"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 is ready to install."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Restart to update"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Installing Lurkloot $1. It restarts when it is done."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 could not be downloaded. Try again later."
   },
   "appTokenTitle": {
     "message": "Access token"

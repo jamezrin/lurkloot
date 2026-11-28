@@ -88,7 +88,12 @@ body:
     id: logs
     attributes:
       label: Relevant logs
-      description: Paste a short relevant log excerpt. Remove all credentials and private account information first.
+      description: |
+        Paste a short relevant log excerpt here. Attach diagnostics files in Additional context.
+        For the CLI, run `lurkloot diagnostics export --out diagnostics.log` with the same `--config` and `--state` paths as your farming process.
+        For Docker Compose, run `docker compose exec -T lurkloot node /app/dist/index.mjs diagnostics export --config /data/config.json > diagnostics.log`. Match the farming process's config path and include its `--state` path if set.
+        For Docker without Compose, use `docker exec <container>` in place of `docker compose exec -T lurkloot`.
+        Remove all credentials and private account information before sharing.
       render: shell
 
   - type: textarea

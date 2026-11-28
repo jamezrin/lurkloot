@@ -1,0 +1,16 @@
+---
+// Starlight's footer (edit link and previous/next), then the site's own
+// footer line so a guide page ends the way every other page does.
+import Default from "@astrojs/starlight/components/Footer.astro";
+import { LINKS } from "../../consts";
+---
+<Default />
+<div class="guide-site-footer">
+  <nav aria-label="Footer navigation">
+    <a href="/">Home</a>
+    <a href={LINKS.privacy}>Privacy</a>
+    <a href={LINKS.changelog}>Changelog</a>
+    <a href={LINKS.github} target="_blank" rel="noopener">Source code</a>
+  </nav>
+  <span>Independent project. Not affiliated with Twitch or Kick.</span>
+</div>

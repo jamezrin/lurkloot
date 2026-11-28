@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createLogger } from "../src/logger";
 import { runLoop } from "../src/runtime/run";
@@ -19,10 +21,18 @@ vi.mock("node:http", async (importOriginal) => {
 });
 
 describe("lurkloot run", () => {
+  let dir: string;
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "lurkloot-no-server-"));
+  });
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
   it("starts no server in a single tick", async () => {
     await runLoop({
       settings: DEFAULT_CLI_SETTINGS,
-      statePath: "/nonexistent-lurkloot-state.json",
+      statePath: join(dir, "state.json"),
       stateStore: memoryStateStore(),
       transport: idleTransport(),
       logger: createLogger("error"),
@@ -35,7 +45,7 @@ describe("lurkloot run", () => {
     const transport = idleTransport();
     const running = runLoop({
       settings: DEFAULT_CLI_SETTINGS,
-      statePath: "/nonexistent-lurkloot-state.json",
+      statePath: join(dir, "state.json"),
       stateStore: memoryStateStore(),
       transport,
       logger: createLogger("error"),

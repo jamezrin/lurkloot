@@ -113,7 +113,9 @@ jobs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
   # The extension is not rebuilt here. Publication promotes the candidate prerelease in place, so the
-  # signed artifacts it already carries are the ones that ship; publish downloads them back.
+  # signed artifacts it already carries are the ones that ship; publish downloads them back. The
+  # CLI executable archives and desktop installers ride along the same way: the candidate
+  # published them, SHA256SUMS covers them and assert-assets requires them.
 
   # The CLI image follows the same rule: the approved job retags the verified candidate manifest by
   # digest. This rebuild runs only when that candidate is gone, which is a recovery path.
@@ -214,9 +216,50 @@ jobs:
         run: |
           mkdir release-assets
           gh release download "v$VERSION" --dir release-assets
+          # The updater's files (#1028) are not reviewed assets: a rerun finds them from the last
+          # attempt. A recovery of a release older than the updater has none, and no command for them.
+          if test -f scripts/release/updater.mjs; then
+            node scripts/release/cli.mjs strip-updater-assets --assets release-assets --version "$VERSION"
+          fi
           (cd release-assets && sha256sum -c SHA256SUMS)
       - name: Verify the release asset set
         run: node scripts/release/cli.mjs assert-assets --assets release-assets --version "$VERSION"
+      # The desktop updater (#1028). Only this approved job holds the signing key, so only the
+      # stable release carries signatures and latest.json, and a candidate never feeds the updater.
+      # The reviewed bytes are signed as they are, each signature bound to this version, and the
+      # files go up before promotion: the moment the release becomes latest, latest.json is there.
+      # Once the release is stable its latest.json is live, so a rerun leaves it alone: replacing
+      # it could break the feed mid-upload, or re-sign a key-rotation release with the new key.
+      - id: updater
+        name: Decide whether to sign the desktop updates
+        run: |
+          if ! test -f scripts/release/updater.mjs; then
+            echo "this release predates the desktop updater"
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+          elif [ "$(gh release view "v$VERSION" --json isPrerelease --jq .isPrerelease)" = true ]; then
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "v$VERSION" --json assets --jq '.assets[].name' | grep -qxF latest.json; then
+            echo "v$VERSION is stable and already carries latest.json; keeping it"
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$VERSION is stable without latest.json; signing it now"
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        if: steps.updater.outputs.sign == 'true'
+      - name: Install the Tauri CLI for signing
+        if: steps.updater.outputs.sign == 'true'
+        run: pnpm install --frozen-lockfile --filter @lurkloot/desktop
+      - name: Sign the desktop updates and publish latest.json
+        if: steps.updater.outputs.sign == 'true'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          node scripts/release/cli.mjs updater-assets --assets release-assets --out updater-assets \
+            --version "$VERSION" --repository "$GITHUB_REPOSITORY"
+          # Only a prerelease's files are replaced, which nothing reads yet.
+          gh release upload "v$VERSION" updater-assets/* --clobber
       # No tag is created here. It was created during candidacy at the release branch head, and the
       # main ruleset's strict status-check policy guarantees that tree is what landed on main.
       - name: Promote the candidate prerelease to the stable release
@@ -227,6 +270,14 @@ jobs:
             echo "## Install the Chrome zip"
             echo
             echo "To load this pre-release in Chrome from the zip, see [Installing a pre-release build]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/v$VERSION/docs/install-prerelease.md)."
+            echo
+            echo "## Run the CLI without Node"
+            echo
+            echo "The \`lurkloot-cli-*\` archives hold the standalone CLI for each OS. See [Run the CLI as a program](https://lurkloot.jamezrin.com/guide/headless/executable)."
+            echo
+            echo "## Install the desktop app"
+            echo
+            echo "The \`lurkloot-desktop-*\` files install the desktop app on Windows, macOS and Linux. They are not signed yet, so the first launch needs one extra step. See [Install the desktop app](https://lurkloot.jamezrin.com/guide/headless/desktop)."
           } >> notes.md
           # Promotion strips the candidate marker, so a recovery checkout of the merged
           # SHA cannot satisfy promote-release's ownership check. Skip when already stable.
@@ -342,8 +393,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: pnpm/action-setup@v6
-        with:
-          version: 12.18.0
       - uses: actions/setup-node@v7
         with:
           node-version: 24

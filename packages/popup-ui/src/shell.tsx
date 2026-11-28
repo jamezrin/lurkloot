@@ -1,6 +1,7 @@
 import React from "react";
 import {
   ArrowUpRight,
+  BookOpen,
   PanelLeftClose,
   PanelLeftOpen,
   Clock3,
@@ -38,17 +39,6 @@ export type PopupView =
   | "activity"
   | "settings";
 
-export const POPUP_VIEWS: PopupView[] = [
-  "queue",
-  "completed",
-  "games",
-  "watchlist",
-  "nopixel",
-  "fortnite",
-  "activity",
-  "settings",
-];
-
 interface NavItem {
   view: PopupView;
   labelKey: string;
@@ -82,7 +72,7 @@ const SOURCE_ITEMS: NavItem[] = [...EXTENSION_ITEMS, ...OTHER_ITEMS];
 
 // The view that shows each watch source. Drops is the whole Drops group, so its
 // live mark goes on the Queue.
-export const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
+const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
   drops: "queue",
   nopixel: "nopixel",
   fortnite: "fortnite",
@@ -173,6 +163,7 @@ export function WorkspaceRail({
   onViewChange,
   onPlatformChange,
   onOpenInventory,
+  onOpenGuide,
   onOpenChangelog,
   hostViews = [],
   hostView,
@@ -192,6 +183,7 @@ export function WorkspaceRail({
   onViewChange(view: PopupView): void;
   onPlatformChange(platform: Platform): void;
   onOpenInventory(): void;
+  onOpenGuide(): void;
   // The release notes for this version, where the host can link to them.
   onOpenChangelog?(): void;
   // The host's own destinations, and the one open, if any. While one is open
@@ -290,7 +282,13 @@ export function WorkspaceRail({
           {/* The platform's own inventory page: a way out of the popup rather than
             a destination in it, so it sits with the other bottom entries and
             carries an external-link mark instead of ever reading as current. */}
-          <RailLink label={t("openInventory")} icon={Package} onClick={onOpenInventory} />
+          <RailLink
+            id="inventory"
+            label={t("openInventory")}
+            icon={Package}
+            onClick={onOpenInventory}
+          />
+          <RailLink id="guide" label={t("openGuide")} icon={BookOpen} onClick={onOpenGuide} />
         </div>
         <NavGroup
           items={FOOTER_ITEMS}
@@ -370,10 +368,12 @@ function SidebarToggle({ sidebar }: { sidebar: RailSidebar }): React.ReactElemen
 }
 
 function RailLink({
+  id,
   label,
   icon: Icon,
   onClick,
 }: {
+  id: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   onClick(): void;
@@ -383,7 +383,7 @@ function RailLink({
     <button
       type="button"
       aria-label={label}
-      data-rail-link="inventory"
+      data-rail-link={id}
       onClick={onClick}
       className={cn(
         "flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-start text-[12px] font-medium text-zinc-400 outline-none transition-colors hover:bg-white/[0.05] hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-white/40",

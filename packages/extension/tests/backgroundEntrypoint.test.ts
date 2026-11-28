@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import * as controllerModule from "@lurkloot/core/controller";
+import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { EventEmitter } from "@lurkloot/shared/events";
@@ -84,6 +85,38 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.resetModules();
+});
+
+describe("background Twitch Extensions wiring", () => {
+  it("uses the web Client-ID with the logged-in browser transport", async () => {
+    let deps: controllerModule.BackgroundHostPorts<ExtensionSettings> | undefined;
+    createBackgroundController.mockImplementation((nextDeps) => {
+      deps = nextDeps;
+      return { onCommit: vi.fn() };
+    });
+    const fetch = vi.fn(async (_url: string, _init: RequestInit) =>
+      Response.json({ data: { game: { streams: { edges: [] } } } }),
+    );
+    vi.stubGlobal("fetch", fetch);
+    vi.stubGlobal("defineBackground", vi.fn());
+
+    await import("../entrypoints/background");
+
+    const state = structuredClone(DEFAULT_STATE);
+    state.authHealth.twitch = { status: "healthy" };
+    const settings = structuredClone(DEFAULT_SETTINGS);
+    settings.platform.twitch.enabled = true;
+    settings.twitchExtensions.nopixel.enabled = true;
+    await deps!.twitch.supplementalSources!.select(state, settings, undefined, "nopixel");
+
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, request] = fetch.mock.calls[0];
+    expect(url).toBe("https://gql.twitch.tv/gql");
+    expect(JSON.parse(String(request.body)).operationName).toBe("ExtensionDirectory");
+    const headers = new Headers(request.headers);
+    expect(headers.get("Client-ID")).toBe("kimne78kx3ncx6brgo4mv6wki5h1ko");
+    expect(headers.get("Authorization")).toBe("OAuth token");
+  });
 });
 
 describe("background integrity alarm wiring", () => {

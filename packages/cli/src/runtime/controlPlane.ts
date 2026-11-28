@@ -1,12 +1,15 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isIPv4, isIPv6, type AddressInfo } from "node:net";
-import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type {
-  EngineSettings,
-  Platform,
-  PlatformAuthReasonCode,
-  PlatformAuthStatus,
+import { twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
+import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import { InvalidActivityCursorError } from "@lurkloot/shared/activityHistory";
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type PlatformAuthReasonCode,
+  type PlatformAuthStatus,
 } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import type { CredentialSource, LocalCredentialHealth } from "../authStore";
@@ -23,20 +26,29 @@ export const SERVE_TOKEN_ENV = "LURKLOOT_SERVE_TOKEN";
 export const DEFAULT_SERVE_HOST = "127.0.0.1";
 export const DEFAULT_SERVE_PORT = 8420;
 // A token guarding a non-loopback bind must not be guessable.
-export const MIN_SERVE_TOKEN_LENGTH = 16;
-export const MAX_REQUEST_BODY_BYTES = 64 * 1024;
+const MIN_SERVE_TOKEN_LENGTH = 16;
+const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 // One process serves one account; the id lets a later multi-account host add
 // sessions without changing the protocol.
-export const DEFAULT_SESSION_ID = "default";
+const DEFAULT_SESSION_ID = "default";
 
-const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
+interface MessageTraits {
+  // Names a platform, which must be twitch or kick.
+  platform: boolean;
+  writesSettings: boolean;
+  // Answered from the activity history (#1088), not the controller.
+  activityHistory?: true;
+}
 
-// The messages the CLI host supports: whether each names a platform, and
-// whether it writes settings. Anything else, extension-only messages included
-// (getTabId, playbackTelemetry, getPlaybackControl, exportCliCredentials,
-// resumeAfterManualClose), is refused before it reaches the controller.
+// The messages the CLI host supports: whether each names a platform, whether
+// it writes settings, and whether the activity history answers it. Anything
+// else, extension-only messages included (getTabId, playbackTelemetry,
+// getPlaybackControl, exportCliCredentials, resumeAfterManualClose,
+// resetExtension), is refused before it reaches the controller.
 const SUPPORTED_MESSAGES = {
+  setTwitchExtensionEnabled: { platform: false, writesSettings: true },
   getSnapshot: { platform: false, writesSettings: false },
+  exportDiagnostics: { platform: true, writesSettings: false },
   setPlatformEnabled: { platform: true, writesSettings: true },
   setAutomation: { platform: true, writesSettings: true },
   saveSettings: { platform: false, writesSettings: true },
@@ -46,17 +58,34 @@ const SUPPORTED_MESSAGES = {
   searchCategories: { platform: true, writesSettings: false },
   tickNow: { platform: false, writesSettings: false },
   dismissCriticalFailure: { platform: true, writesSettings: false },
-} as const satisfies Partial<
-  Record<CoreRuntimeMessage["type"], { platform: boolean; writesSettings: boolean }>
->;
+  getActivity: { platform: false, writesSettings: false, activityHistory: true },
+  getActivitySessions: { platform: true, writesSettings: false, activityHistory: true },
+  clearActivity: { platform: false, writesSettings: false, activityHistory: true },
+} as const satisfies Partial<Record<RuntimeMessage["type"], MessageTraits>>;
 
 export type ControlPlaneMessageType = keyof typeof SUPPORTED_MESSAGES;
-export type ControlPlaneMessage = Extract<CoreRuntimeMessage, { type: ControlPlaneMessageType }>;
+export type ControlPlaneMessage = Extract<RuntimeMessage, { type: ControlPlaneMessageType }>;
+type ActivityHistoryMessageType = {
+  [Type in ControlPlaneMessageType]: (typeof SUPPORTED_MESSAGES)[Type] extends {
+    activityHistory: true;
+  }
+    ? Type
+    : never;
+}[ControlPlaneMessageType];
+export type ControlPlaneActivityMessage = Extract<
+  ControlPlaneMessage,
+  { type: ActivityHistoryMessageType }
+>;
+export function isActivityHistoryMessage(
+  message: ControlPlaneMessage,
+): message is ControlPlaneActivityMessage {
+  return "activityHistory" in SUPPORTED_MESSAGES[message.type];
+}
 export const SUPPORTED_MESSAGE_TYPES = Object.keys(
   SUPPORTED_MESSAGES,
 ) as readonly ControlPlaneMessageType[];
 
-export function isSupportedMessageType(type: string): type is ControlPlaneMessageType {
+function isSupportedMessageType(type: string): type is ControlPlaneMessageType {
   return Object.hasOwn(SUPPORTED_MESSAGES, type);
 }
 
@@ -105,7 +134,7 @@ export function isLoopbackHost(name: string): boolean {
 }
 
 // The host name of a Host header value, without its port.
-export function hostHeaderName(value: string): string {
+function hostHeaderName(value: string): string {
   const trimmed = value.trim();
   if (trimmed.startsWith("[")) {
     const end = trimmed.indexOf("]");
@@ -210,6 +239,9 @@ export interface ControlPlaneRoute {
 }
 
 export interface ControlPlaneOptions extends ServeBinding {
+  // True when handleMessage answers the activity messages from a history. A
+  // host without one refuses them as unsupported.
+  activityHistory?: boolean;
   // True when the settings store applies and saves a patch (serve's config-file
   // store, #1000). A host without one refuses the settings messages with
   // settings_read_only.
@@ -227,6 +259,9 @@ export interface ControlPlaneOptions extends ServeBinding {
 export interface ControlPlane {
   host: string;
   port: number;
+  // An address that reaches the server from this machine: the bound one, or
+  // 127.0.0.1 for a wildcard bind. What `serve --ready-json` prints.
+  localUrl: string;
   close(): Promise<void>;
 }
 
@@ -391,8 +426,9 @@ async function readJsonBody(
 // Shape checks before the controller sees a message: a supported type, and a
 // known platform on the messages that name one. Field-level validation of a
 // settings patch is the settings store's job (#976); only the fields the
-// controller reads before the store sees the change are checked here.
-function settingsMessageFieldError(
+// controller reads before the store sees the change are checked here. An
+// activity query is checked whole, since the history reads every field.
+function messageFieldError(
   type: ControlPlaneMessageType,
   value: Record<string, unknown>,
 ): string | undefined {
@@ -403,6 +439,12 @@ function settingsMessageFieldError(
         ? "saveSettings needs a settingsPatch object"
         : undefined;
     }
+    case "setTwitchExtensionEnabled":
+      return typeof value.provider === "string"
+        && twitchExtensionProvider(value.provider)
+        && typeof value.enabled === "boolean"
+        ? undefined
+        : "setTwitchExtensionEnabled needs provider nopixel or fortnite and a boolean enabled";
     case "setPlatformEnabled":
     case "setAutomation":
       return typeof value.enabled === "boolean" ? undefined : `${type} needs a boolean enabled`;
@@ -411,14 +453,31 @@ function settingsMessageFieldError(
         && (value.action === "add" || value.action === "remove")
         ? undefined
         : "updateIdleWatchlist needs a string channel and action add or remove";
+    case "getActivity": {
+      if (value.category !== "activity" && value.category !== "diagnostic")
+        return "getActivity needs category activity or diagnostic";
+      if (value.platform !== undefined && !PLATFORMS.includes(value.platform as Platform))
+        return "getActivity platform must be twitch or kick";
+      if (
+        value.limit !== undefined
+        && (typeof value.limit !== "number" || !Number.isFinite(value.limit))
+      )
+        return "getActivity limit must be a number";
+      if (value.cursor !== undefined && typeof value.cursor !== "string")
+        return "getActivity cursor must be a string";
+      if (value.query !== undefined && typeof value.query !== "string")
+        return "getActivity query must be a string";
+      return undefined;
+    }
     default:
       return undefined;
   }
 }
 
-export function parseControlPlaneMessage(
+function parseControlPlaneMessage(
   value: unknown,
   settingsWritable = false,
+  activityHistory = false,
 ): ControlPlaneMessage {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new RequestError(400, "invalid_message", "The body must be a JSON object");
@@ -436,7 +495,13 @@ export function parseControlPlaneMessage(
     if (typeof platform !== "string" || !PLATFORMS.includes(platform as Platform))
       throw new RequestError(400, "invalid_message", `${type} needs platform twitch or kick`);
   }
-  const fieldError = settingsMessageFieldError(type, value as Record<string, unknown>);
+  if ("activityHistory" in SUPPORTED_MESSAGES[type] && !activityHistory)
+    throw new RequestError(
+      422,
+      "unsupported_message",
+      `Message type ${JSON.stringify(type)} needs an activity history, which this host does not keep`,
+    );
+  const fieldError = messageFieldError(type, value as Record<string, unknown>);
   if (fieldError) throw new RequestError(400, "invalid_message", fieldError);
   if (SUPPORTED_MESSAGES[type].writesSettings && !settingsWritable)
     throw new RequestError(
@@ -525,7 +590,11 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
       return;
     }
     const body = await readJsonBody(request, maxBodyBytes);
-    const message = parseControlPlaneMessage(body, options.settingsWritable ?? false);
+    const message = parseControlPlaneMessage(
+      body,
+      options.settingsWritable ?? false,
+      options.activityHistory ?? false,
+    );
     const result = await options.handleMessage(message);
     sendJson(response, 200, { result: result ?? null });
   };
@@ -541,6 +610,11 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
         }
         if (error instanceof RequestError) {
           sendError(response, error);
+          return;
+        }
+        // A page cursor this history did not issue is the caller's mistake.
+        if (error instanceof InvalidActivityCursorError) {
+          sendError(response, new RequestError(400, "invalid_message", error.message));
           return;
         }
         if (error instanceof CliSettingsStoreError) {
@@ -577,7 +651,8 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   const url = `http://${shownHost}:${address.port}/`;
   // A wildcard bind is no address to open: name the one that works here.
   const wildcard = address.address === "0.0.0.0" || address.address === "::";
-  const localNote = wildcard ? `, on this machine http://127.0.0.1:${address.port}/` : "";
+  const localUrl = wildcard ? `http://127.0.0.1:${address.port}/` : url;
+  const localNote = wildcard ? `, on this machine ${localUrl}` : "";
   const tokenNote = expectedToken ? " (bearer token required)" : "";
   logger.info(
     options.appRoot
@@ -589,6 +664,7 @@ export async function startControlPlane(options: ControlPlaneOptions): Promise<C
   return {
     host: address.address,
     port: address.port,
+    localUrl,
     close: () =>
       new Promise<void>((resolveClose) => {
         if (closing) {

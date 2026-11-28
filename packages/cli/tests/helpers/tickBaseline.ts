@@ -556,11 +556,12 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
     await vi.waitFor(() => {
       // The two tick jobs, the heartbeat job and the one-minute account-progress
       // job, plus (since #590) the one-minute channel-points job while Twitch
-      // is enabled.
+      // is enabled. One additional timer can flush the diagnostics sidecar.
       const expectedTimers = platform === "twitch" ? 5 : 4;
-      if (vi.getTimerCount() !== expectedTimers) {
+      const pendingTimers = vi.getTimerCount();
+      if (pendingTimers < expectedTimers || pendingTimers > expectedTimers + 1) {
         throw new Error(
-          `Expected ${expectedTimers} CLI job timers, observed ${vi.getTimerCount()}`,
+          `Expected ${expectedTimers} CLI job timers and at most one diagnostics timer, observed ${pendingTimers}`,
         );
       }
     });

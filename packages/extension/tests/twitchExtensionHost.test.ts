@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TwitchExtensionDriverFactory } from "../src/extensions/runtime";
 import {
   createTwitchExtensionHost,
+  type TwitchExtensionDriverFactory,
   type TwitchExtensionLaneMemoryPort,
-} from "../src/extensions/host";
+} from "@lurkloot/core/extensions/host";
 import { DEFAULT_SETTINGS, applySettingsPatch } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
@@ -1089,6 +1089,46 @@ describe("background tabless provider host", () => {
         knownComplete: { nopixel: expect.any(Number) },
       });
     });
+
+    it.each(["viewer", "someone_else"])(
+      "keeps completion during an identity lookup failure and rechecks for %s",
+      async (nextLogin) => {
+        const memory = laneMemory();
+        const viewerLogin = vi.fn(async () => "viewer");
+        const s = setup(memory.port, viewerLogin);
+        s.enableTwitch();
+        const now = Date.UTC(2026, 8, 14, 12);
+        s.source.now.mockReturnValue(now);
+        withDirectory(s, now);
+        s.drivers.nopixel = async (_session, emit) => {
+          emit({ status: "complete", reasonCode: "rewards-complete", progress: [], pending: [] });
+          return { stop: s.stop };
+        };
+        await s.host.setEnabled("nopixel", true);
+        s.state.sessions.twitch.status = "idle";
+        s.settings().twitchExtensions.fortnite.enabled = false;
+        await vi.waitFor(() =>
+          expect(memory.stored.value).toMatchObject({
+            knownComplete: { nopixel: expect.any(Number) },
+          }),
+        );
+        const saved = memory.stored.value;
+        viewerLogin.mockRejectedValueOnce(new Error("Lookup failed"));
+        await s.host.credentialsChanged();
+        expect(memory.stored.value).toEqual(saved);
+        viewerLogin.mockResolvedValue(nextLogin);
+        const target = await s.host.chooseWatchTarget(s.settings(), s.state, undefined, "nopixel");
+        if (nextLogin === "viewer") expect(target).toBeUndefined();
+        else expect(target).toMatchObject({ id: "nopixel" });
+        await vi.waitFor(() => {
+          expect(memory.stored.value).toMatchObject({ owner: nextLogin });
+          if (nextLogin === "viewer")
+            expect(memory.stored.value).toHaveProperty("knownComplete.nopixel", expect.any(Number));
+          else expect(memory.stored.value).toHaveProperty("knownComplete", {});
+        });
+        await s.host.close();
+      },
+    );
 
     it("forgets what the lane learned when the Twitch login changes", async () => {
       const memory = laneMemory();

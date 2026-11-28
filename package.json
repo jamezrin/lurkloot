@@ -5,12 +5,14 @@
   "license": "Apache-2.0",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@12.23.0",
   "scripts": {
     "dev": "pnpm --filter @lurkloot/extension dev",
     "dev:firefox": "pnpm --filter @lurkloot/extension dev:firefox",
     "dev:site": "pnpm --filter @lurkloot/site dev",
     "dev:app": "pnpm --filter @lurkloot/app-ui dev",
     "dev:app:fixture": "pnpm --filter @lurkloot/app-ui dev:fixture",
+    "dev:desktop": "pnpm --filter @lurkloot/desktop dev",
     "build": "pnpm --filter @lurkloot/extension build",
     "build:firefox": "pnpm --filter @lurkloot/extension build:firefox",
     "build:site": "pnpm --filter @lurkloot/site build",
@@ -31,7 +33,8 @@
     "locales:check": "node scripts/check-locales.mjs",
     "locales:test": "node --test scripts/check-locales.test.mjs",
     "format": "biome format --write .",
-    "check": "biome check . && pnpm cws:test && pnpm amo:test && pnpm release:test && pnpm locales:test && pnpm locales:check && pnpm -r typecheck && pnpm test && pnpm build:site && pnpm build:app",
+    "knip": "knip --no-progress",
+    "check": "biome check . && pnpm knip && pnpm cws:test && pnpm amo:test && pnpm release:test && pnpm locales:test && pnpm locales:check && pnpm -r typecheck && pnpm test && pnpm build:site && pnpm build:app",
     "verify": "pnpm check && pnpm build && pnpm build:firefox",
     "store:generate": "pnpm --filter @lurkloot/extension store:generate",
     "store:generate:screenshots": "pnpm --filter @lurkloot/extension store:generate:screenshots",
@@ -45,6 +48,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
     "crx3": "2.0.0",
+    "knip": "^6.48.0",
     "typescript": "^7.0.0"
   }
 }

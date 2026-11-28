@@ -1,0 +1,10 @@
+---
+// Starlight's page title, followed by the feature's Extension / CLI support
+// when the page's frontmatter declares it.
+import Default from "@astrojs/starlight/components/PageTitle.astro";
+import GuideSupport from "./GuideSupport.astro";
+
+const { support } = Astro.locals.starlightRoute.entry.data;
+---
+<Default />
+{support && <GuideSupport support={support} />}

@@ -1,4 +1,4 @@
-import type { ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { Platform } from "@lurkloot/shared/models";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { ScreenshotVariant } from "./types";
 
@@ -16,22 +16,24 @@ export const PLATFORM_INVENTORY_URLS: Record<Platform, string> = {
 
 export const SELECTED_PLATFORM_KEY = "popup:selectedPlatform";
 export const COLLAPSED_SETTINGS_SECTIONS_KEY = "popup:collapsedSettingsSections";
-export const SHOW_ADVANCED_SETTINGS_KEY = "popup:showAdvancedSettings";
-
 // Chrome Web Store listing for the rate/review nudge. Single source of truth for
 // the store id so the reviews URL stays correct if the listing slug changes.
-export const CHROME_WEB_STORE_ID = "aobaackpofkghaejdnnmpmeaiaoibhdn";
+const CHROME_WEB_STORE_ID = "aobaackpofkghaejdnnmpmeaiaoibhdn";
 export const CHROME_WEB_STORE_URL = `https://chromewebstore.google.com/detail/${CHROME_WEB_STORE_ID}`;
 export const CHROME_WEB_STORE_REVIEW_URL = `${CHROME_WEB_STORE_URL}/reviews`;
 // Firefox Add-ons listing for the same nudge in the Firefox build. The slug is
 // the one the listing is created with (docs/store-readiness.md).
-export const FIREFOX_ADD_ONS_SLUG = "lurkloot";
-export const FIREFOX_ADD_ONS_URL = `https://addons.mozilla.org/firefox/addon/${FIREFOX_ADD_ONS_SLUG}/`;
+const FIREFOX_ADD_ONS_SLUG = "lurkloot";
+const FIREFOX_ADD_ONS_URL = `https://addons.mozilla.org/firefox/addon/${FIREFOX_ADD_ONS_SLUG}/`;
 export const FIREFOX_ADD_ONS_REVIEW_URL = `${FIREFOX_ADD_ONS_URL}reviews/`;
 // Canonical marketing/landing site for the extension.
 export const SITE_URL = "https://lurkloot.jamezrin.com";
+// The user guide on the site, and the pages the popup links to directly. The
+// anchor is the heading's id on that page; the site's link test keeps it real.
+export const GUIDE_URL = `${SITE_URL}/guide`;
+export const GUIDE_SKIPPED_URL = `${GUIDE_URL}/popup/queue#why-is-a-campaign-skipped`;
+export const CLI_DOCS_URL = `${GUIDE_URL}/headless/overview`;
 export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
-export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
 export const GITHUB_TRANSLATION_GUIDE_URL =
   "https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md";

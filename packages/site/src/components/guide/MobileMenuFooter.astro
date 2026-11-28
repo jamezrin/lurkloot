@@ -1,0 +1,13 @@
+---
+// The bottom of the guide's menu on phones: the site's own links and buttons,
+// which the header has no room for there.
+import { LINKS, NAV_LINKS } from "../../consts";
+---
+<div class="guide-menu-footer">
+  <nav aria-label="Site">
+    <a href="/">Home</a>
+    {NAV_LINKS.map((link) => <a href={link.href}>{link.label}</a>)}
+    <a href={LINKS.github} target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <a class="sg-pill" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot</a>
+</div>

@@ -1,4 +1,4 @@
-import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCompletion";
+import { createTwitchExtensionGrantCompletion } from "@lurkloot/core/extensions/host/grantCompletion";
 import { KickRealtimeConnection, kickRealtimePost } from "@lurkloot/core/kick/realtime";
 import { createSocketHostFactory } from "../src/core/socketHostFactory";
 import { SOCKET_HOST_PATH } from "../src/core/socketHost";
@@ -33,10 +33,10 @@ import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
-import { driverRewardEvent, type DriverReward } from "../src/extensions/rewardEvents";
 import { withActivityDiagnostics } from "@lurkloot/core/activityDiagnostics";
-import type { EventEmitter, EngineEvent } from "@lurkloot/shared/events";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
+import { kickHttpChallenge } from "@lurkloot/core/transport";
 import {
   createKickFetcher,
   KickAdapter,
@@ -44,7 +44,7 @@ import {
   KickDiscoveryState,
   KickPageContextRecoveryTracker,
 } from "@lurkloot/core/kick";
-import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import { TWITCH_CLIENT_ID, TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { armOnboardingForLifecycle } from "../src/core/onboarding";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
@@ -55,8 +55,8 @@ import {
   loadActivityEvents,
   loadActivitySessions,
 } from "../src/core/activityStorage";
+import { createActivityEventReporter } from "@lurkloot/shared/activityHistory";
 import {
-  createActivityEventReporter,
   createActivityMessageHandler,
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
@@ -69,11 +69,12 @@ import {
   createCredentialAvailabilityProvider,
   createCredentialReader,
 } from "../src/core/credentialAvailability";
-import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
-import { createTwitchExtensionHost } from "../src/extensions/host";
-import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
-import { createFortniteDriver } from "../src/extensions/fortnite/driver";
-import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
+import { createTwitchExtensionCommitHook } from "@lurkloot/core/extensions/host/commitHook";
+import {
+  createTwitchExtensionDrivers,
+  createTwitchExtensionHost,
+} from "@lurkloot/core/extensions/host";
+import { createTwitchExtensionSessionSource } from "@lurkloot/core/extensions/host/transport";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob } from "../src/core/cliCredentialExport";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
@@ -283,6 +284,7 @@ function createExtensionAdapter(
               fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
                 retainPageContext: { platform: "kick" },
                 inspectDocument: inspectKickDocument,
+                challengeError: kickHttpChallenge,
                 emit,
                 openReason: "background_rejected",
               }),
@@ -358,24 +360,9 @@ const controller = createBackgroundController<ExtensionSettings>({
   },
 });
 
-// A driver's reward, published through its session so that nothing is
-// reported once the session has ended (#594).
-function publishDriverReward(
-  publish: ((events: readonly EngineEvent[]) => void) | undefined,
-  channel: { username: string } | undefined,
-  provider: "fortnite" | "nopixel",
-  reward: DriverReward,
-): void {
-  if (!publish || !channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-  const events: EngineEvent[] = [];
-  withActivityDiagnostics((event) => events.push(event))(
-    driverRewardEvent(provider, channel.username, reward),
-  );
-  publish(events);
-}
-
 const extensionHost = createTwitchExtensionHost({
   source: createTwitchExtensionSessionSource({
+    clientId: TWITCH_CLIENT_ID,
     hasSession: async () => (await checkCredentialAvailability("twitch")).status === "available",
     fetchJson: (url, init) => fetchTwitchInBackground(url, init),
   }),
@@ -383,39 +370,12 @@ const extensionHost = createTwitchExtensionHost({
     request: (details) => browser.permissions.request(details),
     contains: (details) => browser.permissions.contains(details),
   },
-  drivers: {
-    fortnite: async (session, emit, channel, publish) =>
-      createFortniteDriver({
-        allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers,
-        // A takeover is not a reward: it is logged, not listed in Activity.
-        onTakeoverStarted: () =>
-          publish?.([
-            {
-              category: "diagnostic",
-              platform: "twitch",
-              level: "info",
-              message: `Fortnite takeover started on ${channel?.username ?? "the watched channel"}`,
-            },
-          ]),
-        // Through the socket host, so it presents the extension frame's origin (#798).
-        createSocket: (url) => platformWebSocket(url),
-        onCaptured: ({ collectableId }) =>
-          publishDriverReward(publish, channel, "fortnite", { type: "capture", collectableId }),
-      })(session, emit, channel, publish),
-    nopixel: async (session, emit, channel, publish) =>
-      createNoPixelDriver(
-        (url, init) => fetch(url, init),
-        () => publishDriverReward(publish, channel, "nopixel", { type: "giveaway" }),
-        Date.now,
-        (message) =>
-          publish?.([{ category: "diagnostic", platform: "twitch", level: "warn", message }]),
-        {
-          autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks,
-          onOpened: (pack) =>
-            publishDriverReward(publish, channel, "nopixel", { type: "pack", ...pack }),
-        },
-      )(session, emit, channel, publish),
-  },
+  drivers: createTwitchExtensionDrivers({
+    fetch: (url, init) => fetch(url, init),
+    // Through the socket host, so it presents the extension frame's origin (#798).
+    createSocket: (url) => platformWebSocket(url),
+    loadSettings,
+  }),
   loadSettings,
   loadState,
   savePatch: async (settingsPatch) => {

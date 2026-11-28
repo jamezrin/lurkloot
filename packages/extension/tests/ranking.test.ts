@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DropCampaign, EngineSettings } from "@lurkloot/shared/models";
+import type { DropCampaign, DropReward, EngineSettings } from "@lurkloot/shared/models";
 import { mergeEngineSettings } from "@lurkloot/shared/settings";
 import {
   campaignRankTier,
@@ -270,5 +270,133 @@ describe("platform pins", () => {
       unpinCampaign(platformPins(pins, twitchIds), "t1"),
     );
     expect(next).toEqual(["k1", "t2", "gone", "k2"]);
+  });
+});
+
+// A Twitch reward campaign earned once a day (#1118): GTA VI's 1 h on six days.
+describe("rankCampaigns with rewards earned once per window", () => {
+  const day = 24 * hour;
+  const dailyReward = (patch: Partial<DropReward> = {}): DropReward => ({
+    id: "daily",
+    name: "GTA DVD Chest",
+    benefits: [{ id: "chest", name: "GTA DVD Chest", distributionType: "BADGE" }],
+    requiredMinutes: 60,
+    requirement: "watch",
+    isWatchBased: true,
+    watchedMinutes: 0,
+    status: "locked",
+    repeat: { grantCount: 1, times: 6 },
+    ...patch,
+  });
+  const daily = (patch: Partial<DropReward> = {}, campaignPatch: Partial<DropCampaign> = {}) =>
+    campaign("daily-campaign", {
+      endsAt: new Date(now + 7 * day).toISOString(),
+      categories: [{ id: "gta", name: "Grand Theft Auto VI" }],
+      sitewide: true,
+      rewards: [dailyReward(patch)],
+      ...campaignPatch,
+    });
+
+  it("ranks a campaign whose window is open ahead of campaigns that end sooner", () => {
+    expect(ids(rankCampaigns([endingSoon, scarce, daily()], settings(), now))).toEqual([
+      "daily-campaign",
+      "ending-soon",
+      "scarce",
+    ]);
+    expect(
+      ids(rankCampaigns([scarce, daily()], settings({ priorityMode: "lowest_availability" }), now)),
+    ).toEqual(["daily-campaign", "scarce"]);
+  });
+
+  it("drops back to its end date once today's grant is in, and climbs again when the next window opens", () => {
+    const nextWindow = new Date(now + 20 * hour).toISOString();
+    const waiting = daily({
+      status: "in_progress",
+      availableFrom: nextWindow,
+      repeat: { grantCount: 2, times: 6 },
+    });
+    expect(ids(rankCampaigns([waiting, endingLate, endingSoon], settings(), now))).toEqual([
+      "ending-soon",
+      "daily-campaign",
+      "ending-late",
+    ]);
+    expect(
+      ids(rankCampaigns([endingLate, endingSoon, waiting], settings(), now + 20 * hour + 1)),
+    ).toEqual(["daily-campaign", "ending-soon", "ending-late"]);
+  });
+
+  it("stops promoting a campaign once every grant is in", () => {
+    const finished = daily({ status: "claimed", repeat: { grantCount: 6, times: 6 } });
+    expect(ids(rankCampaigns([finished, endingSoon], settings(), now))).toEqual([
+      "ending-soon",
+      "daily-campaign",
+    ]);
+  });
+
+  it("does not promote a window the engine would skip as unfinishable", () => {
+    // 30 minutes left of the campaign, 60 needed: the scheduler skips it.
+    const lastDay = daily({}, { endsAt: new Date(now + 30 * 60_000).toISOString() });
+    const sooner = campaign("sooner", { endsAt: new Date(now + 10 * 60_000).toISOString() });
+    expect(ids(rankCampaigns([lastDay, sooner], settings(), now))).toEqual([
+      "sooner",
+      "daily-campaign",
+    ]);
+    // With the check off, the window is promoted again.
+    expect(
+      ids(rankCampaigns([lastDay, sooner], settings({ skipUnfinishableRewards: false }), now)),
+    ).toEqual(["daily-campaign", "sooner"]);
+  });
+
+  it("ignores rewards earned only once, and subscription rewards", () => {
+    const once = daily({ repeat: undefined });
+    const subscription = daily({
+      requirement: "subscription",
+      isWatchBased: false,
+      requiredSubs: 1,
+    });
+    expect(ids(rankCampaigns([once, endingSoon], settings(), now))).toEqual([
+      "ending-soon",
+      "daily-campaign",
+    ]);
+    expect(ids(rankCampaigns([subscription, endingSoon], settings(), now))).toEqual([
+      "ending-soon",
+      "daily-campaign",
+    ]);
+  });
+
+  it("ignores a window reward outside the rewards the user farms", () => {
+    const itemsOnly = settings({
+      platform: {
+        twitch: {
+          rewardFilter: {
+            kinds: ["item"],
+            subscriptions: "include",
+            pinnedKinds: ["item"],
+            favouriteKinds: ["item"],
+          },
+        },
+      },
+    });
+    expect(ids(rankCampaigns([daily(), endingSoon], itemsOnly, now))).toEqual([
+      "ending-soon",
+      "daily-campaign",
+    ]);
+  });
+
+  it("never moves a campaign above pins or out of its tier", () => {
+    const configured = settings({
+      platform: {
+        twitch: {
+          campaignPins: ["ending-late"],
+          favouriteCategories: [{ id: "delta", name: "Delta Force" }],
+        },
+      },
+    });
+    expect(ids(rankCampaigns([daily(), endingSoon, scarce, endingLate], configured, now))).toEqual([
+      "ending-late",
+      "scarce",
+      "daily-campaign",
+      "ending-soon",
+    ]);
   });
 });

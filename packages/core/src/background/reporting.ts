@@ -1,10 +1,11 @@
-import type {
-  DropCampaign,
-  DropReward,
-  EngineSettings,
-  Platform,
-  PlaybackTelemetry,
-  SchedulerState,
+import {
+  PLATFORMS,
+  type DropCampaign,
+  type DropReward,
+  type EngineSettings,
+  type Platform,
+  type PlaybackTelemetry,
+  type SchedulerState,
 } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type {
@@ -14,7 +15,7 @@ import type {
 import { isWatchReward } from "@lurkloot/shared/rewards";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
-import { PLATFORMS } from "./constants";
+import { inertAdapterSettings } from "./adapterSettings";
 import { type ControllerSlices, lateBound } from "./context";
 import { platformLabel } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -35,7 +36,7 @@ function newlyEarnedRewards(
   next: SchedulerState,
 ): Array<{ campaign: DropCampaign; reward: DropReward }> {
   const previousStatuses = new Map<string, DropReward["status"]>();
-  for (const platform of ["twitch", "kick"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     for (const campaign of previous.campaigns[platform]) {
       for (const reward of campaign.rewards) {
         previousStatuses.set(`${platform}:${campaign.id}:${reward.id}`, reward.status);
@@ -44,7 +45,7 @@ function newlyEarnedRewards(
   }
 
   const earned: Array<{ campaign: DropCampaign; reward: DropReward }> = [];
-  for (const platform of ["twitch", "kick"] as Platform[]) {
+  for (const platform of PLATFORMS) {
     for (const campaign of next.campaigns[platform]) {
       for (const reward of campaign.rewards) {
         const before = previousStatuses.get(`${platform}:${campaign.id}:${reward.id}`);
@@ -236,6 +237,9 @@ export function createReporting<S extends EngineSettings>(
         this.drain(emit);
         return adapter;
       },
+      built(settings) {
+        return adapter && settingsFingerprint === JSON.stringify(settings) ? adapter : undefined;
+      },
       drain(emit) {
         for (const event of pendingEvents?.splice(0) ?? []) emit(event);
         adapter?.flushRouteDiagnostics?.(routeDiagnosticEmitter(emit, routeReports, tickContext));
@@ -418,14 +422,17 @@ export function createReporting<S extends EngineSettings>(
     }
   }
 
-  // Settings that need a capability this host does not declare (#593). Each is
-  // reported once per controller, with no platform, and changes nothing else.
+  // Settings that need a capability this host does not declare (#593), or a
+  // feature the platform's built adapter does not offer (#1090). Each key is
+  // reported once per controller and changes nothing else. Host-wide gaps carry
+  // no platform; adapter gaps carry theirs.
   const reportedUnsupportedSettings = new Set<string>();
   async function reportUnsupportedSettings(
     settings: EngineSettings,
     tickContext?: TickDiagnosticContext,
+    adapterFor?: (platform: Platform) => PlatformAdapter | undefined,
   ): Promise<void> {
-    const unsupported: Array<readonly [string, string]> = [];
+    const unsupported: Array<readonly [string, string, Platform?]> = [];
     if (!ports.capabilities.browserTabs) {
       if (!settings.tablessMode) {
         unsupported.push([
@@ -447,11 +454,25 @@ export function createReporting<S extends EngineSettings>(
         unsupported.push([key, `This host cannot join channel chat, so ${key} has no effect`]);
       }
     }
+    for (const platform of PLATFORMS) {
+      if (!adapterFor || !settings.platform[platform].enabled) continue;
+      const adapter = adapterFor(platform);
+      if (!adapter) continue;
+      for (const inert of inertAdapterSettings(platform, settings, adapter, ports.capabilities)) {
+        unsupported.push([inert.key, inert.message, inert.platform]);
+      }
+    }
     const events = unsupported
       .filter(([key]) => !reportedUnsupportedSettings.has(key))
-      .map(([key, message]): EngineEvent => {
+      .map(([key, message, platform]): EngineEvent => {
         reportedUnsupportedSettings.add(key);
-        return { category: "diagnostic", level: "warn", message, ...tickContext };
+        return {
+          category: "diagnostic",
+          level: "warn",
+          message,
+          ...(platform ? { platform } : {}),
+          ...tickContext,
+        };
       });
     await reportBestEffort(events);
   }
@@ -508,7 +529,7 @@ export function createReporting<S extends EngineSettings>(
         && state.campaigns[platform].length > 0
         && state.campaigns[platform].every((campaign) => !hasEarnableReward(campaign));
 
-      for (const platform of ["twitch", "kick"] as Platform[]) {
+      for (const platform of PLATFORMS) {
         if (
           settings.platform[platform].enabled
           // Only on the transition into the exhausted state, so the

@@ -43,7 +43,7 @@ interface TokenResponse {
 
 // One poll of the token endpoint. `authorization_pending` is the normal wait
 // state; `slow_down` asks for a longer interval; anything else is a hard failure.
-export async function pollDeviceToken(
+async function pollDeviceToken(
   deviceCode: string,
   clientId = TWITCH_SMARTBOX_CLIENT_ID,
   fetchImpl: typeof fetch = fetch,

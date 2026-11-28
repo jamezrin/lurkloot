@@ -6,7 +6,7 @@
     "message": "Lurkloot - Farmer Drop Twitch & Kick"
   },
   "extensionDescription": {
-    "message": "Farm drop Twitch dan Kick lewat sesi browser biasa, tab bisu yang terlihat, dan mode hemat sumber daya opsional."
+    "message": "Farm drop Twitch dan Kick otomatis. Pilih stream, pantau progres, lalu klaim hadiah saat Anda melakukan hal lain."
   },
   "toolbarTitleOff": {
     "message": "Farm sedang nonaktif"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 di luar filter hadiah Anda"
   },
+  "queueSkippedGuide": {
+    "message": "Mengapa kampanye dilewati?"
+  },
   "queueActionRequired": {
     "message": "Perlu tindakan"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "Tidak ada pengaturan yang cocok dengan “$1”."
   },
-  "settingsPlatformSettings": {
-    "message": "Pengaturan $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Tampilkan pengaturan lanjutan"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Lompat ke bagian"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Tindakan lanjutan"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "Aktivitas"
-  },
-  "activeStatus": {
-    "message": "Aktif"
   },
   "pausedStatus": {
     "message": "Dijeda"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "Buka inventaris"
   },
-  "openActivity": {
-    "message": "Buka aktivitas"
-  },
-  "closeActivity": {
-    "message": "Tutup aktivitas"
+  "openGuide": {
+    "message": "Panduan pengguna"
   },
   "openSettings": {
     "message": "Buka pengaturan"
-  },
-  "closeSettings": {
-    "message": "Tutup pengaturan"
   },
   "back": {
     "message": "Kembali"
   },
   "loading": {
     "message": "Memuat"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Daftar pantau"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "Tidak ada kampanye yang cocok dengan “$1”."
   },
-  "closeSearch": {
-    "message": "Tutup pencarian"
-  },
   "search": {
     "message": "Cari"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "Belum ditautkan"
-  },
-  "subscriptionCampaigns": {
-    "message": "Kampanye langganan"
   },
   "subscriptionRequired": {
     "message": "Langganan diperlukan"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "Selesai"
   },
-  "completedCampaigns": {
-    "message": "Selesai"
-  },
   "upcomingPill": {
     "message": "Akan datang"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 penonton"
   },
-  "settingsGeneralTitle": {
-    "message": "Pengaturan umum"
-  },
   "settingsGeneralDescription": {
     "message": "Bahasa, startup, dan perilaku popup."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "Mulai farming segera setelah ekstensi dimuat."
   },
-  "notificationsTitle": {
-    "message": "Notifikasi"
-  },
   "notificationsDescription": {
     "message": "Peringatan saat hadiah siap atau kampanye selesai."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Beritahu saat semua kampanye aktif habis."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Klaim, kelayakan, prioritas, dan visibilitas kampanye."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "Ketersediaan rendah dulu"
   },
-  "watchlistSettingsTitle": {
-    "message": "Daftar pantau"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Saluran cadangan saat tidak ada drop yang memenuhi syarat."
-  },
   "preferKnownChannelsTitle": {
     "message": "Utamakan saluran yang diikuti dan daftar pantau"
   },
   "preferKnownChannelsDescription": {
     "message": "Saat drop tersedia di beberapa saluran, pilih yang Anda ikuti atau ada di daftar pantau, bukan yang asing."
-  },
-  "platformSettingsTitle": {
-    "message": "Pengaturan platform"
-  },
-  "farmingTabsTitle": {
-    "message": "Tab farming"
   },
   "farmingTabsDescription": {
     "message": "Kontrol farming lewat tab video. Kontrol per tab dinonaktifkan saat mode hemat tanpa tab aktif."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "Tab + jendela"
-  },
-  "advancedTitle": {
-    "message": "Lanjutan"
   },
   "advancedDescription": {
     "message": "Ubah hanya jika Anda paham — mengontrol perilaku scheduler dan logging tingkat rendah."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "Tidak ada hadiah di kampanye ini yang bisa di-farm saat ini."
   },
-  "automationSectionTitle": {
-    "message": "Otomatisasi"
-  },
-  "farmOnPlatform": {
-    "message": "Farm drop dan tonton saluran daftar pantau di $1."
-  },
   "enabled": {
     "message": "Diaktifkan"
-  },
-  "watchlistEditHint": {
-    "message": "Edit dari tab Daftar pantau setelah memilih $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Klaim channel points otomatis"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "Hanya kategori ini yang di-farm di $1."
   },
-  "categoriesToFarm": {
-    "message": "Kategori untuk di-farm"
-  },
   "noCategoriesSelected": {
     "message": "Tidak ada kategori dipilih — tidak ada yang akan di-farm di $1. Tambahkan kategori di bawah."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "Kategori tidak ditemukan."
-  },
-  "alreadyAdded": {
-    "message": "Sudah ditambahkan."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Level log aktivitas"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Pilih level yang dicatat di log Aktivitas. Error selalu disimpan."
   },
   "rewardFilterTitle": {
     "message": "Hadiah untuk di-farm"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "CLI headless"
   },
-  "cliExportDescription": {
-    "message": "Jalankan farming drop di server atau Docker dengan CLI Lurkloot, memakai sesi login browser ini."
-  },
   "cliExportHint": {
     "message": "Mengekspor token sesi Twitch dan Kick agar “login --import” CLI bisa memakainya. Jaga file tetap pribadi — siapa pun yang memilikinya bisa memakai sesi Anda."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "Di luar sesi"
-  },
-  "activitySessionEarlier": {
-    "message": "Sebelumnya"
   },
   "activitySessionEmpty": {
     "message": "Belum ada yang didapat. Hadiah dan poin akan muncul di sini saat didapatkan."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 dari $2 hadiah"
   },
-  "campaignTimeLeft": {
-    "message": "$1 tersisa"
-  },
   "campaignFactStarts": {
     "message": "Mulai"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "Tidak ada game lain ditemukan."
   },
-  "navBeta": {
-    "message": "Beta"
-  },
   "navExtensions": {
     "message": "Ekstensi"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv bisa menghapus bagian itu dari bilah alamat hampir seketika. Sebelum masuk, buka DevTools browser pada tab Network dan aktifkan Preserve log. Lalu masuk, filter dengan access_token, dan salin nilai location dari redirect id.twitch.tv. Tempel nilai itu di sini sebagai gantinya."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Masuk ke Twitch di jendela yang terbuka. Jendela akan tertutup sendiri saat Anda selesai."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Masuk ke Twitch"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Menunggu Anda menyelesaikan masuk…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Jendela masuk ditutup sebelum Anda selesai."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Jendela masuk tidak dapat membaca jawaban Twitch di sistem ini. Gunakan langkah di bawah sebagai gantinya."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Tempel alamat sebagai gantinya"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Masuk dengan kode"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "Tutup"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 siap dipasang."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Mulai ulang untuk memperbarui"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Memasang Lurkloot $1. Aplikasi akan dimulai ulang setelah selesai."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 tidak dapat diunduh. Coba lagi nanti."
   },
   "appTokenTitle": {
     "message": "Token akses"

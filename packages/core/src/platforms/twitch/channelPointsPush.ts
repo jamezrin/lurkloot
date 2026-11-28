@@ -18,6 +18,9 @@ const EXTENSION_BROADCAST_EVENT = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const DEFAULT_TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
+const PUSH_FAILURE_THRESHOLD = 3;
+const PUSH_REPROBE_BASE_MS = 5 * 60_000;
+const PUSH_REPROBE_MAX_MS = 30 * 60_000;
 const WEBSOCKET_OPEN = 1;
 
 export interface TwitchChannelPointsClaimNotice {
@@ -85,6 +88,8 @@ export interface TwitchChannelPointsPushDeps {
   getAuthToken: () => Promise<string | undefined>;
   resolveUserId: () => Promise<string | undefined>;
   clientId?: string;
+  // Headless hosts can suspend streaks and slow retries if push stays down.
+  extendedReconnectBackoff?: boolean;
   scheduleReconnect?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   cancelReconnect?: (timer: ReturnType<typeof setTimeout>) => void;
   scheduleKeepAlive?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
@@ -105,6 +110,7 @@ interface TopicSubscription {
 // playback topic, each while its owner wants it.
 export class TwitchChannelPointsPushController {
   private ws?: WebSocketLike;
+  private closing?: Promise<void>;
   private owners: TwitchHermesOwners = {};
   private authToken?: string;
   private userId?: string;
@@ -116,6 +122,8 @@ export class TwitchChannelPointsPushController {
   // watched channel changes or the socket reconnects.
   private readonly refusedTopics = new Set<string>();
   private reconnectAttempt = 0;
+  private streaksSuspended = false;
+  private readonly extendedReconnectBackoff: boolean;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private keepAliveTimer?: ReturnType<typeof setTimeout>;
   private keepaliveSec = TWITCH_HERMES_KEEPALIVE_DEFAULT_SEC;
@@ -130,13 +138,13 @@ export class TwitchChannelPointsPushController {
   private readonly scheduleKeepAlive: NonNullable<TwitchChannelPointsPushDeps["scheduleKeepAlive"]>;
   private readonly cancelKeepAlive: NonNullable<TwitchChannelPointsPushDeps["cancelKeepAlive"]>;
   private readonly diagnostics = new PendingDiscoverySignalDiagnostics();
-  private readonly intentionallyClosedSockets = new WeakSet<WebSocketLike>();
 
   constructor(deps: TwitchChannelPointsPushDeps) {
     this.createWebSocket = deps.createWebSocket;
     this.getAuthToken = deps.getAuthToken;
     this.observePlayback = deps.observePlayback;
     this.resolveUserId = deps.resolveUserId;
+    this.extendedReconnectBackoff = deps.extendedReconnectBackoff ?? false;
     this.clientId = deps.clientId ?? DEFAULT_TWITCH_CLIENT_ID;
     this.scheduleReconnect =
       deps.scheduleReconnect ?? ((callback, delayMs) => setTimeout(callback, delayMs));
@@ -156,6 +164,10 @@ export class TwitchChannelPointsPushController {
       && topic !== undefined
       && this.subscriptions.get(topic)?.confirmed === true
     );
+  }
+
+  get watchStreaksAvailable(): boolean {
+    return !this.streaksSuspended;
   }
 
   // Starts the connection, or updates what a running one follows. A callback
@@ -193,9 +205,12 @@ export class TwitchChannelPointsPushController {
     this.userId = undefined;
     this.owners = {};
     this.refusedTopics.clear();
+    this.streaksSuspended = false;
+    await this.closing;
   }
 
   private async connect(): Promise<void> {
+    if (this.closing) await this.closing;
     if (this.stopped) return;
 
     let token: string | undefined;
@@ -254,11 +269,7 @@ export class TwitchChannelPointsPushController {
       this.handleMessage(ws, event);
     });
     ws.addEventListener("close", () => {
-      if (!this.isCurrent(ws)) {
-        this.intentionallyClosedSockets.delete(ws);
-        return;
-      }
-      if (this.intentionallyClosedSockets.delete(ws)) return;
+      if (!this.isCurrent(ws)) return;
       this.ws = undefined;
       this.clearKeepAlive();
       this.clearHandshakeState();
@@ -456,7 +467,10 @@ export class TwitchChannelPointsPushController {
       return;
     }
     subscription.confirmed = true;
-    this.reconnectAttempt = 0;
+    const pointsConfirmed = subscription.topic === this.pointsTopic();
+    if (pointsConfirmed) this.streaksSuspended = false;
+    if (pointsConfirmed || !this.extendedReconnectBackoff || !this.wantsPointsTopic())
+      this.reconnectAttempt = 0;
     if (subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)) {
       this.log("debug", `Twitch playback push subscribed to ${subscription.topic}`);
     } else if (subscription.topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)) {
@@ -618,8 +632,16 @@ export class TwitchChannelPointsPushController {
 
   private scheduleNextReconnect(): void {
     if (this.stopped || this.reconnectTimer !== undefined) return;
-    const delayMs = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
     this.reconnectAttempt += 1;
+    const prolongedFailure =
+      this.extendedReconnectBackoff && this.reconnectAttempt >= PUSH_FAILURE_THRESHOLD;
+    if (prolongedFailure) this.streaksSuspended = true;
+    const delayMs = prolongedFailure
+      ? Math.min(
+          PUSH_REPROBE_BASE_MS * 2 ** (this.reconnectAttempt - PUSH_FAILURE_THRESHOLD),
+          PUSH_REPROBE_MAX_MS,
+        )
+      : Math.min(RECONNECT_BASE_MS * 2 ** (this.reconnectAttempt - 1), RECONNECT_MAX_MS);
     let timer: ReturnType<typeof setTimeout>;
     timer = this.scheduleReconnect(() => {
       if (this.reconnectTimer !== timer) return;
@@ -654,9 +676,15 @@ export class TwitchChannelPointsPushController {
     const ws = this.ws;
     if (!ws) return;
     this.ws = undefined;
-    this.intentionallyClosedSockets.add(ws);
     try {
-      ws.close();
+      const closed = ws.close();
+      if (closed) {
+        this.closing = closed
+          .catch(() => undefined)
+          .finally(() => {
+            this.closing = undefined;
+          });
+      }
     } catch {
       // Closing is best-effort; stale callbacks are inert once ws is cleared.
     }

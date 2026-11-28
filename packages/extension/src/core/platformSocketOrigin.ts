@@ -28,7 +28,7 @@ export interface BlockingWebRequestApi {
   };
 }
 
-export const PLATFORM_SOCKET_ORIGINS: string[] = [
+const PLATFORM_SOCKET_ORIGINS: string[] = [
   TWITCH_SOCKET_ORIGIN,
   KICK_SOCKET_ORIGIN,
   PUSHER_SOCKET_ORIGIN,

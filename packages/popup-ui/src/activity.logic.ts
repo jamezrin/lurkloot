@@ -1,3 +1,4 @@
+import { buildDiagnosticsExport } from "@lurkloot/shared/diagnostics";
 import type {
   ActivityHistoryRecord,
   PageContextCloseReason,
@@ -490,8 +491,14 @@ export interface ActivityExportInput {
 // event bodies already decide what user data leaves the machine, and this adds
 // no identity, account or channel information of its own.
 export function buildActivityExport(input: ActivityExportInput, t: TFunction): string {
+  if (input.diagnostics) {
+    return buildDiagnosticsExport({
+      ...input,
+      environment: { label: "browser", value: input.userAgent },
+    }).report;
+  }
   const header = [
-    `Lurkloot ${input.diagnostics ? "diagnostics" : "activity"} log`,
+    "Lurkloot activity log",
     `version: ${input.version}`,
     `platform: ${input.platform}`,
     `locale: ${input.locale}`,
@@ -689,7 +696,7 @@ export function buildActivityTimeline(
 
 // The local day a block is listed under: a session under the day it started,
 // so its header can show just the times.
-export function timelineBlockDay(block: TimelineBlock): string {
+function timelineBlockDay(block: TimelineBlock): string {
   return block.type === "session" ? localDay(block.summary.startedAt) : block.day;
 }
 

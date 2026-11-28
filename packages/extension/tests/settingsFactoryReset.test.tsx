@@ -1,4 +1,3 @@
-import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
@@ -21,7 +20,6 @@ const labels: Record<string, string> = {
   openSettings: "Open settings",
   back: "Back",
   settingsSearchPlaceholder: "Search settings…",
-  settingsShowAdvancedTitle: "Show advanced settings",
   factoryResetTitle: "Reset Lurkloot",
   factoryResetHint: "Erase all Lurkloot data. Your accounts stay signed in.",
   factoryResetButton: "Reset Lurkloot",

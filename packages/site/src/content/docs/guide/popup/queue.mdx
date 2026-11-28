@@ -1,0 +1,67 @@
+---
+title: Read the Queue
+description: How the Queue is grouped, what the order means, and why a campaign is skipped.
+sidebar:
+  order: 2
+support:
+  extension: "yes"
+  cli: "yes"
+  note: The CLI shows the same Queue in its app (lurkloot serve).
+---
+
+import GuidePopup from "../../../../components/guide/GuidePopup.astro";
+
+The Queue lists every drop campaign on the open platform that Lurkloot knows about, in the order it will farm them. The campaign at the top that has a live channel is the one being farmed.
+
+<GuidePopup view="queue" caption="The Queue on Twitch. Sample data." />
+
+## The groups
+
+Campaigns are grouped by why they are where they are:
+
+| Group | What is in it |
+| --- | --- |
+| **Pinned** | Campaigns you dragged into place, or gave a rank. They always come first, in your order. |
+| **Favourite games** | Campaigns for games you starred in Games, in the order of your stars. |
+| **Then by** | Everything else, sorted by the rule you pick here: **Ending soonest** or **Low availability first**. |
+| **Unlinked · farmed last** | Only when [campaigns without a linked account](/guide/choosing/linked-accounts) are set to **Farm last**. |
+| **Action required** | Campaigns that need something Lurkloot cannot do for you, such as a subscription. Pins and favourites only change their order. |
+| **Skipped** | Campaigns that will not be farmed, each with the reason and, where there is one, a button that fixes it. |
+| **Upcoming** | Campaigns that have not started yet. |
+
+Finished and expired campaigns move to **Completed**.
+
+Each card says why it has its place, for example *Pinned at 2*, *Rust is favourite 1*, *Ends sooner than those below*, or *Account not linked*.
+
+## Working with a campaign
+
+Click a campaign to open it. You will see each reward, its progress, and how long is left. From there you can:
+
+- **Pin** it, or drag it to a new place. You can also type a rank.
+- **Exclude** it. Choose **Only this campaign** to skip just this one, or **Category** to block the whole game, now and in the future.
+- **View drop page** to open the campaign on Twitch or Kick.
+- Pick a lane, for [badge campaigns](/guide/farming/twitch-reward-campaigns) that have them.
+- **Mark as subscribed**, for [subscription rewards](/guide/farming/subscription-rewards).
+
+To put back a campaign you excluded by mistake, find it under **Skipped** and use its button there.
+
+## Why is a campaign skipped?
+
+The Skipped group gives each campaign its reason in plain words. **Why is a campaign skipped?** at the bottom of the group opens this list. The common ones:
+
+| Reason | What to do |
+| --- | --- |
+| *This campaign is excluded from farming.* | You excluded it. Use the button to put it back. |
+| *This game is blocked, so its campaigns are never farmed.* | Unblock the game in Games. |
+| *This campaign does not match the selected categories.* | Games is set to **Only selected** and this game is not ticked. |
+| *Account linking is required for this Twitch campaign.* / *Campaigns without a linked account are set to Skip.* | Link your game account, or change [Campaigns without a linked account](/guide/choosing/linked-accounts). |
+| *Nothing here matches your reward types.* | Your [Rewards to farm](/guide/choosing/rewards-to-farm) filter leaves this campaign out. |
+| *Its Queue group farms no reward types. Pin it to farm it.* | You set a group to farm nothing. Pin the campaign, or change the filter. |
+| *… cannot be completed before its deadline.* | There is not enough time left to finish the reward. See [Skip rewards that cannot be completed](/guide/settings/reference#drops). |
+| *… requires a qualifying subscription.* | See [Subscription rewards](/guide/farming/subscription-rewards). |
+| *… is waiting for an earlier reward or requirement.* | The campaign unlocks rewards in order. It continues once the earlier one is done. |
+| *This campaign has no farmable rewards.* | Nothing in it can be earned by watching. |
+
+## No campaigns at all?
+
+The Queue only shows campaigns your account can see. If one you expect is missing, see [A campaign is missing](/guide/troubleshooting/campaign-missing).

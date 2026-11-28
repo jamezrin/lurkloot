@@ -22,7 +22,12 @@ import {
   type TabRegistry,
   type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabRegistry";
-import { fetchKickInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
+import {
+  fetchKickInBackgroundWith,
+  isKickHttpChallenge,
+  kickHttpChallenge,
+  KickWafBlockedError,
+} from "@lurkloot/core/transport";
 import {
   AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
@@ -40,7 +45,8 @@ import {
   type PageFetchOptions,
 } from "../src/core/browserTabs";
 import { inspectKickDocument } from "../src/core/kickPageDocument";
-import { isSafeFetchError } from "@lurkloot/core/fetchError";
+import { createKickFetcher } from "@lurkloot/core/kick";
+import { isSafeFetchError, ManagedPageContextCleanupError } from "@lurkloot/core/fetchError";
 import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import {
   KICK_BEARER_NEAR_MISS_CASES,
@@ -500,7 +506,7 @@ describe("tab manager", () => {
     });
   });
 
-  it("does not erase a replacement context created while the recovered tab is closing", async () => {
+  it("waits for the recovered tab to be gone before allowing a replacement", async () => {
     const browser = browserMock();
     const removal = deferred<undefined>();
     browser.tabs.query.mockResolvedValue([{ id: 14, url: "https://kick.com", status: "complete" }]);
@@ -529,17 +535,30 @@ describe("tab manager", () => {
       1,
     );
     await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledOnce());
-    await fetchJsonInPageWithBrowser(
-      registry,
-      browserWithScripting,
-      "https://kick.com/drops/inventory",
-      "https://web.kick.com/api/v1/drops/progress",
-      undefined,
-      kickPageOptions({ retainPageContext: { platform: "kick" } }),
-    );
-    recordManagedPageContextFallback(registry, "kick", "web.kick.com");
+    const useContext = () =>
+      fetchJsonInPageWithBrowser(
+        registry,
+        browserWithScripting,
+        "https://kick.com/drops/inventory",
+        "https://web.kick.com/api/v1/drops/progress",
+        undefined,
+        kickPageOptions({ retainPageContext: { platform: "kick" } }),
+      );
+    await expect(useContext()).rejects.toBeInstanceOf(ManagedPageContextCleanupError);
+    const workerChallenge = kickHttpChallenge(403);
+    const fetcher = createKickFetcher({
+      background: vi.fn().mockRejectedValue(workerChallenge),
+      pageFetch: useContext,
+    });
+    await expect(fetcher.fetchJson("https://kick.com/api/v1/user")).rejects.toBe(workerChallenge);
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
     removal.resolve(undefined);
     await recovery;
+
+    browser.tabs.query.mockResolvedValue([]);
+    await useContext();
+    recordManagedPageContextFallback(registry, "kick", "web.kick.com");
 
     expect(browser.tabs.create).toHaveBeenCalledOnce();
     expect(executeScript).toHaveBeenCalledWith(expect.objectContaining({ target: { tabId: 15 } }));
@@ -1551,6 +1570,36 @@ describe("tab manager", () => {
     expect(JSON.stringify(error)).not.toContain("must-not-survive");
   });
 
+  it("maps the in-page challenge marker only through the caller's challengeError", async () => {
+    const executeScript = vi.fn(async (details: unknown) => [
+      {
+        result:
+          (details as { func?: unknown }).func === pageFetchJson
+            ? {
+                __lurklootPageFetch: true,
+                ok: false,
+                challenge: true,
+                error: { kind: "http_error", status: 403 },
+              }
+            : { usable: true },
+      },
+    ]);
+    const browser = { ...browserMock(), scripting: { executeScript } };
+    const origin = "https://kick.com/drops/inventory";
+    const url = "https://kick.com/api/v1/user";
+
+    const plain = await fetchJsonInPageWithBrowser(registry, browser, origin, url).catch(
+      (caught: unknown) => caught,
+    );
+    expect(plain).not.toBeInstanceOf(KickWafBlockedError);
+    expect(isSafeFetchError(plain) && plain.failure).toEqual({ kind: "http_error", status: 403 });
+
+    const mapped = await fetchJsonInPageWithBrowser(registry, browser, origin, url, undefined, {
+      challengeError: kickHttpChallenge,
+    }).catch((caught: unknown) => caught);
+    expect(isKickHttpChallenge(mapped)).toBe(true);
+  });
+
   it("rejects a completed security-policy document and recovers with a valid Kick context", async () => {
     const executeScript = vi
       .fn()
@@ -1716,15 +1765,24 @@ describe("tab manager", () => {
       },
     });
 
+    const retainedEntryHeld = vi.fn();
     await fetchJsonInPageWithBrowser(
       registry,
       browser,
       "https://www.twitch.tv/drops/inventory",
       "https://gql.twitch.tv/gql",
       undefined,
-      { retainPageContext: { platform: "twitch" } },
+      {
+        retainPageContext: { platform: "twitch" },
+        emit: (event) => {
+          if (event.category === "diagnostic" && event.message.startsWith("Retained managed")) {
+            retainedEntryHeld(registry.pageContextTabs.has("https://www.twitch.tv"));
+          }
+        },
+      },
     );
 
+    expect(retainedEntryHeld).toHaveBeenCalledExactlyOnceWith(false);
     expect(browser.tabs.get).toHaveBeenCalledWith(14);
     expect(browser.tabs.create).not.toHaveBeenCalled();
     expect(browser.tabs.remove).not.toHaveBeenCalled();
@@ -1876,6 +1934,40 @@ describe("tab manager", () => {
     expect(remaining).toEqual({ kick });
     expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
   });
+
+  it.each([
+    { lookupError: "The tab API is temporarily unavailable", stillOwned: true },
+    { lookupError: "No tab with id: 14.", stillOwned: false },
+  ])(
+    "keeps ownership after a failed close according to the lookup result ($lookupError)",
+    async ({ lookupError, stillOwned }) => {
+      const browser = browserMock();
+      browser.tabs.get.mockRejectedValueOnce(new Error(lookupError));
+      browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+      const kick = {
+        platform: "kick" as const,
+        tabId: 14,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true as const,
+      };
+      registerManagedPageContextTabs(registry, { kick });
+
+      const remaining = await stopManagedPageContextTabsWithBrowser(
+        registry,
+        browser,
+        { kick },
+        {
+          platforms: ["kick"],
+          reason: "authentication_unhealthy",
+        },
+      );
+
+      expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(14);
+      expect(remaining?.kick).toEqual(stillOwned ? kick : undefined);
+      expect(currentManagedPageContextTabs(registry).kick).toEqual(stillOwned ? kick : undefined);
+    },
+  );
 
   it("does not close an existing user tab reused for a page-context fetch", async () => {
     const browser = {
@@ -2130,6 +2222,11 @@ describe("twitch integrity refresh", () => {
     it("reports why a temporary integrity tab could not be closed", async () => {
       const browser = browserMock();
       browser.tabs.create.mockResolvedValue({ id: 64 });
+      browser.tabs.get.mockResolvedValue({
+        id: 64,
+        url: "https://www.twitch.tv",
+        status: "complete",
+      });
       browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
       const events: EngineEvent[] = [];
       const pending = ensureTwitchIntegrityWithBrowser(
@@ -2600,7 +2697,7 @@ describe("twitch integrity refresh", () => {
       expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(65);
     });
 
-    it("does not discard a replacement acquisition while closing a cancelled context", async () => {
+    it("holds Twitch replacement acquisition until the cancelled tab is closed", async () => {
       const browser = browserMock();
       browser.tabs.create.mockResolvedValueOnce({ id: 66 }).mockResolvedValueOnce({ id: 67 });
       const accountingStarted = deferred<void>();
@@ -2630,6 +2727,22 @@ describe("twitch integrity refresh", () => {
       await expect(owner).rejects.toBe(reason);
 
       try {
+        await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledWith(66));
+        await expect(
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+          ),
+        ).resolves.toBe(false);
+        expect(browser.tabs.create).toHaveBeenCalledOnce();
+        expect(currentManagedPageContextTabs(registry).twitch?.tabId).toBe(66);
+
+        closingGate.resolve();
+        await vi.waitFor(() =>
+          expect(currentManagedPageContextTabs(registry).twitch).toBeUndefined(),
+        );
         const replacement = ensureTwitchIntegrityWithBrowser(
           registry,
           browser,
@@ -3526,6 +3639,24 @@ describe("fetchTwitchInBackgroundWith", () => {
     vi.unstubAllGlobals();
   });
 
+  it("preserves the HTTP status of Twitch GQL rate limits", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 429 })),
+    );
+    try {
+      const result = await fetchTwitchInBackgroundWith<{ __twitchGqlStatus?: number }>(
+        registry,
+        cookieApi,
+        "https://gql.twitch.tv/gql",
+        { credentials: "omit", body: "[]" },
+      );
+      expect(result.__twitchGqlStatus).toBe(429);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("returns channel page HTML for non-GQL Twitch URLs", async () => {
     vi.stubGlobal(
       "fetch",
@@ -3719,6 +3850,60 @@ describe("fetchKickInBackgroundWith", () => {
     if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
     expect(error.failure).toEqual({ kind, status, reason });
     expect(JSON.stringify(error)).not.toContain("must-not-survive");
+    vi.unstubAllGlobals();
+  });
+
+  it("treats an HTML 403 challenge page as a WAF challenge without keeping the body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            "<!DOCTYPE html><html><head><title>Just a moment...</title></head><body>must-not-survive</body></html>",
+            {
+              status: 403,
+              headers: { "content-type": "text/html; charset=UTF-8", "cf-mitigated": "challenge" },
+            },
+          ),
+      ),
+    );
+
+    const error = await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user").catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(KickWafBlockedError);
+    if (!(error instanceof KickWafBlockedError)) throw new Error("Expected KickWafBlockedError");
+    expect(error.challenge).toBe(true);
+    expect(error.failure).toMatchObject({ kind: "http_error", status: 403 });
+    expect(error.message).toContain("HTTP 403");
+    expect(`${error.message}${JSON.stringify(error)}`).not.toContain("must-not-survive");
+    vi.unstubAllGlobals();
+  });
+
+  it.each([
+    ["a JSON 401", 401, JSON.stringify({ message: "Unauthenticated." }), "Unauthenticated."],
+    ["an empty 403", 403, "", undefined],
+  ])("keeps %s as an authentication rejection", async (_label, status, body, reason) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () => new Response(body, { status, headers: { "content-type": "application/json" } }),
+      ),
+    );
+
+    const error = await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user").catch(
+      (caught: unknown) => caught,
+    );
+
+    expect(error).not.toBeInstanceOf(KickWafBlockedError);
+    expect(isSafeFetchError(error)).toBe(true);
+    if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
+    expect(error.failure).toEqual({
+      kind: "authentication_rejected",
+      status,
+      ...(reason ? { reason } : {}),
+    });
     vi.unstubAllGlobals();
   });
 

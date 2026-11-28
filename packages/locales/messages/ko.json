@@ -6,7 +6,7 @@
     "message": "Lurkloot - Twitch & Kick 드롭 파밍"
   },
   "extensionDescription": {
-    "message": "일반 브라우저 세션, 보이는 음소거 탭, 선택적 저자원 모드로 Twitch와 Kick 드롭을 파밍합니다."
+    "message": "Twitch와 Kick의 드롭을 자동으로 파밍합니다. 방송을 골라 진행 상황을 추적하고, 다른 일을 하는 동안 보상을 받습니다."
   },
   "toolbarTitleOff": {
     "message": "파밍 꺼짐"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 — 보상 필터 밖"
   },
+  "queueSkippedGuide": {
+    "message": "캠페인을 건너뛰는 이유는?"
+  },
   "queueActionRequired": {
     "message": "조치 필요"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "“$1”과(와) 일치하는 설정이 없습니다."
   },
-  "settingsPlatformSettings": {
-    "message": "$1 설정"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "고급 설정 표시"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "섹션으로 이동"
-  },
   "settingsSectionAdvancedActions": {
     "message": "고급 작업"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "활동"
-  },
-  "activeStatus": {
-    "message": "활성"
   },
   "pausedStatus": {
     "message": "일시 중지됨"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "인벤토리 열기"
   },
-  "openActivity": {
-    "message": "활동 열기"
-  },
-  "closeActivity": {
-    "message": "활동 닫기"
+  "openGuide": {
+    "message": "사용자 가이드"
   },
   "openSettings": {
     "message": "설정 열기"
-  },
-  "closeSettings": {
-    "message": "설정 닫기"
   },
   "back": {
     "message": "뒤로"
   },
   "loading": {
     "message": "로딩 중"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "시청 목록"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "“$1”과(와) 일치하는 캠페인이 없습니다."
   },
-  "closeSearch": {
-    "message": "검색 닫기"
-  },
   "search": {
     "message": "검색"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "연결되지 않음"
-  },
-  "subscriptionCampaigns": {
-    "message": "구독 캠페인"
   },
   "subscriptionRequired": {
     "message": "구독 필요"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "완료"
   },
-  "completedCampaigns": {
-    "message": "완료됨"
-  },
   "upcomingPill": {
     "message": "예정"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "시청자 $1명"
   },
-  "settingsGeneralTitle": {
-    "message": "일반 설정"
-  },
   "settingsGeneralDescription": {
     "message": "언어, 시작, 팝업 동작."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "확장 프로그램이 로드되면 바로 파밍을 시작합니다."
   },
-  "notificationsTitle": {
-    "message": "알림"
-  },
   "notificationsDescription": {
     "message": "보상을 받을 수 있거나 캠페인이 끝날 때 알립니다."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "활성 캠페인이 모두 소진되면 알립니다."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "수령, 자격, 우선순위, 캠페인 표시."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "채널 적음 우선"
   },
-  "watchlistSettingsTitle": {
-    "message": "시청 목록"
-  },
-  "watchlistSettingsDescription": {
-    "message": "적격 드롭이 없을 때 사용하는 대체 채널."
-  },
   "preferKnownChannelsTitle": {
     "message": "팔로우 및 시청 목록 채널 우선"
   },
   "preferKnownChannelsDescription": {
     "message": "여러 채널에서 드롭이 가능할 때, 모르는 채널보다 팔로우하거나 시청 목록에 있는 채널을 선택합니다."
-  },
-  "platformSettingsTitle": {
-    "message": "플랫폼 설정"
-  },
-  "farmingTabsTitle": {
-    "message": "파밍 탭"
   },
   "farmingTabsDescription": {
     "message": "동영상 탭 파밍 제어. 탭 없는 저자원 모드가 켜져 있으면 탭 관련 제어는 비활성화됩니다."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "탭 + 창"
-  },
-  "advancedTitle": {
-    "message": "고급"
   },
   "advancedDescription": {
     "message": "무엇을 하는지 알 때만 변경하세요 — 스케줄러와 로깅의 저수준 동작을 제어합니다."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "이 캠페인에서 지금 파밍할 수 있는 보상이 없습니다."
   },
-  "automationSectionTitle": {
-    "message": "자동화"
-  },
-  "farmOnPlatform": {
-    "message": "$1에서 드롭을 파밍하고 시청 목록 채널을 시청합니다."
-  },
   "enabled": {
     "message": "켜짐"
-  },
-  "watchlistEditHint": {
-    "message": "$1을(를) 선택한 뒤 시청 목록 탭에서 편집하세요."
   },
   "autoClaimChannelPointsTitle": {
     "message": "채널 포인트 자동 수령"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "$1에서는 이 카테고리만 파밍합니다."
   },
-  "categoriesToFarm": {
-    "message": "파밍할 카테고리"
-  },
   "noCategoriesSelected": {
     "message": "선택된 카테고리 없음 — $1에서 파밍할 항목이 없습니다. 아래에서 카테고리를 추가하세요."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "카테고리를 찾을 수 없습니다."
-  },
-  "alreadyAdded": {
-    "message": "이미 추가됨."
-  },
-  "activityLogLevelsTitle": {
-    "message": "활동 로그 수준"
-  },
-  "activityLogLevelsDescription": {
-    "message": "활동 로그에 기록할 수준을 선택하세요. 오류는 항상 보관됩니다."
   },
   "rewardFilterTitle": {
     "message": "파밍할 보상"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "헤드리스 CLI"
   },
-  "cliExportDescription": {
-    "message": "이 브라우저의 로그인 세션으로 Lurkloot CLI를 사용해 서버나 Docker에서 드롭 파밍을 실행합니다."
-  },
   "cliExportHint": {
     "message": "Twitch와 Kick 세션 토큰을 내보내 CLI의 “login --import”가 재사용할 수 있게 합니다. 파일은 비공개로 보관하세요 — 누구든 세션을 사용할 수 있습니다."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "세션 밖"
-  },
-  "activitySessionEarlier": {
-    "message": "이전"
   },
   "activitySessionEmpty": {
     "message": "아직 획득한 것이 없습니다. 보상과 포인트는 획득하는 대로 여기에 표시됩니다."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "보상 $1/$2"
   },
-  "campaignTimeLeft": {
-    "message": "$1 남음"
-  },
   "campaignFactStarts": {
     "message": "시작"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "다른 게임을 찾을 수 없습니다."
   },
-  "navBeta": {
-    "message": "Beta"
-  },
   "navExtensions": {
     "message": "확장 프로그램"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv는 거의 즉시 주소 표시줄에서 그 부분을 제거할 수 있습니다. 로그인하기 전에 브라우저 개발자 도구를 열고 Network 탭으로 이동한 뒤 Preserve log를 켜세요. 그다음 로그인하고 access_token으로 필터링한 뒤 id.twitch.tv 리디렉션의 location 헤더를 복사하세요. 대신 그것을 여기에 붙여넣으세요."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "열리는 창에서 Twitch에 로그인하세요. 완료되면 창이 자동으로 닫힙니다."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Twitch 로그인"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "로그인을 마칠 때까지 기다리는 중…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "로그인을 마치기 전에 로그인 창이 닫혔습니다."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "이 시스템에서 로그인 창이 Twitch의 응답을 읽을 수 없었습니다. 대신 아래 단계를 사용하세요."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "대신 주소 붙여넣기"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "코드로 로그인"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "닫기"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 설치할 준비가 되었습니다."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "재시작하여 업데이트"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Lurkloot $1을(를) 설치하는 중입니다. 완료되면 다시 시작됩니다."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1을(를) 다운로드할 수 없습니다. 나중에 다시 시도하세요."
   },
   "appTokenTitle": {
     "message": "액세스 토큰"

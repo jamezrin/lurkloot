@@ -183,33 +183,6 @@ describe("i18n", () => {
     }
   });
 
-  it("localizes the subscription campaign filter in every catalog", () => {
-    const translations: Record<string, string> = {
-      ar: "حملات الاشتراك",
-      de: "Abo-Kampagnen",
-      en: "Subscription campaigns",
-      es: "Campañas de suscripción",
-      fr: "Campagnes avec abonnement",
-      hi: "सदस्यता अभियान",
-      it: "Campagne con abbonamento",
-      pt_BR: "Campanhas de assinatura",
-      ru: "Кампании за подписку",
-      tr: "Abonelik kampanyaları",
-      zh_CN: "订阅活动",
-      ja: "サブスクキャンペーン",
-      id: "Kampanye langganan",
-      pl: "Kampanie subskrypcyjne",
-      ko: "구독 캠페인",
-      uk: "Кампанії за підпискою",
-      cs: "Kampaně s předplatným",
-      fa: "کمپین‌های اشتراکی",
-    };
-
-    for (const locale of localeCodes()) {
-      expect(readCatalog(locale).subscriptionCampaigns?.message, locale).toBe(translations[locale]);
-    }
-  });
-
   it("uses each catalog's native language name", () => {
     const names: Record<string, [string, string]> = {
       tr: ["languageTurkish", "Türkçe"],
@@ -223,7 +196,16 @@ describe("i18n", () => {
     for (const [locale, [key, name]] of Object.entries(names)) {
       expect(readCatalog(locale)[key]?.message, locale).toBe(name);
     }
-    expect(readCatalog("tr").subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
+  });
+
+  // The manifest description is the Chrome Web Store summary, which the
+  // dashboard caps at 132 characters.
+  it("keeps the store summary within the Chrome Web Store limit in every catalog", () => {
+    for (const locale of localeCodes()) {
+      const summary = readCatalog(locale).extensionDescription?.message ?? "";
+      expect(summary.length, locale).toBeGreaterThan(0);
+      expect([...summary].length, locale).toBeLessThanOrEqual(132);
+    }
   });
 
   it("captures store artwork for every catalog locale", () => {
@@ -339,14 +321,12 @@ describe("i18n", () => {
     const english = readCatalog("en");
     const allowedSameAsEnglish = new Set([
       "extensionName",
-      "dropsTab",
       // Twitch's own terms for drops, raids and the bonus chest, and the
       // loanword "Status", kept as written in several catalogs.
       "activityTotalDrops",
       "pointsReasonClaim",
       "pointsReasonRaid",
       "activitySectionStatus",
-      "dropsSettingsTitle",
       "debug",
       "info",
       "error",
@@ -356,7 +336,6 @@ describe("i18n", () => {
       "notificationRewardFromCampaign",
       "autoClaimReady",
       "languageHindi",
-      "notificationsTitle",
       "farmingLabel",
       "off",
       "settingsGroupDrops",
@@ -384,8 +363,6 @@ describe("i18n", () => {
       // "Badge" is the French and Italian word too.
       "rewardBadge",
       "rewardBadgeNamed",
-      // "Beta" is the same word in Spanish, German, Italian, Portuguese and Turkish.
-      "navBeta",
       // Provider names, which are brands and never translated.
       "navNoPixel",
       "navFortnite",
@@ -393,7 +370,6 @@ describe("i18n", () => {
       "navWatchlist",
       "watchlistTab",
       "tourWatchlistTitle",
-      "watchlistSettingsTitle",
       "screenshotExtrasWatchlistName",
       "watchSourceWatchlist",
       // Watch-source labels include provider brands and the common Drops term.
@@ -473,7 +449,6 @@ describe("i18n", () => {
     const required = [
       "settingsSearchPlaceholder",
       "settingsSearchNoResults",
-      "settingsShowAdvancedTitle",
       "settingsGroupAppearance",
       "settingsGroupNotifications",
       "settingsGroupDrops",

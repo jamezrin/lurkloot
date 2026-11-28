@@ -36,21 +36,24 @@ import {
   type SettingsExportEnvelope,
 } from "@lurkloot/shared/settingsExport";
 import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
-import type {
-  CompatibilitySettings,
-  EngineSettings,
-  KickPlatformSettings,
-  Platform,
-  PlatformSettingsByPlatform,
-  PriorityMode,
-  TwitchPlatformSettings,
+import {
+  PLATFORMS,
+  type CompatibilitySettings,
+  type EngineSettings,
+  type KickPlatformSettings,
+  type Platform,
+  type PlatformSettingsByPlatform,
+  type PriorityMode,
+  type TwitchPlatformSettings,
 } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
 // headless, tabless watch path (direct HTTP heartbeats / Kick WebSocket; no
 // browser, no tabs). Anything that only matters with a real browser running is
-// rejected (see EXTENSION_ONLY_KEYS) so the config never carries inert knobs.
+// rejected (see EXTENSION_ONLY_KEYS). Every key it accepts must have an effect,
+// or be a known gap that warns at runtime and links its issue: the guard test
+// (tests/inertSettings.test.ts) fails for an accepted key with neither.
 // Per-platform settings reuse the extension's split platform types; the
 // top-level schema is deliberately not shared.
 export interface CliSettings {
@@ -79,10 +82,10 @@ export interface CliSettings {
   notifyNoDropsLeft: boolean;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
+  twitchExtensions: EngineSettings["twitchExtensions"];
 }
 
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
-const PLATFORMS: Platform[] = ["twitch", "kick"];
 
 // Defaults are derived from the shared DEFAULT_SETTINGS so there is a single
 // source of truth for values shared with the extension.
@@ -109,6 +112,7 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
     twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
     kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
   },
+  twitchExtensions: structuredClone(DEFAULT_SETTINGS.twitchExtensions),
   compatibility: {
     twitch: { ...DEFAULT_SETTINGS.compatibility.twitch },
     kick: { ...DEFAULT_SETTINGS.compatibility.kick },
@@ -135,6 +139,7 @@ const CLI_SETTING_KEYS = new Set<string>([
   "notifyNoDropsLeft",
   "platform",
   "compatibility",
+  "twitchExtensions",
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
@@ -184,6 +189,24 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   kick: new Set(["profile", "claimLinkHandling"]),
 };
 
+// Every settings path the CLI accepts, dotted (`platform.kick.alwaysEnterChat`).
+// The `platform` and `compatibility` containers are expanded into their keys.
+export function cliAcceptedSettingPaths(): string[] {
+  const paths = [...CLI_SETTING_KEYS].filter(
+    (key) => key !== "platform" && key !== "compatibility" && key !== "twitchExtensions",
+  );
+  for (const platform of PLATFORMS) {
+    for (const key of CLI_PLATFORM_KEYS[platform]) paths.push(`platform.${platform}.${key}`);
+    for (const key of CLI_COMPATIBILITY_KEYS[platform]) {
+      paths.push(`compatibility.${platform}.${key}`);
+    }
+  }
+  for (const [provider, settings] of Object.entries(DEFAULT_CLI_SETTINGS.twitchExtensions)) {
+    for (const key of Object.keys(settings)) paths.push(`twitchExtensions.${provider}.${key}`);
+  }
+  return paths;
+}
+
 // Settings that exist in the extension but are inert in the CLI's tabless path.
 // Called out by name so a config copy-pasted from the extension gets an
 // actionable error instead of a silently-ignored knob. `running` is deliberately
@@ -191,7 +214,6 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
 // strips it (with a diagnostic) before this scan ever sees it. So is
 // `tablessMode`, which the CLI accepts and ignores (see withoutTablessMode).
 const EXTENSION_ONLY_KEYS = new Set<string>([
-  "twitchExtensions",
   "muteFarmingTabs",
   "keepFarmingVideosUnmuted",
   "pauseOnManualWatch",
@@ -246,7 +268,7 @@ function describeOffender(key: string, diagnostics: CliSettingsDiagnostic[]): st
 // A value the CLI accepted but had to cut down to fit an engine limit. Unlike a
 // migration diagnostic, its message names what was dropped, so the user can
 // fix the config file that still lists it.
-export interface CliSettingsLimitDiagnostic {
+interface CliSettingsLimitDiagnostic {
   code: "limit_exceeded";
   path: string;
   message: string;
@@ -373,6 +395,29 @@ function rewardFilterOffenders(platform: string, raw: unknown): CliSettingsOffen
   return offenders;
 }
 
+function twitchExtensionOffenders(raw: unknown): CliSettingsOffender[] {
+  const defaults = DEFAULT_CLI_SETTINGS.twitchExtensions;
+  const offenders: CliSettingsOffender[] = [];
+  const check = (value: unknown, fields: object, path: string, providerBlock = false) => {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      offenders.push({ path, message: `"${path}" must be a JSON object` });
+      return;
+    }
+    for (const [key, entry] of Object.entries(value)) {
+      const child = `${path}.${key}`;
+      if (!Object.hasOwn(fields, key)) {
+        offenders.push({ path: child, message: `unknown setting "${child}"` });
+      } else if (providerBlock) {
+        check(entry, defaults[key as keyof typeof defaults], child);
+      } else if (typeof entry !== "boolean") {
+        offenders.push({ path: child, message: `"${child}" must be a boolean` });
+      }
+    }
+  };
+  check(raw, defaults, "twitchExtensions", true);
+  return offenders;
+}
+
 // Validates and normalizes an already-migrated settings payload. See
 // parseCliSettingsWithDiagnostics for the full contract; `diagnostics` is passed
 // through so a renamed-away key can be named by its original path in errors, and
@@ -484,6 +529,9 @@ function parseMigratedCliSettings(
     }
   }
 
+  if (value.twitchExtensions !== undefined)
+    offenders.push(...twitchExtensionOffenders(value.twitchExtensions));
+
   if (offenders.length > 0) throw new CliSettingsValidationError(offenders);
 
   const v = value as Partial<EngineSettings>;
@@ -540,6 +588,13 @@ function parseMigratedCliSettings(
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly, diagnostics),
     compatibility: normalizeCompatibility(v.compatibility),
+    twitchExtensions: {
+      nopixel: { ...DEFAULT_CLI_SETTINGS.twitchExtensions.nopixel, ...v.twitchExtensions?.nopixel },
+      fortnite: {
+        ...DEFAULT_CLI_SETTINGS.twitchExtensions.fortnite,
+        ...v.twitchExtensions?.fortnite,
+      },
+    },
   };
 }
 

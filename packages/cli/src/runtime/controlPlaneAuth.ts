@@ -1,4 +1,4 @@
-import type { Platform } from "@lurkloot/shared/models";
+import { PLATFORMS, type Platform } from "@lurkloot/shared/models";
 import { errorMessage } from "@lurkloot/shared/errors";
 import { describeCredentialHealth, forgetCredentials, saveCredentials } from "../authStore";
 import {
@@ -8,6 +8,7 @@ import {
   type Sleep,
 } from "../auth/deviceLogin";
 import { startKickDeviceLogin } from "../auth/kickDeviceFlow";
+import type { ImpersonationBackend } from "../transport/impersonation";
 import {
   completeTwitchBrowserLogin,
   TWITCH_BROWSER_LOGIN_REDIRECT_URI,
@@ -31,20 +32,13 @@ import {
 // (whose uuid and code let anyone collect the token once approved) goes to the
 // caller only, never to the log.
 
-const PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 const PLATFORM_LABEL: Record<Platform, string> = { twitch: "Twitch", kick: "Kick" };
 // The redirect address is a URL; anything longer is not one.
 const MAX_ADDRESS_LENGTH = 8 * 1024;
 
-export type DeviceLoginStatus =
-  | "starting"
-  | "pending"
-  | "approved"
-  | "expired"
-  | "failed"
-  | "cancelled";
+type DeviceLoginStatus = "starting" | "pending" | "approved" | "expired" | "failed" | "cancelled";
 
-export interface DeviceLoginView {
+interface DeviceLoginView {
   platform: Platform;
   status: DeviceLoginStatus;
   startedAt: string;
@@ -55,7 +49,7 @@ export interface DeviceLoginView {
   error?: { message: string };
 }
 
-export interface CredentialChange {
+interface CredentialChange {
   platform: Platform;
   // An SA_* environment variable still supplies this platform's credential,
   // so the engine keeps using it whatever the store holds.
@@ -67,6 +61,9 @@ export interface AuthFlowsOptions {
   logger: Logger;
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
+  // The impersonating library the Kick TV-link sign-in sends through, picked
+  // from the running transport (default impit).
+  kickSignInBackend?: ImpersonationBackend;
   startDeviceLogin?: Partial<Record<Platform, (signal: AbortSignal) => Promise<DeviceLoginFlow>>>;
   sleep?: Sleep;
   now?: () => number;
@@ -104,7 +101,9 @@ export function createAuthFlows(options: AuthFlowsOptions): AuthFlows {
     twitch:
       options.startDeviceLogin?.twitch
       ?? (() => startTwitchDeviceLogin(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {})),
-    kick: options.startDeviceLogin?.kick ?? (() => startKickDeviceLogin()),
+    kick:
+      options.startDeviceLogin?.kick
+      ?? (() => startKickDeviceLogin({ backend: options.kickSignInBackend })),
   };
 
   const environmentOverride = (platform: Platform) =>
@@ -165,7 +164,7 @@ export function createAuthFlows(options: AuthFlowsOptions): AuthFlows {
         );
       }
     } finally {
-      // Disposing (Kick's cycletls exit) can reject a poll still in flight;
+      // Disposing (Kick's impersonating client) can reject a poll still in flight;
       // that is the cancel, not a failure.
       await flow.dispose().catch((error: unknown) => logger.debug(errorMessage(error), "serve"));
     }
@@ -302,7 +301,7 @@ function parseObjectBody(body: unknown): Record<string, unknown> {
   return body as Record<string, unknown>;
 }
 
-export interface AuthPlatformView extends Omit<SessionPlatformView, "enabled"> {
+interface AuthPlatformView extends Omit<SessionPlatformView, "enabled"> {
   deviceLogin: DeviceLoginView | null;
 }
 

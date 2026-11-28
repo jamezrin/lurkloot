@@ -1,3 +1,4 @@
+import { PLATFORMS } from "@lurkloot/shared/models";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createCountingAdapter,
@@ -55,7 +56,7 @@ describe("scheduler tick baseline recorder", () => {
     );
   });
 
-  it.each(["twitch", "kick"] as const)("counts normalized %s provider work", async (platform) => {
+  it.each(PLATFORMS)("counts normalized %s provider work", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
     const recorder = createTickBaselineRecorder();
@@ -80,46 +81,44 @@ describe("scheduler tick baseline recorder", () => {
 });
 
 describe("extension scheduler tick baseline", () => {
-  it.each(["twitch", "kick"] as const)(
-    "measures isolated %s heartbeat/discovery overlap",
-    async (platform) => {
-      vi.useFakeTimers();
-      vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(PLATFORMS)("measures isolated %s heartbeat/discovery overlap", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-      const result = await runExtensionBaselineCell(platform, "heartbeatOverlap");
-      reportBaseline(result);
+    const result = await runExtensionBaselineCell(platform, "heartbeatOverlap");
+    reportBaseline(result);
 
-      expect(result.counts).toEqual({
-        adapterOperations: 4,
-        campaignDiscovery: 1,
-        candidateListings: 1,
-        channelChecks: 1,
-        heartbeatAttempts: 1,
-        heartbeatBlockedByDiscovery: 0,
-        discoveryBlockedByHeartbeat: 0,
-        campaignsEvaluated: 0,
-        candidatesEvaluated: 1,
-        watcherReconciliations: 1,
-        adapterConstructions: 3,
-        // 6 + 1: a fresh controller that finds a running tabless watch reads the
-        // settings once to decide chat presence (restart recovery, chatPresence.ts).
-        settingsLoads: 7,
-        stateLoads: 8,
-        stateSaves: 3,
-        eventPublications: 6,
-      });
-      expect(result.durationsMs).toEqual({
-        discovery: 30,
-        selection: 20,
-        watcher: 5,
-        persistence: 15,
-        total: 70,
-      });
-      expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
-    },
-  );
+    expect(result.counts).toEqual({
+      adapterOperations: 4,
+      campaignDiscovery: 1,
+      candidateListings: 1,
+      channelChecks: 1,
+      heartbeatAttempts: 1,
+      heartbeatBlockedByDiscovery: 0,
+      discoveryBlockedByHeartbeat: 0,
+      campaignsEvaluated: 0,
+      candidatesEvaluated: 1,
+      watcherReconciliations: 1,
+      adapterConstructions: 3,
+      // 6 + 1: a fresh controller that finds a running tabless watch reads the
+      // settings once to decide chat presence (restart recovery, chatPresence.ts).
+      settingsLoads: 7,
+      // One cold-worker read restores page-context ownership and the breaker.
+      stateLoads: 9,
+      stateSaves: 3,
+      eventPublications: 6,
+    });
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 20,
+      watcher: 5,
+      persistence: 15,
+      total: 70,
+    });
+    expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
+  });
 
-  it.each(["twitch", "kick"] as const)("measures an idle %s alarm tick", async (platform) => {
+  it.each(PLATFORMS)("measures an idle %s alarm tick", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
@@ -140,7 +139,7 @@ describe("extension scheduler tick baseline", () => {
         adapterConstructions: 1,
         settingsLoads: 5,
         // 5 + 1: the first reported batch reads the state to stamp farming sessions.
-        stateLoads: 6,
+        stateLoads: 7,
         stateSaves: 2,
         eventPublications: 6,
         watcherReconciliations: 0,
@@ -159,7 +158,7 @@ describe("extension scheduler tick baseline", () => {
     });
   });
 
-  it.each(["twitch", "kick"] as const)("measures a stable retained %s watch", async (platform) => {
+  it.each(PLATFORMS)("measures a stable retained %s watch", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
@@ -176,7 +175,7 @@ describe("extension scheduler tick baseline", () => {
       adapterConstructions: 1,
       settingsLoads: 5,
       // 5 + 1: the first reported batch reads the state to stamp farming sessions.
-      stateLoads: 6,
+      stateLoads: 7,
       stateSaves: 2,
       watcherReconciliations: 1,
     });
@@ -213,7 +212,7 @@ describe("extension scheduler tick baseline", () => {
       adapterConstructions: 1,
       settingsLoads: 5,
       // 5 + 1: the first reported batch reads the state to stamp farming sessions.
-      stateLoads: 6,
+      stateLoads: 7,
       stateSaves: 2,
       watcherReconciliations: 1,
     });
@@ -226,55 +225,49 @@ describe("extension scheduler tick baseline", () => {
     });
   });
 
-  it.each(["twitch", "kick"] as const)(
-    "measures a failed %s provider response",
-    async (platform) => {
-      vi.useFakeTimers();
-      vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(PLATFORMS)("measures a failed %s provider response", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-      const result = await runExtensionBaselineCell(platform, "failed");
-      reportBaseline(result);
+    const result = await runExtensionBaselineCell(platform, "failed");
+    reportBaseline(result);
 
-      expect(result.counts).toMatchObject({
-        adapterOperations: 2,
-        campaignDiscovery: 1,
-        candidateListings: 0,
-        channelChecks: 0,
-        campaignsEvaluated: 0,
-        candidatesEvaluated: 0,
-        stateSaves: 2,
-      });
-      expect(result.durationsMs).toEqual({
-        discovery: 30,
-        selection: 0,
-        watcher: 0,
-        persistence: 10,
-        total: 40,
-      });
-    },
-  );
+    expect(result.counts).toMatchObject({
+      adapterOperations: 2,
+      campaignDiscovery: 1,
+      candidateListings: 0,
+      channelChecks: 0,
+      campaignsEvaluated: 0,
+      candidatesEvaluated: 0,
+      stateSaves: 2,
+    });
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 0,
+      watcher: 0,
+      persistence: 10,
+      total: 40,
+    });
+  });
 
-  it.each(["twitch", "kick"] as const)(
-    "attributes controlled slow %s work to its phases",
-    async (platform) => {
-      vi.useFakeTimers();
-      vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(PLATFORMS)("attributes controlled slow %s work to its phases", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-      const result = await runExtensionBaselineCell(platform, "slow");
-      reportBaseline(result);
+    const result = await runExtensionBaselineCell(platform, "slow");
+    reportBaseline(result);
 
-      expect(result.durationsMs).toEqual({
-        discovery: 300,
-        selection: 200,
-        watcher: 5,
-        persistence: 10,
-        total: 515,
-      });
-      expect(result.observedControllerMs).toEqual({
-        discovery: 500,
-        selection: 0,
-        total: 515,
-      });
-    },
-  );
+    expect(result.durationsMs).toEqual({
+      discovery: 300,
+      selection: 200,
+      watcher: 5,
+      persistence: 10,
+      total: 515,
+    });
+    expect(result.observedControllerMs).toEqual({
+      discovery: 500,
+      selection: 0,
+      total: 515,
+    });
+  });
 });

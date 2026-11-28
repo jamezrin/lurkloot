@@ -9,7 +9,7 @@ import {
   harness,
   reward,
 } from "../helpers/backgroundController";
-import type { PreparedWatchTab, SchedulerState } from "@lurkloot/shared/models";
+import type { SchedulerState } from "@lurkloot/shared/models";
 
 // The claim service (#597): the drop-claim job and manual claims send their
 // requests with no lock held and commit only their result, onto the latest

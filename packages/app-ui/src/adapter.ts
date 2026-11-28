@@ -5,16 +5,16 @@ import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import type { ControlPlaneClient } from "./api";
 
 /** What the CLI host behind `lurkloot serve` supports (#977). It farms without
- * tabs, runs no Twitch Extension providers, exports no credentials and keeps
- * none of the extension's preferences or its activity history. The language
- * is the app's own: it lives in this browser, not in config.json. */
+ * tabs, supports Twitch Extension providers, exports no credentials and keeps
+ * none of the extension's preferences. The Activity view pages through the CLI's
+ * own activity history (#1088). The app stores its language in the browser. */
 export const CLI_HOST_CAPABILITIES: Readonly<PopupHostCapabilities> = Object.freeze({
   tabs: false,
-  twitchExtensions: false,
+  twitchExtensions: true,
   credentialExport: false,
   extensionPreferences: false,
   language: true,
-  activityHistory: false,
+  activityHistory: true,
 });
 
 // UI-only preferences go to localStorage under this prefix: the selected
@@ -91,6 +91,8 @@ export function createHttpPopupAdapter(options: HttpPopupAdapterOptions): PopupA
     hostCapabilities: CLI_HOST_CAPABILITIES,
     // No store distributes the CLI, so there is nothing to rate.
     reviewStore: null,
+    // The authenticated control-plane toggle is the opt-in on this host.
+    requestTwitchExtensionPermission: async () => true,
     async send<T>(message: RuntimeMessage): Promise<T> {
       if (message.type === "saveSettings" && "languageOverride" in message.settingsPatch) {
         const { languageOverride, ...rest } = message.settingsPatch;

@@ -1,7 +1,12 @@
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import {
+  PLATFORMS,
+  type EngineSettings,
+  type Platform,
+  type SchedulerState,
+} from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { CategorySearchResult, CoreRuntimeMessage } from "@lurkloot/shared/messages";
-import type { PlatformAdapter } from "../platforms/adapter";
+import { channelCandidateForLogin, type PlatformAdapter } from "../platforms/adapter";
 import {
   campaignSearchBackoffApplies,
   isPlaybackTelemetryHealthy,
@@ -15,7 +20,6 @@ import {
   type DiscoverySnapshot,
   type DiscoverySnapshotState,
 } from "../core/discoverySnapshot";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, type DiscoverySlice, lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type {
@@ -134,15 +138,7 @@ export function createDiscovery<S extends EngineSettings>(
                   .map((username) => username.trim().toLowerCase())
                   .filter(Boolean),
                 watchStreakChannelsFor(settings, platform),
-              ).map((username) => ({
-                platform,
-                username,
-                displayName: username,
-                url:
-                  platform === "twitch"
-                    ? `https://www.twitch.tv/${username}`
-                    : `https://kick.com/${username}`,
-              })),
+              ).map((username) => channelCandidateForLogin(platform, username)),
               (campaign, campaigns) => {
                 const backoff = state.campaignSearchBackoffs?.[platform];
                 if (
@@ -220,7 +216,7 @@ export function createDiscovery<S extends EngineSettings>(
   }
 
   async function refreshDiscovery(
-    platforms: Platform[] = PLATFORMS,
+    platforms: readonly Platform[] = PLATFORMS,
     bypassBackoff = false,
     tickAdapters?: Partial<Record<Platform, TickAdapterHandle<S>>>,
   ): Promise<void> {

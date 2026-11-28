@@ -1,0 +1,2 @@
+# Signed bytes (#1028): a line-ending conversion would break the signature.
+packages/desktop/src-tauri/tests/fixtures/** -text

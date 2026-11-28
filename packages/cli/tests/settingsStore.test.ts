@@ -32,6 +32,10 @@ import { idleTransport, memoryStateStore } from "./helpers/fakeFarming";
 // One changed value for every key the CLI schema holds. The completeness test
 // below fails when a CLI key is added without an entry here.
 const MUTATIONS: Record<string, unknown> = {
+  "twitchExtensions.nopixel.enabled": true,
+  "twitchExtensions.nopixel.autoOpenPacks": true,
+  "twitchExtensions.fortnite.enabled": true,
+  "twitchExtensions.fortnite.allowTakeovers": true,
   autoClaim: false,
   priorityMode: "lowest_availability",
   idleWatchlistFallbackOnly: false,
@@ -336,17 +340,11 @@ describe("settings the CLI cannot hold", () => {
     await expectRejected(
       (engine) => {
         engine.muteFarmingTabs = true;
-        engine.twitchExtensions = { nopixel: { enabled: true } };
         engine.platform.twitch.tabOnly = true;
         engine.compatibility.extensionOnly = {};
       },
       "unrepresentable",
-      [
-        "platform.twitch.tabOnly",
-        "compatibility.extensionOnly",
-        "muteFarmingTabs",
-        "twitchExtensions",
-      ],
+      ["platform.twitch.tabOnly", "compatibility.extensionOnly", "muteFarmingTabs"],
     );
   });
 
@@ -696,6 +694,10 @@ describe("store boundaries", () => {
       await running;
     }
     expect(readFileSync(configPath, "utf8")).toBe(before);
-    expect(readdirSync(dir).sort()).toEqual(["config.json"]);
+    expect(readdirSync(dir).sort()).toEqual([
+      "config.json",
+      "state.json.activity.json",
+      "state.json.diagnostics.json",
+    ]);
   });
 });

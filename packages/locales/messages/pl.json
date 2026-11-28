@@ -6,7 +6,7 @@
     "message": "Lurkloot — farmer dropów Twitch i Kick"
   },
   "extensionDescription": {
-    "message": "Farmuj dropy Twitch i Kick w normalnych sesjach przeglądarki, na widocznych wyciszonych kartach i opcjonalnie w trybie niskiego zużycia zasobów."
+    "message": "Farmuj dropy na Twitchu i Kicku automatycznie. Wybiera stream, śledzi postęp i odbiera nagrody, gdy masz inne sprawy."
   },
   "toolbarTitleOff": {
     "message": "Farmienie wyłączone"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 poza filtrem nagród"
   },
+  "queueSkippedGuide": {
+    "message": "Dlaczego kampania jest pomijana?"
+  },
   "queueActionRequired": {
     "message": "Wymagane działanie"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "Brak ustawień pasujących do „$1”."
   },
-  "settingsPlatformSettings": {
-    "message": "Ustawienia $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Pokaż ustawienia zaawansowane"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Przejdź do sekcji"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Działania zaawansowane"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "Aktywność"
-  },
-  "activeStatus": {
-    "message": "Aktywne"
   },
   "pausedStatus": {
     "message": "Wstrzymane"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "Otwórz ekwipunek"
   },
-  "openActivity": {
-    "message": "Otwórz aktywność"
-  },
-  "closeActivity": {
-    "message": "Zamknij aktywność"
+  "openGuide": {
+    "message": "Przewodnik użytkownika"
   },
   "openSettings": {
     "message": "Otwórz ustawienia"
-  },
-  "closeSettings": {
-    "message": "Zamknij ustawienia"
   },
   "back": {
     "message": "Wstecz"
   },
   "loading": {
     "message": "Ładowanie"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Watchlist"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "Brak kampanii pasujących do „$1”."
   },
-  "closeSearch": {
-    "message": "Zamknij wyszukiwanie"
-  },
   "search": {
     "message": "Szukaj"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "Nie połączono"
-  },
-  "subscriptionCampaigns": {
-    "message": "Kampanie subskrypcyjne"
   },
   "subscriptionRequired": {
     "message": "Wymagana subskrypcja"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "Ukończone"
   },
-  "completedCampaigns": {
-    "message": "Ukończone"
-  },
   "upcomingPill": {
     "message": "Nadchodzące"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 widzów"
   },
-  "settingsGeneralTitle": {
-    "message": "Ustawienia ogólne"
-  },
   "settingsGeneralDescription": {
     "message": "Język, uruchamianie i zachowanie popup."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "Rozpocznij farmienie zaraz po załadowaniu rozszerzenia."
   },
-  "notificationsTitle": {
-    "message": "Powiadomienia"
-  },
   "notificationsDescription": {
     "message": "Alerty, gdy nagrody są gotowe lub kampanie się kończą."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Powiadom, gdy wszystkie aktywne kampanie są wyczerpane."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Odbieranie, kwalifikacja, priorytety i widoczność kampanii."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "Najpierw niska dostępność"
   },
-  "watchlistSettingsTitle": {
-    "message": "Watchlist"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Kanały zapasowe, gdy brak kwalifikujących dropów."
-  },
   "preferKnownChannelsTitle": {
     "message": "Preferuj obserwowane kanały i Watchlist"
   },
   "preferKnownChannelsDescription": {
     "message": "Gdy drop jest na wielu kanałach, wybiera ten, który obserwujesz lub masz na Watchlist, zamiast nieznanego."
-  },
-  "platformSettingsTitle": {
-    "message": "Ustawienia platformy"
-  },
-  "farmingTabsTitle": {
-    "message": "Karty farmienia"
   },
   "farmingTabsDescription": {
     "message": "Sterowanie farmieniem na kartach wideo. Ustawienia kart są wyłączone, gdy włączony jest tryb bez kart o niskim zużyciu."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "Karta + okno"
-  },
-  "advancedTitle": {
-    "message": "Zaawansowane"
   },
   "advancedDescription": {
     "message": "Zmieniaj to tylko, jeśli wiesz, co robisz — steruje niskopoziomowym harmonogramem i logowaniem."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "Żadnej nagrody w tej kampanii nie można teraz farmić."
   },
-  "automationSectionTitle": {
-    "message": "Automatyzacja"
-  },
-  "farmOnPlatform": {
-    "message": "Farmuj dropy i oglądaj kanały Watchlist na $1."
-  },
   "enabled": {
     "message": "Włączone"
-  },
-  "watchlistEditHint": {
-    "message": "Edytuj to w zakładce Watchlist po wybraniu $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Automatyczne odbieranie punktów kanału"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "Tylko te kategorie są farmione na $1."
   },
-  "categoriesToFarm": {
-    "message": "Kategorie do farmienia"
-  },
   "noCategoriesSelected": {
     "message": "Nie wybrano kategorii — nic nie będzie farmione na $1. Dodaj kategorie poniżej."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "Nie znaleziono kategorii."
-  },
-  "alreadyAdded": {
-    "message": "Już dodano."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Poziomy dziennika aktywności"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Wybierz, które poziomy są zapisywane w dzienniku Aktywność. Błędy są zawsze zachowywane."
   },
   "rewardFilterTitle": {
     "message": "Nagrody do farmienia"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "CLI bez przeglądarki"
   },
-  "cliExportDescription": {
-    "message": "Uruchom farmienie dropów na serwerze lub w Dockerze z CLI Lurkloot, używając zalogowanej sesji tej przeglądarki."
-  },
   "cliExportHint": {
     "message": "Eksportuje tokeny sesji Twitch i Kick, aby „login --import” w CLI mógł je ponownie użyć. Trzymaj plik w tajemnicy — każdy z dostępem może używać twoich sesji."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "Poza sesją"
-  },
-  "activitySessionEarlier": {
-    "message": "Wcześniej"
   },
   "activitySessionEmpty": {
     "message": "Nic jeszcze nie zdobyto. Nagrody i punkty pojawią się tutaj w miarę ich zdobywania."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 z $2 nagród"
   },
-  "campaignTimeLeft": {
-    "message": "Pozostało $1"
-  },
   "campaignFactStarts": {
     "message": "Start"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "Nie znaleziono innych gier."
   },
-  "navBeta": {
-    "message": "Beta"
-  },
   "navExtensions": {
     "message": "Extensions"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv może usunąć ją z paska adresu niemal od razu. Zanim się zalogujesz, otwórz narzędzia deweloperskie przeglądarki na karcie Network i włącz Preserve log. Następnie zaloguj się, filtruj po access_token i skopiuj nagłówek location przekierowania id.twitch.tv. Wklej go tutaj."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Zaloguj się do Twitcha w oknie, które się otworzy. Po zakończeniu zamknie się samo."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Zaloguj się do Twitcha"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Oczekiwanie na zakończenie logowania…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Okno logowania zostało zamknięte, zanim zakończono logowanie."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Okno logowania nie mogło odczytać odpowiedzi Twitcha w tym systemie. Użyj zamiast tego poniższych kroków."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Wklej zamiast tego adres"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Zaloguj się kodem"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "Zamknij"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 jest gotowy do instalacji."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Uruchom ponownie, aby zaktualizować"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Instalowanie Lurkloot $1. Po zakończeniu aplikacja zostanie uruchomiona ponownie."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Nie udało się pobrać Lurkloot $1. Spróbuj ponownie później."
   },
   "appTokenTitle": {
     "message": "Token dostępu"

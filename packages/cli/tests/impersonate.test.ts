@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { createImpersonateTransport } from "../src/transport/impersonate";
-import { createTvLinkAuthenticator } from "../src/transport/cycle";
+import { createCycleClient } from "../src/transport/cycle";
+import { fakeCycleTls } from "./helpers/fakeCycleTls";
+import { createTvLinkAuthenticator } from "../src/transport/kick";
 import { CHROME_JA3 } from "../src/transport/common";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
@@ -82,17 +84,7 @@ function fakeClient(
     method: string,
   ) => Promise<{ status: number; data: unknown; headers?: Record<string, unknown> }>,
 ) {
-  const client: any = (url: string, options: Captured["options"], method: string) =>
-    handler(url, options, method);
-  client.exit = vi.fn(async () => undefined);
-  client.ws = vi.fn(async () => ({
-    send: vi.fn(),
-    close: vi.fn(),
-    onMessage: () => {},
-    onClose: () => {},
-    onError: () => {},
-  }));
-  return client;
+  return fakeCycleTls(handler);
 }
 
 describe("impersonate transport", () => {
@@ -433,7 +425,7 @@ describe("createTvLinkAuthenticator", () => {
       calls.push({ url, options, method });
       return Promise.resolve({ status: 200, data: { token: "tv-session" } });
     });
-    const result = await createTvLinkAuthenticator(client)("ABC-UUID", "123456");
+    const result = await createTvLinkAuthenticator(createCycleClient(client))("ABC-UUID", "123456");
     expect(result.token).toBe("tv-session");
 
     expect(calls).toHaveLength(1);
@@ -449,7 +441,7 @@ describe("createTvLinkAuthenticator", () => {
     const client = fakeClient(() =>
       Promise.resolve({ status: 403, data: '{"message":"Invalid setup UUID and Key"}' }),
     );
-    const authenticate = createTvLinkAuthenticator(client);
+    const authenticate = createTvLinkAuthenticator(createCycleClient(client));
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });
   });

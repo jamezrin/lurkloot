@@ -25,6 +25,7 @@ import {
 } from "./github.mjs";
 import { createRepositoryToken } from "./github-app.mjs";
 import { syncBranches } from "./sync.mjs";
+import { stripUpdaterAssets, writeUpdaterAssets } from "./updater.mjs";
 import { applyRepositoryConfig, repositoryConfiguration } from "./repository-config.mjs";
 
 export function parseArgs(argv) {
@@ -83,7 +84,8 @@ export function pendingNotesAllowed({ pending }) {
 }
 
 // The add-on's gecko id, as declared in packages/extension/wxt.config.ts.
-export const FIREFOX_ADDON_ID = "lurkloot@jamezrin.name";
+// lurkloot@jamezrin.name is already registered on AMO, so a new submission with it fails.
+export const FIREFOX_ADDON_ID = "lurkloot@jamezrin.com";
 export const FIREFOX_REVIEWER_NOTES = "packages/extension/amo/reviewer-notes.txt";
 
 // Firefox Add-ons publication starts once both credentials exist in the production environment.
@@ -150,6 +152,22 @@ const commands = {
       notes: await readFile(values.notes, "utf8"),
       assets,
     });
+  },
+  // The desktop updater's files (#1028), which only the stable release carries: stripped from a
+  // downloaded release before its reviewed assets are checked, then signed and written again.
+  async "strip-updater-assets"(values) {
+    await stripUpdaterAssets({ assetsDir: values.assets, version: values.version });
+  },
+  async "updater-assets"(values) {
+    if (!process.env.TAURI_SIGNING_PRIVATE_KEY)
+      throw new Error("TAURI_SIGNING_PRIVATE_KEY is not set; the production environment holds it");
+    const written = await writeUpdaterAssets({
+      assetsDir: values.assets,
+      outDir: values.out,
+      version: values.version,
+      repository: values.repository,
+    });
+    process.stdout.write(`${written.join("\n")}\n`);
   },
   async "assert-assets"(values) {
     const entries = await readdir(values.assets, { withFileTypes: true });

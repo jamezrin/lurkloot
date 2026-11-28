@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // The rail's platform switch is Base UI Tabs, which needs real keyboard events.
-import React, { act } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
@@ -44,6 +44,7 @@ function mountRail(
           onViewChange={() => undefined}
           onPlatformChange={onPlatformChange}
           onOpenInventory={() => undefined}
+          onOpenGuide={() => undefined}
         />
       </I18nContext.Provider>,
     );

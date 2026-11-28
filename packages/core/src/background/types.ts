@@ -70,7 +70,6 @@ export type TickTrigger =
 export type TickDiagnosticContext = Required<
   Pick<DiagnosticEvent, "globalTickId" | "platformTickId">
 >;
-export type { CredentialAvailability } from "./hostPorts";
 
 // What a tick cycle's commit left, for the services that follow tick cycles
 // (Kick page-context recovery, #588): the committed state and the platforms
@@ -214,6 +213,8 @@ export interface SettingsCommitOptions {
 export interface TickAdapterHandle<S extends EngineSettings> {
   readonly platform: Platform;
   adapter(settings: S, emit: EventEmitter, reportCompatibility?: boolean): PlatformAdapter;
+  // The adapter this tick already built for `settings`, without building one.
+  built(settings: S): PlatformAdapter | undefined;
   drain(emit: EventEmitter): void;
   close(): void;
   settleRouteReports(): Promise<void>;
@@ -310,6 +311,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   reportUnsupportedSettings(
     settings: EngineSettings,
     tickContext?: TickDiagnosticContext,
+    adapterFor?: (platform: Platform) => PlatformAdapter | undefined,
   ): Promise<void>;
   emitNotifications(
     settings: EngineSettings,
@@ -413,8 +415,9 @@ export interface ControllerCalls<S extends EngineSettings> {
   stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void>;
   stopTwitchChannelPointsPushAndReport(): Promise<void>;
   rescheduleTwitchChannelPointsJob(): Promise<void>;
-  stopTwitchChannelPointsPushInBackground(): void;
+  stopTwitchChannelPointsPushInBackground(): Promise<void>;
   twitchChannelPointsPushEpoch(): number;
+  twitchChannelPointsPushAvailable(adapter: PlatformAdapter): boolean;
   registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
@@ -450,7 +453,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   // authHealth.ts
   flattenedRefreshFailures(error: unknown): unknown[];
   refreshAuthHealth(
-    platforms: Platform[],
+    platforms: readonly Platform[],
     loadedSettings?: S,
     reportCompatibility?: boolean,
     signal?: AbortSignal,
@@ -555,7 +558,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   // discovery.ts
   selectionFingerprint(value: string): string;
   refreshDiscovery(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     bypassBackoff?: boolean,
     tickAdapters?: Partial<Record<Platform, TickAdapterHandle<S>>>,
   ): Promise<void>;
@@ -584,18 +587,18 @@ export interface ControllerCalls<S extends EngineSettings> {
   cancelPendingTick(platform: Platform): void;
   retainCurrentTickReasons(platform: Platform, request: TickRequest): boolean;
   requestTickBatch(
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     trigger: TickTrigger,
     discoverySignal?: DiscoverySignalRefreshRequest,
   ): TickBatch;
   tick(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     trigger?: TickTrigger,
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards>;
   abortActiveTicks(reason: string): void;
   tickInBackground(
-    platforms: Platform[] | undefined,
+    platforms: readonly Platform[] | undefined,
     trigger: TickTrigger,
     onCompleted?: () => void,
   ): void;
@@ -605,7 +608,7 @@ export interface ControllerCalls<S extends EngineSettings> {
     transitionIsCurrent?: () => boolean,
   ): Promise<void>;
   tickAndHandOff(
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
     trigger?: TickTrigger,
   ): Promise<SchedulerState | undefined>;
   completeTickAndHandOff(batch: TickBatch): Promise<SchedulerState | undefined>;
@@ -632,7 +635,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   reconcileStartup(): Promise<S>;
   handleStartup(): Promise<void>;
   snapshot(): Promise<RuntimeSnapshot<S>>;
-  shutdown(): void;
+  shutdown(): Promise<void>;
   prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void>;
 
   // messages.ts

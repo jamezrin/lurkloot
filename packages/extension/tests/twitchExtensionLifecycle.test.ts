@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createTwitchExtensionLifecycle } from "../src/extensions/lifecycle";
+import { createTwitchExtensionLifecycle } from "@lurkloot/core/extensions/host/lifecycle";
 
 describe("tabless provider lifecycle", () => {
   it("stops the previous channel before starting a replacement", async () => {

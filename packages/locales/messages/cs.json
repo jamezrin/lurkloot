@@ -6,7 +6,7 @@
     "message": "Lurkloot – Twitch a Kick drop farmer"
   },
   "extensionDescription": {
-    "message": "Farmí drops na Twitchi a Kicku přes běžné relace prohlížeče, viditelné ztlumené záložky a volitelný úsporný režim."
+    "message": "Farmí drops na Twitchi a Kicku automaticky: vybere stream, hlídá postup a vyzvedne odměny bez vaší pomoci."
   },
   "toolbarTitleOff": {
     "message": "Farmení je vypnuté"
@@ -149,6 +149,9 @@
   "queueSkippedByFilter": {
     "message": "$1 mimo váš filtr odměn"
   },
+  "queueSkippedGuide": {
+    "message": "Proč je kampaň přeskočena?"
+  },
   "queueActionRequired": {
     "message": "Vyžaduje akci"
   },
@@ -209,15 +212,6 @@
   "settingsSearchNoResults": {
     "message": "Žádné nastavení neodpovídá „$1“."
   },
-  "settingsPlatformSettings": {
-    "message": "Nastavení $1"
-  },
-  "settingsShowAdvancedTitle": {
-    "message": "Zobrazit pokročilá nastavení"
-  },
-  "settingsSectionJumpNavLabel": {
-    "message": "Přejít na sekci"
-  },
   "settingsSectionAdvancedActions": {
     "message": "Pokročilé akce"
   },
@@ -226,9 +220,6 @@
   },
   "activityTitle": {
     "message": "Aktivita"
-  },
-  "activeStatus": {
-    "message": "Aktivní"
   },
   "pausedStatus": {
     "message": "Pozastaveno"
@@ -239,26 +230,17 @@
   "openInventory": {
     "message": "Otevřít inventář"
   },
-  "openActivity": {
-    "message": "Otevřít aktivitu"
-  },
-  "closeActivity": {
-    "message": "Zavřít aktivitu"
+  "openGuide": {
+    "message": "Uživatelská příručka"
   },
   "openSettings": {
     "message": "Otevřít nastavení"
-  },
-  "closeSettings": {
-    "message": "Zavřít nastavení"
   },
   "back": {
     "message": "Zpět"
   },
   "loading": {
     "message": "Načítání"
-  },
-  "dropsTab": {
-    "message": "Drops"
   },
   "watchlistTab": {
     "message": "Seznam sledování"
@@ -458,9 +440,6 @@
   "campaignSearchNoResults": {
     "message": "Žádné kampaně neodpovídají „$1“."
   },
-  "closeSearch": {
-    "message": "Zavřít hledání"
-  },
   "search": {
     "message": "Hledat"
   },
@@ -502,9 +481,6 @@
   },
   "notLinked": {
     "message": "Nespojeno"
-  },
-  "subscriptionCampaigns": {
-    "message": "Kampaně s předplatným"
   },
   "subscriptionRequired": {
     "message": "Vyžaduje předplatné"
@@ -584,9 +560,6 @@
   "finished": {
     "message": "Hotovo"
   },
-  "completedCampaigns": {
-    "message": "Dokončené"
-  },
   "upcomingPill": {
     "message": "Nadcházející"
   },
@@ -656,9 +629,6 @@
   "viewerCount": {
     "message": "$1 diváků"
   },
-  "settingsGeneralTitle": {
-    "message": "Obecná nastavení"
-  },
   "settingsGeneralDescription": {
     "message": "Jazyk, spuštění a chování vyskakovacího okna."
   },
@@ -677,9 +647,6 @@
   "autoStartDescription": {
     "message": "Začne farmit hned po načtení rozšíření."
   },
-  "notificationsTitle": {
-    "message": "Oznámení"
-  },
   "notificationsDescription": {
     "message": "Upozornění, když jsou odměny připravené nebo kampaně skončí."
   },
@@ -697,9 +664,6 @@
   },
   "noDropsLeftDescription": {
     "message": "Upozornit, když jsou všechny aktivní kampaně vyčerpané."
-  },
-  "dropsSettingsTitle": {
-    "message": "Drops"
   },
   "dropsSettingsDescription": {
     "message": "Vyzvedávání, způsobilost, priority a viditelnost kampaní."
@@ -725,23 +689,11 @@
   "lowAvailabilityFirst": {
     "message": "Nejdříve s nízkou dostupností"
   },
-  "watchlistSettingsTitle": {
-    "message": "Seznam sledování"
-  },
-  "watchlistSettingsDescription": {
-    "message": "Záložní kanály, když nejsou dostupné žádné vhodné drops."
-  },
   "preferKnownChannelsTitle": {
     "message": "Upřednostnit sledované a kanály v seznamu sledování"
   },
   "preferKnownChannelsDescription": {
     "message": "Když je drop na více kanálech, vybere ten, který sledujete nebo máte v seznamu sledování, místo neznámého."
-  },
-  "platformSettingsTitle": {
-    "message": "Nastavení platformy"
-  },
-  "farmingTabsTitle": {
-    "message": "Záložky pro farmení"
   },
   "farmingTabsDescription": {
     "message": "Ovládání farmení ve videozáložce. Možnosti záložky jsou vypnuté, když je zapnutý úsporný režim bez záložek."
@@ -814,9 +766,6 @@
   },
   "tabAndWindow": {
     "message": "Záložka + okno"
-  },
-  "advancedTitle": {
-    "message": "Pokročilé"
   },
   "advancedDescription": {
     "message": "Měňte jen pokud víte, co děláte — ovládají plánovač a nízkoúrovňové logování."
@@ -959,17 +908,8 @@
   "campaignRejectionNoFarmableReward": {
     "message": "V této kampani teď nelze farmit žádnou odměnu."
   },
-  "automationSectionTitle": {
-    "message": "Automatizace"
-  },
-  "farmOnPlatform": {
-    "message": "Farmí drops a sleduje kanály ze seznamu sledování na $1."
-  },
   "enabled": {
     "message": "Zapnuto"
-  },
-  "watchlistEditHint": {
-    "message": "Upravte to na kartě Seznam sledování po výběru $1."
   },
   "autoClaimChannelPointsTitle": {
     "message": "Automaticky vyzvedávat channel points"
@@ -1064,9 +1004,6 @@
   "includeCategoriesInstruction": {
     "message": "Na $1 se farmí jen tyto kategorie."
   },
-  "categoriesToFarm": {
-    "message": "Kategorie k farmení"
-  },
   "noCategoriesSelected": {
     "message": "Nejsou vybrané kategorie — na $1 se nebude nic farmit. Přidejte kategorie níže."
   },
@@ -1084,15 +1021,6 @@
   },
   "noCategoriesFound": {
     "message": "Nebyly nalezeny žádné kategorie."
-  },
-  "alreadyAdded": {
-    "message": "Už přidáno."
-  },
-  "activityLogLevelsTitle": {
-    "message": "Úrovně protokolu aktivity"
-  },
-  "activityLogLevelsDescription": {
-    "message": "Zvolte, které úrovně se zapisují do protokolu Aktivity. Chyby se vždy uchovávají."
   },
   "rewardFilterTitle": {
     "message": "Odměny k farmení"
@@ -1421,9 +1349,6 @@
   "cliExportTitle": {
     "message": "CLI bez prohlížeče"
   },
-  "cliExportDescription": {
-    "message": "Spusťte farmení drops na serveru nebo v Dockeru pomocí CLI Lurkloot s přihlášenou relací tohoto prohlížeče."
-  },
   "cliExportHint": {
     "message": "Exportuje tokeny relace Twitch a Kick, aby CLI „login --import“ mohlo je znovu použít. Soubor držte v soukromí — kdokoli s ním může používat vaše relace."
   },
@@ -1537,9 +1462,6 @@
   },
   "activitySessionOutside": {
     "message": "Mimo relaci farmení"
-  },
-  "activitySessionEarlier": {
-    "message": "Dříve"
   },
   "activitySessionEmpty": {
     "message": "Zatím nic nezískáno. Odměny a body se zde zobrazí, jakmile budou přicházet."
@@ -2147,9 +2069,6 @@
   "campaignRewardsProgress": {
     "message": "$1 z $2 odměn"
   },
-  "campaignTimeLeft": {
-    "message": "zbývá $1"
-  },
   "campaignFactStarts": {
     "message": "Začíná"
   },
@@ -2366,9 +2285,6 @@
   "gamesNoMoreResults": {
     "message": "Nebyly nalezeny další hry."
   },
-  "navBeta": {
-    "message": "Beta"
-  },
   "navExtensions": {
     "message": "Extensions"
   },
@@ -2504,6 +2420,24 @@
   "appTwitchBrowserLoginFallbackBody": {
     "message": "twitch.tv ji může z adresního řádku odstranit téměř okamžitě. Před přihlášením otevřete vývojářské nástroje prohlížeče na kartě Network a zapněte Preserve log. Pak se přihlaste, vyfiltrujte podle access_token a zkopírujte hlavičku location přesměrování id.twitch.tv. Vložte ji sem."
   },
+  "appTwitchSignInWindowStep": {
+    "message": "Přihlaste se k Twitchi v okně, které se otevře. Po dokončení se samo zavře."
+  },
+  "appTwitchSignInWindowOpen": {
+    "message": "Přihlásit se k Twitchi"
+  },
+  "appTwitchSignInWindowWaiting": {
+    "message": "Čekání, až dokončíte přihlášení…"
+  },
+  "appTwitchSignInWindowCancelled": {
+    "message": "Přihlašovací okno bylo zavřeno dříve, než jste přihlášení dokončili."
+  },
+  "appTwitchSignInWindowUnreadable": {
+    "message": "Přihlašovacímu oknu se na tomto systému nepodařilo přečíst odpověď Twitche. Použijte místo toho postup níže."
+  },
+  "appTwitchSignInWindowPasteInstead": {
+    "message": "Místo toho vložit adresu"
+  },
   "appTwitchDeviceLoginTitle": {
     "message": "Přihlaste se kódem"
   },
@@ -2599,6 +2533,18 @@
   },
   "appDismiss": {
     "message": "Zavřít"
+  },
+  "appDesktopUpdateReady": {
+    "message": "Lurkloot $1 je připraven k instalaci."
+  },
+  "appDesktopUpdateRestart": {
+    "message": "Restartovat a aktualizovat"
+  },
+  "appDesktopUpdateInstalling": {
+    "message": "Instaluji Lurkloot $1. Po dokončení se restartuje."
+  },
+  "appDesktopUpdateFailed": {
+    "message": "Lurkloot $1 se nepodařilo stáhnout. Zkuste to později."
   },
   "appTokenTitle": {
     "message": "Přístupový token"

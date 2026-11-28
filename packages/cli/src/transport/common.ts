@@ -7,6 +7,7 @@ import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
 import {
   createKickFetcher,
   KickAdapter,
+  type KickAdapterOptions,
   KickClaimState,
   KickDiscoveryState,
 } from "@lurkloot/core/kick";
@@ -18,8 +19,10 @@ import {
   type TwitchHeartbeatPost,
 } from "@lurkloot/core/twitch/heartbeat";
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
+import { createTwitchExtensionAccessReader, type TwitchExtensionAccess } from "./twitchExtensions";
 import type { PlatformCredentials } from "../authStore";
 import { TWITCH_WEB_CLIENT_ID, twitchClientIdentity } from "../twitch";
+import { createNodeTwitchHermesWebSocketFactory } from "./twitchHermes";
 import type { TwitchIntegrity, TwitchIntegrityRequest } from "@lurkloot/core/twitchIntegrity";
 
 export interface CliTwitchIntegrity {
@@ -28,7 +31,7 @@ export interface CliTwitchIntegrity {
 }
 
 // A built set of platform adapters plus a teardown hook (e.g. to stop the
-// cycletls subprocess the impersonate transport owns). Every transport returns
+// cycletls process the impersonate transport owns). Every transport returns
 // this shape so the commands can dispose uniformly.
 export interface TransportHandle {
   adapters: Record<Platform, PlatformAdapter>;
@@ -45,6 +48,7 @@ export interface TransportHandle {
   ): {
     adapters: Record<Platform, PlatformAdapter>;
   } & CompatibilityResolution;
+  twitchExtensionAccess?(): TwitchExtensionAccess | undefined;
   dispose(): Promise<void>;
 }
 
@@ -55,7 +59,7 @@ export interface EnabledPlatforms {
   kick: boolean;
 }
 
-export function createLazyAdapters(
+function createLazyAdapters(
   createAdapter: (platform: Platform) => PlatformAdapter,
 ): Record<Platform, PlatformAdapter> {
   let twitch: PlatformAdapter | undefined;
@@ -77,7 +81,7 @@ export function createLazyAdapters(
 // transports and lives here once.
 export interface CliTransportDeps {
   twitchIntegrity?: CliTwitchIntegrity;
-  twitchFetcher(): PageFetcher;
+  twitchFetcher(credentials: PlatformCredentials): PageFetcher;
   twitchHeartbeat(identity: ReturnType<typeof twitchClientIdentity>): {
     heartbeatFetchText: TwitchHeartbeatFetchText;
     heartbeatPost: TwitchHeartbeatPost;
@@ -87,9 +91,13 @@ export interface CliTransportDeps {
   // Absent for the http transport: it never opens the viewer WebSocket itself
   // (Kick's WAF blocks it from a pure-Node origin anyway).
   kickWebSocketFactory?(): WebSocketFactory;
+  createKickChatPresenceConnection?: KickAdapterOptions["createChatPresenceConnection"];
   // The Twitch chat presence socket. Defaults to a plain Node WebSocket: Twitch's
   // IRC endpoint needs no browser headers, so both transports share it.
   twitchChatWebSocketFactory?(): WebSocketFactory;
+  // Twitch's push socket (Hermes). Defaults to a Node WebSocket that presents
+  // only Twitch's web Origin (twitchHermes.ts), so both transports share it.
+  twitchHermesWebSocketFactory?(): WebSocketFactory;
 }
 
 const nodeWebSocketFactory: WebSocketFactory = (url) =>
@@ -98,10 +106,16 @@ const nodeWebSocketFactory: WebSocketFactory = (url) =>
 export function createCliAdapters(
   creds: PlatformCredentials,
   deps: CliTransportDeps,
-): Pick<TransportHandle, "adapters" | "createAdapter" | "createAdapters"> {
+): Pick<
+  TransportHandle,
+  "adapters" | "createAdapter" | "createAdapters" | "twitchExtensionAccess"
+> {
   const kickClaimState = new KickClaimState();
   const kickDiscoveryState = new KickDiscoveryState();
   const twitchDiscoveryState = new TwitchDiscoveryState();
+  let hermesRevision = Symbol();
+  let previousTwitchToken: string | undefined;
+  let previousTwitchClientId: string | undefined;
   const createAdapter = (
     platform: Platform,
     emit: EventEmitter | undefined,
@@ -114,6 +128,12 @@ export function createCliAdapters(
     const twitchIntegrity =
       identity.clientId === TWITCH_WEB_CLIENT_ID ? deps.twitchIntegrity : undefined;
     const twitchIdentity = identity.userAgent ? "android" : "web";
+    const twitchToken = creds.twitch?.authToken;
+    if (twitchToken !== previousTwitchToken || identity.clientId !== previousTwitchClientId) {
+      hermesRevision = Symbol();
+      previousTwitchToken = twitchToken;
+      previousTwitchClientId = identity.clientId;
+    }
     const resolution = resolveCompatibility(settings.compatibility, {
       host: "cli",
       twitchIdentity,
@@ -122,7 +142,7 @@ export function createCliAdapters(
     const adapter =
       platform === "twitch"
         ? new TwitchAdapter(
-            deps.twitchFetcher(),
+            deps.twitchFetcher(creds),
             (request) => twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
             {
               ...identity,
@@ -131,7 +151,15 @@ export function createCliAdapters(
               discoveryState: twitchDiscoveryState,
               strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
               heartbeatIdentity: twitchIdentity,
-              // Chat presence only: Hermes stays off, so channel points keep polling.
+              webSocketFactory:
+                deps.twitchHermesWebSocketFactory?.() ?? createNodeTwitchHermesWebSocketFactory(),
+              channelPointsPush: {
+                revision: hermesRevision,
+                getAuthToken: async () => twitchToken,
+                extendedReconnectBackoff: true,
+              },
+              // Chat keeps its own plain socket: it would otherwise default to
+              // the Hermes factory, whose Origin IRC does not need.
               chatWebSocketFactory: deps.twitchChatWebSocketFactory?.() ?? nodeWebSocketFactory,
               getAuthToken: async () => creds.twitch?.authToken,
               liveDiscoveryGames: [
@@ -157,6 +185,7 @@ export function createCliAdapters(
               compatibility: resolution.compatibility.kick,
               claimState: kickClaimState,
               discoveryState: kickDiscoveryState,
+              createChatPresenceConnection: deps.createKickChatPresenceConnection,
             },
             emit,
           );
@@ -181,18 +210,14 @@ export function createCliAdapters(
     adapters: createLazyAdapters((platform) => createAdapter(platform, undefined).adapter),
     createAdapter,
     createAdapters,
+    twitchExtensionAccess: createTwitchExtensionAccessReader(creds, deps.twitchFetcher),
   };
 }
 
 // Shared engine code, so it lives in core alongside the heartbeat strategies it
 // bounds — the extension's transport uses the same helper. Re-exported here so
 // both CLI transports keep importing their transport helpers from one place.
-export {
-  HEARTBEAT_REQUEST_TIMEOUT_MS,
-  HeartbeatTimeoutError,
-  isHeartbeatTimeoutError,
-  withHeartbeatTimeout,
-} from "@lurkloot/core/twitch/heartbeat";
+export { withHeartbeatTimeout } from "@lurkloot/core/twitch/heartbeat";
 
 // Chrome 124 fingerprint for TLS/JA3 + HTTP/2 impersonation (what Cloudflare
 // inspects in front of Kick). Mirrors curl_cffi's impersonate="chrome124" used
@@ -206,7 +231,7 @@ export const CHROME_JA3 =
 export const CHROME_HTTP2 = "1:65536,2:0,4:6291456,6:262144|15663105|0|m,a,s,p";
 
 // Normalizes the various RequestInit.headers shapes into a plain object so the
-// cycletls request options can carry them.
+// impersonating clients' request options can carry them.
 export function headersToObject(headers: HeadersInit | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!headers) return out;

@@ -1,8 +1,8 @@
 ---
 // Two ways to run it, as on the production homepage. The terminal follows
-// packages/cli/README.md: Kick links with its smart-TV code; Twitch's full
+// the user guide's CLI pages (/guide/headless): Kick links with its smart-TV code; Twitch's full
 // campaign list needs the web session exported from the extension.
-import { LINKS, DOCKER_IMAGE } from "../../consts";
+import { CLI_GUIDE_PATH, LINKS, DOCKER_IMAGE } from "../../consts";
 
 const languages = Object.keys(import.meta.glob("../../../../locales/messages/*.json")).length;
 // What the extension does, as the popup and its settings expose it.
@@ -64,7 +64,7 @@ const extensionFeatures = [
   -v <span class="s">"$PWD/data:/data"</span> <span class="i">{DOCKER_IMAGE}</span><span class="sg-term__cursor" aria-hidden="true"></span></code></pre>
         </div>
         <div class="sg-runtime__actions">
-          <a class="sg-pill sg-pill--ghost" href={LINKS.cli} target="_blank" rel="noopener">Read the setup guide</a>
+          <a class="sg-pill sg-pill--ghost" href={CLI_GUIDE_PATH}>Read the setup guide</a>
           <a class="sg-pill sg-pill--ghost" href={LINKS.ghcr} target="_blank" rel="noopener">View on GHCR</a>
         </div>
       </article>

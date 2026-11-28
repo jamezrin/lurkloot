@@ -1,0 +1,175 @@
+name: Build desktop installers
+
+# The desktop app's unsigned installers (#1025), one runner per OS and architecture. Each leg builds
+# the standalone CLI executable for its own machine as the app's sidecar, bundles it with
+# `tauri build`, and names the installers by scripts/release/pipeline.mjs's desktop target table.
+# The candidate build calls this to publish them; pull requests that touch the desktop app run it
+# so every installer still builds.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        default: ""
+      version:
+        description: Optional release version to overlay before building
+        type: string
+        default: ""
+      artifact_prefix:
+        type: string
+        default: desktop-installers
+    outputs:
+      has_installers:
+        description: Whether the checkout supports desktop installers and produced them
+        value: ${{ jobs.build.outputs.has_installers }}
+  pull_request:
+    paths:
+      - packages/desktop/**
+      - scripts/release/pipeline.mjs
+      - .github/workflows/build-desktop-installers.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-desktop-installers-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-22.04
+          - target: linux-arm64
+            runner: ubuntu-22.04-arm
+          - target: macos-arm64
+            runner: macos-latest
+          - target: macos-x64
+            runner: macos-15-intel
+          - target: windows-x64
+            runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    outputs:
+      # All matrix legs build from the same ref, so this boolean is identical across them.
+      has_installers: ${{ steps.support.outputs.available }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      # linuxdeploy, which builds the AppImage, is itself an AppImage, and runners have no FUSE.
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+      # linuxdeploy's bundled strip can't read the newer ELF sections of the system libraries.
+      NO_STRIP: "true"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - name: Check for desktop installer support
+        id: support
+        run: |
+          if test -f packages/desktop/scripts/collectInstallers.mjs; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "This checkout predates the desktop installers."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      # Ubuntu 22.04, not latest: an AppImage carries the build machine's glibc requirement, and
+      # the .deb its libwebkit2gtk version, so the older base runs on more distributions.
+      - name: Install the Linux web view, tray and bundling libraries
+        if: steps.support.outputs.available == 'true' && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev \
+            patchelf file
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        if: steps.support.outputs.available == 'true'
+      # The sidecar is a copy of this Node binary, so this is the Node version that ships.
+      - uses: actions/setup-node@v7
+        if: steps.support.outputs.available == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: rustup toolchain install stable --profile minimal
+        if: steps.support.outputs.available == 'true'
+      - name: Set the release version
+        if: steps.support.outputs.available == 'true' && inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node scripts/release/cli.mjs prepare-workspace --version "$VERSION" --date "$(date -u +%F)"
+      - run: pnpm install --frozen-lockfile --filter @lurkloot/cli... --filter @lurkloot/desktop
+        if: steps.support.outputs.available == 'true'
+      - name: Build the sidecar
+        if: steps.support.outputs.available == 'true'
+        run: pnpm --filter @lurkloot/desktop sidecar
+      - name: Bundle the installers
+        if: steps.support.outputs.available == 'true'
+        working-directory: packages/desktop
+        run: |
+          bundles=$(node scripts/collectInstallers.mjs --bundles)
+          pnpm tauri build --ci --bundles "$bundles"
+      - name: Collect the installers under their release names
+        if: steps.support.outputs.available == 'true'
+        run: |
+          version=$(node -p "require('./package.json').version")
+          node packages/desktop/scripts/collectInstallers.mjs --version "$version" --out "$GITHUB_WORKSPACE/desktop-assets"
+      # The sidecar must be inside each installer, with its executable bit where the OS uses one.
+      - name: Check the sidecar is bundled
+        if: steps.support.outputs.available == 'true' && runner.os != 'Windows'
+        run: |
+          shopt -s nullglob
+          for deb in desktop-assets/*.deb; do
+            dpkg-deb -c "$deb" | grep -E '^-rwx.* (\./)?usr/lib/Lurkloot/sidecar/lurkloot$'
+          done
+          for image in desktop-assets/*.AppImage; do
+            chmod +x "$image"
+            (cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/$image" --appimage-extract > /dev/null)
+            test -x "$RUNNER_TEMP/squashfs-root/usr/lib/Lurkloot/sidecar/lurkloot"
+            rm -rf "$RUNNER_TEMP/squashfs-root"
+          done
+          for dmg in desktop-assets/*.dmg; do
+            mount=$(mktemp -d)
+            hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
+            test -x "$mount/Lurkloot.app/Contents/Resources/sidecar/lurkloot"
+            codesign --verify --deep --strict "$mount/Lurkloot.app"
+            hdiutil detach "$mount"
+          done
+          # The macOS update (#1028) holds the .app at its root, with no ._ files beside it.
+          for update in desktop-assets/*.app.tar.gz; do
+            listing=$(tar -tzvf "$update")
+            grep -E '^-rwx.* Lurkloot\.app/Contents/Resources/sidecar/lurkloot$' <<< "$listing"
+            if grep -qE '(^|/)\._' <<< "$listing"; then
+              echo "$update has AppleDouble ._ files" >&2
+              exit 1
+            fi
+          done
+      - name: Check the sidecar is bundled (Windows)
+        if: steps.support.outputs.available == 'true' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem desktop-assets -Filter *.msi | Select-Object -First 1
+          $out = Join-Path $env:RUNNER_TEMP msi-extract
+          $extract = Start-Process msiexec.exe -Wait -PassThru -ArgumentList "/a `"$($msi.FullName)`" /qn TARGETDIR=`"$out`""
+          if ($extract.ExitCode -ne 0) { throw "msiexec /a failed with $($extract.ExitCode)" }
+          $found = Get-ChildItem $out -Recurse -Filter lurkloot.exe | Where-Object { $_.Directory.Name -eq 'sidecar' }
+          if (-not $found) { throw "no sidecar\lurkloot.exe in $($msi.Name)" }
+          # The NSIS installer is a 7-Zip-readable archive; its listing must name the sidecar.
+          $setup = Get-ChildItem desktop-assets -Filter *-setup.exe | Select-Object -First 1
+          $listing = & 7z l $setup.FullName
+          if ($LASTEXITCODE -ne 0) { throw "7z could not read $($setup.Name)" }
+          if (-not ($listing | Select-String -Pattern 'sidecar\\lurkloot\.exe$')) { throw "no sidecar\lurkloot.exe in $($setup.Name)" }
+      - uses: actions/upload-artifact@v7
+        if: steps.support.outputs.available == 'true'
+        with:
+          name: ${{ inputs.artifact_prefix || 'desktop-installers' }}-${{ matrix.target }}
+          path: desktop-assets/lurkloot-desktop-*
+          if-no-files-found: error
+          retention-days: 7
+          # A re-run of a failed leg reuses the names the other legs already uploaded.
+          overwrite: true

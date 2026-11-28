@@ -11,9 +11,12 @@ import type {
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import type { DiscoverySignalController } from "../../core/discoverySignals";
-import { KickWafBlockedError } from "../../core/transport";
-import { authHealthFromError } from "../../core/fetchError";
-import { StaleWhileRevalidateCache } from "../../core/staleCache";
+import { isKickHttpChallenge, KickWafBlockedError } from "../../core/transport";
+import {
+  authHealthFromError,
+  ManagedPageContextBlockedError,
+  ManagedPageContextCleanupError,
+} from "../../core/fetchError";
 import type { WebSocketFactory } from "../../core/webSocket";
 import {
   diagnostic,
@@ -46,14 +49,11 @@ import type { KickClaimState } from "./claim/v2";
 import { isSafeFetchError } from "../../core/fetchError";
 import { KickRouteCounts, KickRouteState, safeKickRouteHost } from "./routeDiagnostics";
 import { errorMessage } from "@lurkloot/shared/errors";
+import { FollowedChannelsCache, followedChannelFailureCause } from "../followedChannels";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
 export { KickClaimState } from "./claim/v2";
-
-// The follow list only breaks ties between eligible channels, so a stale minute
-// costs nothing while a fresh read on every tick would be a wasted request.
-const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 
 // Cross-tick cache for listFollowedChannels. A field on KickAdapter itself would
 // not do: every host reconstructs KickAdapter fresh each scheduler tick (see
@@ -62,9 +62,7 @@ const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 // The route announcement state also shares this lifetime so unchanged routes
 // are not announced again when the next tick constructs an adapter.
 export class KickDiscoveryState {
-  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(
-    FOLLOWED_CHANNELS_CACHE_TTL_MS,
-  );
+  readonly followedChannels = new FollowedChannelsCache("kick", "Kick");
   readonly routeDiagnostics = new KickRouteState();
 }
 
@@ -82,6 +80,9 @@ export interface KickAdapterOptions {
   // origin (the extension's socket host, #792); only then is chat presence
   // offered, since Kick's realtime server refuses an extension origin (#754).
   realtime?: { connection: KickRealtimeConnection; kickOrigin: boolean };
+  // A host may give chat its own connection while discovery keeps Pusher.
+  // The observer asks for it only when it creates the chat presence client.
+  createChatPresenceConnection?: () => KickRealtimeConnection;
   // Kick realtime negotiation goes through this when given. It must never
   // fall back to a page-context tab: discovery signals negotiate on every
   // Kick farm (#755). Without it, the adapter's own fetcher is used, which is
@@ -276,12 +277,11 @@ export class KickPageContextRecoveryTracker {
 }
 
 // The page fallback exists for failures tied to the service-worker origin: WAF
-// blocks, network/CORS rejections, challenge pages, auth rejections (a Cloudflare
-// 403 page classifies as one) and server errors. A definitive client error is
-// Kick's answer to the request itself, which the page tab would receive too, so
-// falling back would only open a kick.com tab for nothing — e.g. every claim on
-// an unlinked campaign answers 400 INVALID_CLAIM. Rate limiting (429) likewise
-// applies to the request, not its execution context.
+// blocks, network/CORS rejections, challenge pages, auth rejections and server
+// errors. A definitive client error is Kick's answer to the request itself,
+// which the page tab would receive too. Falling back would open a tab for
+// nothing — e.g. every claim on an unlinked campaign answers 400 INVALID_CLAIM.
+// Rate limiting (429) likewise applies to the request in any execution context.
 function isOriginIndependentKickFailure(error: unknown): boolean {
   if (!isSafeFetchError(error) || error instanceof KickWafBlockedError) return false;
   const { kind, status } = error.failure;
@@ -343,7 +343,18 @@ export function createKickFetcher(deps: {
           // CLI transports have no page fallback and retain their original error.
           if (!pageFetch || isOriginIndependentKickFailure(error)) throw error;
           init?.signal?.throwIfAborted();
-          result = await pageFetch(url, init);
+          try {
+            result = await pageFetch(url, init);
+          } catch (fallbackError) {
+            // Local tab admission and cleanup are separate from the endpoint's verdict.
+            if (
+              fallbackError instanceof ManagedPageContextBlockedError
+              || fallbackError instanceof ManagedPageContextCleanupError
+            ) {
+              throw error;
+            }
+            throw fallbackError;
+          }
           routeState.report(
             emit,
             host,
@@ -412,6 +423,8 @@ function kickCategoryImage(banner: unknown): string | undefined {
 
 export class KickAdapter implements PlatformAdapter {
   platform = "kick" as const;
+  // Room for the full 30-entry Watchlist and some live follows.
+  readonly knownChannelLimit = 40;
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
   private readonly discoveryState: KickDiscoveryState;
@@ -449,6 +462,14 @@ export class KickAdapter implements PlatformAdapter {
         message: { key: "authPlatformUnavailable" },
       };
     } catch (error) {
+      if (isKickHttpChallenge(error)) {
+        return {
+          status: "unavailable",
+          checkedAt,
+          reasonCode: "request_challenged",
+          message: { key: "authPlatformUnavailable" },
+        };
+      }
       if (isSafeFetchError(error)) {
         if (error.failure.kind === "authentication_rejected") {
           return {
@@ -522,11 +543,14 @@ export class KickAdapter implements PlatformAdapter {
           ...(shared ? { connection: shared.connection } : {}),
         });
     }
-    if (shared?.kickOrigin) {
+    const createChatConnection =
+      options.createChatPresenceConnection
+      ?? (shared?.kickOrigin ? () => shared.connection : undefined);
+    if (createChatConnection) {
       const getJson = (url: string) =>
         realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
       this.createChatPresenceClient = () =>
-        new KickChatPresenceClient({ connection: shared.connection, postJson, getJson });
+        new KickChatPresenceClient({ connection: createChatConnection(), postJson, getJson });
     }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,
@@ -683,15 +707,15 @@ export class KickAdapter implements PlatformAdapter {
         this.emit,
       );
       const streams = Array.isArray(response) ? response : (response?.data ?? []);
-      return streams
+      const channels = streams
         .map((stream) => (stream.channel?.slug ?? stream.channel?.username)?.toLowerCase())
         .filter((username): username is string => Boolean(username));
+      this.discoveryState.followedChannels.recordSuccess();
+      return channels;
     } catch (error) {
-      diagnostic(
+      this.discoveryState.followedChannels.reportFailure(
         this.emit,
-        "debug",
-        `Kick followed-channel lookup failed (${errorMessage(error)}); channel preference falls back to viewer count`,
-        "kick",
+        followedChannelFailureCause(error),
       );
       return [];
     }
@@ -760,28 +784,39 @@ export class KickAdapter implements PlatformAdapter {
     // The cache belongs to this revision, never the adapter lifetime. Cache raw
     // responses so category expectations and ACL/campaign metadata stay local.
     const evidence = new Map<string, Promise<unknown>>();
-    const fetcher: PageFetcher = {
-      fetchJson: <T>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T> => {
+    let rateLimit: unknown;
+    const evidenceFetcher = (bestEffort: boolean): PageFetcher => ({
+      fetchJson: async <T>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T> => {
         let pending = evidence.get(url);
         if (!pending) {
-          pending = this.fetcher.fetchJson(url, init, emit);
+          if (bestEffort && rateLimit) throw rateLimit;
+          pending = this.fetcher.fetchJson(url, init, emit).catch((error: unknown) => {
+            if (isSafeFetchError(error) && error.failure.status === 429) rateLimit = error;
+            throw error;
+          });
           evidence.set(url, pending);
         }
-        return pending as Promise<T>;
+        return (await pending) as T;
       },
-    };
+    });
+    const fetcher = evidenceFetcher(false);
+    const optionalFetcher = evidenceFetcher(true);
     const checks: Array<ChannelCheck | undefined> = new Array(requests.length).fill(undefined);
-    // One sequential candidate chain per campaign avoids speculative requests
-    // after an early match. Independent campaigns (and idle checks) share the
-    // worker limit and evidence cache.
+    // Ordinary candidates run in one sequential chain per campaign, stopping
+    // at the first match. Preferred candidates and idle checks run as
+    // independent jobs under the same worker limit.
     const groups: number[][] = [];
     const campaignGroups = new Map<string, number[]>();
     requests.forEach((request, index) => {
-      let group = request.campaign ? campaignGroups.get(request.campaign.id) : undefined;
+      if (!request.campaign || request.alwaysCheck) {
+        groups.push([index]);
+        return;
+      }
+      let group = campaignGroups.get(request.campaign.id);
       if (!group) {
         group = [];
         groups.push(group);
-        if (request.campaign) campaignGroups.set(request.campaign.id, group);
+        campaignGroups.set(request.campaign.id, group);
       }
       group.push(index);
     });
@@ -797,12 +832,20 @@ export class KickAdapter implements PlatformAdapter {
             if (failed) break;
             signal?.throwIfAborted();
             const request = requests[index]!;
+            if (request.bestEffort && rateLimit) continue;
             checkedChannels.add(request.channel.username.toLowerCase());
-            const check = await this.checkChannelWithFetcher(
-              request.channel,
-              { campaign: request.campaign, signal, requireComplete: true },
-              fetcher,
-            );
+            let check: ChannelCheck;
+            try {
+              check = await this.checkChannelWithFetcher(
+                request.channel,
+                { campaign: request.campaign, signal, requireComplete: true },
+                request.bestEffort ? optionalFetcher : fetcher,
+              );
+            } catch (error) {
+              signal?.throwIfAborted();
+              if (request.bestEffort) continue;
+              throw error;
+            }
             checks[index] = check;
             if (
               request.campaign
