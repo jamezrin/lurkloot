@@ -9,7 +9,7 @@
 # `serve` also serves the app UI, built here and shipped as static files.
 
 # --- Build stage: install the CLI's workspace subtree, bundle the CLI and build the app UI ---
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /repo
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -54,7 +54,7 @@ RUN cd packages/cli \
     && rm -f /app/dist/bundle-meta.json
 
 # --- Runtime stage ---
-FROM node:24-slim
+FROM node:26-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*

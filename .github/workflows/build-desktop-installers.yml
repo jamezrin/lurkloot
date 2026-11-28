@@ -94,7 +94,7 @@ jobs:
       - uses: actions/setup-node@v7
         if: steps.support.outputs.available == 'true'
         with:
-          node-version: 24
+          node-version: 26
           cache: pnpm
       - run: rustup toolchain install stable --profile minimal
         if: steps.support.outputs.available == 'true'

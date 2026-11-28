@@ -60,7 +60,7 @@ jobs:
       - uses: actions/setup-node@v7
         if: inputs.version != ''
         with:
-          node-version: 24
+          node-version: 26
       - name: Set the release version
         if: inputs.version != ''
         env:
