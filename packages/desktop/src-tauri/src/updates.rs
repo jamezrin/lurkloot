@@ -5,7 +5,11 @@
 //! for the OS. The app never restarts on its own: a found update is announced
 //! in the tray and the window, and installed when the user chooses. The
 //! bundled sidecar is inside the update, so serve and the shell always match.
+//!
+//! The portable Windows zip never updates itself: the updater can only run an
+//! installer, which would install a second copy beside the unpacked one.
 
+use std::path::Path;
 use std::time::Duration;
 
 use serde::Serialize;
@@ -34,6 +38,16 @@ pub const INSTALL_UPDATE_FRAGMENT: &str = "lurkloot-install-update";
 /// The page that link points at; a plain browser that somehow opens it lands
 /// on the desktop app's guide page.
 pub const INSTALL_UPDATE_PAGE: &str = "https://lurkloot.jamezrin.com/guide/headless/desktop";
+
+/// The file beside the executable in the portable Windows zip
+/// (`PORTABLE_MARKER` in packages/desktop/scripts/collectInstallers.mjs).
+pub const PORTABLE_MARKER: &str = "portable.txt";
+
+/// Whether the executable in `exe_dir` runs from the portable zip, which turns
+/// the updater off: no checks and no tray item for them.
+pub fn is_portable(exe_dir: &Path) -> bool {
+    exe_dir.join(PORTABLE_MARKER).is_file()
+}
 
 /// What the window shows about an update.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -86,6 +100,23 @@ mod tests {
 
     fn url(value: &str) -> Url {
         Url::parse(value).unwrap()
+    }
+
+    #[test]
+    fn only_the_marker_file_makes_a_copy_portable() {
+        let dir = std::env::temp_dir().join(format!("lurkloot-portable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(!is_portable(&dir));
+        std::fs::create_dir(dir.join(PORTABLE_MARKER)).unwrap();
+        assert!(
+            !is_portable(&dir),
+            "a folder by that name is not the marker"
+        );
+        std::fs::remove_dir(dir.join(PORTABLE_MARKER)).unwrap();
+        std::fs::write(dir.join(PORTABLE_MARKER), "portable").unwrap();
+        assert!(is_portable(&dir));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

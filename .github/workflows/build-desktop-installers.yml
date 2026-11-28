@@ -164,6 +164,19 @@ jobs:
           $listing = & 7z l $setup.FullName
           if ($LASTEXITCODE -ne 0) { throw "7z could not read $($setup.Name)" }
           if (-not ($listing | Select-String -Pattern 'sidecar\\lurkloot\.exe$')) { throw "no sidecar\lurkloot.exe in $($setup.Name)" }
+          # The portable zip: the app, its sidecar and the marker that turns its updater off. A
+          # checkout whose target table predates it has none to check.
+          $portableExpected = node --input-type=module -e "import { desktopInstallerTarget } from './scripts/release/pipeline.mjs'; process.stdout.write(String(desktopInstallerTarget('win32', 'x64').installers.some((installer) => installer.portable)))"
+          if ($LASTEXITCODE -ne 0) { throw "could not read the Windows desktop target" }
+          if ($portableExpected -eq 'true') {
+            $zip = Get-ChildItem desktop-assets -Filter *-portable.zip | Select-Object -First 1
+            if (-not $zip) { throw "no -portable.zip in desktop-assets" }
+            $portable = Join-Path $env:RUNNER_TEMP portable-extract
+            Expand-Archive -Path $zip.FullName -DestinationPath $portable
+            foreach ($file in 'Lurkloot.exe', 'portable.txt', 'sidecar\lurkloot.exe') {
+              if (-not (Test-Path -PathType Leaf (Join-Path $portable "Lurkloot\$file"))) { throw "no Lurkloot\$file in $($zip.Name)" }
+            }
+          }
       - uses: actions/upload-artifact@v7
         if: steps.support.outputs.available == 'true'
         with:

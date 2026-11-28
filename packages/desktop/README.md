@@ -51,6 +51,9 @@ sources or cycletls, and it farms only through `serve`.
   - **What it installs:** the update published for the installer kind the app came from (AppImage,
     `.deb` through `pkexec`, `.msi`, NSIS, macOS `.app`), with the sidecar inside, so serve and the
     shell always match. Config and credentials stay in the app-data folder.
+  - **The portable zip:** a `portable.txt` beside the executable (`updates::is_portable`) turns all
+    of this off: no checks and no tray item. The updater can only run an installer, which would
+    put a second, installed copy beside the unpacked one.
   - **How it installs:** the install checks the manifest again, so a release repaired since the last
     check is the one used. Checks time out after 30 s and downloads after 30 min. Only one check runs
     at a time, and none replaces an install in progress. The app can't exit while the installer runs.
@@ -114,7 +117,9 @@ pnpm test:rust          # cargo test: supervisor, ready line, navigation, token 
 `src-tauri/target/release/bundle/`. The release builds only the ones it ships (#1025), with
 `pnpm tauri build --bundles "$(node scripts/collectInstallers.mjs --bundles)"`, then
 `node scripts/collectInstallers.mjs --version X.Y.Z --out <dir>` copies them out under their
-release names (`lurkloot-desktop-X.Y.Z-<target>…`). The targets and names are
+release names (`lurkloot-desktop-X.Y.Z-<target>…`). On Windows it also packs the portable zip
+from the same build: the compiled `lurkloot-desktop.exe` as `Lurkloot.exe`, the `sidecar/` folder
+beside it and `portable.txt`. The targets and names are
 `desktopInstallerTargets` in `scripts/release/pipeline.mjs`; `RELEASING.md` covers the CI job.
 They are unsigned; macOS builds are ad-hoc signed. The version is the root `package.json`'s:
 `tauri.conf.json` points at it, and `scripts/release.mjs prepare` writes it into `Cargo.toml`.

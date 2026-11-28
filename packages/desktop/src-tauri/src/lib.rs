@@ -214,6 +214,13 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     *shell.settings.lock().unwrap() = settings;
     let _ = shell.settings_file.set(settings_file);
 
+    // The portable zip never updates itself (#1025), so it offers no update
+    // setting and never checks.
+    let portable = tauri::utils::platform::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(updates::is_portable))
+        .unwrap_or(false);
+    let automatic_updates = (!portable).then_some(automatic_updates);
     let has_tray =
         tray::tray_available() && build_tray(app, launch_at_startup, automatic_updates).is_ok();
     shell.has_tray.store(has_tray, Ordering::SeqCst);
@@ -239,7 +246,9 @@ fn setup(app: &AppHandle, shell: &Arc<Shell>) -> Result<(), Box<dyn std::error::
     };
     let events = Arc::new(WindowEvents { app: app.clone() });
     let _ = shell.supervisor.set(Supervisor::start(spec, events));
-    start_update_checks(app);
+    if !portable {
+        start_update_checks(app);
+    }
     Ok(())
 }
 
@@ -481,7 +490,8 @@ fn report_sign_in(app: &AppHandle, result: &SignInResult) {
 fn build_tray(
     app: &AppHandle,
     launch_at_startup: bool,
-    automatic_updates: bool,
+    // None leaves the update setting out, for a copy that never updates.
+    automatic_updates: Option<bool>,
 ) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", "Open Lurkloot", true, None::<&str>)?;
     let startup = CheckMenuItem::with_id(
@@ -492,23 +502,30 @@ fn build_tray(
         launch_at_startup,
         None::<&str>,
     )?;
-    let updates_item = CheckMenuItem::with_id(
-        app,
-        "automatic-updates",
-        "Check for updates automatically",
-        true,
-        automatic_updates,
-        None::<&str>,
-    )?;
+    let updates_item = automatic_updates
+        .map(|checked| {
+            CheckMenuItem::with_id(
+                app,
+                "automatic-updates",
+                "Check for updates automatically",
+                true,
+                checked,
+                None::<&str>,
+            )
+        })
+        .transpose()?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let menu = Menu::with_items(
-        app,
-        &[&open, &startup, &updates_item, &separator, &quit_item],
-    )?;
+    let menu = Menu::with_items(app, &[&open, &startup])?;
+    if let Some(item) = &updates_item {
+        menu.append(item)?;
+    }
+    menu.append_items(&[&separator, &quit_item])?;
     let shell = app.state::<Arc<Shell>>();
     let _ = shell.launch_at_startup_item.set(startup);
-    let _ = shell.automatic_updates_item.set(updates_item);
+    if let Some(item) = updates_item {
+        let _ = shell.automatic_updates_item.set(item);
+    }
     let _ = shell.tray_menu.set(menu.clone());
     let mut tray = TrayIconBuilder::with_id("main")
         .tooltip("Lurkloot")

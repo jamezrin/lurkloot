@@ -13,7 +13,7 @@ Each [GitHub release](https://github.com/jamezrin/lurkloot/releases/latest) has 
 
 | System | Download |
 | --- | --- |
-| Windows | `lurkloot-desktop-<version>-windows-x64-setup.exe`, or the `.msi` |
+| Windows | `lurkloot-desktop-<version>-windows-x64-setup.exe`, or the `.msi`, or the `-portable.zip` to run without installing |
 | macOS (Apple Silicon) | `lurkloot-desktop-<version>-macos-arm64.dmg` |
 | macOS (Intel) | `lurkloot-desktop-<version>-macos-x64.dmg` |
 | Linux (x64) | `lurkloot-desktop-<version>-linux-x64.AppImage`, or the `.deb` |
@@ -30,6 +30,8 @@ The installers are not signed with a Windows or Apple developer certificate yet,
 1. Run the `-setup.exe` (or the `.msi`).
 2. If Windows shows *Windows protected your PC*, select *More info*, then *Run anyway*.
 3. Start Lurkloot from the Start menu.
+
+To run it without installing, unzip the `-portable.zip` anywhere you like, such as a USB drive, and run `Lurkloot.exe` from the `Lurkloot` folder. It needs the Microsoft Edge WebView2 Runtime, which Windows 11 and most Windows 10 computers already have. If Lurkloot does not start, install the *Evergreen Bootstrapper* from [Microsoft's WebView2 page](https://developer.microsoft.com/microsoft-edge/webview2/) and try again. The portable copy does not update itself (see [Updates](#updates)).
 
 ### macOS
 
@@ -61,9 +63,11 @@ Lurkloot checks for a new version when it starts and every few hours. It never r
 
 Each update is signed, and Lurkloot refuses one whose signature does not match. To stop checking, untick *Check for updates automatically* in the tray. If you installed the `.deb`, Linux asks for your password to install an update.
 
+The Windows portable zip never updates itself and has no *Check for updates automatically* in its tray. To update it, quit Lurkloot, then replace the `Lurkloot` folder with the one from the new release's `-portable.zip`. Your settings and sign-ins are in your user folder, not in the `Lurkloot` folder, so they are kept.
+
 ## Uninstall it
 
-- **Windows:** *Settings → Apps → Installed apps*, then Lurkloot, then *Uninstall*.
+- **Windows:** *Settings → Apps → Installed apps*, then Lurkloot, then *Uninstall*. For the portable zip, turn off *Launch at startup* if you turned it on, quit Lurkloot and delete its folder.
 - **macOS:** quit Lurkloot from the tray and move it from Applications to the Bin.
 - **Linux:** delete the AppImage, or `sudo apt remove lurkloot`.
 
